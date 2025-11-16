@@ -30,6 +30,11 @@ class PharmaScanApp extends StatelessWidget {
         brightness: Brightness.dark,
         colorScheme: const ShadSlateColorScheme.dark(),
       ),
+      builder: (context, child) {
+        return ShadToaster(
+          child: child!,
+        );
+      },
       home: const CameraScreen(), // Notre écran principal
     );
   }

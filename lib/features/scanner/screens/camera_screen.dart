@@ -53,8 +53,10 @@ class _CameraScreenState extends State<CameraScreen> {
   }
 
   Future<void> _pickAndScanImage() async {
+    if (!mounted) return;
+    
     final XFile? file = await _picker.pickImage(source: ImageSource.gallery);
-    if (file == null) return;
+    if (file == null || !mounted) return;
 
     final BarcodeCapture? capture =
         await _scannerController.analyzeImage(file.path);
@@ -63,11 +65,11 @@ class _CameraScreenState extends State<CameraScreen> {
       _processBarcodeCapture(capture);
     } else {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text(
-                'L\'image sélectionnée ne contient pas de code Data Matrix valide.'),
-            duration: const Duration(seconds: 3),
+        ShadToaster.of(context).show(
+          ShadToast.destructive(
+            title: const Text('Aucun code-barres détecté'),
+            description: const Text(
+                'L\'image ne contient pas de code Data Matrix valide.'),
           ),
         );
       }
