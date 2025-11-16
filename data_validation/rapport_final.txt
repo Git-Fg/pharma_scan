@@ -1,23 +1,105 @@
 
 ================================================================================
-// RAPPORT DE VALIDATION DES DONNÉES - 2025-11-16 22:02:26
+// RAPPORT DE VALIDATION DES DONNÉES - 2025-11-16 22:58:43
 ================================================================================
 
 ================================================================================
 // 1. CHARGEMENT ET VALIDATION STRUCTURELLE DES DONNÉES
 ================================================================================
+
+### Échantillon de Lignes: CIS_bdpm.txt
+  8 lignes aléatoires (pour inspection visuelle):
+    [1] 67422090	DARUNAVIR EG 400 mg, comprimé pelliculé	comprimé pelliculé	orale	Autorisation active	Procédure décentralisée	Commercialisée	07/12/2017			 EG LABO - LABORATOIRES EUROGENERICS	Non
+    [2] 65003528	PREGABALINE EG LABO 75 mg, gélule	gélule	orale	Autorisation active	Procédure décentralisée	Commercialisée	18/12/2017			 EG LABO - LABORATOIRES EUROGENERICS	Non
+    [3] 67100036	ACTIQ 400 microgrammes, comprimé avec applicateur buccal	comprimé	voie buccale autre	Autorisation active	Procédure de reconnaissance mutuelle	Commercialisée	14/03/2002			 TEVA PHARMA (PAYS-BA...
+    [4] 65209987	GLUCOR 100 mg, comprimé sécable	comprimé sécable	orale	Autorisation abrogée	Procédure nationale	Non commercialisée	22/06/1994	Warning disponibilité		 BAYER HEALTHCARE	Non
+    [5] 69377815	EFFERALGAN FRAMBOISE 500 mg, granulés en sachet	granulés	orale	Autorisation active	Procédure décentralisée	Commercialisée	21/02/2022			 UPSA	Non
+    [6] 60253606	CALYPTOL INHALANT, émulsion pour inhalation par fumigation	émulsion pour inhalation par fumigation	inhalée	Autorisation active	Procédure nationale	Commercialisée	19/01/1998			 TECHNI-PHARMA	N...
+    [7] 60548802	NOZINAN 25 mg, comprimé pelliculé sécable	comprimé pelliculé sécable	orale	Autorisation active	Autorisation d'importation parallèle	Commercialisée	21/12/2018			 DIFARMED (ESPAGNE)	Non
+    [8] 68878549	RISPERDALCONSTA L.P. 25 mg/2 ml, poudre et solvant pour suspension injectable à libération prolongée en seringue préremplie	poudre et  solvant pour suspension injectable à libération prolongé...
   - Fichier: CIS_bdpm.txt
   - Lignes chargées: 15821
   - Statut: OK
+
+### Échantillon de Lignes: CIS_CIP_bdpm.txt
+  8 lignes aléatoires (pour inspection visuelle):
+    [1] 68645071	3012088	1 seringue(s) préremplie(s) en verre de 0,5 ml avec 1 tampon alcoolisé	Présentation active	Arrêt de commercialisation (le médicament n'a plus d'autorisation)	21/12/2021	3400930120880	...
+    [2] 62924107	3887972	1 seringue(s) préremplie(s) polyoléfine de 15 ml	Présentation active	Déclaration de commercialisation	11/05/2010	3400938879728	oui					
+    [3] 60418716	3000888	plaquette(s) thermoformée(s) PVC-Aluminium de 4 comprimé(s) de 10 mg -  4 comprimé(s) de 20 mg - 19 comprimé(s) de 30 mg. Etui d'initiation de 27 comprimés	Présentation active	Déclara...
+    [4] 63003440	3018715	plaquette(s) PVC-Aluminium de 50 comprimé(s)	Présentation active	Déclaration de commercialisation	19/06/2020	3400930187159	oui	65 %	1,65	2,67	1,02	
+    [5] 69995434	3014002	tube(s) polypropylène de 20 comprimé(s)	Présentation active	Déclaration de commercialisation	01/06/2018	3400930140024	oui	65%	1,81	2,83	1,02	
+    [6] 69093163	4972183	plaquette(s) thermoformée(s) polyamide aluminium PVC-Aluminium de 28 gélule(s)	Présentation active	Déclaration d'arrêt de commercialisation	18/02/2025	3400949721832	non	65%	4,04	5,06	...
+    [7] 68494908	5590029	plaquette(s) polyamide aluminium PVC-aluminium de 50 gélule(s)	Présentation active	Déclaration d'arrêt de commercialisation	20/05/2021	3400955900290	non					
+    [8] 63324453	5501421	5 flacon(s) en verre de 10 ml	Présentation active	Déclaration de commercialisation	12/09/2016	3400955014218	oui					
   - Fichier: CIS_CIP_bdpm.txt
   - Lignes chargées: 20925
   - Statut: OK
+
+### Échantillon de Lignes: CIS_COMPO_bdpm.txt
+  8 lignes aléatoires (pour inspection visuelle):
+    [1] 69812630	poudre	04546	FLUORURE DE SODIUM	1 mg	un flacon	SA	2
+    [2] 68638760	crème	22692	KÉTOCONAZOLE	0,02 g	1 g de crème	SA	1
+    [3] 67377072	solution buvable en gouttes	86853	AORTE POUR PRÉPARATIONS HOMÉOPATHIQUES	4CH à 30CH et 8DH à 60DH	un flacon de 100 ml	SA	8
+    [4] 66082578	granules	45650	GONOTOXINUM POUR PRÉPARATIONS HOMÉOPATHIQUES	4CH à 30CH et 8DH à 60DH	100 g de solution à usage dentaire	SA	17
+    [5] 69265638	comprimé	86162	MONTÉLUKAST SODIQUE			SA	1
+    [6] 63149947	comprimé	37430	RISPÉRIDONE	4 mg	un comprimé	SA	1
+    [7] 60774865	comprimé	89971	ESCITALOPRAM	5 mg	un comprimé	FT	1
+    [8] 67973656	gélule	39422	PRÉGABALINE	100 mg	une gélule	SA	1
   - Fichier: CIS_COMPO_bdpm.txt
   - Lignes chargées: 32563
   - Statut: OK
+
+### Échantillon de Lignes: CIS_GENER_bdpm.txt
+  8 lignes aléatoires (pour inspection visuelle):
+    [1] 852	GLYCÉROL 15 %  +  VASELINE 8 %  +  PARAFFINE LIQUIDE 2 % - EXEDIEM, crème.	66643449	1	4
+    [2] 1865	TRIENTINE (DICHLORHYDRATE DE) équivalant à TRIENTINE 200 mg - CUFENCE 200 mg, gélule	65919229	0	1
+    [3] 730	OLANZAPINE 5 mg - ZYPREXA VELOTAB 5 mg, comprimé orodispersible.	64932120	1	3
+    [4] 22	METOCLOPRAMIDE (CHLORHYDRATE DE) 10 mg - PRIMPERAN 10 mg, comprimé sécable	63177843	1	2
+    [5] 1046	TAMSULOSINE (CHLORHYDRATE DE) équivalant à  TAMSULOSINE  0,4 mg - OMEXEL L.P. 0,4 mg, comprimé pelliculé à libération prolongée.	67003701	0	2
+    [6] 159	AMOXICILLINE + CLAVULANATE DE POTASSIUM équivalant à AMOXICILLINE + ACIDE CLAVULANIQUE 1 g + 125 mg ADULTES (Rapport amoxicilline/acide clavulanique : 8/1) - AUGMENTIN 1 g/125 mg ADULTES, poudre p...
+    [7] 508	OMEPRAZOLE SODIQUE équivalant à OMEPRAZOLE 40 mg - MOPRAL 40 mg, poudre pour solution pour perfusion	69138295	1	2
+    [8] 121	DESOGESTREL 150 microgrammes + ETHINYLESTRADIOL 20 microgrammes - MERCILON, comprimé	68632558	1	2
   - Fichier: CIS_GENER_bdpm.txt
   - Lignes chargées: 10595
   - Statut: OK
+
+------------------------------------------------------------
+// Détection des Clés Primaires Dupliquées
+------------------------------------------------------------
+✅ CIS_bdpm.txt: Aucune duplication dans 'cis'
+✅ CIS_CIP_bdpm.txt: Aucune duplication dans 'cip13'
+
+------------------------------------------------------------
+// Audit d'Encodage des Caractères
+------------------------------------------------------------
+
+Fichier: CIS_bdpm.txt
+  Colonne 'nom_specialite':
+    - Échantillon analysé: 1000 lignes
+    - Caractères non-ASCII: 733 (73.3%)
+    - Caractères non-latin1: 0 (0.0%)
+  Colonne 'titulaires':
+    - Échantillon analysé: 1000 lignes
+    - Caractères non-ASCII: 5 (0.5%)
+    - Caractères non-latin1: 0 (0.0%)
+
+Fichier: CIS_CIP_bdpm.txt
+  Colonne 'libelle_presentation':
+    - Échantillon analysé: 1000 lignes
+    - Caractères non-ASCII: 835 (83.5%)
+    - Caractères non-latin1: 0 (0.0%)
+
+Fichier: CIS_COMPO_bdpm.txt
+  Colonne 'denomination_substance':
+    - Échantillon analysé: 1000 lignes
+    - Caractères non-ASCII: 635 (63.5%)
+    - Caractères non-latin1: 0 (0.0%)
+
+Fichier: CIS_GENER_bdpm.txt
+  Colonne 'libelle_groupe':
+    - Échantillon analysé: 1000 lignes
+    - Caractères non-ASCII: 884 (88.4%)
+    - Caractères non-latin1: 0 (0.0%)
 
 ================================================================================
 // 2. ANALYSE DES VALEURS UNIQUES ET DES FORMATS
@@ -43,12 +125,85 @@ Unités de dosage uniques trouvées : ['%', '% (mole/mole)', '% V/V', '% m/m', '
 ------------------------------------------------------------
 Types de génériques trouvés : [np.int64(0), np.int64(1), np.int64(2), np.int64(4)]
 
+------------------------------------------------------------
+// Test de Stress: Parsing des Dosages (Logique Dart)
+------------------------------------------------------------
+Total des dosages analysés: 29785
+Parsing réussi: 22488 (75.50%)
+Parsing échoué: 7297 (24.50%)
+
+Exemples de dosages qui ont échoué (échantillon de 20):
+  - '(30 mg) 3 DH'
+  - '(30 mg) 7 DH'
+  - '0,3% mol/mol'
+  - '13CH à 30CH et 26DH à 60DH'
+  - '2CH à 30CH et 4DH à 60DH (pommade à 1 %, 4 % ou 10 %)'
+  - '3CH à 30CH et 5DH à 60DH (pommade à 4 %)'
+  - '3CH à 30CH et 6DH à 60DH (pommade à 4%)'
+  - '3CH à 30CH et 7DH à 60DH (pommade à 4 %)'
+  - '4CH à 30CH et 7DH à 60DH (pommade à 4%)'
+  - '4CH à 30CH et 8DH à 60DH (pommade à 1%, 4% ou 10%)'
+  - '5CH à 30CH et 10DH à 60DH'
+  - '6CH à 30CH et 12DH à 60DH'
+  - 'au minimum 10^3,0 DICC50'
+  - 'au minimum 2 000 000 UI'
+  - 'huile d'olive raffinée + huile de soja raffinée : 22,75 g'
+  - 'non inférieur à 8,92 log10 U. Inf.'
+  - 'q s p 10 milliards de LACTOBACILLUS L B inactivés dans 800 mg de poudre'
+  - 'qs (gaz liquéfié sous une pression de 44 bar à 15°C)'
+  - 'qs (sous une pression de 110 bar)'
+  - 'supérieur ou égal à 2,5 UI'
+  ... et 194 autres formats uniques
+
+------------------------------------------------------------
+// Analyse de Propreté: Colonne Titulaires
+------------------------------------------------------------
+Total des lignes: 15821
+Titulaires vides/null: 0 (0.00%)
+Titulaires renseignés: 15821 (100.00%)
+
+⚠️  Caractères séparateurs potentiels détectés:
+  - ' ET ': 36 occurrences (0.23% des titulaires renseignés)
+    Exemple: ' CHAIX ET DU MARAIS'
+    Exemple: ' CHAIX ET DU MARAIS'
+    Exemple: ' CHAIX ET DU MARAIS'
+  - '/': 19 occurrences (0.12% des titulaires renseignés)
+    Exemple: ' LEO PHARMA A/S (DANEMARK)'
+    Exemple: ' LEO PHARMA A/S (DANEMARK)'
+    Exemple: ' LEO PHARMA A/S (DANEMARK)'
+
 ================================================================================
 // 3. VÉRIFICATION DE L'INTÉGRITÉ RELATIONNELLE
 ================================================================================
 CIS_CIP_bdpm -> CIS_bdpm: 32 CIS orphelins sur 20925 (0.15%)
 CIS_COMPO_bdpm -> CIS_bdpm: 0 CIS orphelins sur 32563 (0.00%)
 CIS_GENER_bdpm -> CIS_bdpm: 2431 CIS orphelins sur 10595 (22.94%)
+
+------------------------------------------------------------
+// Analyse Avancée: Groupes Orphelins
+------------------------------------------------------------
+Groupes où TOUS les membres sont orphelins: 125
+  - Total de membres 'fantômes': 285
+  - Exemples de groupes fantômes (premiers 5):
+    - Groupe 1: 2 membre(s) orphelin(s)
+    - Groupe 1011: 1 membre(s) orphelin(s)
+    - Groupe 1053: 1 membre(s) orphelin(s)
+    - Groupe 1083: 1 membre(s) orphelin(s)
+    - Groupe 1084: 1 membre(s) orphelin(s)
+
+Groupes avec des membres partiellement orphelins: 966
+  - Total de membres orphelins dans ces groupes: 2146
+  - Exemples (premiers 5):
+    - Groupe 10: 3/4 orphelins, 1 valides
+    - Groupe 100: 1/3 orphelins, 2 valides
+    - Groupe 1002: 2/5 orphelins, 3 valides
+    - Groupe 1003: 4/6 orphelins, 2 valides
+    - Groupe 1004: 4/6 orphelins, 2 valides
+
+------------------------------------------------------------
+// Détection des Médicaments 'Caméléon'
+------------------------------------------------------------
+✅ Aucun médicament caméléon détecté. Chaque médicament a un rôle unique dans le système générique.
 
 ================================================================================
 // 4. VALIDATION DE LA LOGIQUE MÉTIER ET CAS LIMITES
@@ -104,3 +259,86 @@ Distribution des spécialités par nombre de principes actifs :
   - 32 principe(s) actif(s) : 1 médicaments
   - 35 principe(s) actif(s) : 3 médicaments
   - 58 principe(s) actif(s) : 1 médicaments
+
+------------------------------------------------------------
+// Analyse des Formes Pharmaceutiques (Classification Précise)
+------------------------------------------------------------
+
+### Analyse Complémentaire: Contraception par Nom de Spécialité
+Médicaments identifiés comme contraceptifs par nom: 1
+   - Exemples: NUVARING 15 microgrammes/120 microgrammes/24 heures, système de diffusion vaginal
+
+### Résultats de Classification par Catégorie
+✅ Injectable: 88 formes uniques trouvées
+   - Exemples: solution injectable, dispersion pour perfusion, solution à diluer pour perfusion, poudre et  solvant pour suspension injectable à libération prolongée, suspension injectable à libération prolongée
+   ... et 83 autres
+✅ Gynécologique: 2 formes uniques trouvées
+   - Exemples: ovule, ovule à libération prolongée
+✅ Contraception (par forme): 7 formes uniques trouvées
+   - Exemples: dispositif, implant, poudre et  solvant et  matrice pour matrice implantable, patch et  gel, patch
+   ... et 2 autres
+✅ Usage externe: 32 formes uniques trouvées
+   - Exemples: pommade,  comprimé et solution(s) et granules et poudre et pommade, crème, granules et  crème et  solution en gouttes en gouttes, gel
+   ... et 27 autres
+✅ Sachet: 19 formes uniques trouvées
+   - Exemples: granulés pour solution buvable, poudre pour solution buvable, poudre pour suspension buvable, comprimé pelliculé et  granulés effervescent(e), granulés
+   ... et 14 autres
+✅ Oral: 88 formes uniques trouvées
+   - Exemples: capsule molle, comprimé pelliculé sécable, comprimé pelliculé, solution buvable, comprimé
+   ... et 83 autres
+✅ Ophtalmique: 7 formes uniques trouvées
+   - Exemples: collyre en solution, collyre en solution unidose, collyre, collyre en suspension, collyre à libération prolongée
+   ... et 2 autres
+✅ Nasal/ORL: 2 formes uniques trouvées
+   - Exemples: solution pour administration endonasale, poudre pour aérosol et pour usage parentéral
+⚠️  Formes non classifiées: 124 formes uniques trouvées
+   - Exemples: solution et  solution pour hémofiltration pour hémodialyse et pour hémodiafiltration, poudre et  solution pour usage parentéral, granules et  solution, solution pour inhalation, granules et  poudre et  solution en gouttes en gouttes, granules et  solution en gouttes en gouttes, solution pour pulvérisation, gaz, solution pour bain de bouche, liquide pour inhalation par vapeur, granules, liquide, suspension pour inhalation, compresse imprégné(e), solution pour application
+   ... et 109 autres
+
+### Validation: Détection des Chevauchements
+⚠️  Chevauchement possible: 245 formes classifiées sur 369 uniques
+✅ Aucun chevauchement injectable/oral détecté
+
+------------------------------------------------------------
+// Analyse des Groupes 'Principe non spécifié'
+------------------------------------------------------------
+Trouvé 125 groupes avec aucun principe actif spécifié.
+
+Analyse approfondie des 10 premiers groupes:
+
+Groupe ID 1 (2 membre(s)):
+  Conclusion: Groupe mixte (analyser davantage si nécessaire).
+
+Groupe ID 3 (1 membre(s)):
+  Conclusion: Groupe mixte (analyser davantage si nécessaire).
+
+Groupe ID 4 (3 membre(s)):
+  Conclusion: Groupe mixte (analyser davantage si nécessaire).
+
+Groupe ID 9 (3 membre(s)):
+  Conclusion: Groupe mixte (analyser davantage si nécessaire).
+
+Groupe ID 27 (2 membre(s)):
+  Conclusion: Groupe mixte (analyser davantage si nécessaire).
+
+Groupe ID 28 (3 membre(s)):
+  Conclusion: Groupe mixte (analyser davantage si nécessaire).
+
+Groupe ID 30 (1 membre(s)):
+  Conclusion: Groupe mixte (analyser davantage si nécessaire).
+
+Groupe ID 51 (2 membre(s)):
+  Conclusion: Groupe mixte (analyser davantage si nécessaire).
+
+Groupe ID 62 (3 membre(s)):
+  Conclusion: Groupe mixte (analyser davantage si nécessaire).
+
+Groupe ID 63 (3 membre(s)):
+  Conclusion: Groupe mixte (analyser davantage si nécessaire).
+
+... et 115 autres groupes non spécifiés
+
+Résumé global:
+  - Total groupes non spécifiés: 125
+  - Total membres dans ces groupes: 285
+  - Recommandation: Filtrer ces groupes (HAVING common_principes IS NOT NULL AND common_principes != '')

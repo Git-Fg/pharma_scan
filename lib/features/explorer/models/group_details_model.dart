@@ -1,5 +1,6 @@
 // lib/features/explorer/models/group_details_model.dart
 import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:pharma_scan/features/explorer/models/grouped_generic_model.dart';
 import 'package:pharma_scan/features/scanner/models/medicament_model.dart';
 
 part 'group_details_model.freezed.dart';
@@ -8,6 +9,7 @@ part 'group_details_model.freezed.dart';
 abstract class GroupDetails with _$GroupDetails {
   const factory GroupDetails({
     required List<Medicament> princeps,
-    required List<Medicament> generics,
+    required List<GroupedGeneric> generics,
+    required List<Medicament> relatedPrinceps,
   }) = _GroupDetails;
 }

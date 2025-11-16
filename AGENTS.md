@@ -142,6 +142,26 @@ The application enforces a simple but strict two-layer architecture.
 
 * **Database Migration:** When the schema changes, a migration strategy is defined in `AppDatabase.migration`. For development, migrations recreate tables with the new schema. In production, proper `ALTER TABLE` migrations would be implemented.
 
+#### **2.6.1. Data Source Integrity Verification (`data_validator.py`)**
+
+To ensure the absolute integrity of the application's data logic, an external Python audit script (`data_validator.py`) is provided. This script downloads the latest versions of the BDPM files and performs an in-depth analysis to validate all assumptions made by the Flutter parsing logic.
+
+**When to Use:** You **MUST** run this script whenever you have the slightest doubt about the data's integrity, especially in the following scenarios:
+
+* The data initialization process (`initializeDatabase()`) fails unexpectedly.
+* Search results or generic group information appear incorrect or inconsistent.
+* Before attempting to modify or extend the data parsing logic in `DataInitializationService`.
+* To proactively check if the official data source format has changed.
+
+**How to Run:**
+The project is configured to use `uv`, a modern Python project and package manager. It automatically handles the script's dependencies (`pandas`, `requests`) in a temporary environment. No manual `pip install` or `requirements.txt` is needed.
+
+```bash
+uv run python data_validator.py
+```
+
+The script generates a detailed audit report located at `data_validation/rapport_final.txt`.
+
 ### 2.7. Architecture: Tooling & Enhancements
 
 To improve robustness and maintainability, the project uses specific tooling that complements the core architecture.
@@ -192,13 +212,11 @@ Use the standard command-line tools to manage the project.
     ```
 
 * **Test Suite:**
-  * Unit tests: `test/database_service_test.dart` (12 tests) - Verifies deterministic generic group relationships, multiple princeps, one-to-many CIS to CIP13 mapping, database statistics, and search functionality
-  * Unit tests: `test/gs1_parser_test.dart` (4 tests) - Verifies GS1 Data Matrix parsing with different formats (spaces, FNC1, malformed)
-  * Unit tests: `test/data_initialization_service_test.dart` (4 tests) - Verifies TXT file parsing with correct column indices and one-to-many relationship handling
-  * Widget test: `test/widget_test.dart` (1 test) - Verifies app launches successfully with drift database
-  * Integration tests: `integration_test/` - End-to-end data pipeline, image scanning, and CSV parsing verification tests
-  * **Total**: 21 unit/widget tests covering all critical logic paths including search, statistics, and data operations
-  * **Note**: Tests use drift's in-memory database (`AppDatabase.forTesting()`) for complete isolation and fast execution.
+  * The project includes a comprehensive test suite with unit, widget, and integration tests.
+  * **Unit Tests**: Cover critical business logic including GS1 Data Matrix parsing, TXT data initialization, and all database service operations (search, generic group relationships, statistics).
+  * **Widget Tests**: Verify that core UI components render correctly.
+  * **Integration Tests**: Validate end-to-end user flows, such as the complete data initialization pipeline and barcode scanning from static images.
+  * **Note**: All tests utilize `drift`'s in-memory database for fast, isolated, and reliable execution without file system dependencies.
 
 * **Update App Launcher Icons:**
     Run this command after modifying `assets/icon/icon.png` or the `flutter_launcher_icons` configuration in `pubspec.yaml`.

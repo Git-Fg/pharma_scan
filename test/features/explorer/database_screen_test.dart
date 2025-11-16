@@ -322,26 +322,53 @@ void main() {
         specialites: [
           {
             'cis_code': 'CIS_1',
-            'nom_specialite': 'MEDICAMENT 100mg',
+            'nom_specialite': 'MEDICAMENT_A 100mg',
             'procedure_type': 'Autorisation',
           },
           {
             'cis_code': 'CIS_2',
-            'nom_specialite': 'MEDICAMENT 50mg',
+            'nom_specialite': 'MEDICAMENT_B 50mg',
             'procedure_type': 'Autorisation',
           },
           {
             'cis_code': 'CIS_3',
-            'nom_specialite': 'MEDICAMENT 200mg',
+            'nom_specialite': 'MEDICAMENT_C 200mg',
             'procedure_type': 'Autorisation',
           },
         ],
         medicaments: [
-          {'code_cip': 'CIP1', 'nom': 'MEDICAMENT 100mg', 'cis_code': 'CIS_1'},
-          {'code_cip': 'CIP2', 'nom': 'MEDICAMENT 50mg', 'cis_code': 'CIS_2'},
-          {'code_cip': 'CIP3', 'nom': 'MEDICAMENT 200mg', 'cis_code': 'CIS_3'},
+          {
+            'code_cip': 'CIP1',
+            'nom': 'MEDICAMENT_A 100mg',
+            'cis_code': 'CIS_1',
+          },
+          {'code_cip': 'CIP2', 'nom': 'MEDICAMENT_B 50mg', 'cis_code': 'CIS_2'},
+          {
+            'code_cip': 'CIP3',
+            'nom': 'MEDICAMENT_C 200mg',
+            'cis_code': 'CIS_3',
+          },
         ],
-        principes: [],
+        principes: [
+          {
+            'code_cip': 'CIP1',
+            'principe': 'PRINCIPE_ACTIF',
+            'dosage': 100.0,
+            'dosage_unit': 'mg',
+          },
+          {
+            'code_cip': 'CIP2',
+            'principe': 'PRINCIPE_ACTIF',
+            'dosage': 50.0,
+            'dosage_unit': 'mg',
+          },
+          {
+            'code_cip': 'CIP3',
+            'principe': 'PRINCIPE_ACTIF',
+            'dosage': 200.0,
+            'dosage_unit': 'mg',
+          },
+        ],
         generiqueGroups: [
           {'group_id': 'GROUP_1', 'libelle': 'TEST GROUP'},
         ],
@@ -372,9 +399,9 @@ void main() {
       await tester.pumpAndSettle();
 
       // Verify all medications are present
-      expect(find.text('MEDICAMENT 100mg'), findsOneWidget);
-      expect(find.text('MEDICAMENT 50mg'), findsOneWidget);
-      expect(find.text('MEDICAMENT 200mg'), findsOneWidget);
+      expect(find.text('MEDICAMENT_A 100mg'), findsOneWidget);
+      expect(find.text('MEDICAMENT_B 50mg'), findsOneWidget);
+      expect(find.text('MEDICAMENT_C 200mg'), findsOneWidget);
 
       // Find and tap the ShadSelect to open dropdown (it shows "Nom" by default)
       final selectWidget = find.text('Nom');
@@ -389,7 +416,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // THEN: Medications should be sorted by dosage
-      // Verification: The order should be 50mg, 100mg, 200mg
+      // Verification: The order should be MEDICAMENT_B 50mg, MEDICAMENT_A 100mg, MEDICAMENT_C 200mg
       // Note: Exact order verification requires finding elements in a ListView,
       // which is complex. We verify the button interaction works.
     });

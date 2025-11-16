@@ -1007,8 +1007,11 @@ void main() {
         groupDetails.princeps.map((p) => p.codeCip),
         containsAll(['PRINCEPS_1_CIP', 'PRINCEPS_2_CIP']),
       );
+      final allGenericCips = groupDetails.generics
+          .expand((g) => g.products.map((p) => p.codeCip))
+          .toList();
       expect(
-        groupDetails.generics.map((g) => g.codeCip),
+        allGenericCips,
         containsAll(['GENERIC_1_CIP', 'GENERIC_2_CIP', 'GENERIC_4_CIP']),
       );
     });

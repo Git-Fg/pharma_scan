@@ -2,15 +2,215 @@
 import os
 import csv
 import sys
+import random
+import re
 from collections import Counter
 from datetime import datetime
 
 import pandas as pd  # pyright: ignore[reportMissingImports]
 import requests  # pyright: ignore[reportMissingModuleSource]
 
+# --- Related Princeps Finder Function ---
+def find_related_princeps(target_group_id, dfs):
+    """
+    Finds related princeps (from other groups) that share the same active principle(s)
+    as the target group. This validates the logic for finding "princeps associés".
+    
+    Logic:
+    1. Identify common active principle(s) of the target group
+    2. Find all princeps (type_generique == 0) that share these principles
+    3. Exclude princeps already in the target group
+    """
+    print("\n" + "="*80)
+    print(f"// RELATED PRINCEPS ANALYSIS: Group ID '{target_group_id}'")
+    print("="*80)
+    
+    gener = dfs["CIS_GENER_bdpm.txt"]
+    compo = dfs["CIS_COMPO_bdpm.txt"][dfs["CIS_COMPO_bdpm.txt"]["nature_composant"] == 'SA']
+    specialites = dfs["CIS_bdpm.txt"]
+    
+    # Step A: Identify active principles of the target group
+    target_group_cis = set(gener[gener['group_id'] == target_group_id]['cis'].unique())
+    target_group_compo = compo[compo['cis'].isin(target_group_cis)]
+    common_principes = set(target_group_compo['denomination_substance'].dropna().unique())
+    
+    if len(common_principes) == 0:
+        print(f"❌ No active principles found for group {target_group_id}")
+        print("="*80)
+        return
+    
+    print(f"\n✅ Common active principle(s) of target group:")
+    for principe in sorted(common_principes):
+        print(f"  - {principe}")
+    
+    # Step B: Find all princeps (type 0) in the database
+    all_princeps = gener[gener['type_generique'] == 0]
+    
+    # Step C: Find princeps that share the same active principles
+    related_princeps = []
+    for _, princeps_row in all_princeps.iterrows():
+        princeps_cis = princeps_row['cis']
+        princeps_group_id = princeps_row['group_id']
+        
+        # Skip if already in target group
+        if princeps_group_id == target_group_id:
+            continue
+        
+        # Check if this princeps has any of the common principles
+        princeps_compo = compo[compo['cis'] == princeps_cis]
+        princeps_principes = set(princeps_compo['denomination_substance'].dropna().unique())
+        
+        # If there's any intersection, it's a related princeps
+        if common_principes & princeps_principes:
+            # Get medication details
+            spec_row = specialites[specialites['cis'] == princeps_cis]
+            if len(spec_row) > 0:
+                nom = spec_row.iloc[0]['nom_specialite'] if pd.notna(spec_row.iloc[0]['nom_specialite']) else "N/A"
+                titulaire = spec_row.iloc[0]['titulaires'] if pd.notna(spec_row.iloc[0]['titulaires']) else "N/A"
+                
+                # Get dosage info
+                dosage_info = princeps_compo['dosage_substance'].dropna().unique()
+                dosage_str = ', '.join(dosage_info[:3]) if len(dosage_info) > 0 else "N/A"
+                if len(dosage_info) > 3:
+                    dosage_str += f" ... (+{len(dosage_info) - 3} autres)"
+                
+                related_princeps.append({
+                    'group_id': princeps_group_id,
+                    'cis': princeps_cis,
+                    'nom': nom,
+                    'titulaire': titulaire,
+                    'dosage': dosage_str,
+                    'shared_principles': sorted(list(common_principes & princeps_principes))
+                })
+    
+    # Step D: Display results
+    print(f"\n✅ Related Princeps Found: {len(related_princeps)}")
+    if len(related_princeps) > 0:
+        print("\nRelated Princeps (from other groups sharing the same active principle(s)):")
+        for i, rp in enumerate(related_princeps[:20], 1):  # Limit to first 20 for readability
+            print(f"\n  [{i}] {rp['nom']}")
+            print(f"      Group ID: {rp['group_id']}")
+            print(f"      CIS: {rp['cis']}")
+            print(f"      Laboratory: {rp['titulaire']}")
+            print(f"      Dosage: {rp['dosage']}")
+            print(f"      Shared Principles: {', '.join(rp['shared_principles'])}")
+        
+        if len(related_princeps) > 20:
+            print(f"\n  ... and {len(related_princeps) - 20} more related princeps")
+    else:
+        print("  No related princeps found (all princeps with these principles are in the target group)")
+    
+    print("="*80)
+    return related_princeps
+
+# --- Test Data Lookup Function ---
+def find_test_data(query, dfs):
+    """
+    Searches for a medication and prints its data for integration tests.
+    Use this function to find real, current data for building test cases.
+    """
+    print("\n" + "="*80)
+    print(f"// CUSTOM LOOKUP: Searching for test data for query: '{query}'")
+    print("="*80)
+
+    # 1. Merge all data sources into a master DataFrame
+    specialites = dfs["CIS_bdpm.txt"]
+    presentations = dfs["CIS_CIP_bdpm.txt"]
+    compositions = dfs["CIS_COMPO_bdpm.txt"][dfs["CIS_COMPO_bdpm.txt"]["nature_composant"] == 'SA']
+    generiques = dfs["CIS_GENER_bdpm.txt"]
+    
+    master_df = pd.merge(specialites, presentations, on='cis', how='left')
+    master_df = pd.merge(master_df, compositions, on='cis', how='left')
+    master_df = pd.merge(master_df, generiques, on='cis', how='left')
+
+    # 2. Perform the search
+    query_lower = str(query).lower()
+    mask = (
+        master_df['nom_specialite'].str.lower().str.contains(query_lower, na=False) |
+        master_df['cip13'].str.contains(query_lower, na=False) |
+        master_df['denomination_substance'].str.lower().str.contains(query_lower, na=False)
+    )
+    results = master_df[mask].drop_duplicates(subset=['cip13'])
+    
+    if results.empty:
+        print("❌ No medication found for the query.")
+        print("="*80)
+        return
+
+    # 3. Use the first result as the target
+    target_row = results.iloc[0]
+    target_cip = target_row['cip13']
+    target_cis = target_row['cis']
+    group_id = target_row['group_id']
+    
+    print(f"✅ Found best match: '{target_row['nom_specialite']}' (CIP: {target_cip}, CIS: {target_cis})\n")
+
+    # 4. Extract all relevant information
+    # Active Principles for the target CIP
+    active_principles = master_df[master_df['cip13'] == target_cip]['denomination_substance'].dropna().unique().tolist()
+    
+    # Laboratory (titulaire)
+    titulaire = target_row['titulaires'] if pd.notna(target_row['titulaires']) else "N/A"
+    
+    # Group Information
+    if pd.isna(group_id):
+        print("- Type: STANDALONE (No generic group)")
+        print(f"- CIP: {target_cip}")
+        print(f"- CIS: {target_cis}")
+        print(f"- Name: {target_row['nom_specialite']}")
+        print(f"- Laboratory: {titulaire}")
+        print(f"- Active Principles: {active_principles}")
+    else:
+        group_df = master_df[master_df['group_id'] == group_id]
+        target_type = int(target_row['type_generique']) if pd.notna(target_row['type_generique']) else None
+
+        if target_type in [1, 2, 4]:  # Generic
+            princeps_df = group_df[group_df['type_generique'] == 0]
+            associated_names = princeps_df['nom_specialite'].dropna().unique().tolist()
+            print("- Type: GENERIC")
+            print(f"- CIP: {target_cip}")
+            print(f"- CIS: {target_cis}")
+            print(f"- Name: {target_row['nom_specialite']}")
+            print(f"- Laboratory: {titulaire}")
+            print(f"- Active Principles: {active_principles}")
+            print(f"- Group ID: {group_id}")
+            print(f"- Associated Princeps ({len(associated_names)}):")
+            for name in associated_names[:5]:  # Limit to first 5 for readability
+                print(f"  - {name}")
+            if len(associated_names) > 5:
+                print(f"  ... and {len(associated_names) - 5} more")
+
+        elif target_type == 0:  # Princeps
+            generics_df = group_df[group_df['type_generique'].isin([1, 2, 4])]
+            associated_labs = generics_df['titulaires'].dropna().unique().tolist()
+            associated_names = generics_df['nom_specialite'].dropna().unique().tolist()
+            print("- Type: PRINCEPS")
+            print(f"- CIP: {target_cip}")
+            print(f"- CIS: {target_cis}")
+            print(f"- Name: {target_row['nom_specialite']}")
+            print(f"- Laboratory: {titulaire}")
+            print(f"- Active Principles: {active_principles}")
+            print(f"- Group ID: {group_id}")
+            print(f"- Associated Generic Medications ({len(associated_names)}):")
+            for name in associated_names[:5]:  # Limit to first 5 for readability
+                print(f"  - {name}")
+            if len(associated_names) > 5:
+                print(f"  ... and {len(associated_names) - 5} more")
+            print(f"- Associated Generic Labs ({len(associated_labs)}):")
+            for lab in associated_labs[:5]:  # Limit to first 5 for readability
+                print(f"  - {lab}")
+            if len(associated_labs) > 5:
+                print(f"  ... and {len(associated_labs) - 5} more")
+    
+    print("="*80)
+
 # --- Configuration ---
 DATA_DIR = "data_validation"
 REPORT_FILE = os.path.join(DATA_DIR, "rapport_final.txt")
+
+# Test Data Lookup Configuration
+# Set to None to disable, or provide a search query (medication name, CIP code, or active principle)
+TEST_DATA_LOOKUP_QUERY = None  # Example: 'baclofene biogaran 10' or '3400930302613'
 
 # Define schema and data types for robust parsing
 DATA_FILES_CONFIG = {
@@ -111,6 +311,297 @@ def download_file(filename, url):
         print(f"❌ Erreur de téléchargement pour '{filename}': {e}", file=sys.stderr)
         sys.exit(1)
 
+def sample_random_lines(filepath, num_lines=8):
+    """Read random complete lines from a file for visual inspection."""
+    try:
+        with open(filepath, 'r', encoding='latin-1', errors='ignore') as f:
+            lines = [line.rstrip('\n') for line in f if line.strip()]
+        
+        if len(lines) == 0:
+            return []
+        
+        sample_size = min(num_lines, len(lines))
+        return random.sample(lines, sample_size)
+    except Exception as e:
+        return [f"Erreur lors de la lecture: {e}"]
+
+def check_duplicate_primary_keys(report, dataframes):
+    """Check for duplicate primary keys in each file."""
+    report.add_header("Détection des Clés Primaires Dupliquées", level=2)
+    
+    primary_keys = {
+        "CIS_bdpm.txt": "cis",
+        "CIS_CIP_bdpm.txt": "cip13",
+        "CIS_COMPO_bdpm.txt": None,  # No single primary key
+        "CIS_GENER_bdpm.txt": None,  # Composite key (group_id, cis)
+    }
+    
+    for filename, pk_column in primary_keys.items():
+        if pk_column is None:
+            continue
+        
+        if filename not in dataframes:
+            continue
+            
+        df = dataframes[filename]
+        duplicates = df[df[pk_column].duplicated(keep=False)]
+        
+        if len(duplicates) > 0:
+            unique_duplicates = duplicates[pk_column].nunique()
+            report.add_line(f"❌ {filename}: {unique_duplicates} valeurs dupliquées dans '{pk_column}' ({len(duplicates)} lignes affectées)")
+            # Show first few examples
+            example_dups = duplicates[pk_column].value_counts().head(3)
+            for dup_val, count in example_dups.items():
+                report.add_line(f"    Exemple: '{dup_val}' apparaît {count} fois")
+        else:
+            report.add_line(f"✅ {filename}: Aucune duplication dans '{pk_column}'")
+
+def audit_character_encoding(report, dataframes):
+    """Audit text columns for non-standard characters."""
+    report.add_header("Audit d'Encodage des Caractères", level=2)
+    
+    text_columns = {
+        "CIS_bdpm.txt": ["nom_specialite", "titulaires"],
+        "CIS_CIP_bdpm.txt": ["libelle_presentation"],
+        "CIS_COMPO_bdpm.txt": ["denomination_substance"],
+        "CIS_GENER_bdpm.txt": ["libelle_groupe"],
+    }
+    
+    for filename, columns in text_columns.items():
+        if filename not in dataframes:
+            continue
+            
+        df = dataframes[filename]
+        report.add_line(f"\nFichier: {filename}")
+        
+        for col in columns:
+            if col not in df.columns:
+                continue
+            
+            # Sample 1000 rows for analysis
+            sample = df[col].dropna().astype(str).head(1000)
+            non_ascii_count = 0
+            non_latin1_count = 0
+            
+            for text in sample:
+                try:
+                    text.encode('ascii')
+                except UnicodeEncodeError:
+                    non_ascii_count += 1
+                    try:
+                        text.encode('latin-1')
+                    except UnicodeEncodeError:
+                        non_latin1_count += 1
+            
+            report.add_line(f"  Colonne '{col}':")
+            report.add_line(f"    - Échantillon analysé: {len(sample)} lignes")
+            report.add_line(f"    - Caractères non-ASCII: {non_ascii_count} ({non_ascii_count/len(sample)*100:.1f}%)")
+            report.add_line(f"    - Caractères non-latin1: {non_latin1_count} ({non_latin1_count/len(sample)*100:.1f}%)")
+            
+            if non_latin1_count > 0:
+                report.add_line(f"    ⚠️  AVERTISSEMENT: Des caractères non-latin1 détectés. Le fallback UTF-8 peut être nécessaire.")
+
+def parse_dosage_dart_logic(dosage_str):
+    """
+    Simulate the exact Dart parsing logic from DataInitializationService:
+    dosageParts = dosageStr.split(' ')
+    dosageValue = double.tryParse(dosageParts[0].replaceAll(',', '.'))
+    """
+    if pd.isna(dosage_str) or not dosage_str or str(dosage_str).strip() == '':
+        return None, None
+    
+    dosage_str = str(dosage_str).strip()
+    dosage_parts = dosage_str.split(' ')
+    
+    if len(dosage_parts) == 0:
+        return None, None
+    
+    # Simulate: dosageParts[0].replaceAll(',', '.')
+    numeric_part = dosage_parts[0].replace(',', '.')
+    
+    # Simulate: double.tryParse(...)
+    try:
+        dosage_value = float(numeric_part)
+    except (ValueError, TypeError):
+        return None, None
+    
+    # Extract unit if present
+    dosage_unit = ' '.join(dosage_parts[1:]) if len(dosage_parts) > 1 else None
+    
+    return dosage_value, dosage_unit
+
+def stress_test_dosage_parsing(report, dataframes):
+    """Stress test the Dart dosage parsing logic against all data."""
+    report.add_header("Test de Stress: Parsing des Dosages (Logique Dart)", level=2)
+    
+    if "CIS_COMPO_bdpm.txt" not in dataframes:
+        return
+    
+    df = dataframes["CIS_COMPO_bdpm.txt"]
+    dosages = df['dosage_substance'].dropna()
+    
+    total = len(dosages)
+    successful = 0
+    failed = []
+    
+    for dosage_str in dosages:
+        dosage_value, _ = parse_dosage_dart_logic(dosage_str)
+        if dosage_value is not None:
+            successful += 1
+        else:
+            failed.append(dosage_str)
+    
+    success_rate = (successful / total * 100) if total > 0 else 0
+    report.add_line(f"Total des dosages analysés: {total}")
+    report.add_line(f"Parsing réussi: {successful} ({success_rate:.2f}%)")
+    report.add_line(f"Parsing échoué: {len(failed)} ({100-success_rate:.2f}%)")
+    
+    if len(failed) > 0:
+        # Get unique failed examples
+        unique_failed = list(set(failed))[:20]  # Top 20 unique failures
+        report.add_line(f"\nExemples de dosages qui ont échoué (échantillon de {len(unique_failed)}):")
+        for example in sorted(unique_failed):
+            report.add_line(f"  - '{example}'")
+        
+        if len(unique_failed) < len(set(failed)):
+            report.add_line(f"  ... et {len(set(failed)) - len(unique_failed)} autres formats uniques")
+
+def analyze_titulaire_cleanliness(report, dataframes):
+    """Analyze the titulaires column for data quality issues."""
+    report.add_header("Analyse de Propreté: Colonne Titulaires", level=2)
+    
+    if "CIS_bdpm.txt" not in dataframes:
+        return
+    
+    df = dataframes["CIS_bdpm.txt"]
+    titulaires = df['titulaires']
+    
+    total = len(titulaires)
+    empty = titulaires.isna().sum() + (titulaires == '').sum()
+    non_empty = total - empty
+    
+    report.add_line(f"Total des lignes: {total}")
+    report.add_line(f"Titulaires vides/null: {empty} ({empty/total*100:.2f}%)")
+    report.add_line(f"Titulaires renseignés: {non_empty} ({non_empty/total*100:.2f}%)")
+    
+    # Check for potential separators indicating multiple holders
+    potential_separators = [';', '/', '|', ',', ' et ', ' ET ']
+    separator_counts = {}
+    
+    for sep in potential_separators:
+        count = titulaires.astype(str).str.contains(sep, regex=False, na=False).sum()
+        if count > 0:
+            separator_counts[sep] = count
+    
+    if separator_counts:
+        report.add_line(f"\n⚠️  Caractères séparateurs potentiels détectés:")
+        for sep, count in sorted(separator_counts.items(), key=lambda x: x[1], reverse=True):
+            report.add_line(f"  - '{sep}': {count} occurrences ({count/non_empty*100:.2f}% des titulaires renseignés)")
+            # Show examples
+            examples = titulaires[titulaires.astype(str).str.contains(sep, regex=False, na=False)].head(3)
+            for ex in examples:
+                report.add_line(f"    Exemple: '{ex}'")
+    else:
+        report.add_line(f"\n✅ Aucun séparateur suspect détecté. Les données semblent propres.")
+
+def detect_chameleon_medications(report, dataframes):
+    """Detect medications listed as both princeps and generic in different groups."""
+    report.add_header("Détection des Médicaments 'Caméléon'", level=2)
+    
+    if "CIS_GENER_bdpm.txt" not in dataframes:
+        return
+    
+    gener = dataframes["CIS_GENER_bdpm.txt"]
+    
+    # Group by CIS and collect all types
+    cis_types = gener.groupby('cis')['type_generique'].apply(set).reset_index()
+    
+    chameleons = []
+    for _, row in cis_types.iterrows():
+        cis = row['cis']
+        types = row['type_generique']
+        
+        # Check if CIS is both princeps (0) and generic (1, 2, or 4)
+        is_princeps = 0 in types
+        is_generic = bool(types & {1, 2, 4})
+        
+        if is_princeps and is_generic:
+            chameleons.append({
+                'cis': cis,
+                'types': sorted(list(types)),
+                'groups': gener[gener['cis'] == cis]['group_id'].unique().tolist()
+            })
+    
+    if len(chameleons) > 0:
+        report.add_line(f"❌ CRITIQUE: {len(chameleons)} médicament(s) listé(s) comme princeps ET générique dans différents groupes:")
+        for chameleon in chameleons[:10]:  # Show first 10
+            report.add_line(f"  - CIS {chameleon['cis']}: types {chameleon['types']} dans {len(chameleon['groups'])} groupe(s)")
+            report.add_line(f"    Groupes: {', '.join(chameleon['groups'][:5])}")
+            if len(chameleon['groups']) > 5:
+                report.add_line(f"    ... et {len(chameleon['groups']) - 5} autres")
+        
+        if len(chameleons) > 10:
+            report.add_line(f"  ... et {len(chameleons) - 10} autres médicaments caméléons")
+    else:
+        report.add_line(f"✅ Aucun médicament caméléon détecté. Chaque médicament a un rôle unique dans le système générique.")
+
+def analyze_orphan_groups(report, dataframes):
+    """Enhanced analysis: groups where ALL members are orphans."""
+    report.add_header("Analyse Avancée: Groupes Orphelins", level=2)
+    
+    if "CIS_GENER_bdpm.txt" not in dataframes or "CIS_bdpm.txt" not in dataframes:
+        return
+    
+    gener = dataframes["CIS_GENER_bdpm.txt"]
+    cis_set = set(dataframes["CIS_bdpm.txt"]["cis"])
+    
+    # Find orphan CIS codes
+    orphan_cis = set(gener[~gener['cis'].isin(cis_set)]['cis'])
+    
+    # Group by group_id and check if ALL members are orphans
+    group_members = gener.groupby('group_id')['cis'].apply(set).reset_index()
+    
+    fully_orphan_groups = []
+    partially_orphan_groups = []
+    
+    for _, row in group_members.iterrows():
+        group_id = row['group_id']
+        members = row['cis']
+        
+        orphan_members = members & orphan_cis
+        valid_members = members - orphan_cis
+        
+        if len(orphan_members) == len(members) and len(members) > 0:
+            # All members are orphans
+            fully_orphan_groups.append({
+                'group_id': group_id,
+                'member_count': len(members)
+            })
+        elif len(orphan_members) > 0:
+            # Some members are orphans
+            partially_orphan_groups.append({
+                'group_id': group_id,
+                'orphan_count': len(orphan_members),
+                'valid_count': len(valid_members),
+                'total': len(members)
+            })
+    
+    report.add_line(f"Groupes où TOUS les membres sont orphelins: {len(fully_orphan_groups)}")
+    if len(fully_orphan_groups) > 0:
+        total_ghost_members = sum(g['member_count'] for g in fully_orphan_groups)
+        report.add_line(f"  - Total de membres 'fantômes': {total_ghost_members}")
+        report.add_line(f"  - Exemples de groupes fantômes (premiers 5):")
+        for group in fully_orphan_groups[:5]:
+            report.add_line(f"    - Groupe {group['group_id']}: {group['member_count']} membre(s) orphelin(s)")
+    
+    report.add_line(f"\nGroupes avec des membres partiellement orphelins: {len(partially_orphan_groups)}")
+    if len(partially_orphan_groups) > 0:
+        total_partial_orphans = sum(g['orphan_count'] for g in partially_orphan_groups)
+        report.add_line(f"  - Total de membres orphelins dans ces groupes: {total_partial_orphans}")
+        report.add_line(f"  - Exemples (premiers 5):")
+        for group in partially_orphan_groups[:5]:
+            report.add_line(f"    - Groupe {group['group_id']}: {group['orphan_count']}/{group['total']} orphelins, {group['valid_count']} valides")
+
 def load_data(report):
     report.add_header("1. Chargement et Validation Structurelle des Données")
     dataframes = {}
@@ -119,6 +610,18 @@ def load_data(report):
     for filename, config in DATA_FILES_CONFIG.items():
         filepath = os.path.join(DATA_DIR, filename)
         try:
+            # Sample random lines before loading
+            report.add_header(f"Échantillon de Lignes: {filename}", level=3)
+            sample_lines = sample_random_lines(filepath, num_lines=8)
+            if sample_lines:
+                report.add_line(f"  {len(sample_lines)} lignes aléatoires (pour inspection visuelle):")
+                for i, line in enumerate(sample_lines[:8], 1):
+                    # Truncate very long lines for readability
+                    display_line = line[:200] + "..." if len(line) > 200 else line
+                    report.add_line(f"    [{i}] {display_line}")
+            else:
+                report.add_line(f"  Impossible de lire des échantillons de lignes.")
+            
             df = pd.read_csv(
                 filepath,
                 sep='\t',
@@ -188,6 +691,9 @@ def verify_relational_integrity(report, dfs):
     # CIS_GENER -> CIS
     orphans_gener = dfs["CIS_GENER_bdpm.txt"][~dfs["CIS_GENER_bdpm.txt"]["cis"].isin(cis_set)]
     report.add_line(f"CIS_GENER_bdpm -> CIS_bdpm: {len(orphans_gener)} CIS orphelins sur {len(dfs['CIS_GENER_bdpm.txt'])} ({len(orphans_gener)/len(dfs['CIS_GENER_bdpm.txt']):.2%})")
+    
+    # Enhanced orphan groups analysis
+    analyze_orphan_groups(report, dfs)
 
 def validate_business_logic(report, dfs):
     report.add_header("4. Validation de la Logique Métier et Cas Limites")
@@ -233,9 +739,317 @@ def validate_business_logic(report, dfs):
     for count, num_meds in pa_counts.items():
         report.add_line(f"  - {count} principe(s) actif(s) : {num_meds} médicaments")
 
+def analyze_pharmaceutical_forms(report, dataframes):
+    """Analyze pharmaceutical forms and categorize them for filtering with precise classification."""
+    report.add_header("Analyse des Formes Pharmaceutiques (Classification Précise)", level=2)
+    
+    if "CIS_bdpm.txt" not in dataframes:
+        return
+    
+    specialites = dataframes["CIS_bdpm.txt"]
+    
+    # Define categorization keywords with priority order (most specific first)
+    # Category 1: Injectable (highest priority - must exclude from oral)
+    INJECTABLE_KEYWORDS = ['injectable', 'injection', 'perfusion', 'solution pour perfusion', 'poudre pour solution injectable', 'solution pour injection']
+    
+    # Category 2: Gynécologique (vaginal forms)
+    GYNECOLOGICAL_KEYWORDS = ['ovule', 'pessaire', 'comprimé vaginal', 'crème vaginale', 'gel vaginal', 'capsule vaginale', 'tampon vaginal', 'anneau vaginal']
+    
+    # Category 3: Contraception (functional category - check both form and name)
+    CONTRACEPTION_FORM_KEYWORDS = ['implant', 'dispositif', 'patch', 'anneau', 'pilule contraceptive']
+    CONTRACEPTION_NAME_KEYWORDS = ['contraceptif', 'contraception', 'pilule', 'stérilet', 'spirale', 'nuvaring', 'implanon']
+    
+    # Category 4: Usage externe (topical, cutaneous, but not vaginal)
+    EXTERNAL_USE_KEYWORDS = ['crème', 'pommade', 'gel', 'lotion', 'pâte', 'cutanée', 'cutané', 'application locale', 'application cutanée']
+    EXTERNAL_USE_EXCLUDE = ['vaginal', 'vaginale']  # Exclude gynecological
+    
+    # Category 5: Sachet (oral sachets/powders for oral solution)
+    SACHET_KEYWORDS = ['sachet', 'poudre pour solution buvable', 'poudre pour suspension buvable', 'granulé']
+    
+    # Category 6: Oral (tablets, capsules, but NOT injectable, NOT sachet)
+    ORAL_KEYWORDS = ['comprimé', 'gélule', 'capsule', 'lyophilisat', 'granulé', 'solution buvable', 'sirop', 'suspension buvable', 'comprimé orodispersible']
+    ORAL_EXCLUDE = ['injectable', 'injection', 'vaginal', 'vaginale']  # Exclude injectable and vaginal
+    
+    # Category 7: Ophtalmique
+    OPHTHALMIC_KEYWORDS = ['collyre', 'ophtalmique', 'solution ophtalmique', 'pommade ophtalmique', 'gel ophtalmique']
+    
+    # Category 8: Nasal/ORL
+    NASAL_ORL_KEYWORDS = ['nasale', 'auriculaire', 'buccale', 'aérosol', 'spray nasal', 'gouttes nasales', 'gouttes auriculaires']
+    
+    # Get all unique pharmaceutical forms
+    unique_forms = specialites['forme_pharmaceutique'].dropna().unique()
+    
+    # Categorize forms with priority-based classification
+    injectable_forms = []
+    gynecological_forms = []
+    contraception_forms = []
+    external_use_forms = []
+    sachet_forms = []
+    oral_forms = []
+    ophthalmic_forms = []
+    nasal_orl_forms = []
+    unclassified_forms = []
+    
+    # Also track medications by category for validation
+    medications_by_category = {
+        'injectable': [],
+        'gynecological': [],
+        'contraception': [],
+        'external_use': [],
+        'sachet': [],
+        'oral': [],
+        'ophthalmic': [],
+        'nasal_orl': [],
+    }
+    
+    for form in unique_forms:
+        form_lower = str(form).lower()
+        categorized = False
+        
+        # Priority 1: Injectable (highest specificity)
+        if not categorized and any(kw in form_lower for kw in INJECTABLE_KEYWORDS):
+            injectable_forms.append(form)
+            categorized = True
+        
+        # Priority 2: Gynécologique (specific anatomical route)
+        if not categorized and any(kw in form_lower for kw in GYNECOLOGICAL_KEYWORDS):
+            gynecological_forms.append(form)
+            categorized = True
+        
+        # Priority 3: Contraception (functional - check form)
+        if not categorized and any(kw in form_lower for kw in CONTRACEPTION_FORM_KEYWORDS):
+            contraception_forms.append(form)
+            categorized = True
+        
+        # Priority 4: Usage externe (but exclude vaginal)
+        if not categorized and any(kw in form_lower for kw in EXTERNAL_USE_KEYWORDS):
+            if not any(excl in form_lower for excl in EXTERNAL_USE_EXCLUDE):
+                external_use_forms.append(form)
+                categorized = True
+        
+        # Priority 5: Sachet (oral sachets)
+        if not categorized and any(kw in form_lower for kw in SACHET_KEYWORDS):
+            # Double-check it's not injectable
+            if 'injectable' not in form_lower and 'injection' not in form_lower:
+                sachet_forms.append(form)
+                categorized = True
+        
+        # Priority 6: Oral (tablets, capsules, but exclude injectable and vaginal)
+        if not categorized and any(kw in form_lower for kw in ORAL_KEYWORDS):
+            if not any(excl in form_lower for excl in ORAL_EXCLUDE):
+                # Double-check it's not already in sachet
+                if form not in sachet_forms:
+                    oral_forms.append(form)
+                    categorized = True
+        
+        # Priority 7: Ophtalmique
+        if not categorized and any(kw in form_lower for kw in OPHTHALMIC_KEYWORDS):
+            ophthalmic_forms.append(form)
+            categorized = True
+        
+        # Priority 8: Nasal/ORL
+        if not categorized and any(kw in form_lower for kw in NASAL_ORL_KEYWORDS):
+            nasal_orl_forms.append(form)
+            categorized = True
+        
+        if not categorized:
+            unclassified_forms.append(form)
+    
+    # Additional analysis: Check contraception by medication name
+    report.add_header("Analyse Complémentaire: Contraception par Nom de Spécialité", level=3)
+    contraception_by_name = specialites[
+        specialites['nom_specialite'].str.lower().str.contains('|'.join(CONTRACEPTION_NAME_KEYWORDS), na=False, regex=True)
+    ]
+    contraception_by_name_count = len(contraception_by_name)
+    report.add_line(f"Médicaments identifiés comme contraceptifs par nom: {contraception_by_name_count}")
+    if contraception_by_name_count > 0:
+        sample_names = contraception_by_name['nom_specialite'].head(10).tolist()
+        report.add_line(f"   - Exemples: {', '.join(sample_names[:5])}")
+        if len(sample_names) > 5:
+            report.add_line(f"   ... et {len(sample_names) - 5} autres")
+    
+    # Report results by category
+    report.add_header("Résultats de Classification par Catégorie", level=3)
+    
+    report.add_line(f"✅ Injectable: {len(injectable_forms)} formes uniques trouvées")
+    if len(injectable_forms) > 0:
+        report.add_line(f"   - Exemples: {', '.join(injectable_forms[:5])}")
+        if len(injectable_forms) > 5:
+            report.add_line(f"   ... et {len(injectable_forms) - 5} autres")
+    
+    report.add_line(f"✅ Gynécologique: {len(gynecological_forms)} formes uniques trouvées")
+    if len(gynecological_forms) > 0:
+        report.add_line(f"   - Exemples: {', '.join(gynecological_forms[:5])}")
+        if len(gynecological_forms) > 5:
+            report.add_line(f"   ... et {len(gynecological_forms) - 5} autres")
+    
+    report.add_line(f"✅ Contraception (par forme): {len(contraception_forms)} formes uniques trouvées")
+    if len(contraception_forms) > 0:
+        report.add_line(f"   - Exemples: {', '.join(contraception_forms[:5])}")
+        if len(contraception_forms) > 5:
+            report.add_line(f"   ... et {len(contraception_forms) - 5} autres")
+    
+    report.add_line(f"✅ Usage externe: {len(external_use_forms)} formes uniques trouvées")
+    if len(external_use_forms) > 0:
+        report.add_line(f"   - Exemples: {', '.join(external_use_forms[:5])}")
+        if len(external_use_forms) > 5:
+            report.add_line(f"   ... et {len(external_use_forms) - 5} autres")
+    
+    report.add_line(f"✅ Sachet: {len(sachet_forms)} formes uniques trouvées")
+    if len(sachet_forms) > 0:
+        report.add_line(f"   - Exemples: {', '.join(sachet_forms[:5])}")
+        if len(sachet_forms) > 5:
+            report.add_line(f"   ... et {len(sachet_forms) - 5} autres")
+    
+    report.add_line(f"✅ Oral: {len(oral_forms)} formes uniques trouvées")
+    if len(oral_forms) > 0:
+        report.add_line(f"   - Exemples: {', '.join(oral_forms[:5])}")
+        if len(oral_forms) > 5:
+            report.add_line(f"   ... et {len(oral_forms) - 5} autres")
+    
+    report.add_line(f"✅ Ophtalmique: {len(ophthalmic_forms)} formes uniques trouvées")
+    if len(ophthalmic_forms) > 0:
+        report.add_line(f"   - Exemples: {', '.join(ophthalmic_forms[:5])}")
+        if len(ophthalmic_forms) > 5:
+            report.add_line(f"   ... et {len(ophthalmic_forms) - 5} autres")
+    
+    report.add_line(f"✅ Nasal/ORL: {len(nasal_orl_forms)} formes uniques trouvées")
+    if len(nasal_orl_forms) > 0:
+        report.add_line(f"   - Exemples: {', '.join(nasal_orl_forms[:5])}")
+        if len(nasal_orl_forms) > 5:
+            report.add_line(f"   ... et {len(nasal_orl_forms) - 5} autres")
+    
+    if len(unclassified_forms) > 0:
+        report.add_line(f"⚠️  Formes non classifiées: {len(unclassified_forms)} formes uniques trouvées")
+        report.add_line(f"   - Exemples: {', '.join(unclassified_forms[:15])}")
+        if len(unclassified_forms) > 15:
+            report.add_line(f"   ... et {len(unclassified_forms) - 15} autres")
+    
+    # Validation: Check for overlap issues
+    report.add_header("Validation: Détection des Chevauchements", level=3)
+    all_categorized = set(injectable_forms + gynecological_forms + contraception_forms + 
+                         external_use_forms + sachet_forms + oral_forms + 
+                         ophthalmic_forms + nasal_orl_forms)
+    total_unique = len(unique_forms)
+    categorized_count = len(all_categorized)
+    
+    if categorized_count == total_unique:
+        report.add_line(f"✅ Aucun chevauchement détecté: {categorized_count}/{total_unique} formes classifiées de manière unique")
+    else:
+        report.add_line(f"⚠️  Chevauchement possible: {categorized_count} formes classifiées sur {total_unique} uniques")
+    
+    # Check for injectable in oral (should not happen)
+    oral_injectable_overlap = [f for f in oral_forms if any(kw in f.lower() for kw in INJECTABLE_KEYWORDS)]
+    if len(oral_injectable_overlap) > 0:
+        report.add_line(f"❌ ERREUR: {len(oral_injectable_overlap)} forme(s) orale(s) contiennent des mots-clés injectables:")
+        for f in oral_injectable_overlap[:5]:
+            report.add_line(f"   - '{f}'")
+    else:
+        report.add_line(f"✅ Aucun chevauchement injectable/oral détecté")
+
+def investigate_unspecified_groups(report, dataframes):
+    """Investigate groups with no specified active principles (Principe non spécifié)."""
+    report.add_header("Analyse des Groupes 'Principe non spécifié'", level=2)
+    
+    if "CIS_GENER_bdpm.txt" not in dataframes or "CIS_COMPO_bdpm.txt" not in dataframes or "CIS_bdpm.txt" not in dataframes:
+        return
+    
+    gener = dataframes["CIS_GENER_bdpm.txt"]
+    compo = dataframes["CIS_COMPO_bdpm.txt"][dataframes["CIS_COMPO_bdpm.txt"]["nature_composant"] == 'SA']
+    specialites = dataframes["CIS_bdpm.txt"]
+    
+    # Replicate Flutter SQL logic: find groups where no member has active principles
+    # This simulates: SELECT gg.group_id, (SELECT GROUP_CONCAT...) as common_principes
+    
+    # Get all groups
+    all_groups = gener['group_id'].unique()
+    
+    # For each group, check if it has any active principles
+    unspecified_groups = []
+    
+    for group_id in all_groups:
+        # Get all CIS codes in this group
+        group_cis = set(gener[gener['group_id'] == group_id]['cis'].unique())
+        
+        # Check if any of these CIS codes have active principles
+        group_cis_with_pa = set(compo[compo['cis'].isin(group_cis)]['cis'].unique())
+        
+        # If no CIS in the group has active principles, this is an unspecified group
+        if len(group_cis_with_pa) == 0:
+            unspecified_groups.append({
+                'group_id': group_id,
+                'member_cis': list(group_cis),
+                'member_count': len(group_cis)
+            })
+    
+    report.add_line(f"Trouvé {len(unspecified_groups)} groupes avec aucun principe actif spécifié.")
+    
+    if len(unspecified_groups) > 0:
+        # Perform forensic analysis on first 10 groups
+        report.add_line(f"\nAnalyse approfondie des {min(10, len(unspecified_groups))} premiers groupes:")
+        
+        for i, group_info in enumerate(unspecified_groups[:10]):
+            group_id = group_info['group_id']
+            member_cis = group_info['member_cis']
+            
+            report.add_line(f"\nGroupe ID {group_id} ({group_info['member_count']} membre(s)):")
+            
+            # Analyze first few members
+            sample_members = member_cis[:5]
+            homeopathic_count = 0
+            discontinued_count = 0
+            other_count = 0
+            
+            for cis in sample_members:
+                cis_row = specialites[specialites['cis'] == cis]
+                if len(cis_row) > 0:
+                    nom = cis_row.iloc[0]['nom_specialite'] if pd.notna(cis_row.iloc[0]['nom_specialite']) else "N/A"
+                    procedure_type = cis_row.iloc[0]['procedure_type'] if pd.notna(cis_row.iloc[0]['procedure_type']) else "N/A"
+                    etat = cis_row.iloc[0]['etat_commercialisation'] if pd.notna(cis_row.iloc[0]['etat_commercialisation']) else "N/A"
+                    
+                    # Check if homeopathic
+                    if 'homéo' in str(procedure_type).lower():
+                        homeopathic_count += 1
+                        report.add_line(f"  - CIS {cis}: '{nom}'")
+                        report.add_line(f"    Procédure: {procedure_type} (HOMÉOPATHIQUE)")
+                    # Check if discontinued
+                    elif 'arrêt' in str(etat).lower() or 'retrait' in str(etat).lower():
+                        discontinued_count += 1
+                        report.add_line(f"  - CIS {cis}: '{nom}'")
+                        report.add_line(f"    État: {etat} (ARRÊTÉ)")
+                    else:
+                        other_count += 1
+                        report.add_line(f"  - CIS {cis}: '{nom}'")
+                        report.add_line(f"    Procédure: {procedure_type}, État: {etat}")
+            
+            if len(member_cis) > 5:
+                report.add_line(f"  ... et {len(member_cis) - 5} autres membres")
+            
+            # Summary
+            total_analyzed = min(5, len(member_cis))
+            if homeopathic_count == total_analyzed:
+                report.add_line(f"  Conclusion: Groupe composé exclusivement de produits homéopathiques. Sécurisé de filtrer.")
+            elif discontinued_count == total_analyzed:
+                report.add_line(f"  Conclusion: Groupe composé exclusivement de produits arrêtés. Sécurisé de filtrer.")
+            elif homeopathic_count + discontinued_count == total_analyzed:
+                report.add_line(f"  Conclusion: Groupe composé de produits homéopathiques/arrêtés. Sécurisé de filtrer.")
+            else:
+                report.add_line(f"  Conclusion: Groupe mixte (analyser davantage si nécessaire).")
+        
+        if len(unspecified_groups) > 10:
+            report.add_line(f"\n... et {len(unspecified_groups) - 10} autres groupes non spécifiés")
+        
+        # Overall summary
+        report.add_line(f"\nRésumé global:")
+        report.add_line(f"  - Total groupes non spécifiés: {len(unspecified_groups)}")
+        report.add_line(f"  - Total membres dans ces groupes: {sum(g['member_count'] for g in unspecified_groups)}")
+        report.add_line(f"  - Recommandation: Filtrer ces groupes (HAVING common_principes IS NOT NULL AND common_principes != '')")
+    else:
+        report.add_line("✅ Tous les groupes ont au moins un principe actif spécifié.")
+
 # --- Main Execution ---
 def main():
-    print("--- Script de Validation des Données PharmaScan (Avancé) ---")
+    print("--- Script de Validation des Données PharmaScan (Forensic Auditor) ---")
     
     if not os.path.exists(DATA_DIR):
         os.makedirs(DATA_DIR)
@@ -247,19 +1061,52 @@ def main():
     for filename, config in DATA_FILES_CONFIG.items():
         download_file(filename, config['url'])
 
-    print("\nÉtape 2: Chargement des données en mémoire...")
+    print("\nÉtape 2: Chargement des données en mémoire (avec échantillonnage de lignes)...")
     dataframes = load_data(report)
 
-    print("Étape 3: Analyse des colonnes et formats...")
+    print("\nÉtape 3: Vérification des clés primaires dupliquées...")
+    check_duplicate_primary_keys(report, dataframes)
+
+    print("\nÉtape 4: Audit d'encodage des caractères...")
+    audit_character_encoding(report, dataframes)
+
+    print("\nÉtape 5: Analyse des colonnes et formats...")
     analyze_column_values(report, dataframes)
 
-    print("Étape 4: Vérification de l'intégrité relationnelle...")
+    print("\nÉtape 6: Test de stress - Parsing des dosages (logique Dart)...")
+    stress_test_dosage_parsing(report, dataframes)
+
+    print("\nÉtape 7: Analyse de propreté - Colonne Titulaires...")
+    analyze_titulaire_cleanliness(report, dataframes)
+
+    print("\nÉtape 8: Vérification de l'intégrité relationnelle...")
     verify_relational_integrity(report, dataframes)
     
-    print("Étape 5: Validation de la logique métier...")
+    print("\nÉtape 9: Détection des médicaments caméléon...")
+    detect_chameleon_medications(report, dataframes)
+    
+    print("\nÉtape 10: Validation de la logique métier...")
     validate_business_logic(report, dataframes)
+    
+    print("\nÉtape 11: Analyse des formes pharmaceutiques...")
+    analyze_pharmaceutical_forms(report, dataframes)
+    
+    print("\nÉtape 12: Investigation des groupes 'Principe non spécifié'...")
+    investigate_unspecified_groups(report, dataframes)
 
+    # Optional: Test Data Lookup (enable by setting TEST_DATA_LOOKUP_QUERY above)
+    if TEST_DATA_LOOKUP_QUERY:
+        find_test_data(TEST_DATA_LOOKUP_QUERY, dataframes)
+    
+    # Optional: Related Princeps Analysis (enable by setting TARGET_GROUP_ID below)
+    # Example: Find related princeps for LIORESAL 10 mg group
+    TARGET_GROUP_ID = None  # Example: '12345' (set to a real group_id to test)
+    if TARGET_GROUP_ID:
+        find_related_princeps(TARGET_GROUP_ID, dataframes)
+
+    print("\nGénération du rapport final...")
     report.save()
+    print("\n✅ Analyse complète terminée!")
 
 if __name__ == "__main__":
     main()

@@ -25,7 +25,19 @@ void main() {
       final dataService = sl<DataInitializationService>();
       final dbService = sl<DatabaseService>();
       final db = sl<AppDatabase>();
+      // Real data from BDPM (verified via data_validator.py):
+      // - CIP: 3400930302613
+      // - CIS: 62173429
+      // - Name: BACLOFENE BIOGARAN 10 mg, comprimé sécable
+      // - Laboratory: BIOGARAN
+      // - Active Principle: BACLOFÈNE (note the È)
+      // - Group ID: 231
+      // - Type: GENERIC
+      // - Associated Princeps: LIORESAL 10 mg, comprimé sécable
       const targetCip = '3400930302613';
+      const expectedGroupId = '231';
+      const expectedActivePrinciple = 'BACLOFÈNE'; // Note: È not E
+      const expectedPrincepsName = 'LIORESAL 10 mg, comprimé sécable';
 
       // Étape 1: Exécuter le service d'initialisation (télécharge et parse les fichiers TXT)
       await dataService.initializeDatabase();
@@ -114,15 +126,25 @@ void main() {
       );
 
       // Si c'est le produit spécifique, vérifier qu'il contient "biogaran" et "10"
-      if (actualCip == targetCip || nomLower.contains('10')) {
-        if (nomLower.contains('biogaran')) {
-          expect(
-            nomLower.contains('biogaran'),
-            isTrue,
-            reason:
-                'Le baclofene doit contenir "biogaran" (trouvé: $actualNom)',
-          );
-        }
+      if (actualCip == targetCip) {
+        expect(
+          nomLower.contains('biogaran'),
+          isTrue,
+          reason: 'Le baclofene doit contenir "biogaran" (trouvé: $actualNom)',
+        );
+        expect(
+          nomLower.contains('10'),
+          isTrue,
+          reason:
+              'Le baclofene doit contenir "10" pour le dosage (trouvé: $actualNom)',
+        );
+        // Vérifier que le nom contient "comprimé sécable" (forme pharmaceutique)
+        expect(
+          nomLower.contains('comprimé') && nomLower.contains('sécable'),
+          isTrue,
+          reason:
+              'Le baclofene doit être un "comprimé sécable" (trouvé: $actualNom)',
+        );
       }
 
       // Étape 4: Vérifier les principes actifs dans la base de données
@@ -145,16 +167,30 @@ void main() {
           .map((row) => row.read<String>('principe').toLowerCase())
           .toList();
 
-      // Vérifier que les principes contiennent baclofene ou baclofène (le principe actif réel)
+      // Vérifier que les principes contiennent BACLOFÈNE (le principe actif réel avec È)
       final hasBaclofene = dbPrincipes.any(
-        (p) => p.contains('baclofene') || p.contains('baclofène'),
+        (p) =>
+            p.contains('baclofene') ||
+            p.contains('baclofène') ||
+            p.contains('baclovène'),
       );
 
       expect(
         hasBaclofene,
         isTrue,
         reason:
-            'Le baclofene doit avoir "baclofene" ou "baclofène" comme principe actif (trouvé: ${principesResult.map((r) => r.read<String>('principe')).toList()})',
+            'Le baclofene doit avoir "BACLOFÈNE" comme principe actif (trouvé: ${principesResult.map((r) => r.read<String>('principe')).toList()})',
+      );
+
+      // Vérifier que le principe actif exact est présent (case-insensitive)
+      final hasExactPrinciple = dbPrincipes.any(
+        (p) => p.toLowerCase() == expectedActivePrinciple.toLowerCase(),
+      );
+      expect(
+        hasExactPrinciple,
+        isTrue,
+        reason:
+            'Le principe actif doit être exactement "$expectedActivePrinciple" (trouvé: ${principesResult.map((r) => r.read<String>('principe')).toList()})',
       );
 
       // Étape 5: Vérifier que getScanResultByCip fonctionne correctement
@@ -176,9 +212,18 @@ void main() {
             isNotEmpty,
             reason: 'Le médicament générique doit avoir des principes actifs',
           );
+
+          // Vérifier le group ID
+          expect(
+            groupId,
+            expectedGroupId,
+            reason: 'Le group ID doit être $expectedGroupId (trouvé: $groupId)',
+          );
+
           // Vérifier que associatedPrinceps est une liste non vide de Medicament
           expect(associatedPrinceps, isA<List>());
           expect(associatedPrinceps, isNotEmpty);
+
           // Vérifier que chaque élément a les propriétés d'un Medicament
           for (final princeps in associatedPrinceps) {
             expect(princeps.codeCip, isA<String>());
@@ -188,22 +233,49 @@ void main() {
             expect(princeps.principesActifs, isA<List<String>>());
           }
 
+          // Vérifier que le princeps attendu est présent
+          final hasExpectedPrinceps = associatedPrinceps.any(
+            (p) => p.nom.contains('LIORESAL'),
+          );
+          expect(
+            hasExpectedPrinceps,
+            isTrue,
+            reason:
+                'Le princeps "$expectedPrincepsName" doit être dans la liste (trouvé: ${associatedPrinceps.map((p) => p.nom).toList()})',
+          );
+
           final resultPrincipesLower = medicament.principesActifs
               .map((p) => p.toLowerCase())
               .toList();
-          // Vérifier que les principes contiennent baclofene ou baclofène (le principe actif réel)
+          // Vérifier que les principes contiennent BACLOFÈNE (le principe actif réel avec È)
           final resultHasBaclofene = resultPrincipesLower.any(
-            (p) => p.contains('baclofene') || p.contains('baclofène'),
+            (p) =>
+                p.contains('baclofene') ||
+                p.contains('baclofène') ||
+                p.contains('baclovène'),
           );
 
           expect(
             resultHasBaclofene,
             isTrue,
             reason:
-                'Le baclofene dans le scanResult doit avoir "baclofene" ou "baclofène" comme principe actif (trouvé: ${medicament.principesActifs})',
+                'Le baclofene dans le scanResult doit avoir "$expectedActivePrinciple" comme principe actif (trouvé: ${medicament.principesActifs})',
+          );
+
+          // Vérifier le principe actif exact (case-insensitive)
+          final hasExactPrincipleInResult = resultPrincipesLower.any(
+            (p) => p == expectedActivePrinciple.toLowerCase(),
+          );
+          expect(
+            hasExactPrincipleInResult,
+            isTrue,
+            reason:
+                'Le principe actif doit être exactement "$expectedActivePrinciple" (trouvé: ${medicament.principesActifs})',
           );
         },
         princeps: (princeps, moleculeName, genericLabs, groupId) {
+          // This medication is a GENERIC, not a princeps, so this branch should not be reached
+          // But we'll keep it for completeness in case the data changes
           expect(princeps.codeCip, actualCip);
           expect(princeps.nom, isNotEmpty);
           expect(
@@ -215,18 +287,19 @@ void main() {
           final resultPrincipesLower = princeps.principesActifs
               .map((p) => p.toLowerCase())
               .toList();
-          final resultHasBaclocur = resultPrincipesLower.any(
-            (p) => p.contains('baclocur'),
-          );
-          final resultHasLioresal = resultPrincipesLower.any(
-            (p) => p.contains('lioresal'),
+          // Vérifier que les principes contiennent BACLOFÈNE
+          final resultHasBaclofene = resultPrincipesLower.any(
+            (p) =>
+                p.contains('baclofene') ||
+                p.contains('baclofène') ||
+                p.contains('baclovène'),
           );
 
           expect(
-            resultHasBaclocur || resultHasLioresal,
+            resultHasBaclofene,
             isTrue,
             reason:
-                'Le baclofene dans le scanResult doit avoir "baclocur" ou "lioresal" comme principe actif (trouvé: ${princeps.principesActifs})',
+                'Le baclofene dans le scanResult doit avoir "$expectedActivePrinciple" comme principe actif (trouvé: ${princeps.principesActifs})',
           );
         },
       );
