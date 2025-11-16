@@ -1,13 +1,17 @@
 // lib/features/scanner/models/medicament_model.dart
-class Medicament {
-  final String nom;
-  final String codeCip;
-  final List<String> principesActifs;
+import 'package:freezed_annotation/freezed_annotation.dart';
 
-  Medicament({
-    required this.nom,
-    required this.codeCip,
-    required this.principesActifs,
-  });
+part 'medicament_model.freezed.dart';
+
+@freezed
+abstract class Medicament with _$Medicament {
+  const factory Medicament({
+    required String nom,
+    required String codeCip,
+    required List<String> principesActifs,
+    String? titulaire,
+    String? formePharmaceutique,
+    double? dosage,
+    String? dosageUnit,
+  }) = _Medicament;
 }
-

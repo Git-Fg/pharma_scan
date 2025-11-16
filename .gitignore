@@ -33,6 +33,11 @@ migrate_working_dir/
 /build/
 /coverage/
 
+# Build runner generated files
+*.freezed.dart
+*.g.dart
+*.mocks.dart
+
 # Symbolication related
 app.*.symbols
 
@@ -49,3 +54,9 @@ android/*.iml
 android/.gradle
 android/.kotlin
 android/build/
+
+# Ignore all contents of the data_validation directory...
+data_validation/*
+
+# ...but keep the final report.
+!data_validation/rapport_final.txt

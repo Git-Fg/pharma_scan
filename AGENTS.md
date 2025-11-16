@@ -1,146 +1,229 @@
-# PharmaScan - Manifeste de Développement
+# PharmaScan - Development Manifest
 
-Votre mission principale est de contribuer au développement de l'application **PharmaScan**. Ce document est la source unique de vérité pour tous les principes de développement, les standards de qualité et l'architecture du projet.
+Your primary mission is to contribute to the development of the **PharmaScan** application. This document is the single source of truth for all development principles, quality standards, and project architecture.
 
-**Philosophie Fondamentale :** Prioriser la **simplicité**, la **robustesse** et la **performance**. L'application doit être instantanément réactive, même sur des appareils d'entrée de gamme, car elle est un outil professionnel destiné à un usage rapide et répétitif. Le code est l'autorité suprême ; vos contributions doivent être claires, auto-documentées et rigoureusement testées.
+**Core Philosophy:** Prioritize **simplicity**, **robustness**, and **performance**. The application must be instantly responsive, even on low-end devices, as it is a professional tool intended for rapid, repetitive use. The code is the ultimate authority; your contributions must be clear, self-documenting, and rigorously tested.
 
 ---
 
-## 1. Protocoles Fondamentaux et Flux de Travail
+## 1. Core Protocols & Workflow
 
-### **Flux de Travail A : Développement de Code (Fonctionnalités & Correctifs)**
+### **Workflow A: Code Development (Features & Fixes)**
 
-Ce flux s'applique à toute écriture ou modification de code dans le répertoire `lib/`.
+This workflow applies to any code written or modified within the `lib/` directory.
 
-1.  **Comprendre :** Analysez le code existant et les objectifs de la tâche pour vous aligner avec l'architecture actuelle. L'objectif est de maintenir une base de code légère et cohérente.
+1. **Understand:** Analyze the existing code and task objectives to align with the current architecture. The goal is to maintain a lightweight and coherent codebase.
 
-2.  **Implémenter :** Écrivez du code propre et performant, en adhérant strictement aux meilleures pratiques techniques définies dans ce document.
+2. **Implement:** Write clean, performant code, strictly adhering to the technical best practices defined in this document.
 
-3.  **Vérifier (La Barrière Qualité) :** Avant tout commit, vous êtes responsable de la validation de vos changements. Exécutez la commande de vérification unifiée :
+3. **Generate Code (NEW):** If you modify any data models (files annotated with `@freezed`), you **MUST** run the code generator to apply your changes.
 
     ```bash
-    flutter analyze && flutter test
+    flutter pub run build_runner build --delete-conflicting-outputs
     ```
 
-    Cette commande analyse la qualité statique du code et exécute la suite de tests unitaires et widgets. Vous **DEVEZ** résoudre toutes les erreurs et tous les avertissements critiques qu'elle signale.
+4. **Verify (The Quality Gate):** Before finalizing your changes, you are responsible for validating your work. Execute the unified verification command:
 
-4.  **Commettre (Le Protocole d'Atomicité) :** Après une vérification réussie, vous **DEVEZ** commettre vos changements dans le dépôt local. Chaque commit doit représenter une unité de travail logique et unique, et suivre le format des [Conventional Commits](https://www.conventionalcommits.org/) (`type(scope): résumé`).
+    ```bash
+    flutter pub run build_runner build --delete-conflicting-outputs && flutter analyze && flutter test
+    ```
 
-    **Contrainte Absolue :** Vous ne devez **JAMAIS** utiliser `git push`. Votre rôle est de construire un historique de commits local propre et atomique. Un utilisateur humain est seul responsable de l'interaction avec le dépôt distant.
+    This command generates freezed code, analyzes static code quality, and runs the unit and widget test suite. You **MUST** resolve all errors and critical warnings it reports.
 
 ---
 
-## 2. Meilleures Pratiques Techniques (Les Règles Immuables)
+## 2. Technical Best Practices (The Immutable Rules)
 
-Ce sont les principes fondamentaux de qualité du code pour ce projet.
+These are the fundamental code quality principles for this project.
 
-### 2.1. Qualité du Code et Lisibilité
+### 2.1. Code Quality and Readability
 
-*   **Les Commentaires Expliquent le "Pourquoi" :** Les commentaires doivent justifier une décision de conception ou clarifier une logique complexe (`// POURQUOI : ...`), pas décrire ce que le code fait.
-*   **Zéro Artefact de Débogage :** Avant tout commit, vous **DEVEZ** supprimer tous les `print()`, `debugPrint()`, et le code commenté.
+* **Comments Explain the "Why":** Comments should justify a design decision or clarify complex logic (`// WHY: ...`), not describe what the code does.
+* **Zero Debugging Artifacts:** Before finalizing your changes, you **MUST** remove all `print()`, `debugPrint()`, and commented-out code.
 
-### 2.2. Design System : Stratégie Centralisée avec Shadcn UI
+### 2.2. Design System: Centralized Strategy with Shadcn UI
 
-**CRITIQUE :** Le projet utilise un système de design centralisé et sémantique basé sur **Shadcn UI**. C'est une contrainte architecturale non négociable pour garantir la cohérence visuelle et la maintenabilité.
+**CRITICAL:** The project uses a centralized, semantic design system based on **Shadcn UI**. This is a non-negotiable architectural constraint to ensure visual consistency and maintainability.
 
-*   **Interdiction Absolue :** Vous ne devez **JAMAIS** utiliser de styles codés en dur directement dans les widgets. Les éléments suivants sont strictement interdits dans le code des widgets :
-    *   `BoxDecoration` (ex: `BoxDecoration(color: Colors.blue, ...)`)
-    *   `TextStyle` (ex: `TextStyle(fontSize: 16, color: Colors.red)`)
-    *   Valeurs de couleur directes (ex: `Colors.grey`, `Color(0xFF...)`)
-    *   Valeurs numériques pour `BorderRadius`, `EdgeInsets`, `SizedBox`, etc.
+* **Absolute Prohibition:** You **MUST NEVER** use hardcoded styles directly in widgets. The following are strictly forbidden in widget code:
+  * `BoxDecoration` (e.g., `BoxDecoration(color: Colors.blue, ...)`)
+  * `TextStyle` (e.g., `TextStyle(fontSize: 16, color: Colors.red)`)
+  * Direct color values (e.g., `Colors.grey`, `Color(0xFF...)`)
+  * Magic numbers for `BorderRadius`, `EdgeInsets`, `SizedBox`, etc.
 
-*   **Modèle Obligatoire :** TOUS les styles et espacements DOIVENT être accédés via le thème `Shadcn` ou des constantes de design centralisées.
+* **Mandatory Pattern:** ALL styles and spacing MUST be accessed via the `Shadcn` theme.
 
     ```dart
-    // ✅ CORRECT : Utiliser le thème Shadcn
+    // ✅ CORRECT: Using the Shadcn theme
     final theme = ShadTheme.of(context);
     ...
     ShadCard(
-      title: Text('Générique Détecté', style: theme.textTheme.h4),
+      title: Text('Generic Detected', style: theme.textTheme.h4),
       backgroundColor: theme.colorScheme.card,
     )
 
-    // ✅ CORRECT : Utiliser des constantes de design pour les espacements
-    const SizedBox(height: AppSpacing.md)
-
-    // ❌ INCORRECT : Styles et valeurs codés en dur
+    // ❌ INCORRECT: Hardcoded styles and values
     Card(
-      color: Colors.white, // INTERDIT
+      color: Colors.white, // FORBIDDEN
       child: Text(
-        'Titre',
-        style: TextStyle(fontSize: 18), // INTERDIT
+        'Title',
+        style: TextStyle(fontSize: 18), // FORBIDDEN
       ),
     )
     ```
 
-*   **Nommage Sémantique :** Les styles personnalisés (si jamais nécessaires) doivent être nommés par leur fonction, pas leur apparence.
-    *   ✅ `theme.colorScheme.destructive`, `theme.textTheme.muted`
-    *   ❌ `redColor`, `greyText`
+* **Semantic Naming:** Custom styles (if ever necessary) must be named by their function, not their appearance.
+  * ✅ `theme.colorScheme.destructive`, `theme.textTheme.muted`
+  * ❌ `redColor`, `greyText`
 
-*   **Zéro Bibliothèque d'UI Externe :** Vous ne **DEVEZ PAS** introduire d'autres bibliothèques de composants UI. Les composants natifs de Flutter et l'écosystème de **Shadcn UI** fournissent tout ce qui est nécessaire.
+* **Zero External UI Libraries:** You **MUST NOT** introduce any other UI component libraries. Flutter's native components and the **Shadcn UI** ecosystem provide everything necessary.
 
-### 2.3. Gestion d'État : Approche Minimale et Locale
+### 2.3. State Management: Minimalist and Local Approach
 
-**Principe de Simplicité :** L'application PharmaScan est conçue pour être simple. Nous n'utiliserons **PAS** de solution de gestion d'état globale (comme Riverpod, BLoC, etc.) sauf si une complexité future l'exige absolument.
+**Simplicity Principle:** The PharmaScan application is designed to be simple. We will **NOT** use a global state management solution (like Riverpod, BLoC, etc.) unless future complexity absolutely requires it.
 
-*   **`StatefulWidget` est la Norme :** L'état de l'interface (comme `_isCameraActive` ou la liste `_infoBubbles`) **DOIT** être géré localement à l'aide de `StatefulWidget` et `setState`.
-*   **Pas d'État Global :** L'état n'est pas partagé entre les écrans. Cette contrainte maintient la simplicité, la prévisibilité et la performance.
-*   **Accès aux Services :** Les widgets peuvent instancier et appeler directement les classes de service (comme `DatabaseService`) car il n'y a pas de logique complexe à orchestrer.
+* **`StatefulWidget` is the Standard:** UI state (like `_isCameraActive` or the `_infoBubbles` list) **MUST** be managed locally using `StatefulWidget` and `setState`.
+* **No Global State:** State is not shared between screens. This constraint maintains simplicity, predictability, and performance.
+* **Service Access:** Widgets can instantiate and directly call service classes (like `DatabaseService`) as there is no complex logic to orchestrate.
 
-### 2.4. Architecture : Séparation en Deux Couches
+### 2.4. Architecture: Strict Two-Layer Separation
 
-L'application applique une architecture simple mais stricte à deux couches.
+The application enforces a simple but strict two-layer architecture.
 
-*   **Couche UI (Widgets) :**
-    *   ✅ Gère l'état de l'interface (via `StatefulWidget`).
-    *   ✅ Capture les interactions de l'utilisateur.
-    *   ✅ Affiche les données.
-    *   ✅ Appelle directement les méthodes des services pour la logique métier.
-    *   ❌ Ne contient **JAMAIS** de logique métier (parsing de données, requêtes DB complexes).
+* **UI Layer (Widgets):**
+  * ✅ Manages UI state (via `StatefulWidget`).
+  * ✅ Captures user interactions.
+  * ✅ Displays data.
+  * ✅ Directly calls service methods for business logic.
+  * ❌ **NEVER** contains business logic (data parsing, complex DB queries).
 
-*   **Couche Service (Logique Métier) :**
-    *   ✅ Contient toute la logique métier (ex: `Gs1Parser`, `DatabaseService`).
-    *   ✅ Effectue les opérations de base de données.
-    *   ✅ Télécharge et traite les données externes.
-    *   ✅ Est totalement indépendante de l'interface utilisateur.
-    *   ❌ Ne gère **JAMAIS** l'état de l'UI.
-    *   ❌ N'a **AUCUNE** dépendance envers `flutter/material.dart` ou `flutter/widgets.dart`.
+* **Service Layer (Business Logic):**
+  * ✅ Contains all business logic (e.g., `Gs1Parser`, `DatabaseService`).
+  * ✅ Performs database operations.
+  * ✅ Downloads and processes external data.
+  * ✅ Is completely independent of the user interface.
+  * ❌ **NEVER** manages UI state.
+  * ❌ Has **NO** dependencies on `flutter/material.dart` or `flutter/widgets.dart`.
 
-**Règle Critique :** Tout bug ou nouvelle fonctionnalité lié(e) à la manipulation de données **DOIT** être implémenté(e) ou corrigé(e) dans la couche de service appropriée.
+**Critical Rule:** Any bug or new feature related to data manipulation **MUST** be implemented or fixed in the appropriate service layer.
 
-### 2.5. Performance et Optimisation
+### 2.5. Performance and Optimization
 
-*   **Scan Ciblé :** Le `MobileScannerController` **DOIT** être configuré pour ne détecter que les `BarcodeFormat.dataMatrix` afin de minimiser l'utilisation du CPU.
-*   **Opérations Asynchrones :** Toute opération longue (requête DB, parsing de fichier) **DOIT** être `async` pour ne pas bloquer le thread UI.
-*   **Prévention des Doubles Scans :** Une logique (par exemple, un `Set` de codes CIP récemment scannés) **DOIT** être implémentée pour éviter d'afficher plusieurs fois la même bulle d'information en succession rapide.
+* **Targeted Scanning:** The `MobileScannerController` **MUST** be configured to detect only `BarcodeFormat.dataMatrix` to minimize CPU usage.
+* **Asynchronous Operations:** Any long-running operation (DB query, file parsing) **MUST** be `async` to avoid blocking the UI thread.
+* **Duplicate Scan Prevention:** Logic (e.g., a `Set` of recently scanned CIP codes) **MUST** be implemented to prevent displaying the same info bubble multiple times in rapid succession.
+
+### 2.6. Data Model: Deterministic Generic Group Relationships
+
+**CRITICAL:** The application uses a **deterministic** data model based on official relational data files from the *Base de Données Publique des Médicaments (BDPM)*. This eliminates predictive matching and fallback logic.
+
+* **Data Sources:** The application downloads individual TXT files directly from BDPM:
+  * `CIS_bdpm.txt` - Medication specialties with form, commercialization status, and manufacturer (titulaire)
+  * `CIS_CIP_bdpm.txt` - Medicament information (CIS, CIP13, name)
+  * `CIS_COMPO_bdpm.txt` - Active ingredient compositions with structured dosage information
+  * `CIS_GENER_bdpm.txt` - Generic group relationships (source of truth)
+
+* **Database Schema (Version 4):**
+  * `specialites` - Medication specialties (cis_code, nom_specialite, procedure_type, forme_pharmaceutique, etat_commercialisation, titulaire)
+  * `medicaments` - Basic medication info (code_cip, nom, cis_code)
+  * `principes_actifs` - Active ingredients with structured dosage (code_cip, principe, dosage, dosage_unit)
+  * `generique_groups` - Generic groups (group_id, libelle)
+  * `group_members` - Group membership (code_cip, group_id, type)
+    * `type = 0` for princeps, `type = 1` for generic
+
+* **Generic Detection:** Uses explicit group relationships from `group_members` table. **NEVER** infer generic relationships from active ingredient matching.
+
+* **Data Extraction:** **CRITICAL - NO REGEX OR HEURISTICS**: All data extraction is performed through structured parsing of official TXT files. The application **MUST NEVER** use regex patterns, string manipulation, or heuristic approximations to extract data (e.g., laboratory names, dosages, active ingredient names). All data comes directly from the structured columns of the official BDPM files:
+  * Laboratory (titulaire) comes from column 10 of `CIS_bdpm.txt`
+  * Dosage comes from column 4 of `CIS_COMPO_bdpm.txt` and is parsed into numeric value and unit
+  * Common active ingredients for groups are extracted via SQL joins on the `principes_actifs` table, not by parsing group labels
+
+* **Data Initialization:** `DataInitializationService` downloads TXT files directly, parses tab-separated values, and populates the relational schema. All complex fallback logic and regex-based extraction has been removed.
+
+* **Database Migration:** When the schema changes, a migration strategy is defined in `AppDatabase.migration`. For development, migrations recreate tables with the new schema. In production, proper `ALTER TABLE` migrations would be implemented.
+
+### 2.7. Architecture: Tooling & Enhancements
+
+To improve robustness and maintainability, the project uses specific tooling that complements the core architecture.
+
+* **Immutable Models (`freezed`):** All data models (e.g., `Medicament`, `ScanResult`, `Gs1DataMatrix`) **MUST** be defined as immutable classes using the `freezed` package. This eliminates an entire class of state-related bugs by guaranteeing that data objects cannot be modified after creation.
+  * **Required Pattern:** Classes with factory constructors **MUST** be declared as `abstract class` (e.g., `abstract class Medicament with _$Medicament`).
+  * **Union Types:** Sealed union types (like `ScanResult`) **MUST** use `sealed class` for compile-time exhaustive pattern matching.
+  * **Pattern Matching:** Use `when()` method for pattern matching on union types. For Dart 3+, consider using native `switch` expressions when returning values, but `when()` is preferred for side-effect operations (logging, UI updates).
+  * **Code Generation:** After modifying any `@freezed` class, **MUST** run `flutter pub run build_runner build --delete-conflicting-outputs`.
+
+* **Service Location (`get_it`):** The project uses `get_it` as a simple service locator to decouple the UI layer from service implementations. Widgets **MUST** retrieve service instances (like `DatabaseService`) from the central locator (`sl<T>()`) instead of using static singletons. This improves testability by allowing mock services to be injected during widget tests.
+
+* **Type-Safe Database (`drift`):** All database interactions **MUST** be performed through the `drift` ORM. Raw SQL strings are strictly forbidden in service-layer code. `drift` generates a type-safe API from Dart-based schema definitions, providing compile-time safety for all queries and eliminating runtime SQL errors.
+  * **Schema Definition:** Database schema is defined in `lib/core/database/database.dart` using Dart table classes (`@DriftDatabase`). After schema changes, **MUST** run `flutter pub run build_runner build --delete-conflicting-outputs` to regenerate type-safe query methods.
+  * **Query Pattern:** Use drift's type-safe query builder API (`select()`, `where()`, `join()`) instead of raw SQL strings. For complex queries, use `customSelect()` as a last resort.
+  * **Companion Objects:** When inserting data from Maps, manually convert to Companion objects using `Companion(column: Value(data))` syntax. Drift does not provide `.fromJson()` on Companions.
+  * **Testing:** Use `AppDatabase.forTesting(NativeDatabase.memory())` for in-memory test databases. This ensures complete test isolation without file system dependencies.
+  * **Avoid:** Never write raw SQL strings in service code. Never access `database` getter directly (use service methods instead). Never skip code generation after schema changes.
 
 ---
 
-## 3. Commandes de Référence du Projet
+## 3. Development Toolkit & Commands
 
-*   **`flutter pub get`**: Installe ou met à jour les dépendances Dart.
-*   **`flutter pub run flutter_launcher_icons:main`**: La commande obligatoire après toute modification du fichier `assets/icon/icon.png` ou de la configuration `flutter_launcher_icons` dans `pubspec.yaml`.
-*   **`flutter analyze`**: Analyse statique du code. Doit retourner zéro erreur ou avertissement critique.
-*   **`flutter test`**: Exécute tous les tests du projet.
-*   **`flutter analyze && flutter test`**: La **Barrière Qualité** à exécuter avant tout commit.
+Use the standard command-line tools to manage the project.
+
+* **Install/Update Dependencies:**
+
+    ```bash
+    flutter pub get
+    ```
+
+* **Static Code Analysis:**
+
+    ```bash
+    flutter analyze
+    ```
+
+* **Run All Tests:**
+
+    ```bash
+    flutter test
+    ```
+
+* **Quality Gate (Run Before Finalizing Changes):**
+
+    ```bash
+    flutter pub run build_runner build --delete-conflicting-outputs && flutter analyze && flutter test
+    ```
+
+* **Test Suite:**
+  * Unit tests: `test/database_service_test.dart` (12 tests) - Verifies deterministic generic group relationships, multiple princeps, one-to-many CIS to CIP13 mapping, database statistics, and search functionality
+  * Unit tests: `test/gs1_parser_test.dart` (4 tests) - Verifies GS1 Data Matrix parsing with different formats (spaces, FNC1, malformed)
+  * Unit tests: `test/data_initialization_service_test.dart` (4 tests) - Verifies TXT file parsing with correct column indices and one-to-many relationship handling
+  * Widget test: `test/widget_test.dart` (1 test) - Verifies app launches successfully with drift database
+  * Integration tests: `integration_test/` - End-to-end data pipeline, image scanning, and CSV parsing verification tests
+  * **Total**: 21 unit/widget tests covering all critical logic paths including search, statistics, and data operations
+  * **Note**: Tests use drift's in-memory database (`AppDatabase.forTesting()`) for complete isolation and fast execution.
+
+* **Update App Launcher Icons:**
+    Run this command after modifying `assets/icon/icon.png` or the `flutter_launcher_icons` configuration in `pubspec.yaml`.
+
+    ```bash
+    flutter pub run flutter_launcher_icons:main
+    ```
 
 ---
 
-## 4. Documentation et Maintenance
+## 4. Documentation and Maintenance
 
-### 4.1. Protocole du `CHANGELOG.md`
+### 4.1. `CHANGELOG.md` Protocol
 
-Vous **DEVEZ** maintenir le fichier `CHANGELOG.md` à la racine du projet.
+You **MUST** maintain the `CHANGELOG.md` file at the project root.
 
-*   **Quand Créer une Entrée :**
-    *   Créez une nouvelle entrée pour une **réalisation majeure** (mise en place de l'architecture, finalisation de la logique de scan, intégration du design system).
-    *   Les changements mineurs sont ajoutés comme des points sous la dernière entrée majeure.
-    *   **CRITIQUE :** Avant de créer une nouvelle entrée, vérifiez si une entrée existe déjà pour la date du jour. Si oui, mettez à jour l'entrée existante.
+* **When to Create an Entry:**
+  * Create a new entry for a **major achievement** (e.g., setting up the architecture, finalizing the scan logic, integrating the design system).
+  * Minor changes are added as bullet points under the latest major entry.
+  * **CRITICAL:** Before creating a new entry, check if one already exists for the current day. If so, update the existing entry.
 
-*   **Format d'Entrée :**
-    *   Ajoutez toujours les nouvelles entrées en **haut** du fichier.
-    *   **Date Requise :** Utilisez la commande `date +%Y-%m-%d` pour obtenir la date actuelle au format AAAA-MM-JJ.
-    *   Format : `# [AAAA-MM-JJ] - Titre de la Réalisation Majeure`
-    *   Suivez d'un résumé concis (1-2 lignes maximum).
+* **Entry Format:**
+  * Always add new entries at the **top** of the file.
+  * **Date Required:** Use the `date +%Y-%m-%d` command to get the current date in YYYY-MM-DD format.
+  * Format: `# [YYYY-MM-DD] - Title of Major Achievement`
+  * Follow with a concise summary (1-2 lines maximum).
 
-*   **Préservation de l'Historique :** Ne supprimez jamais les entrées passées. Elles ne sont que clarifiées si nécessaire.
+* **Preserve History:** Never delete past entries. They may only be clarified if necessary.

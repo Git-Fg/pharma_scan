@@ -1,34 +1,35 @@
-// lib/features/scanner/widgets/info_bubble.dart
+// lib/features/scanner/widgets/princeps_info_bubble.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:pharma_scan/features/scanner/models/medicament_model.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
-class InfoBubble extends StatefulWidget {
-  final Medicament medicament;
-  final List<Medicament> associatedPrinceps;
+class PrincepsInfoBubble extends StatefulWidget {
+  final Medicament princeps;
+  final String moleculeName;
+  final List<String> genericLabs;
   final VoidCallback onClose;
   final VoidCallback onExplore;
 
-  const InfoBubble({
+  const PrincepsInfoBubble({
     required super.key,
-    required this.medicament,
-    required this.associatedPrinceps,
+    required this.princeps,
+    required this.moleculeName,
+    required this.genericLabs,
     required this.onClose,
     required this.onExplore,
   });
 
   @override
-  State<InfoBubble> createState() => _InfoBubbleState();
+  State<PrincepsInfoBubble> createState() => _PrincepsInfoBubbleState();
 }
 
-class _InfoBubbleState extends State<InfoBubble> {
+class _PrincepsInfoBubbleState extends State<PrincepsInfoBubble> {
   Timer? _closeTimer;
 
   @override
   void initState() {
     super.initState();
-    // Fermeture automatique après 15 secondes
     _closeTimer = Timer(const Duration(seconds: 15), widget.onClose);
   }
 
@@ -49,11 +50,11 @@ class _InfoBubbleState extends State<InfoBubble> {
         title: Row(
           children: [
             ShadBadge(
-              backgroundColor: theme.colorScheme.primary,
+              backgroundColor: theme.colorScheme.secondary,
               child: Text(
-                'GÉNÉRIQUE',
+                'PRINCEPS',
                 style: theme.textTheme.small.copyWith(
-                  color: theme.colorScheme.primaryForeground,
+                  color: theme.colorScheme.secondaryForeground,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -61,7 +62,7 @@ class _InfoBubbleState extends State<InfoBubble> {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                widget.medicament.nom,
+                widget.princeps.nom,
                 style: theme.textTheme.h4,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -69,7 +70,7 @@ class _InfoBubbleState extends State<InfoBubble> {
           ],
         ),
         description: Text(
-          'Princeps Associé(s)',
+          'Principe Actif: ${widget.moleculeName}',
           style: theme.textTheme.small.copyWith(
             color: theme.colorScheme.mutedForeground,
           ),
@@ -91,14 +92,17 @@ class _InfoBubbleState extends State<InfoBubble> {
         ),
         child: Padding(
           padding: const EdgeInsets.only(top: 8.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: widget.associatedPrinceps.isEmpty
-                ? [Text('Aucun princeps trouvé.', style: theme.textTheme.p)]
-                : widget.associatedPrinceps
-                      .map((p) => Text('• ${p.nom}', style: theme.textTheme.p))
-                      .toList(),
-          ),
+          child: widget.genericLabs.isEmpty
+              ? Text(
+                  'Aucun générique correspondant trouvé.',
+                  style: theme.textTheme.p.copyWith(
+                    fontStyle: FontStyle.italic,
+                  ),
+                )
+              : Text(
+                  'Des génériques existent (labos: ${widget.genericLabs.take(3).join(', ')}${widget.genericLabs.length > 3 ? ', ...' : ''}).',
+                  style: theme.textTheme.p,
+                ),
         ),
       ),
     ).animate().fadeIn(duration: 300.ms).slideY(begin: -0.2, end: 0);

@@ -1,0 +1,106 @@
+
+================================================================================
+// RAPPORT DE VALIDATION DES DONNÉES - 2025-11-16 22:02:26
+================================================================================
+
+================================================================================
+// 1. CHARGEMENT ET VALIDATION STRUCTURELLE DES DONNÉES
+================================================================================
+  - Fichier: CIS_bdpm.txt
+  - Lignes chargées: 15821
+  - Statut: OK
+  - Fichier: CIS_CIP_bdpm.txt
+  - Lignes chargées: 20925
+  - Statut: OK
+  - Fichier: CIS_COMPO_bdpm.txt
+  - Lignes chargées: 32563
+  - Statut: OK
+  - Fichier: CIS_GENER_bdpm.txt
+  - Lignes chargées: 10595
+  - Statut: OK
+
+================================================================================
+// 2. ANALYSE DES VALEURS UNIQUES ET DES FORMATS
+================================================================================
+
+------------------------------------------------------------
+// Fichier : CIS_bdpm.txt
+------------------------------------------------------------
+Validation colonne date 'date_amm': 15821/15821 lignes valides (format JJ/MM/AAAA).
+
+------------------------------------------------------------
+// Fichier : CIS_CIP_bdpm.txt
+------------------------------------------------------------
+
+------------------------------------------------------------
+// Fichier : CIS_COMPO_bdpm.txt
+------------------------------------------------------------
+Natures de composant trouvées : ['FT', 'SA']
+Unités de dosage uniques trouvées : ['%', '% (mole/mole)', '% V/V', '% m/m', '% mol/mol', '% mole/mole', '% mole/mole (sous une pression de 135 bar à 15 °C)', 'A 9CH', 'CH', 'CH 0,01g', 'CH)', 'DH', 'DH (3ml)', 'DH 0,01g', 'DH 3 ml', 'DH 33%', 'DH 5 mg', 'DH 67%', 'FIP-Units', 'GBq', "GBq plus ou moins 10 % GBq à la date et l'heure de calibration", 'GBq à la date de calibration', 'GBq à la date de référence', "GBq à la date et à l'heure de calibration", "GBq à la date et à l'heure de référence", 'Gbq à la date de calibration', 'HEP', 'IR', 'M U.I.', 'M UI', 'M.U.I.', 'M.UI', 'MBq', "MBq (à la date et à l'heure de calibration)", 'MBq aux date et heure de calibration', 'MBq de piflufolastat (18F) à la date et à l\x92heure de calibration', 'MBq à la date de calibration', 'MBq à la date de référence', 'MBq à la date et heure de calibration', "MBq à la date et l'heure de calibration", "MBq à la date et à l'heure de calibration", "MBq à la date et à l'heure de la calibration", 'MBq à la date et à l\x92heure de calibration', 'MBq/ml à la date de calibration', "MBq/ml à la date et à l'heure de calibration", 'MU', 'MUI', 'Millions UI (105 microgrammes)', 'Millions UI (263 microgrammes)', "Mq à la date et à l'heure de calibration", 'SQ-Bet', 'SQ-HDM', 'SQ-T', 'U', 'U (2,5 mg)', 'U Speywood', 'U anti-Xa', 'U.', 'U.CEIP', 'U.D', 'U.D. (Unité antigène D)', 'U.D. (unité antigène D)', 'U.I.', 'U.I. anti-Xa', 'U.l.', 'UD', 'UD (Unité antigène D)', 'UFP', 'UI', 'UI (0,1 mg)', 'UI (120 mg)', 'UI AXa', 'UI Anti-Xa', 'UI anti Xa', 'UI anti-Xa', 'UI anti-Xa (150 mg)', 'UI équivalent à 0,025 mg', 'UIK', 'Ul', 'Ul Anti-Xa', 'Unité antigène D', 'Unités', 'Unités Antihéparine', 'Unités ELISA', 'Unités FEIBA', 'Unités antigène D', 'Unités antigènes D', 'bactéries', 'bar', 'cellules', 'copies de génome', "d'olive raffinée + huile de soja : 40 g", "d'olive raffinée + huile de soja raffinée : 22,75 g", "d'olive raffinée + huile de soja raffinée : 30 g", "d'olive raffinée + huile de soja raffinée : 40 g", 'de cellules', 'et  26DH à 60DH', 'et 10DH à 60DH', 'et 10DH à 60DH  (pommade à 4%)', 'et 10DH à 60DH (pommade à 1 %, 4 % ou 10 %)', 'et 10DH à 60DH (pommade à 4 %)', 'et 12DH à 60DH', 'et 14DH à 60DH', 'et 14DH à 60DH (pommade à 4 %)', 'et 15DH à 60DH', 'et 24DH à 60DH', 'et 24DH à 60DH  (pommade à 4%)', 'et 26DH à 60DH', 'et 26DH à 60DH (pommade à 1 %, 4 % ou 10 %)', 'et 26DH à 60DH (pommade à 4 %)', 'et 30CH et 4DH et 60DH', 'et 30CH et 4DH et 60DH (pommade à 4%)', 'et 4DH à 60 DH', 'et 4DH à 60 DH (pommade à 4%)', 'et 4DH à 60DH', 'et 4DH à 60DH  (pommade à 4 %)', 'et 4DH à 60DH (Crème à 4 %)', 'et 4DH à 60DH (crème à 4 %)', 'et 4DH à 60DH (crème à 4%)', 'et 4DH à 60DH (pommade à 1 %,  4 % ou 10 %)', 'et 4DH à 60DH (pommade à 1 %, 4 % et 10 %)', 'et 4DH à 60DH (pommade à 1 %, 4 % ou 10 %)', 'et 4DH à 60DH (pommade à 1%, 4% ou 10%)', 'et 4DH à 60DH (pommade à 4 %)', 'et 4DH à 60DH (pommade à 4%)', 'et 4DH à 60DH pommade à 1%, 4% ou 10%', 'et 4DH à 60DH pommade à 4 %', 'et 5DH à 60 DH', 'et 5DH à 60DH', 'et 5DH à 60DH  (pommade à 1 %, 4 % ou 10 %)', 'et 5DH à 60DH  (pommade à 1%, 4% ou 10%)', 'et 5DH à 60DH  (pommade à 4 %)', 'et 5DH à 60DH  (pommade à 4%)', 'et 5DH à 60DH (crème à 4 %)', 'et 5DH à 60DH (pommade à 1 %, 4 % ou 10 %)', 'et 5DH à 60DH (pommade à 4 %)', 'et 5DH à 60DH (pommade à 4%)', 'et 5DH à 60DH(crème à 4 %)', 'et 6DH', 'et 6DH à 60DH', 'et 6DH à 60DH (crème à 4 %)', 'et 6DH à 60DH (pommade à 1 %, 4 % ou 10 %)', 'et 6DH à 60DH (pommade à 1%, 4% ou 10%)', 'et 6DH à 60DH (pommade à 4 %)', 'et 6DH à 60DH (pommade à 4%)', 'et 6DH à 60DH(pommade à 4%)', 'et 7DH à 60DH', 'et 7DH à 60DH (Pommade à 4%)', 'et 7DH à 60DH (crème à 4 %)', 'et 7DH à 60DH (pommade à 1 %, 4 % et 10 %)', 'et 7DH à 60DH (pommade à 1 %, 4 % ou 10 %)', 'et 7DH à 60DH (pommade à 1 %, 4 % ou 10 %)</p>', 'et 7DH à 60DH (pommade à 1%, 4% ou 10%)', 'et 7DH à 60DH (pommade à 4 %)', 'et 7DH à 60DH (pommade à 4%)', 'et 7DH à 60DH pommade à 1%, 4% ou 10%', 'et 7DH à 60DH(pommade à 4 %)', 'et 8DH à 60DH', 'et 8DH à 60DH (crème à 4 %)', 'et 8DH à 60DH (crème à 4%)', 'et 8DH à 60DH (pommade à 1 %, 4 % et 10 %)', 'et 8DH à 60DH (pommade à 1 %, 4 % ou 10 %)', 'et 8DH à 60DH (pommade à 1%, 4% ou 10%)', 'et 8DH à 60DH (pommade à 4 %)', 'et 8DH à 60DH (pommade à 4%)', 'et 8DH à 60DH pommade à 1%, 4% ou 10%', 'et 8DH à 60DH</p>', 'et 9DH à 60DH', 'et 9DH à 60DH (pommade à 1 %, 4 % ou 10 %)', 'g', 'g  (1 DH)', 'g  (6 DH)', 'g  titrant à 0,43-0,53% en dérivés anthraquinonique', 'g ( 1 DH)', 'g ( 3 DH)', 'g ( 8 DH)', 'g (1 DH)', 'g (10 DH)', 'g (12 DH)', 'g (15 DH)', 'g (15DH)', 'g (2 DH)', 'g (3 CH)', 'g (3 DH)', 'g (30 DH)', 'g (30DH)', 'g (4 CH)', 'g (4 DH)', 'g (5 CH)', 'g (5 CH) g', 'g (5 DH)', 'g (6 CH)', 'g (6 DH)', 'g (60DH)', 'g (6DH)', 'g (8 DH)', 'g (8DH)', 'g (9 CH)', 'g (TM)', 'g (Teinture mère)', 'g de lactate de sodium', 'g de laurilsulfoacétate de sodium à 70 %', 'g de laurilsulfoacétate à 70 %', 'g de mélange L-cystéine / L-cystine', 'g de solution de (S)-lactate de sodium', 'g g', 'g titrant 0,43 à 0,53 % en dérivés anthracéniques', 'g titré à 54 mg de sennosides A et B exprimés en sennosides B', 'g équivalant à 100 mmol', 'inférieur à 250 000 000 Inf.U', 'inférieur à 8,92 log10 U. Inf.', 'kBq', 'kBq (à la date de calibration)', 'la contenance du flacon', 'liquéfié sous pression de 44 bar à 15°C)', 'liquéfié sous une pression de 20 bar à -18°C)', 'liquéfié sous une pression de 44 bar à 15 °C)', 'liquéfié sous une pression de 44 bar à 15°C)', 'log10 DICC50', 'log10 DICT50', 'lymphocytes T viables CAR positifs', 'mEq', 'mL', 'mL ( 1 DH)', 'mL ( 2 DH)', 'mL ( 3 DH)', 'mL ( 4 DH)', 'mL ( 5 DH)', 'mL ( 6 DH)', 'mL ( 7 DH)', 'mL ( 8 DH)', 'mL (1 DH)', 'mL (10 DH)', 'mL (15 CH)', 'mL (15 DH)', 'mL (2 DH)', 'mL (3 DH)', 'mL (4 DH)', 'mL (5 CH)', 'mL (5 DH)', 'mL (5CH)', 'mL (6 DH)', 'mL (8 DH)', 'mL (9 CH)', 'mL (TM)', 'mL) 2DH', 'mL) 3DH', 'mL) 4DH', 'mL) 6DH', 'mL) 8DH', 'mL) TM', 'mg', 'mg  (4 DH)', 'mg ( 4 CH )', 'mg ( 4 DH)', 'mg ( 6 CH )', 'mg ( 6 DH)', 'mg ( 8 DH)', 'mg (1 DH)', 'mg (10 DH)', 'mg (12 DH)', 'mg (15 CH)', 'mg (19 DH)', 'mg (1DH)', 'mg (2 DH)', 'mg (20 DH)', 'mg (2800 UI)', 'mg (2DH)', 'mg (3 CH)', 'mg (3 DH)', 'mg (30 DH)', 'mg (3DH)', 'mg (4 CH)', 'mg (4 DH)', 'mg (4CH)', 'mg (4DH)', 'mg (5 % m/m)', 'mg (5 CH)', 'mg (5 DH)', 'mg (5600 UI)', 'mg (5CH)', 'mg (5DH)', 'mg (6 CH)', 'mg (6 DH)', 'mg (8 DH)', 'mg (8DH)', 'mg (9 CH)', 'mg (9 DH)', 'mg (9DH)', 'mg (TM)', 'mg - 455,789 mg', 'mg dans 340 mg de poudre', 'mg dans 800mg de poudre', 'mg de calcium', 'mg de fosphénytoïne sodique anhydre', 'mg de magnésium', 'mg de phosphore', 'mg de protéines totales', 'mg de sennoside B', "mg dont 450 mg de diosmine et 50 mg d'hespéridine", 'mg dont 450 mg de diosmine et 50 mg de falvonïdes exprimés en hespéridine', 'mg dont 450 mg de diosmine et 50 mg de flavonoïdes exprimés en hespéridine', 'mg mg', 'mg ou 20 mg ou 50 mg', 'mg quantité exprimée en sennosides B', 'mg soit 11,70 mg quantité exprimée en sennosides B', 'mg soit 5 mg quantité exprimée en coumarine', 'mg soit 6,25 mg quantité exprimée en cascaroside A', 'mg soit 6,25 mg quantité exprimée en glucofrangulines A', "mg soit 840 mg d'esters éthyliques d'EPA et d'DHA", "mg titré à 24 % d'hétérosides de Ginko et 6 % de Ginkolides-bilobalide", "mg titré à 24 % d'hétérosides de ginkgo et 6 % de Ginkgolides-bilobalide", 'mg à 1100 mg quantité correspondant à 25 mg d\x92hétérosides anthracéniques en Sennosides B', 'mg à 337,199 mg', 'mg à 540 mg sous forme de chlorure de potassium microencapsulé (600 mg)', 'mg équivalent à 10 000 UI activité anti-Xa', 'mg équivalent à 2 000 UI activité anti Xa', "mg équivalent à 32,5 mg d'acide résidronique", 'mg équivalent à 4 000 UI activité anti Xa', 'mg équivalent à 6 000 UI activité anti Xa', 'mg équivalent à 8 000 UI activité anti Xa', 'mg équivalent à au moins 100 000 UI', 'mg équivalent à au moins 200 000 UI', 'mg équivalent à au moins 400 000 UI', 'mg équivalents à au moins 200 000 UI', 'mg) 3 DH', 'mg) 4 DH', 'mg) 5 DH', 'mg) 6 DH', 'mg) 7 DH', 'mg-162,1 mg', 'microgramme', 'microgrammes', 'microgrammes (2 800 UI)', 'microgrammes (2800 UI)', 'microgrammes (30 M.U.)', 'microgrammes (5 600 UI)', 'microgrammes (5600 UI)', "microgrammes d'Haemophilus influenzae de type b", "microgrammes d'hémagglutinine", "microgrammes d'oligoside de Neisseria meningitidis du groupe A", "microgrammes d'oligoside de Neisseria meningitidis du groupe C", "microgrammes d'oligoside de Neisseria meningitidis du groupe W135", "microgrammes d'oligoside de Neisseria meningitidis du groupe Y", 'microgrammes de polyoside Haemophilus influenzae type b', "microgrammes de polyoside d'Haemophilus influenzae type b", 'microgrammes de polyoside pneumococcique', 'microgrammes de protéines', 'microgrammes polyoside de Neisseria meningitidis de groupe A', 'microgrammes polyoside de Neisseria meningitidis de groupe C', 'microgrammes polyoside de Neisseria meningitidis de groupe W135 pr une dose de 0,5 ml de solution', 'microgrammes polyoside de Neisseria meningitidis de groupe Y', 'microlitres', 'micromoles', 'micrpgrammes', "million d'unités internationales", "million d'unités internationales (UI)", 'millions UI', 'millions de cellules', 'millions à 3000 millions unités viables', 'minimum 1 000 DICC50', 'minimum 1 000 DICT50', 'minimum 10^3,0 DICC50', 'minimum 10^3,7 DICC50', 'minimum 10^3.3 UFP', 'minimum 12 500 DICC50', 'minimum 12 500 DICT50', 'minimum 2 000 000 UI', 'minimum 2 200 000 UI', 'minimum 2 300 000 UI', 'minimum 2 800 000 UI', 'ml', 'ml ( 3 DH)', 'ml (1 DH)', 'ml (10 DH)', 'ml (12 DH)', 'ml (15 CH)', 'ml (1DH)', 'ml (2 DH)', 'ml (20 DH)', 'ml (3 CH)', 'ml (3 DH)', 'ml (30DH)', 'ml (3DH)', 'ml (4 CH)', 'ml (4 DH)', 'ml (4DH)', 'ml (5 DH)', 'ml (6 CH)', 'ml (6 DH)', 'ml (6DH)', 'ml (7 DH)', 'ml (8 DH)', 'ml (8DH)', 'ml (9 CH)', 'ml (9 DH)', 'ml (TM)', 'ml de solution', 'ml de solution alcoolique à 4', 'ml de solution à 4 %', 'mmol', 'moins 1 000 000 DICC50', 'moins 30 UI', 'moins 40 UI', 'moins de 1000 UI', 'moins de 19 400 UFP', 'moins de 20 UI', 'moins de 40 UI', 'mol/mol', 'nanokatals', 'ng à la date de référence', 'ou égal 1 350 UFP', 'ou égal à 1000 UE chez la souris', 'ou égal à 150 UI', 'ou égal à 2 UI', 'ou égal à 2 UI (2,5 Lf)', 'ou égal à 2,5 UI', 'ou égal à 2,7 log10 UFP', 'ou égal à 20 UI', 'ou égal à 20 UI (5 Lf)', 'ou égal à 3,3 log10 UFP', 'ou égal à 30 UI', 'ou égal à 4,0 log10 UFP', 'ou égal à 4,5 log10 UFP', 'ou égal à 40 UI', 'ou égal à 500 UE chez la souris', 'ou égale à  2.10^9 cellules', 'ou égale à 20 UI', 'ou égale à 30 UI (25Lf)', 'ou égale à 40 UI', 'ou égale à 40 UI (10 Lf)', 'ppm  mole', 'ppm (V/V)', 'ppm mole', 'pression de 10 à 15 bar, de -155 à - 145°C)', 'pression de 10 à 15 bar, de -155 à -145°C)', 'qs', 's p 10 milliards de LACTOBACILLUS L B inactivés dans 340 mg de poudre', 's p 10 milliards de LACTOBACILLUS L B inactivés dans 800 mg de poudre', 'sous une pression de 10 à 12 bar, à -150 °C', 'suffisante', 'un flacon', 'une ampoule', 'une pression de 10 à 12 bar, à -150 °C)', 'une pression de 10 à 12 bar, à -150°C)', 'une pression de 10 à 15 bar', 'une pression de 10 à 15 bar, de -155 °C à -145 °C)', 'une pression de 10 à 15 bar, de -155 à -145°C', 'une pression de 10 à 15 bar, de -155 à -145°C)', 'une pression de 110 bar)', 'une pression de 200 bar)', 'une pression de 200 bars)', 'une pression entre 1,3 et 26 bar)', 'une pression inférieure ou égale à 10 bar, de -180 à -170°C)', 'une pression inférieure ou égale à 10 bar, de 180 à 170°C)', 'une pression inférieure ou égale à 12 bar, de -180 à -150°C)', 'unités', 'unités ALLERGAN', 'unités CEIP', 'unités DL 50', 'unités DL50', 'unités ELISA', 'unités F.I.P.', 'unités Speywood', 'unités antigéniques', "unités d'antigène D", "unités d'antigènes D", 'unités d\x92insuline asparte', 'x 1 000 000 - 1,0 x 100 0000 000 cellules', 'x 1 000 000 000 000 génomes de vecteur', 'x 1 000 000 cellules', 'x 1 000 000 cellules dans une ou plusieurs poches', 'x 1 000 000 à 6 x 100 000 000  lymphocytes', 'x 10 000 000 - 7,3 x 10 000 000 cellules', 'x 10 000 000 000 000 génomes du vecteur', 'x 10 000 000 U. Inf', 'x 100 000 000 cellules au maximum', 'x 10^11 génomes de vecteur', 'x 10^5 UFC', 'x 10^8 à 12,0 x 10^8 unités viables']
+
+------------------------------------------------------------
+// Fichier : CIS_GENER_bdpm.txt
+------------------------------------------------------------
+Types de génériques trouvés : [np.int64(0), np.int64(1), np.int64(2), np.int64(4)]
+
+================================================================================
+// 3. VÉRIFICATION DE L'INTÉGRITÉ RELATIONNELLE
+================================================================================
+CIS_CIP_bdpm -> CIS_bdpm: 32 CIS orphelins sur 20925 (0.15%)
+CIS_COMPO_bdpm -> CIS_bdpm: 0 CIS orphelins sur 32563 (0.00%)
+CIS_GENER_bdpm -> CIS_bdpm: 2431 CIS orphelins sur 10595 (22.94%)
+
+================================================================================
+// 4. VALIDATION DE LA LOGIQUE MÉTIER ET CAS LIMITES
+================================================================================
+
+------------------------------------------------------------
+// Cohérence des principes actifs dans les groupes génériques
+------------------------------------------------------------
+Nombre de groupes avec des principes actifs inconsistants : 0
+
+------------------------------------------------------------
+// Analyse de la composition des groupes
+------------------------------------------------------------
+Groupes sans aucun princeps (type 0) : 11
+Groupes avec uniquement des princeps : 106
+
+------------------------------------------------------------
+// Couverture des principes actifs
+------------------------------------------------------------
+Spécialités (CIS) sans principe actif ('SA') listé : 2 / 15821 (0.01%)
+
+------------------------------------------------------------
+// Analyse des médicaments composés
+------------------------------------------------------------
+Distribution des spécialités par nombre de principes actifs :
+  - 1 principe(s) actif(s) : 13412 médicaments
+  - 2 principe(s) actif(s) : 1735 médicaments
+  - 3 principe(s) actif(s) : 305 médicaments
+  - 4 principe(s) actif(s) : 96 médicaments
+  - 5 principe(s) actif(s) : 73 médicaments
+  - 6 principe(s) actif(s) : 53 médicaments
+  - 7 principe(s) actif(s) : 19 médicaments
+  - 8 principe(s) actif(s) : 27 médicaments
+  - 9 principe(s) actif(s) : 19 médicaments
+  - 10 principe(s) actif(s) : 16 médicaments
+  - 11 principe(s) actif(s) : 4 médicaments
+  - 12 principe(s) actif(s) : 2 médicaments
+  - 13 principe(s) actif(s) : 2 médicaments
+  - 15 principe(s) actif(s) : 1 médicaments
+  - 16 principe(s) actif(s) : 3 médicaments
+  - 18 principe(s) actif(s) : 4 médicaments
+  - 19 principe(s) actif(s) : 4 médicaments
+  - 20 principe(s) actif(s) : 7 médicaments
+  - 21 principe(s) actif(s) : 5 médicaments
+  - 22 principe(s) actif(s) : 1 médicaments
+  - 23 principe(s) actif(s) : 1 médicaments
+  - 24 principe(s) actif(s) : 2 médicaments
+  - 25 principe(s) actif(s) : 8 médicaments
+  - 26 principe(s) actif(s) : 1 médicaments
+  - 27 principe(s) actif(s) : 8 médicaments
+  - 28 principe(s) actif(s) : 5 médicaments
+  - 29 principe(s) actif(s) : 1 médicaments
+  - 32 principe(s) actif(s) : 1 médicaments
+  - 35 principe(s) actif(s) : 3 médicaments
+  - 58 principe(s) actif(s) : 1 médicaments

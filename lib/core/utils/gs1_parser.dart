@@ -1,16 +1,16 @@
 // lib/core/utils/gs1_parser.dart
-class Gs1DataMatrix {
-  final String? gtin;   // AI (01) -> Code CIP
-  final String? serial; // AI (21)
-  final String? lot;    // AI (10)
-  final DateTime? expDate; // AI (17)
+import 'package:freezed_annotation/freezed_annotation.dart';
 
-  const Gs1DataMatrix({this.gtin, this.serial, this.lot, this.expDate});
+part 'gs1_parser.freezed.dart';
 
-  @override
-  String toString() {
-    return 'GTIN: $gtin, Serial: $serial, Lot: $lot, ExpDate: $expDate';
-  }
+@freezed
+abstract class Gs1DataMatrix with _$Gs1DataMatrix {
+  const factory Gs1DataMatrix({
+    String? gtin, // AI (01) -> Code CIP
+    String? serial, // AI (21)
+    String? lot, // AI (10)
+    DateTime? expDate, // AI (17)
+  }) = _Gs1DataMatrix;
 }
 
 class Gs1Parser {
@@ -26,11 +26,14 @@ class Gs1Parser {
     // Remplace les caractères de contrôle (comme FNC1/GS) et les espaces
     // qui pourraient être utilisés comme séparateurs par notre séparateur interne.
     // Le \x1D est la représentation hexadécimale de l'ASCII 29 (FNC1/GS).
-    String normalized = rawValue.replaceAll(RegExp(r'[\s\x1D]'), _internalSeparator);
-    
+    String normalized = rawValue.replaceAll(
+      RegExp(r'[\s\x1D]'),
+      _internalSeparator,
+    );
+
     // Supprime les séparateurs multiples pour éviter les champs vides.
     normalized = normalized.replaceAll(RegExp(r'\|+'), _internalSeparator);
-    
+
     // Ignorer les séparateurs au début et à la fin
     normalized = normalized.replaceAll(RegExp(r'^\|+|\|+$'), '');
 
@@ -48,16 +51,24 @@ class Gs1Parser {
         i++;
         continue;
       }
-      
+
       if (i + 2 > normalized.length) break;
-      
+
       final ai = normalized.substring(i, i + 2);
       i += 2;
-      
+
       switch (ai) {
         case '01': // GTIN (Code CIP) - 14 chiffres fixes
           if (i + 14 <= normalized.length) {
-            gtin = normalized.substring(i, i + 14);
+            final rawGtin = normalized.substring(i, i + 14);
+            // WHY: The database uses 13-digit CIPs. The GTIN-14 is often a
+            // 13-digit EAN with a leading packaging indicator (usually '0').
+            // We strip this leader to match the database key.
+            if (rawGtin.length == 14) {
+              gtin = rawGtin.substring(1);
+            } else {
+              gtin = rawGtin;
+            }
             i += 14;
             // Sauter le séparateur s'il est présent
             if (i < normalized.length && normalized[i] == _internalSeparator) {
@@ -104,7 +115,12 @@ class Gs1Parser {
       }
     }
 
-    return Gs1DataMatrix(gtin: gtin, serial: serial, lot: lot, expDate: expDate);
+    return Gs1DataMatrix(
+      gtin: gtin,
+      serial: serial,
+      lot: lot,
+      expDate: expDate,
+    );
   }
 
   static int _findFieldEnd(String data, int startIndex) {
@@ -113,7 +129,7 @@ class Gs1Parser {
     if (separatorIndex != -1) {
       return separatorIndex;
     }
-    
+
     // Si pas de séparateur, chercher le prochain AI (01, 10, 17, 21) dans la chaîne
     final knownAIs = ['01', '10', '17', '21'];
     for (int i = startIndex; i < data.length - 1; i++) {
