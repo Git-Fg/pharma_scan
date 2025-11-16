@@ -43,3 +43,9 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+android/local.properties
+android/*.iml
+android/.gradle
+android/.kotlin
+android/build/
