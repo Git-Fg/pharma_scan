@@ -1,5 +1,6 @@
 // lib/features/scanner/screens/camera_screen.dart
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 // Importez les modèles et services nécessaires
@@ -20,6 +21,7 @@ class _CameraScreenState extends State<CameraScreen> {
   final MobileScannerController _scannerController = MobileScannerController(
     formats: [BarcodeFormat.dataMatrix], // On ne scanne QUE les DataMatrix
   );
+  final ImagePicker _picker = ImagePicker();
   final List<Widget> _infoBubbles = [];
   final Set<String> _scannedCodes = {}; // Pour éviter les scans en double
 
@@ -28,8 +30,8 @@ class _CameraScreenState extends State<CameraScreen> {
       _isCameraActive = !_isCameraActive;
     });
   }
-  
-  void _onDetect(BarcodeCapture capture) {
+
+  void _processBarcodeCapture(BarcodeCapture capture) {
     for (final barcode in capture.barcodes) {
       if (barcode.rawValue == null) continue;
 
@@ -43,6 +45,32 @@ class _CameraScreenState extends State<CameraScreen> {
 
       // 2. Interroger la base de données
       _findMedicament(codeCip);
+    }
+  }
+
+  void _onDetect(BarcodeCapture capture) {
+    _processBarcodeCapture(capture);
+  }
+
+  Future<void> _pickAndScanImage() async {
+    final XFile? file = await _picker.pickImage(source: ImageSource.gallery);
+    if (file == null) return;
+
+    final BarcodeCapture? capture =
+        await _scannerController.analyzeImage(file.path);
+
+    if (capture != null && capture.barcodes.isNotEmpty) {
+      _processBarcodeCapture(capture);
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text(
+                'L\'image sélectionnée ne contient pas de code Data Matrix valide.'),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
     }
   }
 
@@ -109,19 +137,31 @@ class _CameraScreenState extends State<CameraScreen> {
           // Bulles d'information
           ..._infoBubbles,
 
-          // Bouton flottant pour activer/désactiver
+          // Boutons flottants pour activer/désactiver la caméra et scanner depuis la galerie
           Positioned(
             bottom: 40,
             left: 0,
             right: 0,
             child: Center(
-              child: ShadButton(
-                onPressed: _toggleCamera,
-                leading: Icon(
-                  _isCameraActive ? LucideIcons.cameraOff : LucideIcons.camera,
-                  size: 20,
-                ),
-                child: Text(_isCameraActive ? 'Arrêter' : 'Scanner'),
+              child: Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                alignment: WrapAlignment.center,
+                children: [
+                  ShadButton(
+                    onPressed: _toggleCamera,
+                    leading: Icon(
+                      _isCameraActive ? LucideIcons.cameraOff : LucideIcons.camera,
+                      size: 20,
+                    ),
+                    child: Text(_isCameraActive ? 'Arrêter' : 'Scanner'),
+                  ),
+                  ShadButton.outline(
+                    onPressed: _pickAndScanImage,
+                    leading: const Icon(LucideIcons.image, size: 20),
+                    child: const Text('Galerie'),
+                  ),
+                ],
               ).animate().fadeIn(delay: 200.ms).slideY(begin: 0.5, end: 0),
             ),
           ),

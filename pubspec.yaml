@@ -43,6 +43,7 @@ dependencies:
   http: ^1.6.0
   archive: ^4.0.7
   lucide_icons_flutter: ^3.1.6
+  image_picker: ^1.2.1
 
 dev_dependencies:
   flutter_test:
