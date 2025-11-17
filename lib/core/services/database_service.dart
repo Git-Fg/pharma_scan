@@ -2,44 +2,16 @@
 import 'package:drift/drift.dart';
 import 'package:pharma_scan/core/database/database.dart' hide Medicament;
 import 'package:pharma_scan/core/locator.dart';
+import 'package:pharma_scan/core/utils/medicament_helpers.dart';
+import 'package:pharma_scan/core/utils/string_normalizer.dart';
 import 'package:pharma_scan/features/explorer/models/generic_group_summary_model.dart';
 import 'package:pharma_scan/features/explorer/models/group_details_model.dart';
-import 'package:pharma_scan/features/explorer/models/grouped_generic_model.dart';
+import 'package:pharma_scan/features/explorer/models/grouped_by_laboratory_model.dart';
 import 'package:pharma_scan/features/scanner/models/medicament_model.dart';
 import 'package:pharma_scan/features/scanner/models/scan_result_model.dart';
 
 class DatabaseService {
   final AppDatabase _db = sl<AppDatabase>();
-
-  // WHY: Extract the base name of a medication without dosage information.
-  // This normalizes names like "FLECAÏNE L.P. 50 mg, gélule à libération prolongée"
-  // to "FLECAÏNE L.P., gélule à libération prolongée".
-  // Pattern: Remove dosage patterns like "50 mg", "100mg", "0,5 g", etc.
-  String _extractBaseName(String fullName) {
-    String normalized = fullName.trim();
-
-    // Pattern to match dosage at the start or middle: ", 50 mg," or " 50 mg,"
-    // This handles cases like "FLECAÏNE L.P. 50 mg, gélule..."
-    final dosageInMiddlePattern = RegExp(
-      r'\s+\d+[\d,.]*\s*(?:mg|g|µg|mcg|UI|IU|ml|cl|l|%)\s*,',
-      caseSensitive: false,
-    );
-    normalized = normalized.replaceAll(dosageInMiddlePattern, ',');
-
-    // Pattern to match dosage at the end: ", 50 mg" or " 50 mg"
-    final dosageAtEndPattern = RegExp(
-      r'\s*[,;]?\s*\d+[\d,.]*\s*(?:mg|g|µg|mcg|UI|IU|ml|cl|l|%)\s*$',
-      caseSensitive: false,
-    );
-    normalized = normalized.replaceAll(dosageAtEndPattern, '');
-
-    // Clean up multiple commas or spaces
-    normalized = normalized.replaceAll(RegExp(r'\s*,\s*,+'), ',');
-    normalized = normalized.trim().replaceAll(RegExp(r'[,\s]+$'), '');
-    normalized = normalized.replaceAll(RegExp(r'^[,\s]+'), '');
-
-    return normalized.isEmpty ? fullName : normalized;
-  }
 
   // WHY: Unified method to handle both generic and princeps scans.
   // This method identifies the type of medicament and returns the appropriate result.
@@ -181,41 +153,23 @@ class DatabaseService {
       }
     }
 
-    // WHY: Group generics by base name (without dosage) to combine similar products.
-    // For example, "PARACETAMOL BIOGARAN" and "PARACETAMOL SANDOZ" are grouped together.
-    final Map<String, List<Medicament>> genericsByBaseName = {};
+    // WHY: Group generics by laboratory for a more intuitive UI.
+    // This groups products by their manufacturer, which is more useful for professionals.
+    final Map<String, List<Medicament>> genericsByLab = {};
     for (final generic in allGenerics) {
-      final baseName = _extractBaseName(generic.nom);
-      genericsByBaseName.putIfAbsent(baseName, () => []).add(generic);
+      final lab = generic.titulaire ?? 'Laboratoire Inconnu';
+      genericsByLab.putIfAbsent(lab, () => []).add(generic);
     }
 
-    final groupedGenericsList = genericsByBaseName.entries.map((entry) {
+    final groupedGenericsList = genericsByLab.entries.map((entry) {
       // Sort products within the group by name for consistency
       final sortedProducts = List<Medicament>.from(entry.value);
       sortedProducts.sort((a, b) => a.nom.compareTo(b.nom));
-      return GroupedGeneric(baseName: entry.key, products: sortedProducts);
+      return GroupedByLaboratory(
+        laboratory: entry.key,
+        products: sortedProducts,
+      );
     }).toList();
-
-    // WHY: Group princeps by base name (without dosage) to avoid duplicates.
-    // For example, "FLECAÏNE L.P. 50 mg" and "FLECAÏNE L.P. 100 mg" are grouped together.
-    final Map<String, Medicament> groupedPrincepsMap = {};
-    for (final princeps in princepsList) {
-      final baseName = _extractBaseName(princeps.nom);
-      // Use the first occurrence as representative, or prefer one with lower dosage
-      if (!groupedPrincepsMap.containsKey(baseName)) {
-        groupedPrincepsMap[baseName] = princeps;
-      } else {
-        final existing = groupedPrincepsMap[baseName]!;
-        // Prefer princeps with lower dosage (or without dosage info)
-        if ((existing.dosage == null && princeps.dosage != null) ||
-            (existing.dosage != null &&
-                princeps.dosage != null &&
-                princeps.dosage! < existing.dosage!)) {
-          groupedPrincepsMap[baseName] = princeps;
-        }
-      }
-    }
-    final groupedPrincepsList = groupedPrincepsMap.values.toList();
 
     // --- PARTIE 2: Trouver les principes actifs communs du groupe ---
     final commonPrincipesQuery = _db.customSelect(
@@ -300,7 +254,7 @@ class DatabaseService {
     }
 
     return GroupDetails(
-      princeps: groupedPrincepsList,
+      princeps: princepsList,
       generics: groupedGenericsList,
       relatedPrinceps: relatedPrincepsList,
     );
@@ -453,72 +407,180 @@ class DatabaseService {
     final keywordsToUse = formKeywords ?? defaultOralKeywords;
     final excludesToUse = excludeKeywords ?? defaultExcludeKeywords;
 
-    // WHY: Build dynamic WHERE clause to filter groups based on pharmaceutical form.
-    // A group is considered matching if at least one of its princeps matches any keyword
-    // AND does not match any exclusion keyword.
-    // Escape single quotes in keywords for SQL safety (though keywords are controlled, not user input).
-    final formConditions = keywordsToUse
-        .map(
-          (kw) =>
-              "princeps_spec.forme_pharmaceutique LIKE '%${kw.replaceAll("'", "''")}%'",
+    // Special case: if formKeywords is empty, we want groups where NO form matches excludeKeywords
+    // This is used for the "other" category
+    final String whereClause;
+    if (keywordsToUse.isEmpty && excludesToUse.isNotEmpty) {
+      // For "other" category: find groups where no form matches any exclude keyword
+      whereClause =
+          '''
+        WHERE NOT EXISTS (
+          SELECT 1
+          FROM group_members gm_exclude
+          INNER JOIN medicaments m_exclude ON gm_exclude.code_cip = m_exclude.code_cip
+          INNER JOIN specialites s_exclude ON m_exclude.cis_code = s_exclude.cis_code
+          WHERE gm_exclude.group_id = gg.group_id
+            AND (${excludesToUse.map((kw) => "s_exclude.forme_pharmaceutique LIKE '%${kw.replaceAll("'", "''")}%'").join(' OR ')})
         )
-        .join(' OR ');
-
-    // Build exclusion conditions
-    final excludeConditions = excludesToUse.isEmpty
-        ? ''
-        : ' AND ${excludesToUse.map((kw) => "princeps_spec.forme_pharmaceutique NOT LIKE '%${kw.replaceAll("'", "''")}%'").join(' AND ')}';
-
-    // WHY: Cette requête est refactorisée pour être la source de vérité des groupes.
-    // 1. Elle identifie les principes actifs communs à un groupe en joignant jusqu'à la table `principes_actifs`.
-    // 2. Elle utilise `GROUP_CONCAT(DISTINCT pa.principe)` pour créer une liste propre des principes, éliminant le besoin de parser le `libelle`.
-    // 3. Elle continue de lister les princeps de référence pour la deuxième colonne de l'UI.
-    // 4. Elle filtre les groupes par forme pharmaceutique du princeps (default: oral).
-    // 5. Elle exclut les groupes sans principes actifs (HAVING clause).
-    // WHY: SQLite ne supporte pas GROUP_CONCAT(DISTINCT column, separator).
-    // On utilise une sous-requête pour obtenir les principes distincts, puis on les concatène avec ' + '.
-    final query = _db.customSelect(
-      '''
-      SELECT
-        gg.group_id,
-        (
-          SELECT GROUP_CONCAT(principe, ' + ')
-          FROM (
-            SELECT DISTINCT pa.principe
-            FROM group_members gm2
-            LEFT JOIN principes_actifs pa ON gm2.code_cip = pa.code_cip
-            WHERE gm2.group_id = gg.group_id AND pa.principe IS NOT NULL
-            ORDER BY pa.principe
+      ''';
+    } else {
+      // Normal case: find groups where at least one form matches keywords and doesn't match excludes
+      final formConditions = keywordsToUse
+          .map(
+            (kw) =>
+                "s2.forme_pharmaceutique LIKE '%${kw.replaceAll("'", "''")}%'",
           )
-        ) as common_principes,
-        GROUP_CONCAT(DISTINCT princeps_spec.nom_specialite) as princeps_names
+          .join(' OR ');
+
+      final excludeConditions = excludesToUse.isEmpty
+          ? ''
+          : ' AND ${excludesToUse.map((kw) => "s2.forme_pharmaceutique NOT LIKE '%${kw.replaceAll("'", "''")}%'").join(' AND ')}';
+
+      whereClause =
+          '''
+        WHERE EXISTS (
+          SELECT 1
+          FROM group_members gm2
+          INNER JOIN medicaments m2 ON gm2.code_cip = m2.code_cip
+          INNER JOIN specialites s2 ON m2.cis_code = s2.cis_code
+          WHERE gm2.group_id = gg.group_id AND ($formConditions) $excludeConditions
+        )
+      ''';
+    }
+
+    // WHY: Phase 1 - Fetch only distinct group labels matching the filter.
+    // This is a much smaller dataset than fetching all princeps names.
+    // We fetch group_id and libelle only, which allows us to normalize and group efficiently.
+    final groupLabelsQuery = _db.customSelect(
+      '''
+      SELECT DISTINCT
+        gg.group_id,
+        gg.libelle
       FROM generique_groups gg
-      LEFT JOIN group_members princeps_gm ON gg.group_id = princeps_gm.group_id AND princeps_gm.type = 0
-      LEFT JOIN medicaments princeps_m ON princeps_gm.code_cip = princeps_m.code_cip
-      LEFT JOIN specialites princeps_spec ON princeps_m.cis_code = princeps_spec.cis_code
-      WHERE ($formConditions)$excludeConditions
-      GROUP BY gg.group_id
-      HAVING common_principes IS NOT NULL AND common_principes != ''
-      ORDER BY common_principes
-      LIMIT ? OFFSET ?
+      $whereClause
       ''',
-      variables: [Variable.withInt(limit), Variable.withInt(offset)],
+      readsFrom: {_db.generiqueGroups},
     );
 
-    final results = await query.get();
-    return results.map((row) {
+    final groupLabelsResults = await groupLabelsQuery.get();
+
+    // WHY: Phase 2 - Normalize, group, and sort in Dart to get unique normalized labels.
+    // This processing is fast and allows us to determine which groups belong to each normalized label.
+    final groupsByPrinciple = <String, Map<String, dynamic>>{};
+    for (final row in groupLabelsResults) {
+      final groupLabel = row.read<String>('libelle');
+      final cleanedLabel = cleanGroupLabel(groupLabel);
+      final normalizedLabel = normalize(cleanedLabel);
+
+      if (normalizedLabel.isEmpty) continue;
+
       final groupId = row.read<String>('group_id');
-      final princepsNames = row.read<String?>('princeps_names');
-      final commonPrincipes = row.read<String?>('common_principes');
-      return GenericGroupSummary(
-        groupId: groupId,
-        // On utilise les principes actifs comme label principal.
-        // Le séparateur ' + ' est utilisé pour une meilleure lisibilité.
-        // Note: common_principes ne sera jamais null après le HAVING clause.
-        commonPrincipes: commonPrincipes ?? '',
-        princepsNames: princepsNames?.split(',') ?? [],
+
+      groupsByPrinciple.putIfAbsent(
+        normalizedLabel,
+        () => {'displayLabel': cleanedLabel, 'groupIds': <String>{}},
       );
+
+      groupsByPrinciple[normalizedLabel]!['groupIds'].add(groupId);
+    }
+
+    // Create intermediate summaries with normalized labels for sorting
+    final intermediateSummaries = groupsByPrinciple.entries.map((entry) {
+      final displayLabel = entry.value['displayLabel'] as String;
+      final groupIds = (entry.value['groupIds'] as Set<String>).toList();
+
+      return {
+        'normalizedLabel': entry.key,
+        'displayLabel': displayLabel,
+        'groupIds': groupIds,
+      };
     }).toList();
+
+    // Sort by display label (alphabetically by active principle)
+    intermediateSummaries.sort(
+      (a, b) =>
+          (a['displayLabel'] as String).compareTo(b['displayLabel'] as String),
+    );
+
+    // WHY: Phase 3 - Apply pagination on the sorted unique labels.
+    // This ensures we only process the groups needed for the current page.
+    if (offset >= intermediateSummaries.length) return [];
+    final end = (offset + limit > intermediateSummaries.length)
+        ? intermediateSummaries.length
+        : offset + limit;
+    final paginatedSummaries = intermediateSummaries.sublist(offset, end);
+
+    // WHY: Phase 4 - Fetch princeps names only for the paginated groups.
+    // This dramatically reduces memory usage by fetching princeps data only for the current page.
+    final paginatedGroupIds = <String>{};
+    for (final summary in paginatedSummaries) {
+      paginatedGroupIds.addAll((summary['groupIds'] as List<String>));
+    }
+
+    if (paginatedGroupIds.isEmpty) return [];
+
+    final placeholders = List.generate(
+      paginatedGroupIds.length,
+      (_) => '?',
+    ).join(',');
+    final princepsQuery = _db.customSelect(
+      '''
+      SELECT
+        gm.group_id,
+        s.nom_specialite as princeps_name
+      FROM group_members gm
+      INNER JOIN medicaments m ON gm.code_cip = m.code_cip
+      INNER JOIN specialites s ON m.cis_code = s.cis_code
+      WHERE gm.group_id IN ($placeholders) AND gm.type = 0
+      ''',
+      readsFrom: {_db.groupMembers, _db.medicaments, _db.specialites},
+      variables: paginatedGroupIds
+          .map((id) => Variable.withString(id))
+          .toList(),
+    );
+
+    final princepsResults = await princepsQuery.get();
+
+    // Map princeps names to group IDs
+    final princepsByGroupId = <String, Set<String>>{};
+    for (final row in princepsResults) {
+      final groupId = row.read<String>('group_id');
+      final princepsName = row.read<String?>('princeps_name');
+      if (princepsName != null) {
+        princepsByGroupId
+            .putIfAbsent(groupId, () => <String>{})
+            .add(princepsName);
+      }
+    }
+
+    // Build final summaries with princeps names
+    final summaries = <GenericGroupSummary>[];
+    for (final summary in paginatedSummaries) {
+      final displayLabel = summary['displayLabel'] as String;
+      final groupIds = summary['groupIds'] as List<String>;
+      final representativeGroupId = groupIds.first;
+
+      // Collect all princeps names from all groups in this normalized label
+      final allPrincepsNames = <String>{};
+      for (final groupId in groupIds) {
+        final princepsNames = princepsByGroupId[groupId];
+        if (princepsNames != null) {
+          allPrincepsNames.addAll(princepsNames);
+        }
+      }
+
+      summaries.add(
+        GenericGroupSummary(
+          groupId: representativeGroupId,
+          commonPrincipes: displayLabel,
+          princepsReferenceName: findCommonPrincepsName(
+            allPrincepsNames.toList(),
+          ),
+        ),
+      );
+    }
+
+    return summaries;
   }
 
   // WHY: Search now includes active ingredients for a more powerful discovery experience.

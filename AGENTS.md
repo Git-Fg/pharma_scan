@@ -112,6 +112,8 @@ The application enforces a simple but strict two-layer architecture.
 * **Targeted Scanning:** The `MobileScannerController` **MUST** be configured to detect only `BarcodeFormat.dataMatrix` to minimize CPU usage.
 * **Asynchronous Operations:** Any long-running operation (DB query, file parsing) **MUST** be `async` to avoid blocking the UI thread.
 * **Duplicate Scan Prevention:** Logic (e.g., a `Set` of recently scanned CIP codes) **MUST** be implemented to prevent displaying the same info bubble multiple times in rapid succession.
+* **Efficient Database Queries:** Complex queries should use CTE (Common Table Expression) for pagination and filtering. Group results in Dart when algorithmic processing is needed (e.g., common prefix detection) rather than relying solely on SQL aggregation.
+* **Pagination:** Large result sets **MUST** be paginated to maintain UI responsiveness. Use infinite scroll with proper offset/limit management.
 
 ### 2.6. Data Model: Deterministic Generic Group Relationships
 
@@ -137,6 +139,8 @@ The application enforces a simple but strict two-layer architecture.
   * Laboratory (titulaire) comes from column 10 of `CIS_bdpm.txt`
   * Dosage comes from column 4 of `CIS_COMPO_bdpm.txt` and is parsed into numeric value and unit
   * Common active ingredients for groups are extracted via SQL joins on the `principes_actifs` table, not by parsing group labels
+
+* **Princeps Name Grouping:** The application uses an algorithmic word-based approach to find common base names for princeps within the same group. The `findCommonPrincepsName()` helper function in `lib/core/utils/medicament_helpers.dart` compares medication names word-by-word to identify the longest common prefix. This replaces fragile regex-based extraction and provides robust, deterministic grouping results.
 
 * **Data Initialization:** `DataInitializationService` downloads TXT files directly, parses tab-separated values, and populates the relational schema. All complex fallback logic and regex-based extraction has been removed.
 
@@ -176,10 +180,11 @@ To improve robustness and maintainability, the project uses specific tooling tha
 
 * **Type-Safe Database (`drift`):** All database interactions **MUST** be performed through the `drift` ORM. Raw SQL strings are strictly forbidden in service-layer code. `drift` generates a type-safe API from Dart-based schema definitions, providing compile-time safety for all queries and eliminating runtime SQL errors.
   * **Schema Definition:** Database schema is defined in `lib/core/database/database.dart` using Dart table classes (`@DriftDatabase`). After schema changes, **MUST** run `flutter pub run build_runner build --delete-conflicting-outputs` to regenerate type-safe query methods.
-  * **Query Pattern:** Use drift's type-safe query builder API (`select()`, `where()`, `join()`) instead of raw SQL strings. For complex queries, use `customSelect()` as a last resort.
+  * **Query Pattern:** Use drift's type-safe query builder API (`select()`, `where()`, `join()`) instead of raw SQL strings. For complex queries, use `customSelect()` as a last resort. When using `customSelect()`, prefer CTE (Common Table Expression) for complex pagination and filtering scenarios.
   * **Companion Objects:** When inserting data from Maps, manually convert to Companion objects using `Companion(column: Value(data))` syntax. Drift does not provide `.fromJson()` on Companions.
   * **Testing:** Use `AppDatabase.forTesting(NativeDatabase.memory())` for in-memory test databases. This ensures complete test isolation without file system dependencies.
   * **Avoid:** Never write raw SQL strings in service code. Never access `database` getter directly (use service methods instead). Never skip code generation after schema changes.
+  * **Algorithmic Processing:** When grouping or processing data requires word-based algorithms (e.g., finding common prefixes), perform the grouping in Dart after fetching individual rows from the database. This allows for more robust and maintainable logic compared to complex SQL aggregation.
 
 ---
 
@@ -215,7 +220,7 @@ Use the standard command-line tools to manage the project.
   * The project includes a comprehensive test suite with unit, widget, and integration tests.
   * **Unit Tests**: Cover critical business logic including GS1 Data Matrix parsing, TXT data initialization, and all database service operations (search, generic group relationships, statistics).
   * **Widget Tests**: Verify that core UI components render correctly.
-  * **Integration Tests**: Validate end-to-end user flows, such as the complete data initialization pipeline and barcode scanning from static images.
+  * **Integration Tests**: Validate end-to-end user flows, such as the complete data initialization pipeline, barcode scanning from static images, and algorithmic princeps grouping with real TXT data.
   * **Note**: All tests utilize `drift`'s in-memory database for fast, isolated, and reliable execution without file system dependencies.
 
 * **Update App Launcher Icons:**

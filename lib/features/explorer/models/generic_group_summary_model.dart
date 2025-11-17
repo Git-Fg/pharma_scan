@@ -4,10 +4,10 @@ class GenericGroupSummary {
   const GenericGroupSummary({
     required this.groupId,
     required this.commonPrincipes,
-    required this.princepsNames,
+    required this.princepsReferenceName,
   });
 
   final String groupId;
   final String commonPrincipes; // RENOMMÉ: groupLabel -> commonPrincipes
-  final List<String> princepsNames;
+  final String princepsReferenceName;
 }

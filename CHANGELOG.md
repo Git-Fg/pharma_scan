@@ -1,3 +1,39 @@
+# [2025-11-16] - Groupement Algorithmique des Princeps et Correction Critique
+
+Implémentation du groupement algorithmique des princeps par préfixe commun et correction d'un bug SQL critique qui empêchait l'affichage des résultats dans l'explorateur.
+
+- **Groupement Algorithmique des Princeps** : Remplacement de la logique regex fragile par un algorithme déterministe basé sur les mots
+  - Création de `findCommonPrincepsName()` dans `lib/core/utils/medicament_helpers.dart` pour trouver le plus long préfixe commun de mots
+  - Algorithme robuste qui compare les noms mot par mot pour identifier la base commune
+  - Gestion des cas limites : listes vides, noms uniques, absence de préfixe commun
+
+- **Simplification du Modèle GenericGroupSummary** : Passage d'une liste de noms à un nom de référence unique
+  - Remplacement de `List<String> princepsNames` par `String princepsReferenceName` dans le modèle
+  - Interface UI simplifiée : affichage d'un seul nom de princeps de référence par groupe
+  - Mapping clair "Principe(s) Actif(s) ↔ Princeps de Référence" avec séparateur visuel (flèche)
+
+- **Refactorisation de getGenericGroupSummaries** : Migration de la logique de groupement SQL vers Dart
+  - Requête SQL modifiée pour récupérer les noms individuels de princeps (une ligne par princeps) au lieu de `GROUP_CONCAT`
+  - Groupement des résultats par `group_id` en Dart pour permettre le traitement algorithmique
+  - Utilisation de `findCommonPrincepsName()` pour calculer le nom de référence commun pour chaque groupe
+  - Optimisation avec CTE (Common Table Expression) pour la pagination efficace
+
+- **Correction Critique du Bug SQL** : Résolution du problème "no result" dans l'explorateur
+  - Bug identifié : alias incorrect dans la clause WHERE de la CTE (`princeps_spec` vs `princeps_spec2`)
+  - Solution : création de conditions séparées pour la CTE (`formConditionsCte`, `excludeConditionsCte`) avec les bons alias
+  - Impact : l'explorateur affiche maintenant correctement tous les groupes de médicaments
+
+- **Tests d'Intégration avec Données Réelles** : Validation complète avec les fichiers TXT officiels BDPM
+  - Nouveau test `integration_test/generic_group_summaries_test.dart` qui télécharge et utilise les vrais fichiers TXT
+  - Vérification que le groupement algorithmique produit des résultats cohérents
+  - Tests pour différentes catégories de formes pharmaceutiques (oral, injectable, externe)
+  - Validation de la pagination et du comportement avec de grandes quantités de données
+
+- **Vérification Mobile** : Test sur appareil réel confirmant le bon fonctionnement
+  - L'explorateur affiche maintenant correctement les groupes avec leurs principes actifs et princeps de référence
+  - Interface utilisateur simplifiée et plus intuitive
+  - Performance vérifiée avec scrolling et pagination
+
 # [2025-11-16] - Refonte Complète : Données Enrichies et Logique Déterministe
 
 Élimination complète de toutes les logiques d'extraction par regex au profit d'un parsing structuré des fichiers TXT officiels BDPM, enrichissement du modèle de données, et remplacement de la dernière logique heuristique par une méthode déterministe basée sur la base de données.

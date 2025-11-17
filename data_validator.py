@@ -740,212 +740,111 @@ def validate_business_logic(report, dfs):
         report.add_line(f"  - {count} principe(s) actif(s) : {num_meds} médicaments")
 
 def analyze_pharmaceutical_forms(report, dataframes):
-    """Analyze pharmaceutical forms and categorize them for filtering with precise classification."""
-    report.add_header("Analyse des Formes Pharmaceutiques (Classification Précise)", level=2)
+    """Analyze pharmaceutical forms and validate the Dart categorization logic."""
+    report.add_header("Analyse et Validation de la Catégorisation des Formes Pharmaceutiques", level=2)
     
     if "CIS_bdpm.txt" not in dataframes:
+        report.add_line("❌ Fichier CIS_bdpm.txt manquant. Impossible d'analyser les formes.")
         return
     
-    specialites = dataframes["CIS_bdpm.txt"]
-    
-    # Define categorization keywords with priority order (most specific first)
-    # Category 1: Injectable (highest priority - must exclude from oral)
-    INJECTABLE_KEYWORDS = ['injectable', 'injection', 'perfusion', 'solution pour perfusion', 'poudre pour solution injectable', 'solution pour injection']
-    
-    # Category 2: Gynécologique (vaginal forms)
-    GYNECOLOGICAL_KEYWORDS = ['ovule', 'pessaire', 'comprimé vaginal', 'crème vaginale', 'gel vaginal', 'capsule vaginale', 'tampon vaginal', 'anneau vaginal']
-    
-    # Category 3: Contraception (functional category - check both form and name)
-    CONTRACEPTION_FORM_KEYWORDS = ['implant', 'dispositif', 'patch', 'anneau', 'pilule contraceptive']
-    CONTRACEPTION_NAME_KEYWORDS = ['contraceptif', 'contraception', 'pilule', 'stérilet', 'spirale', 'nuvaring', 'implanon']
-    
-    # Category 4: Usage externe (topical, cutaneous, but not vaginal)
-    EXTERNAL_USE_KEYWORDS = ['crème', 'pommade', 'gel', 'lotion', 'pâte', 'cutanée', 'cutané', 'application locale', 'application cutanée']
-    EXTERNAL_USE_EXCLUDE = ['vaginal', 'vaginale']  # Exclude gynecological
-    
-    # Category 5: Sachet (oral sachets/powders for oral solution)
-    SACHET_KEYWORDS = ['sachet', 'poudre pour solution buvable', 'poudre pour suspension buvable', 'granulé']
-    
-    # Category 6: Oral (tablets, capsules, but NOT injectable, NOT sachet)
-    ORAL_KEYWORDS = ['comprimé', 'gélule', 'capsule', 'lyophilisat', 'granulé', 'solution buvable', 'sirop', 'suspension buvable', 'comprimé orodispersible']
-    ORAL_EXCLUDE = ['injectable', 'injection', 'vaginal', 'vaginale']  # Exclude injectable and vaginal
-    
-    # Category 7: Ophtalmique
-    OPHTHALMIC_KEYWORDS = ['collyre', 'ophtalmique', 'solution ophtalmique', 'pommade ophtalmique', 'gel ophtalmique']
-    
-    # Category 8: Nasal/ORL
-    NASAL_ORL_KEYWORDS = ['nasale', 'auriculaire', 'buccale', 'aérosol', 'spray nasal', 'gouttes nasales', 'gouttes auriculaires']
-    
-    # Get all unique pharmaceutical forms
-    unique_forms = specialites['forme_pharmaceutique'].dropna().unique()
-    
-    # Categorize forms with priority-based classification
-    injectable_forms = []
-    gynecological_forms = []
-    contraception_forms = []
-    external_use_forms = []
-    sachet_forms = []
-    oral_forms = []
-    ophthalmic_forms = []
-    nasal_orl_forms = []
-    unclassified_forms = []
-    
-    # Also track medications by category for validation
-    medications_by_category = {
+    df = dataframes["CIS_bdpm.txt"]
+    unique_forms = df['forme_pharmaceutique'].dropna().unique()
+
+    report.add_line(f"Total des formes pharmaceutiques uniques trouvées : {len(unique_forms)}")
+
+    # --- REPLICATE DART LOGIC ---
+    # 1. Define Categories and Keywords exactly as in the app
+    categories = {
+        'injectable': ['injectable', 'injection', 'perfusion', 'solution pour perfusion', 'poudre pour solution injectable', 'solution pour injection', 'dispersion pour perfusion', 'usage parentéral', 'parentéral', 'poudre et solvant', 'générateur radiopharmaceutique', 'précurseur radiopharmaceutique', 'solution pour dialyse', 'solution pour hémofiltration', 'solution pour instillation', 'solution cardioplégique', 'solution pour administration intravésicale', 'suspension pour instillation'],
+        'gynecological': ['ovule', 'pessaire', 'comprimé vaginal', 'crème vaginale', 'gel vaginal', 'capsule vaginale', 'tampon vaginal', 'anneau vaginal'],
+        'externalUse': ['crème', 'pommade', 'gel', 'lotion', 'pâte', 'cutanée', 'cutané', 'application locale', 'application cutanée', 'dispositif transdermique', 'patch', 'patchs', 'emplâtre', 'compresse', 'bâton pour application', 'mousse pour application', 'mousse', 'pansement', 'implant', 'shampooing', 'solution filmogène pour application', 'dispositif pour application', 'solution pour application', 'solution moussant', 'solution pour lavage', 'suppositoire'],
+        'sachet': ['sachet', 'poudre pour solution buvable', 'poudre pour suspension buvable', 'granulé', 'granules', 'granulés', 'poudre'],
+        'oral': ['comprimé', 'gélule', 'capsule', 'lyophilisat', 'comprimé orodispersible', 'film orodispersible', 'gomme', 'gomme à mâcher', 'pastille', 'pastille à sucer', 'plante pour tisane', 'plantes pour tisane', 'plante(s) pour tisane', 'mélange de plantes pour tisane', 'plante en vrac'],
+        'syrup': ['sirop', 'suspension buvable'],
+        'drinkableDrops': ['solution buvable', 'gouttes buvables', 'solution en gouttes', 'solution gouttes'],
+        'ophthalmic': ['collyre', 'ophtalmique', 'solution ophtalmique', 'pommade ophtalmique', 'gel ophtalmique', 'solution pour irrigation oculaire'],
+        'nasalOrl': ['nasale', 'auriculaire', 'buccale', 'aérosol', 'spray nasal', 'gouttes nasales', 'gouttes auriculaires', 'bain de bouche', 'collutoire', 'gaz pour inhalation', 'gaz', 'cartouche pour inhalation', 'dispersion pour inhalation', 'inhalation', 'insert', 'solution pour pulvérisation'],
+    }
+
+    exclusions = {
         'injectable': [],
         'gynecological': [],
-        'contraception': [],
-        'external_use': [],
-        'sachet': [],
-        'oral': [],
+        'externalUse': ['vaginal', 'vaginale'],
+        'sachet': ['injectable', 'injection', 'parentéral', 'solvant'],
+        'oral': ['buvable', 'solution', 'suspension'],
+        'syrup': [],
+        'drinkableDrops': [],
         'ophthalmic': [],
-        'nasal_orl': [],
+        'nasalOrl': [],
     }
+
+    # 2. Classification Logic with Priority
+    categorized_forms = {cat: [] for cat in categories}
+    unclassified_forms = []
+    ambiguous_forms = []
     
     for form in unique_forms:
-        form_lower = str(form).lower()
-        categorized = False
+        # Normalize multiple spaces to single space for matching
+        form_lower = ' '.join(form.lower().split())
+        assigned_category = None
+
+        # Priority-based assignment
+        # The order here must match the conceptual priority in the app
+        # Most specific first: injectable, gynecological, ophthalmic, nasalOrl, externalUse, sachet, syrup, drinkableDrops, oral
+        priority_order = ['injectable', 'gynecological', 'ophthalmic', 'nasalOrl', 'externalUse', 'sachet', 'syrup', 'drinkableDrops', 'oral']
+
+        for cat in priority_order:
+            # Check for keyword match
+            if any(kw in form_lower for kw in categories[cat]):
+                # Check for exclusion match
+                if not any(excl in form_lower for excl in exclusions.get(cat, [])):
+                    assigned_category = cat
+                    break  # Stop on first match due to priority
         
-        # Priority 1: Injectable (highest specificity)
-        if not categorized and any(kw in form_lower for kw in INJECTABLE_KEYWORDS):
-            injectable_forms.append(form)
-            categorized = True
-        
-        # Priority 2: Gynécologique (specific anatomical route)
-        if not categorized and any(kw in form_lower for kw in GYNECOLOGICAL_KEYWORDS):
-            gynecological_forms.append(form)
-            categorized = True
-        
-        # Priority 3: Contraception (functional - check form)
-        if not categorized and any(kw in form_lower for kw in CONTRACEPTION_FORM_KEYWORDS):
-            contraception_forms.append(form)
-            categorized = True
-        
-        # Priority 4: Usage externe (but exclude vaginal)
-        if not categorized and any(kw in form_lower for kw in EXTERNAL_USE_KEYWORDS):
-            if not any(excl in form_lower for excl in EXTERNAL_USE_EXCLUDE):
-                external_use_forms.append(form)
-                categorized = True
-        
-        # Priority 5: Sachet (oral sachets)
-        if not categorized and any(kw in form_lower for kw in SACHET_KEYWORDS):
-            # Double-check it's not injectable
-            if 'injectable' not in form_lower and 'injection' not in form_lower:
-                sachet_forms.append(form)
-                categorized = True
-        
-        # Priority 6: Oral (tablets, capsules, but exclude injectable and vaginal)
-        if not categorized and any(kw in form_lower for kw in ORAL_KEYWORDS):
-            if not any(excl in form_lower for excl in ORAL_EXCLUDE):
-                # Double-check it's not already in sachet
-                if form not in sachet_forms:
-                    oral_forms.append(form)
-                    categorized = True
-        
-        # Priority 7: Ophtalmique
-        if not categorized and any(kw in form_lower for kw in OPHTHALMIC_KEYWORDS):
-            ophthalmic_forms.append(form)
-            categorized = True
-        
-        # Priority 8: Nasal/ORL
-        if not categorized and any(kw in form_lower for kw in NASAL_ORL_KEYWORDS):
-            nasal_orl_forms.append(form)
-            categorized = True
-        
-        if not categorized:
+        if assigned_category:
+            categorized_forms[assigned_category].append(form)
+        else:
             unclassified_forms.append(form)
     
-    # Additional analysis: Check contraception by medication name
-    report.add_header("Analyse Complémentaire: Contraception par Nom de Spécialité", level=3)
-    contraception_by_name = specialites[
-        specialites['nom_specialite'].str.lower().str.contains('|'.join(CONTRACEPTION_NAME_KEYWORDS), na=False, regex=True)
-    ]
-    contraception_by_name_count = len(contraception_by_name)
-    report.add_line(f"Médicaments identifiés comme contraceptifs par nom: {contraception_by_name_count}")
-    if contraception_by_name_count > 0:
-        sample_names = contraception_by_name['nom_specialite'].head(10).tolist()
-        report.add_line(f"   - Exemples: {', '.join(sample_names[:5])}")
-        if len(sample_names) > 5:
-            report.add_line(f"   ... et {len(sample_names) - 5} autres")
-    
-    # Report results by category
-    report.add_header("Résultats de Classification par Catégorie", level=3)
-    
-    report.add_line(f"✅ Injectable: {len(injectable_forms)} formes uniques trouvées")
-    if len(injectable_forms) > 0:
-        report.add_line(f"   - Exemples: {', '.join(injectable_forms[:5])}")
-        if len(injectable_forms) > 5:
-            report.add_line(f"   ... et {len(injectable_forms) - 5} autres")
-    
-    report.add_line(f"✅ Gynécologique: {len(gynecological_forms)} formes uniques trouvées")
-    if len(gynecological_forms) > 0:
-        report.add_line(f"   - Exemples: {', '.join(gynecological_forms[:5])}")
-        if len(gynecological_forms) > 5:
-            report.add_line(f"   ... et {len(gynecological_forms) - 5} autres")
-    
-    report.add_line(f"✅ Contraception (par forme): {len(contraception_forms)} formes uniques trouvées")
-    if len(contraception_forms) > 0:
-        report.add_line(f"   - Exemples: {', '.join(contraception_forms[:5])}")
-        if len(contraception_forms) > 5:
-            report.add_line(f"   ... et {len(contraception_forms) - 5} autres")
-    
-    report.add_line(f"✅ Usage externe: {len(external_use_forms)} formes uniques trouvées")
-    if len(external_use_forms) > 0:
-        report.add_line(f"   - Exemples: {', '.join(external_use_forms[:5])}")
-        if len(external_use_forms) > 5:
-            report.add_line(f"   ... et {len(external_use_forms) - 5} autres")
-    
-    report.add_line(f"✅ Sachet: {len(sachet_forms)} formes uniques trouvées")
-    if len(sachet_forms) > 0:
-        report.add_line(f"   - Exemples: {', '.join(sachet_forms[:5])}")
-        if len(sachet_forms) > 5:
-            report.add_line(f"   ... et {len(sachet_forms) - 5} autres")
-    
-    report.add_line(f"✅ Oral: {len(oral_forms)} formes uniques trouvées")
-    if len(oral_forms) > 0:
-        report.add_line(f"   - Exemples: {', '.join(oral_forms[:5])}")
-        if len(oral_forms) > 5:
-            report.add_line(f"   ... et {len(oral_forms) - 5} autres")
-    
-    report.add_line(f"✅ Ophtalmique: {len(ophthalmic_forms)} formes uniques trouvées")
-    if len(ophthalmic_forms) > 0:
-        report.add_line(f"   - Exemples: {', '.join(ophthalmic_forms[:5])}")
-        if len(ophthalmic_forms) > 5:
-            report.add_line(f"   ... et {len(ophthalmic_forms) - 5} autres")
-    
-    report.add_line(f"✅ Nasal/ORL: {len(nasal_orl_forms)} formes uniques trouvées")
-    if len(nasal_orl_forms) > 0:
-        report.add_line(f"   - Exemples: {', '.join(nasal_orl_forms[:5])}")
-        if len(nasal_orl_forms) > 5:
-            report.add_line(f"   ... et {len(nasal_orl_forms) - 5} autres")
-    
-    if len(unclassified_forms) > 0:
-        report.add_line(f"⚠️  Formes non classifiées: {len(unclassified_forms)} formes uniques trouvées")
-        report.add_line(f"   - Exemples: {', '.join(unclassified_forms[:15])}")
-        if len(unclassified_forms) > 15:
-            report.add_line(f"   ... et {len(unclassified_forms) - 15} autres")
-    
-    # Validation: Check for overlap issues
-    report.add_header("Validation: Détection des Chevauchements", level=3)
-    all_categorized = set(injectable_forms + gynecological_forms + contraception_forms + 
-                         external_use_forms + sachet_forms + oral_forms + 
-                         ophthalmic_forms + nasal_orl_forms)
-    total_unique = len(unique_forms)
-    categorized_count = len(all_categorized)
-    
-    if categorized_count == total_unique:
-        report.add_line(f"✅ Aucun chevauchement détecté: {categorized_count}/{total_unique} formes classifiées de manière unique")
+        # Check for ambiguity (contains keywords from multiple categories)
+        found_cats = {cat for cat, keywords in categories.items() if any(kw in form_lower for kw in keywords)}
+        if len(found_cats) > 1:
+            ambiguous_forms.append({'form': form, 'categories': sorted(list(found_cats)), 'assigned': assigned_category})
+
+    # --- GENERATE REPORT ---
+    report.add_header("1. Couverture de la Catégorisation", level=3)
+    total_categorized = sum(len(forms) for forms in categorized_forms.values())
+    coverage = (total_categorized / len(unique_forms)) * 100 if len(unique_forms) > 0 else 0
+    report.add_line(f"Formes catégorisées : {total_categorized} / {len(unique_forms)} ({coverage:.2f}%)")
+    report.add_line(f"Formes non catégorisées : {len(unclassified_forms)}")
+
+    report.add_header("2. Formes Non Catégorisées (Échantillon)", level=3)
+    if unclassified_forms:
+        report.add_line("  ACTION : Analyser cette liste pour trouver de nouveaux mots-clés à ajouter.")
+        for form in sorted(unclassified_forms)[:30]:  # Show first 30
+            report.add_line(f"  - {form}")
+        if len(unclassified_forms) > 30:
+            report.add_line(f"  ... et {len(unclassified_forms) - 30} autres.")
     else:
-        report.add_line(f"⚠️  Chevauchement possible: {categorized_count} formes classifiées sur {total_unique} uniques")
-    
-    # Check for injectable in oral (should not happen)
-    oral_injectable_overlap = [f for f in oral_forms if any(kw in f.lower() for kw in INJECTABLE_KEYWORDS)]
-    if len(oral_injectable_overlap) > 0:
-        report.add_line(f"❌ ERREUR: {len(oral_injectable_overlap)} forme(s) orale(s) contiennent des mots-clés injectables:")
-        for f in oral_injectable_overlap[:5]:
-            report.add_line(f"   - '{f}'")
+        report.add_line("✅ Excellente couverture ! Toutes les formes ont été catégorisées.")
+
+    report.add_header("3. Détection d'Ambiguïté (Potentiels Conflits)", level=3)
+    if ambiguous_forms:
+        report.add_line("  ACTION : Vérifier que la priorité et les exclusions gèrent bien ces cas.")
+        for item in ambiguous_forms[:20]:
+            report.add_line(f"  - Forme : '{item['form']}'")
+            report.add_line(f"    > Mots-clés détectés pour : {item['categories']}")
+            report.add_line(f"    > Catégorie assignée (par priorité) : {item['assigned']}")
     else:
-        report.add_line(f"✅ Aucun chevauchement injectable/oral détecté")
+        report.add_line("✅ Aucune ambiguïté détectée. Les règles de priorité et d'exclusion sont efficaces.")
+
+    report.add_header("4. Répartition par Catégorie (Échantillon)", level=3)
+    for cat, forms in sorted(categorized_forms.items()):
+        report.add_line(f"\n--- {cat.upper()} ({len(forms)} formes) ---")
+        for form in sorted(forms)[:5]:
+            report.add_line(f"  - {form}")
+        if len(forms) > 5:
+            report.add_line(f"  ... et {len(forms) - 5} autres.")
 
 def investigate_unspecified_groups(report, dataframes):
     """Investigate groups with no specified active principles (Principe non spécifié)."""
@@ -1004,7 +903,7 @@ def investigate_unspecified_groups(report, dataframes):
                 cis_row = specialites[specialites['cis'] == cis]
                 if len(cis_row) > 0:
                     nom = cis_row.iloc[0]['nom_specialite'] if pd.notna(cis_row.iloc[0]['nom_specialite']) else "N/A"
-                    procedure_type = cis_row.iloc[0]['procedure_type'] if pd.notna(cis_row.iloc[0]['procedure_type']) else "N/A"
+                    procedure_type = cis_row.iloc[0]['type_amm'] if pd.notna(cis_row.iloc[0]['type_amm']) else "N/A"
                     etat = cis_row.iloc[0]['etat_commercialisation'] if pd.notna(cis_row.iloc[0]['etat_commercialisation']) else "N/A"
                     
                     # Check if homeopathic
@@ -1046,6 +945,173 @@ def investigate_unspecified_groups(report, dataframes):
         report.add_line(f"  - Recommandation: Filtrer ces groupes (HAVING common_principes IS NOT NULL AND common_principes != '')")
     else:
         report.add_line("✅ Tous les groupes ont au moins un principe actif spécifié.")
+
+def clean_group_label_python(label):
+    """
+    A Python replication of the Dart `cleanGroupLabel` heuristic logic.
+    This function extracts the active principle name from a group label by removing
+    everything after the first dosage number.
+    """
+    if pd.isna(label) or not label:
+        return ""
+    
+    parts = str(label).split(' ')
+    stop_index = -1
+    
+    for i, part in enumerate(parts):
+        try:
+            # Attempt to parse a number, handling commas as decimal points
+            # This replicates: double.tryParse(part.replaceAll(',', '.'))
+            float(part.replace(',', '.'))
+            stop_index = i
+            break
+        except ValueError:
+            continue
+    
+    if stop_index != -1:
+        # Replicate: parts.sublist(0, stopIndex).join(' ').replaceAll(RegExp(r'\s*,$'), '')
+        result = ' '.join(parts[:stop_index])
+        # Remove trailing commas
+        result = re.sub(r'\s*,+$', '', result)
+        return result.strip()
+    
+    # Fallback for labels without a clear dosage number
+    # Replicate: label.split(',').first.trim()
+    return str(label).split(',')[0].strip()
+
+def validate_active_principle_logic(report, dataframes):
+    """
+    Compares the heuristic `cleanGroupLabel` logic against a deterministic
+    database join and adds a quality check to ensure the deterministic result
+    is free of dosage or formulation keywords.
+    """
+    report.add_header("5. VALIDATION: LOGIQUE D'EXTRACTION DES PRINCIPES ACTIFS", level=1)
+    
+    if "CIS_GENER_bdpm.txt" not in dataframes or "CIS_COMPO_bdpm.txt" not in dataframes:
+        report.add_line("❌ Fichiers nécessaires manquants pour la validation.")
+        return
+    
+    gener = dataframes["CIS_GENER_bdpm.txt"]
+    compo = dataframes["CIS_COMPO_bdpm.txt"][dataframes["CIS_COMPO_bdpm.txt"]["nature_composant"] == 'SA']
+    
+    # --- Define keywords that should NOT appear in a clean active principle name ---
+    # Note: We use more precise patterns to avoid false positives
+    # For units, we look for patterns like "X mg", "X g" where X is a number
+    DOSAGE_UNIT_PATTERNS = [
+        re.compile(r'\b\d+([.,]\d+)?\s*mg\b', re.IGNORECASE),  # "100 mg" or "2.5 mg"
+        re.compile(r'\b\d+([.,]\d+)?\s*g\b', re.IGNORECASE),  # "10 g" or "0.5 g"
+        re.compile(r'\b\d+([.,]\d+)?\s*ml\b', re.IGNORECASE),  # "5 ml"
+        re.compile(r'\b\d+([.,]\d+)?\s*ui\b', re.IGNORECASE),  # "1000 ui"
+        re.compile(r'\b\d+([.,]\d+)?\s*%\b'),  # "0.5 %"
+        re.compile(r'\b\d+([.,]\d+)?\s*ch\b', re.IGNORECASE),  # "5CH" or "5 ch"
+        re.compile(r'\b\d+([.,]\d+)?\s*dh\b', re.IGNORECASE),  # "9DH" or "9 dh"
+        re.compile(r'\b\d+([.,]\d+)?\s*gbq\b', re.IGNORECASE),  # "100 GBq"
+        re.compile(r'\b\d+([.,]\d+)?\s*mbq\b', re.IGNORECASE),  # "100 MBq"
+    ]
+    
+    # Formulation keywords that should not appear (but be careful with false positives)
+    # These are checked as whole words to avoid matching parts of molecule names
+    FORMULATION_KEYWORDS = {
+        'comprimé', 'gélule', 'solution', 'injectable', 'poudre', 'sirop',
+        'suspension', 'crème', 'pommade', 'gel', 'collyre', 'inhalation'
+    }
+    
+    # Pattern to match standalone numbers (but exclude known molecule names with numbers)
+    # Known molecules with numbers in their names (legitimate)
+    KNOWN_NUMBERED_MOLECULES = {'4000', '3350', '980', '940', '6000'}
+    NUMBER_PATTERN = re.compile(r'\b(\d+([.,]\d+)?)\b')  # Matches numbers
+    
+    all_group_ids = gener['group_id'].dropna().unique()
+    total_groups_analyzed = 0
+    contaminated_groups = []
+    
+    for group_id in all_group_ids:
+        group_rows = gener[gener['group_id'] == group_id]
+        if group_rows.empty:
+            continue
+            
+        total_groups_analyzed += 1
+        
+        # --- Methodology: Deterministic (Proposed Logic) ---
+        group_cis = set(group_rows['cis'].unique())
+        group_compo = compo[compo['cis'].isin(group_cis)]
+        
+        deterministic_result = ""
+        if not group_compo.empty:
+            principles_per_cis = group_compo.groupby('cis')['denomination_substance'].apply(set)
+            if not principles_per_cis.empty:
+                common_principles = set.intersection(*principles_per_cis)
+                if common_principles:
+                    deterministic_result = ', '.join(sorted(list(common_principles)))
+        
+        if not deterministic_result:
+            continue  # Skip groups with no common principles
+        
+        # --- Quality Check: Scan for contamination ---
+        contamination_reasons = []
+        result_lower = deterministic_result.lower()
+        
+        # Check for dosage units with numbers (e.g., "100 mg", "5 g")
+        for pattern in DOSAGE_UNIT_PATTERNS:
+            if pattern.search(deterministic_result):
+                contamination_reasons.append("unité de dosage avec nombre")
+                break  # Only report once
+        
+        # Check for standalone numbers (excluding known molecule names)
+        number_matches = NUMBER_PATTERN.findall(deterministic_result)
+        for match_tuple in number_matches:
+            number_str = match_tuple[0].replace(',', '.')
+            # Check if it's part of a known molecule name
+            # Look for context: if the number is immediately followed by a space and a word,
+            # it might be a dosage, not a molecule name
+            number_with_context = re.search(
+                rf'\b{re.escape(match_tuple[0])}\s+[a-zA-Z]',
+                deterministic_result,
+                re.IGNORECASE
+            )
+            # Also check if it's a known numbered molecule (like MACROGOL 4000)
+            is_known_molecule = any(
+                known in deterministic_result.upper() 
+                for known in KNOWN_NUMBERED_MOLECULES
+            )
+            
+            if number_with_context and not is_known_molecule:
+                contamination_reasons.append("chiffre(s) suspect(s)")
+                break  # Only report once
+        
+        # Check for formulation keywords as whole words (to avoid false positives)
+        # Use word boundaries to avoid matching parts of molecule names
+        for keyword in FORMULATION_KEYWORDS:
+            # Match as whole word, case insensitive
+            pattern = re.compile(rf'\b{re.escape(keyword)}\b', re.IGNORECASE)
+            if pattern.search(deterministic_result):
+                contamination_reasons.append(keyword)
+        
+        if contamination_reasons:
+            contaminated_groups.append({
+                'group_id': group_id,
+                'libelle': group_rows['libelle_groupe'].iloc[0],
+                'result': deterministic_result,
+                'reasons': sorted(list(set(contamination_reasons)))
+            })
+    
+    # --- Generate Report Section ---
+    report.add_header("Analyse de Propreté des Résultats Déterministes", level=2)
+    
+    clean_count = total_groups_analyzed - len(contaminated_groups)
+    report.add_line(f"Total des groupes avec principes actifs communs analysés : {total_groups_analyzed}")
+    report.add_line(f"  - ✅ Groupes avec résultat propre : {clean_count}")
+    report.add_line(f"  - ⚠️  Groupes avec résultat contaminé : {len(contaminated_groups)}")
+    
+    if not contaminated_groups:
+        report.add_line("\n✅ EXCELLENT: Aucun résultat déterministe ne contient de posologie ou de formulation superflue.")
+    else:
+        report.add_line("\n--- DÉTAIL DES RÉSULTATS CONTAMINÉS ---")
+        for item in contaminated_groups:
+            report.add_line(f"\nGroupe ID: {item['group_id']}")
+            report.add_line(f"  - Libellé Original : '{item['libelle']}'")
+            report.add_line(f"  - Résultat Obtenu  : '{item['result']}'")
+            report.add_line(f"  - Contaminants     : {', '.join(item['reasons'])}")
 
 # --- Main Execution ---
 def main():
@@ -1093,6 +1159,9 @@ def main():
     
     print("\nÉtape 12: Investigation des groupes 'Principe non spécifié'...")
     investigate_unspecified_groups(report, dataframes)
+
+    print("\nÉtape 13: Validation de la logique des principes actifs communs...")
+    validate_active_principle_logic(report, dataframes)
 
     # Optional: Test Data Lookup (enable by setting TEST_DATA_LOOKUP_QUERY above)
     if TEST_DATA_LOOKUP_QUERY:

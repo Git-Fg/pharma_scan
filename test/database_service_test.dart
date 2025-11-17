@@ -916,7 +916,7 @@ void main() {
     });
 
     test('should return GroupDetails with varied generic types', () async {
-      // GIVEN: A group with 2 princeps and 3 generics (one of type 2, one of type 4)
+      // GIVEN: A group with 2 princeps and 3 generics grouped by laboratory
       await dbService.insertBatchData(
         specialites: [
           {
@@ -933,16 +933,19 @@ void main() {
             'cis_code': 'CIS_GENERIC_1',
             'nom_specialite': 'GENERIC TYPE 1',
             'procedure_type': 'Autorisation',
+            'titulaire': 'LABORATORY_A',
           },
           {
             'cis_code': 'CIS_GENERIC_2',
             'nom_specialite': 'GENERIC TYPE 2',
             'procedure_type': 'Autorisation',
+            'titulaire': 'LABORATORY_B',
           },
           {
             'cis_code': 'CIS_GENERIC_4',
             'nom_specialite': 'GENERIC TYPE 4',
             'procedure_type': 'Autorisation',
+            'titulaire': 'LABORATORY_C',
           },
         ],
         medicaments: [
@@ -1000,19 +1003,26 @@ void main() {
       // WHEN: We get group details
       final groupDetails = await dbService.getGroupDetails('GROUP_1');
 
-      // THEN: The GroupDetails should contain 2 princeps and 3 generics
+      // THEN: The GroupDetails should contain 2 princeps and 3 generics grouped by laboratory
       expect(groupDetails.princeps.length, 2);
+      // Generics are now grouped by laboratory, so we should have 3 groups (one per laboratory)
       expect(groupDetails.generics.length, 3);
       expect(
         groupDetails.princeps.map((p) => p.codeCip),
         containsAll(['PRINCEPS_1_CIP', 'PRINCEPS_2_CIP']),
       );
+      // Verify all generic products are present across all groups
       final allGenericCips = groupDetails.generics
           .expand((g) => g.products.map((p) => p.codeCip))
           .toList();
       expect(
         allGenericCips,
         containsAll(['GENERIC_1_CIP', 'GENERIC_2_CIP', 'GENERIC_4_CIP']),
+      );
+      // Verify grouping by laboratory
+      expect(
+        groupDetails.generics.map((g) => g.laboratory),
+        containsAll(['LABORATORY_A', 'LABORATORY_B', 'LABORATORY_C']),
       );
     });
   });

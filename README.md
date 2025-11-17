@@ -13,6 +13,16 @@ PharmaScan is a high-performance Flutter application designed for the rapid scan
   - **Bicolumn Layout**: A clear, side-by-side comparison of all princeps and generics in the group.
   - **Powerful Sorting**: Instantly sort medications by name or dosage.
 - **Intelligent Search**: The explorer's search function understands medication names, CIP codes, and **active ingredients**, allowing you to find what you need even with partial information.
+- **Form Category Filtering**: Browse medications by pharmaceutical form with 7 categories:
+  - **Oral** (default): comprimé, gélule, capsule, lyophilisat, solution buvable, sirop, suspension buvable, comprimé orodispersible
+  - **Injectable**: injectable, injection, perfusion, solution pour perfusion, poudre pour solution injectable, solution pour injection
+  - **External Use**: crème, pommade, gel, lotion, pâte, cutanée, cutané, application locale, application cutanée, dispositif transdermique
+  - **Sachet**: sachet, poudre pour solution buvable, poudre pour suspension buvable, granulé
+  - **Ophthalmic**: collyre, ophtalmique, solution ophtalmique, pommade ophtalmique, gel ophtalmique
+  - **Nasal/ORL**: nasale, auriculaire, buccale, aérosol, spray nasal, gouttes nasales, gouttes auriculaires
+  - **Gynecological**: ovule, pessaire, comprimé vaginal, crème vaginale, gel vaginal, capsule vaginale, tampon vaginal, anneau vaginal
+  - Intelligent exclusions prevent false positives (e.g., External Use excludes "vaginal" to avoid overlap with Gynecological)
+- **Algorithmic Princeps Grouping**: Advanced word-based algorithm that identifies common base names for princeps within the same group, providing a clean "Generic Principle ↔ Princeps Reference" mapping in the explorer view. The algorithm compares medication names word-by-word to find the longest common prefix, replacing fragile regex-based extraction.
 - **On-Device, Type-Safe Database**: Uses `drift` ORM for a fully offline, compile-time safe database built from official French public health data (BDPM).
 - **Deterministic Data Model**: All relationships and data extraction are derived directly from official BDPM data files, ensuring 100% accuracy and eliminating all heuristic approximations. No regex-based extraction - all data comes from structured parsing of official TXT files.
 - **Clean & Responsive UI**: Built with a minimalistic design system (`shadcn-ui/flutter`) for an efficient user experience.
@@ -74,10 +84,18 @@ The application uses a **deterministic data model** based on official relational
   - Generic groups are defined in `generique_groups` table
   - Group membership (princeps/generic) is stored in `group_members` table
   - Common active ingredients for groups are extracted directly from `principes_actifs` table via SQL joins
+  - Princeps names are grouped algorithmically using word-based common prefix detection (no regex)
   - No predictive matching, inference, or regex-based extraction - all relationships and data come directly from official BDPM data
   - All queries are type-safe, eliminating runtime SQL errors
 
 - **Initialization**: On first launch, the app downloads all four TXT files, parses them, and populates the local database. Subsequent launches are instant as the database persists locally.
+
+- **Explorer Features**:
+  - **Form Category Filtering**: Seven pharmaceutical form categories (Oral, Injectable, External Use, Sachet, Ophthalmic, Nasal/ORL, Gynecological) with intelligent keyword matching
+  - **Smart Exclusions**: Prevents false positives (e.g., External Use excludes "vaginal" to avoid overlap with Gynecological)
+  - **Group Summary View**: Clean "Principe(s) Actif(s) ↔ Princeps de Référence" mapping using algorithmic common prefix detection
+  - **Infinite Scroll Pagination**: Efficient loading of large result sets (50 items per page)
+  - **Search Integration**: Search by name, CIP code, or active ingredient with relevance filtering
 
 ## Project Mantras
 

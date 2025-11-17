@@ -1,6 +1,6 @@
 
 ================================================================================
-// RAPPORT DE VALIDATION DES DONNÉES - 2025-11-16 22:58:43
+// RAPPORT DE VALIDATION DES DONNÉES - 2025-11-17 07:26:46
 ================================================================================
 
 ================================================================================
@@ -9,56 +9,56 @@
 
 ### Échantillon de Lignes: CIS_bdpm.txt
   8 lignes aléatoires (pour inspection visuelle):
-    [1] 67422090	DARUNAVIR EG 400 mg, comprimé pelliculé	comprimé pelliculé	orale	Autorisation active	Procédure décentralisée	Commercialisée	07/12/2017			 EG LABO - LABORATOIRES EUROGENERICS	Non
-    [2] 65003528	PREGABALINE EG LABO 75 mg, gélule	gélule	orale	Autorisation active	Procédure décentralisée	Commercialisée	18/12/2017			 EG LABO - LABORATOIRES EUROGENERICS	Non
-    [3] 67100036	ACTIQ 400 microgrammes, comprimé avec applicateur buccal	comprimé	voie buccale autre	Autorisation active	Procédure de reconnaissance mutuelle	Commercialisée	14/03/2002			 TEVA PHARMA (PAYS-BA...
-    [4] 65209987	GLUCOR 100 mg, comprimé sécable	comprimé sécable	orale	Autorisation abrogée	Procédure nationale	Non commercialisée	22/06/1994	Warning disponibilité		 BAYER HEALTHCARE	Non
-    [5] 69377815	EFFERALGAN FRAMBOISE 500 mg, granulés en sachet	granulés	orale	Autorisation active	Procédure décentralisée	Commercialisée	21/02/2022			 UPSA	Non
-    [6] 60253606	CALYPTOL INHALANT, émulsion pour inhalation par fumigation	émulsion pour inhalation par fumigation	inhalée	Autorisation active	Procédure nationale	Commercialisée	19/01/1998			 TECHNI-PHARMA	N...
-    [7] 60548802	NOZINAN 25 mg, comprimé pelliculé sécable	comprimé pelliculé sécable	orale	Autorisation active	Autorisation d'importation parallèle	Commercialisée	21/12/2018			 DIFARMED (ESPAGNE)	Non
-    [8] 68878549	RISPERDALCONSTA L.P. 25 mg/2 ml, poudre et solvant pour suspension injectable à libération prolongée en seringue préremplie	poudre et  solvant pour suspension injectable à libération prolongé...
+    [1] 69559554	LISINOPRIL VIATRIS 20 mg, comprimé sécable	comprimé sécable	orale	Autorisation active	Procédure nationale	Commercialisée	20/07/2004			 VIATRIS SANTE	Non
+    [2] 69649845	SULPIRIDE VIATRIS 50 mg, gélule	gélule	orale	Autorisation abrogée	Procédure nationale	Non commercialisée	08/07/1999	Warning disponibilité		 VIATRIS SANTE	Non
+    [3] 62526943	ILEX PARAGUARIENSIS BOIRON, degré de dilution compris entre 2CH et 30CH ou entre 4DH et 60DH	 comprimé et solution(s) et granules et poudre et pommade	cutanée;orale;sublinguale	Autorisation a...
+    [4] 66086822	LANSOPRAZOLE ARROW LAB 15 mg, gélule gastro-résistante	gélule gastro-résistant(e)	orale	Autorisation active	Procédure nationale	Commercialisée	27/10/2017			 ARROW GENERIQUES	Non
+    [5] 68728738	HUMEX ALLERGIE LORATADINE 10 mg, comprimé	comprimé	orale	Autorisation active	Procédure nationale	Commercialisée	28/12/2010			 LABORATOIRES URGO HEALTHCARE	Non
+    [6] 67181376	LEVETIRACETAM CRISTERS 1000 mg, comprimé pelliculé sécable	comprimé pelliculé sécable	orale	Autorisation active	Procédure nationale	Commercialisée	27/02/2014			 CRISTERS	Non
+    [7] 61276216	BIPRETERAX 5 mg/1,25 mg, comprimé pelliculé	comprimé pelliculé	orale	Autorisation active	Procédure décentralisée	Commercialisée	13/02/2007			 LES LABORATOIRES SERVIER	Non
+    [8] 61308023	LABETALOL STRAGEN 5 mg/mL, solution injectable/pour perfusion	solution injectable ou pour perfusion	intraveineuse	Autorisation active	Procédure de reconnaissance mutuelle	Commercialisée	04/09...
   - Fichier: CIS_bdpm.txt
   - Lignes chargées: 15821
   - Statut: OK
 
 ### Échantillon de Lignes: CIS_CIP_bdpm.txt
   8 lignes aléatoires (pour inspection visuelle):
-    [1] 68645071	3012088	1 seringue(s) préremplie(s) en verre de 0,5 ml avec 1 tampon alcoolisé	Présentation active	Arrêt de commercialisation (le médicament n'a plus d'autorisation)	21/12/2021	3400930120880	...
-    [2] 62924107	3887972	1 seringue(s) préremplie(s) polyoléfine de 15 ml	Présentation active	Déclaration de commercialisation	11/05/2010	3400938879728	oui					
-    [3] 60418716	3000888	plaquette(s) thermoformée(s) PVC-Aluminium de 4 comprimé(s) de 10 mg -  4 comprimé(s) de 20 mg - 19 comprimé(s) de 30 mg. Etui d'initiation de 27 comprimés	Présentation active	Déclara...
-    [4] 63003440	3018715	plaquette(s) PVC-Aluminium de 50 comprimé(s)	Présentation active	Déclaration de commercialisation	19/06/2020	3400930187159	oui	65 %	1,65	2,67	1,02	
-    [5] 69995434	3014002	tube(s) polypropylène de 20 comprimé(s)	Présentation active	Déclaration de commercialisation	01/06/2018	3400930140024	oui	65%	1,81	2,83	1,02	
-    [6] 69093163	4972183	plaquette(s) thermoformée(s) polyamide aluminium PVC-Aluminium de 28 gélule(s)	Présentation active	Déclaration d'arrêt de commercialisation	18/02/2025	3400949721832	non	65%	4,04	5,06	...
-    [7] 68494908	5590029	plaquette(s) polyamide aluminium PVC-aluminium de 50 gélule(s)	Présentation active	Déclaration d'arrêt de commercialisation	20/05/2021	3400955900290	non					
-    [8] 63324453	5501421	5 flacon(s) en verre de 10 ml	Présentation active	Déclaration de commercialisation	12/09/2016	3400955014218	oui					
+    [1] 69636399	3766501	tube(s) polypropylène de 16 comprimé(s)	Présentation active	Déclaration d'arrêt de commercialisation	31/01/2024	3400937665018	non					
+    [2] 69250369	4939903	plaquette(s) aluminium de 28 comprimé(s)	Présentation active	Déclaration de commercialisation	28/09/2011	3400949399031	oui	65%	11,63	12,65	1,02	
+    [3] 65970533	3865953	plaquette(s) PVC PVDC aluminium de 90 comprimé(s)	Présentation active	Déclaration d'arrêt de commercialisation	28/08/2023	3400938659535	non	30%	5,35	6,37	1,02	
+    [4] 68009803	3739622	plaquette(s) thermoformée(s) PVC-Aluminium de 90 comprimé(s)	Présentation active	Déclaration de commercialisation	17/10/2017	3400937396226	oui					
+    [5] 65373901	3517614	1 tube(s) aluminium verni de 30 g	Présentation active	Déclaration de commercialisation	03/03/2000	3400935176141	non					
+    [6] 60654588	3018113	plaquette(s) PVC PVDC aluminium de 30 comprimé(s)	Présentation active	Déclaration de commercialisation	12/09/2024	3400930181133	oui	65 %	3,75	4,77	1,02	
+    [7] 63976352	2798999	1 flacon(s) en verre de type III de 2,5 ml avec 20 spatule(s)	Présentation active	Déclaration de commercialisation	05/05/2017	3400927989995	oui	30%	10,38	11,40	1,02	
+    [8] 61391268	3320515	12 sachet(s)-dose(s) papier kraft polyéthylène basse densité (PEBD) aluminium	Présentation active	Déclaration de commercialisation	15/10/2012	3400933205157	non					
   - Fichier: CIS_CIP_bdpm.txt
   - Lignes chargées: 20925
   - Statut: OK
 
 ### Échantillon de Lignes: CIS_COMPO_bdpm.txt
   8 lignes aléatoires (pour inspection visuelle):
-    [1] 69812630	poudre	04546	FLUORURE DE SODIUM	1 mg	un flacon	SA	2
-    [2] 68638760	crème	22692	KÉTOCONAZOLE	0,02 g	1 g de crème	SA	1
-    [3] 67377072	solution buvable en gouttes	86853	AORTE POUR PRÉPARATIONS HOMÉOPATHIQUES	4CH à 30CH et 8DH à 60DH	un flacon de 100 ml	SA	8
-    [4] 66082578	granules	45650	GONOTOXINUM POUR PRÉPARATIONS HOMÉOPATHIQUES	4CH à 30CH et 8DH à 60DH	100 g de solution à usage dentaire	SA	17
-    [5] 69265638	comprimé	86162	MONTÉLUKAST SODIQUE			SA	1
-    [6] 63149947	comprimé	37430	RISPÉRIDONE	4 mg	un comprimé	SA	1
-    [7] 60774865	comprimé	89971	ESCITALOPRAM	5 mg	un comprimé	FT	1
-    [8] 67973656	gélule	39422	PRÉGABALINE	100 mg	une gélule	SA	1
+    [1] 66950291	comprimé	73594	CANDÉSARTAN CILEXÉTIL	16 mg	un comprimé	SA	1
+    [2] 67332981	comprimé	49207	CHLORHYDRATE DE MÉMANTINE	20 mg	un comprimé	SA	1
+    [3] 65483917	solution buvable en gouttes	19551	SARSAPARILLA POUR PRÉPARATIONS HOMÉOPATHIQUES	2CH à 30CH et 4DH à 60DH	un sachet-dose de 3 g	SA	20
+    [4] 64061941	dispositif	01786	ESTRADIOL	2,5 mg	un dispositif	FT	1
+    [5] 66645425	comprimé	17477	FENTANYL	1600 microgrammes	un comprimé	FT	1
+    [6] 60546662	comprimé	47018	CHLORHYDRATE DE PAROXÉTINE ANHYDRE	22,22 mg	un comprimé	SA	1
+    [7] 66605982	gélule	80889	FLUVASTATINE BASE	20 mg	une gélule	FT	1
+    [8] 64614242	comprimé	02869	NATRUM MURIATICUM POUR PRÉPARATIONS HOMÉOPATHIQUES	70 mg (2DH)	un comprimé	SA	4
   - Fichier: CIS_COMPO_bdpm.txt
   - Lignes chargées: 32563
   - Statut: OK
 
 ### Échantillon de Lignes: CIS_GENER_bdpm.txt
   8 lignes aléatoires (pour inspection visuelle):
-    [1] 852	GLYCÉROL 15 %  +  VASELINE 8 %  +  PARAFFINE LIQUIDE 2 % - EXEDIEM, crème.	66643449	1	4
-    [2] 1865	TRIENTINE (DICHLORHYDRATE DE) équivalant à TRIENTINE 200 mg - CUFENCE 200 mg, gélule	65919229	0	1
-    [3] 730	OLANZAPINE 5 mg - ZYPREXA VELOTAB 5 mg, comprimé orodispersible.	64932120	1	3
-    [4] 22	METOCLOPRAMIDE (CHLORHYDRATE DE) 10 mg - PRIMPERAN 10 mg, comprimé sécable	63177843	1	2
-    [5] 1046	TAMSULOSINE (CHLORHYDRATE DE) équivalant à  TAMSULOSINE  0,4 mg - OMEXEL L.P. 0,4 mg, comprimé pelliculé à libération prolongée.	67003701	0	2
-    [6] 159	AMOXICILLINE + CLAVULANATE DE POTASSIUM équivalant à AMOXICILLINE + ACIDE CLAVULANIQUE 1 g + 125 mg ADULTES (Rapport amoxicilline/acide clavulanique : 8/1) - AUGMENTIN 1 g/125 mg ADULTES, poudre p...
-    [7] 508	OMEPRAZOLE SODIQUE équivalant à OMEPRAZOLE 40 mg - MOPRAL 40 mg, poudre pour solution pour perfusion	69138295	1	2
-    [8] 121	DESOGESTREL 150 microgrammes + ETHINYLESTRADIOL 20 microgrammes - MERCILON, comprimé	68632558	1	2
+    [1] 915	ATORVASTATINE CALCIQUE TRIHYDRATEE équivalant à 40 mg ATORVASTATINE  - TAHOR 40 mg, comprimé pelliculé.	66936459	1	14
+    [2] 1372	IVABRADINE (CHLORHYDRATE D') équivalant à IVABRADINE 5 mg - PROCORALAN 5 mg, comprimé pelliculé	60160479	1	13
+    [3] 294	BETAHISTINE (DICHLORHYDRATE DE) 8 mg - SERC 8 mg, comprimé.	67885882	1	11
+    [4] 1037	DESLORATADINE 5 mg - AERIUS 5 mg, comprimé pelliculé -NEOCLARITYN 5 mg, comprimé pelliculé	64807309	1	5
+    [5] 265	AMISULPRIDE 200 mg - SOLIAN 200 mg, comprimé sécable.	64479008	1	9
+    [6] 197	FLUCONAZOLE 200 mg - TRIFLUCAN 200 mg, gélule	65826650	0	1
+    [7] 57	SPIRONOLACTONE 50 mg - ALDACTONE 50 mg, comprimé sécable.	67368301	0	1
+    [8] 863	CANDESARTAN CILEXETIL 4 mg - ATACAND 4 mg, comprimé sécable - KENZEN 4 mg, comprimé sécable.	66298152	1	8
   - Fichier: CIS_GENER_bdpm.txt
   - Lignes chargées: 10595
   - Statut: OK
@@ -133,26 +133,26 @@ Parsing réussi: 22488 (75.50%)
 Parsing échoué: 7297 (24.50%)
 
 Exemples de dosages qui ont échoué (échantillon de 20):
-  - '(30 mg) 3 DH'
-  - '(30 mg) 7 DH'
-  - '0,3% mol/mol'
-  - '13CH à 30CH et 26DH à 60DH'
-  - '2CH à 30CH et 4DH à 60DH (pommade à 1 %, 4 % ou 10 %)'
-  - '3CH à 30CH et 5DH à 60DH (pommade à 4 %)'
-  - '3CH à 30CH et 6DH à 60DH (pommade à 4%)'
-  - '3CH à 30CH et 7DH à 60DH (pommade à 4 %)'
-  - '4CH à 30CH et 7DH à 60DH (pommade à 4%)'
-  - '4CH à 30CH et 8DH à 60DH (pommade à 1%, 4% ou 10%)'
-  - '5CH à 30CH et 10DH à 60DH'
-  - '6CH à 30CH et 12DH à 60DH'
-  - 'au minimum 10^3,0 DICC50'
-  - 'au minimum 2 000 000 UI'
-  - 'huile d'olive raffinée + huile de soja raffinée : 22,75 g'
-  - 'non inférieur à 8,92 log10 U. Inf.'
-  - 'q s p 10 milliards de LACTOBACILLUS L B inactivés dans 800 mg de poudre'
-  - 'qs (gaz liquéfié sous une pression de 44 bar à 15°C)'
-  - 'qs (sous une pression de 110 bar)'
-  - 'supérieur ou égal à 2,5 UI'
+  - '(3 mL) 8DH'
+  - '(30 mg) 4 DH'
+  - '(TM) qs'
+  - '13CH à 30CH et  26DH à 60DH'
+  - '20DH'
+  - '2CH à 30CH et 4DH à 60DH (crème à 4%)'
+  - '4CH à 30CH et 7DH à 60DH (pommade à 4 %)'
+  - '4CH à 30CH et 7DH à 60DH(pommade à 4 %)'
+  - '4CH à 30CH et 8DH à 60DH (pommade à 4%)'
+  - '5CH à 30CH et 10DH à 60DH  (pommade à 4%)'
+  - '7CH à 30CH et 14DH à 60DH (pommade à 4 %)'
+  - 'Supérieur ou égal à 20 UI'
+  - 'au minimum 1 000 DICC50'
+  - 'pas moins de 1000 UI'
+  - 'qs (gaz liquéfié sous pression de 44 bar à 15°C)'
+  - 'qs (sous pression de 10 à 15 bar, de -155 à -145°C)'
+  - 'qs (sous une pression de 10 à 15 bar'
+  - 'qsp (sous une pression de 10 à 12 bar, à -150 °C)'
+  - 'supérieur ou égal à 1000 UE chez la souris'
+  - 'supérieure ou égale à 40 UI (10 Lf)'
   ... et 194 autres formats uniques
 
 ------------------------------------------------------------
@@ -261,43 +261,175 @@ Distribution des spécialités par nombre de principes actifs :
   - 58 principe(s) actif(s) : 1 médicaments
 
 ------------------------------------------------------------
-// Analyse des Formes Pharmaceutiques (Classification Précise)
+// Analyse et Validation de la Catégorisation des Formes Pharmaceutiques
 ------------------------------------------------------------
+Total des formes pharmaceutiques uniques trouvées : 369
 
-### Analyse Complémentaire: Contraception par Nom de Spécialité
-Médicaments identifiés comme contraceptifs par nom: 1
-   - Exemples: NUVARING 15 microgrammes/120 microgrammes/24 heures, système de diffusion vaginal
+### 1. Couverture de la Catégorisation
+Formes catégorisées : 343 / 369 (92.95%)
+Formes non catégorisées : 26
 
-### Résultats de Classification par Catégorie
-✅ Injectable: 88 formes uniques trouvées
-   - Exemples: solution injectable, dispersion pour perfusion, solution à diluer pour perfusion, poudre et  solvant pour suspension injectable à libération prolongée, suspension injectable à libération prolongée
-   ... et 83 autres
-✅ Gynécologique: 2 formes uniques trouvées
-   - Exemples: ovule, ovule à libération prolongée
-✅ Contraception (par forme): 7 formes uniques trouvées
-   - Exemples: dispositif, implant, poudre et  solvant et  matrice pour matrice implantable, patch et  gel, patch
-   ... et 2 autres
-✅ Usage externe: 32 formes uniques trouvées
-   - Exemples: pommade,  comprimé et solution(s) et granules et poudre et pommade, crème, granules et  crème et  solution en gouttes en gouttes, gel
-   ... et 27 autres
-✅ Sachet: 19 formes uniques trouvées
-   - Exemples: granulés pour solution buvable, poudre pour solution buvable, poudre pour suspension buvable, comprimé pelliculé et  granulés effervescent(e), granulés
-   ... et 14 autres
-✅ Oral: 88 formes uniques trouvées
-   - Exemples: capsule molle, comprimé pelliculé sécable, comprimé pelliculé, solution buvable, comprimé
-   ... et 83 autres
-✅ Ophtalmique: 7 formes uniques trouvées
-   - Exemples: collyre en solution, collyre en solution unidose, collyre, collyre en suspension, collyre à libération prolongée
-   ... et 2 autres
-✅ Nasal/ORL: 2 formes uniques trouvées
-   - Exemples: solution pour administration endonasale, poudre pour aérosol et pour usage parentéral
-⚠️  Formes non classifiées: 124 formes uniques trouvées
-   - Exemples: solution et  solution pour hémofiltration pour hémodialyse et pour hémodiafiltration, poudre et  solution pour usage parentéral, granules et  solution, solution pour inhalation, granules et  poudre et  solution en gouttes en gouttes, granules et  solution en gouttes en gouttes, solution pour pulvérisation, gaz, solution pour bain de bouche, liquide pour inhalation par vapeur, granules, liquide, suspension pour inhalation, compresse imprégné(e), solution pour application
-   ... et 109 autres
+### 2. Formes Non Catégorisées (Échantillon)
+  ACTION : Analyser cette liste pour trouver de nouveaux mots-clés à ajouter.
+  - dispositif
+  - liquide
+  - liquide pour application
+  - matrice
+  - plante(s) en vrac
+  - solution
+  - solution et
+  - solution et  solution pour colle
+  - solution et  solution pour hémodialyse et pour hémofiltration
+  - solution et  solution pour hémodialyse pour hémofiltration
+  - solution et  solution pour marquage
+  - solution ou
+  - solution pour marquage
+  - solution pour prick-test
+  - suspension
+  - suspension pour pulvérisation
+  - système de diffusion
+  - tampon imprégné(e)
+  - trousse et  trousse pour préparation radiopharmaceutique
+  - trousse et  trousse radiopharmaceutique
+  - trousse pour préparation radiopharmaceutique
+  - trousse pour préparation radiopharmaceutique et  trousse pour préparation radiopharmaceutique
+  - trousse radiopharmaceutique
+  - vernis à ongles médicamenteux(se)
+  - émulsion fluide pour application
+  - émulsion pour application
 
-### Validation: Détection des Chevauchements
-⚠️  Chevauchement possible: 245 formes classifiées sur 369 uniques
-✅ Aucun chevauchement injectable/oral détecté
+### 3. Détection d'Ambiguïté (Potentiels Conflits)
+  ACTION : Vérifier que la priorité et les exclusions gèrent bien ces cas.
+  - Forme : ' comprimé et solution(s) et granules et poudre et pommade'
+    > Mots-clés détectés pour : ['externalUse', 'oral', 'sachet']
+    > Catégorie assignée (par priorité) : externalUse
+  - Forme : 'poudre et  solvant pour suspension injectable à libération prolongée'
+    > Mots-clés détectés pour : ['injectable', 'sachet']
+    > Catégorie assignée (par priorité) : injectable
+  - Forme : 'poudre pour dispersion injectable pour perfusion'
+    > Mots-clés détectés pour : ['injectable', 'sachet']
+    > Catégorie assignée (par priorité) : injectable
+  - Forme : 'poudre et  solvant pour solution injectable'
+    > Mots-clés détectés pour : ['injectable', 'sachet']
+    > Catégorie assignée (par priorité) : injectable
+  - Forme : 'granulés pour solution buvable'
+    > Mots-clés détectés pour : ['drinkableDrops', 'sachet']
+    > Catégorie assignée (par priorité) : sachet
+  - Forme : 'poudre pour solution buvable'
+    > Mots-clés détectés pour : ['drinkableDrops', 'sachet']
+    > Catégorie assignée (par priorité) : sachet
+  - Forme : 'poudre pour solution pour perfusion'
+    > Mots-clés détectés pour : ['injectable', 'sachet']
+    > Catégorie assignée (par priorité) : injectable
+  - Forme : 'poudre pour solution injectable'
+    > Mots-clés détectés pour : ['injectable', 'sachet']
+    > Catégorie assignée (par priorité) : injectable
+  - Forme : 'poudre et  solution pour préparation injectable'
+    > Mots-clés détectés pour : ['injectable', 'sachet']
+    > Catégorie assignée (par priorité) : injectable
+  - Forme : 'poudre et  solution pour usage parentéral'
+    > Mots-clés détectés pour : ['injectable', 'sachet']
+    > Catégorie assignée (par priorité) : injectable
+  - Forme : 'granules et  crème et  solution en gouttes en gouttes'
+    > Mots-clés détectés pour : ['drinkableDrops', 'externalUse', 'sachet']
+    > Catégorie assignée (par priorité) : externalUse
+  - Forme : 'granules et  poudre et  solution en gouttes en gouttes'
+    > Mots-clés détectés pour : ['drinkableDrops', 'sachet']
+    > Catégorie assignée (par priorité) : sachet
+  - Forme : 'granules et  solution en gouttes en gouttes'
+    > Mots-clés détectés pour : ['drinkableDrops', 'sachet']
+    > Catégorie assignée (par priorité) : sachet
+  - Forme : 'poudre pour suspension buvable'
+    > Mots-clés détectés pour : ['sachet', 'syrup']
+    > Catégorie assignée (par priorité) : sachet
+  - Forme : 'poudre pour solution injectable ou pour perfusion'
+    > Mots-clés détectés pour : ['injectable', 'sachet']
+    > Catégorie assignée (par priorité) : injectable
+  - Forme : 'poudre et  solvant pour solution injectable et pour perfusion'
+    > Mots-clés détectés pour : ['injectable', 'sachet']
+    > Catégorie assignée (par priorité) : injectable
+  - Forme : 'comprimé pelliculé et  granulés effervescent(e)'
+    > Mots-clés détectés pour : ['oral', 'sachet']
+    > Catégorie assignée (par priorité) : sachet
+  - Forme : 'poudre pour solution à diluer pour perfusion'
+    > Mots-clés détectés pour : ['injectable', 'sachet']
+    > Catégorie assignée (par priorité) : injectable
+  - Forme : ' crème et solution et granules et poudre'
+    > Mots-clés détectés pour : ['externalUse', 'sachet']
+    > Catégorie assignée (par priorité) : externalUse
+  - Forme : 'poudre et  solvant et  solvant pour solution injectable'
+    > Mots-clés détectés pour : ['injectable', 'sachet']
+    > Catégorie assignée (par priorité) : injectable
+
+### 4. Répartition par Catégorie (Échantillon)
+
+--- DRINKABLEDROPS (10 formes) ---
+  - comprimé pour solution buvable
+  - solution buvable
+  - solution buvable en gouttes
+  - solution buvable gouttes
+  - solution buvable ou
+  ... et 5 autres.
+
+--- EXTERNALUSE (57 formes) ---
+  -  comprimé et solution(s) et granules et poudre et pommade
+  -  crème et solution et granules et poudre
+  -  crème et solution et granules et poudre et pommade
+  -  patch(s)
+  -  solution et granules et poudre et pommade
+  ... et 52 autres.
+
+--- GYNECOLOGICAL (2 formes) ---
+  - ovule
+  - ovule à libération prolongée
+
+--- INJECTABLE (120 formes) ---
+  - compresse et solution(s) et générateur radiopharmaceutique
+  - dispersion et  dispersion pour perfusion
+  - dispersion injectable
+  - dispersion injectable ou pour perfusion
+  - dispersion pour perfusion
+  ... et 115 autres.
+
+--- NASALORL (26 formes) ---
+  - bain de bouche
+  - capsule pour inhalation par vapeur
+  - cartouche pour inhalation
+  - collutoire
+  - dispersion pour inhalation par nébuliseur
+  ... et 21 autres.
+
+--- OPHTHALMIC (9 formes) ---
+  - collyre
+  - collyre en solution
+  - collyre en solution unidose
+  - collyre en solution à libération prolongée
+  - collyre en suspension
+  ... et 4 autres.
+
+--- ORAL (69 formes) ---
+  -  comprimé(s)
+  - capsule
+  - capsule molle
+  - capsule molle ou
+  - comprimé
+  ... et 64 autres.
+
+--- SACHET (42 formes) ---
+  -  comprimé et solution(s) et granules et poudre
+  - comprimé pelliculé et  granulés effervescent(e)
+  - granules
+  - granules et  poudre et  solution en gouttes en gouttes
+  - granules et  solution
+  ... et 37 autres.
+
+--- SYRUP (8 formes) ---
+  - comprimé pour suspension buvable
+  - comprimé sécable pour suspension buvable
+  - granulés et  solvant pour suspension buvable
+  - sirop
+  - suspension buvable
+  ... et 3 autres.
 
 ------------------------------------------------------------
 // Analyse des Groupes 'Principe non spécifié'
@@ -342,3 +474,26 @@ Résumé global:
   - Total groupes non spécifiés: 125
   - Total membres dans ces groupes: 285
   - Recommandation: Filtrer ces groupes (HAVING common_principes IS NOT NULL AND common_principes != '')
+
+================================================================================
+// 5. VALIDATION: LOGIQUE D'EXTRACTION DES PRINCIPES ACTIFS
+================================================================================
+
+------------------------------------------------------------
+// Analyse de Propreté des Résultats Déterministes
+------------------------------------------------------------
+Total des groupes avec principes actifs communs analysés : 1630
+  - ✅ Groupes avec résultat propre : 1628
+  - ⚠️  Groupes avec résultat contaminé : 2
+
+--- DÉTAIL DES RÉSULTATS CONTAMINÉS ---
+
+Groupe ID: 876
+  - Libellé Original : 'CHLORHEXIDINE (DIGLUCONATE DE) 0,05 % - CHLORHEXIDINE AQUEUSE STERILE GILBERT A 0,05 POUR CENT, solution pour application locale en récipient unidose.'
+  - Résultat Obtenu  : 'SOLUTION DE DIGLUCONATE DE CHLORHEXIDINE'
+  - Contaminants     : solution
+
+Groupe ID: 1304
+  - Libellé Original : 'AMYLMETACRESOL 0,6 mg + ALCOOL DICHLORO-2,4-BENZYLIQUE 1,2 mg + CHLORHYDRATE DE LIDOCAÏNE 2 mg - STREPSILS LIDOCAINE, pastille'
+  - Résultat Obtenu  : 'ALCOOL DICHLORO-2,4 BENZYLIQUE, AMYLMÉTACRÉSOL, CHLORHYDRATE DE LIDOCAÏNE'
+  - Contaminants     : chiffre(s) suspect(s)
