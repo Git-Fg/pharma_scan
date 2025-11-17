@@ -5,6 +5,7 @@ import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:pharma_scan/core/locator.dart';
 import 'package:pharma_scan/core/services/database_service.dart';
 import 'package:pharma_scan/features/explorer/models/explorer_enums.dart';
+import 'package:pharma_scan/features/explorer/widgets/medicament_card.dart';
 import 'package:pharma_scan/features/scanner/models/medicament_model.dart';
 import 'package:pharma_scan/features/scanner/models/scan_result_model.dart';
 
@@ -33,6 +34,7 @@ class DatabaseSearchViewState extends State<DatabaseSearchView> {
   bool _hasMore = true;
   bool _isLoadingMore = false;
   late ScrollController _scrollController;
+  late ScrollController _searchScrollController;
   static const int _pageSize = 50;
 
   FormCategory _selectedCategory = FormCategory.oral;
@@ -176,6 +178,7 @@ class DatabaseSearchViewState extends State<DatabaseSearchView> {
   void initState() {
     super.initState();
     _scrollController = ScrollController();
+    _searchScrollController = ScrollController();
     _scrollController.addListener(_onScroll);
     _loadStats();
     _loadGroupSummaries();
@@ -185,6 +188,7 @@ class DatabaseSearchViewState extends State<DatabaseSearchView> {
   void dispose() {
     _searchController.dispose();
     _scrollController.dispose();
+    _searchScrollController.dispose();
     super.dispose();
   }
 
@@ -560,39 +564,29 @@ class DatabaseSearchViewState extends State<DatabaseSearchView> {
         child: Text('Aucun résultat trouvé.', style: theme.textTheme.muted),
       );
     }
-    return ShadTable(
-      columnCount: 3,
-      rowCount: _searchResults.length,
-      header: (context, column) {
-        if (column == 0) {
-          return const ShadTableCell.header(child: Text('Nom du médicament'));
-        } else if (column == 1) {
-          return const ShadTableCell.header(child: Text('CIP'));
-        } else {
-          return const ShadTableCell.header(
-            alignment: Alignment.centerRight,
-            child: Text(''),
-          );
-        }
-      },
-      builder: (context, index) {
-        final med = _searchResults[index.row];
-        if (index.column == 0) {
-          return ShadTableCell(child: Text(med.nom, style: theme.textTheme.p));
-        } else if (index.column == 1) {
-          return ShadTableCell(
-            child: Text(med.codeCip, style: theme.textTheme.muted),
-          );
-        } else {
-          return ShadTableCell(
-            alignment: Alignment.centerRight,
-            child: ShadIconButton.ghost(
-              icon: const Icon(LucideIcons.chevronRight, size: 16),
-              onPressed: () => _showDetails(med),
+    return Scrollbar(
+      controller: _searchScrollController,
+      thumbVisibility: true,
+      child: ListView.separated(
+        controller: _searchScrollController,
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        itemCount: _searchResults.length,
+        separatorBuilder: (context, index) => const SizedBox(height: 12),
+        itemBuilder: (context, index) {
+          final med = _searchResults[index];
+          return MedicamentCard(
+            medicament: med,
+            onTap: () => _showDetails(med),
+            trailing: ShadTooltip(
+              builder: (context) => const Text('Ouvrir les détails'),
+              child: ShadIconButton.ghost(
+                icon: const Icon(LucideIcons.chevronRight, size: 16),
+                onPressed: () => _showDetails(med),
+              ),
             ),
           );
-        }
-      },
+        },
+      ),
     );
   }
 
@@ -637,63 +631,71 @@ class DatabaseSearchViewState extends State<DatabaseSearchView> {
           );
         }
         final summary = _genericGroupSummaries[index];
-        return Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: () => widget.onGroupSelected(summary.groupId),
-            borderRadius: BorderRadius.circular(12),
-            splashColor: theme.colorScheme.primary.withValues(alpha: 0.1),
-            highlightColor: theme.colorScheme.primary.withValues(alpha: 0.05),
-            child: ShadCard(
-              padding: const EdgeInsets.all(20),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Principe(s) Actif(s)',
-                          style: theme.textTheme.small.copyWith(
-                            color: theme.colorScheme.mutedForeground,
-                            fontWeight: FontWeight.w500,
+        return Semantics(
+          button: true,
+          label:
+              'Groupe ${summary.princepsReferenceName}, principes actifs ${summary.commonPrincipes}',
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => widget.onGroupSelected(summary.groupId),
+              borderRadius: BorderRadius.circular(12),
+              splashColor: theme.colorScheme.primary.withValues(alpha: 0.1),
+              highlightColor: theme.colorScheme.primary.withValues(alpha: 0.05),
+              child: ShadCard(
+                padding: const EdgeInsets.all(20),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Principe(s) Actif(s)',
+                            style: theme.textTheme.small.copyWith(
+                              color: theme.colorScheme.mutedForeground,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(summary.commonPrincipes, style: theme.textTheme.p),
-                      ],
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Icon(
-                      LucideIcons.arrowRight,
-                      color: theme.colorScheme.mutedForeground,
-                    ),
-                  ),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Princeps de Référence',
-                          style: theme.textTheme.small.copyWith(
-                            color: theme.colorScheme.mutedForeground,
-                            fontWeight: FontWeight.w500,
+                          const SizedBox(height: 8),
+                          Text(
+                            summary.commonPrincipes,
+                            style: theme.textTheme.p,
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          summary.princepsReferenceName,
-                          style: theme.textTheme.p.copyWith(
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Icon(
+                        LucideIcons.arrowRight,
+                        color: theme.colorScheme.mutedForeground,
+                      ),
+                    ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Princeps de Référence',
+                            style: theme.textTheme.small.copyWith(
+                              color: theme.colorScheme.mutedForeground,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            summary.princepsReferenceName,
+                            style: theme.textTheme.p.copyWith(
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

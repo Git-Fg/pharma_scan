@@ -215,6 +215,105 @@ void main() {
       expect(result, isNull);
     });
 
+    test('getGenericGroupSummaries returns deterministic principles', () async {
+      final dbService = sl<DatabaseService>();
+      await dbService.insertBatchData(
+        specialites: [
+          {
+            'cis_code': 'CIS_PRINCEPS',
+            'nom_specialite': 'PRINCEPS 1',
+            'procedure_type': 'Autorisation',
+            'forme_pharmaceutique': 'comprimé',
+          },
+          {
+            'cis_code': 'CIS_GENERIC',
+            'nom_specialite': 'GENERIC 1',
+            'procedure_type': 'Autorisation',
+            'forme_pharmaceutique': 'comprimé',
+          },
+        ],
+        medicaments: [
+          {
+            'code_cip': 'P1_CIP',
+            'nom': 'PRINCEPS 1',
+            'cis_code': 'CIS_PRINCEPS',
+          },
+          {'code_cip': 'G1_CIP', 'nom': 'GENERIC 1', 'cis_code': 'CIS_GENERIC'},
+        ],
+        principes: [
+          {'code_cip': 'P1_CIP', 'principe': 'PARACETAMOL'},
+          {'code_cip': 'P1_CIP', 'principe': 'CAFEINE'},
+          {'code_cip': 'G1_CIP', 'principe': 'PARACETAMOL'},
+          {'code_cip': 'G1_CIP', 'principe': 'EXCIPIENT'},
+        ],
+        generiqueGroups: [
+          {'group_id': 'GROUP_A', 'libelle': 'PARACETAMOL 500 mg'},
+        ],
+        groupMembers: [
+          {'code_cip': 'P1_CIP', 'group_id': 'GROUP_A', 'type': 0},
+          {'code_cip': 'G1_CIP', 'group_id': 'GROUP_A', 'type': 1},
+        ],
+      );
+
+      final summaries = await dbService.getGenericGroupSummaries(
+        limit: 10,
+        offset: 0,
+      );
+
+      expect(summaries.length, 1);
+      expect(summaries.first.commonPrincipes, 'PARACETAMOL');
+    });
+
+    test(
+      'getGenericGroupSummaries skips groups without shared principles',
+      () async {
+        final dbService = sl<DatabaseService>();
+        await dbService.insertBatchData(
+          specialites: [
+            {
+              'cis_code': 'CIS_P',
+              'nom_specialite': 'PRINCEPS 2',
+              'procedure_type': 'Autorisation',
+              'forme_pharmaceutique': 'comprimé',
+            },
+            {
+              'cis_code': 'CIS_G',
+              'nom_specialite': 'GENERIC 2',
+              'procedure_type': 'Autorisation',
+              'forme_pharmaceutique': 'comprimé',
+            },
+          ],
+          medicaments: [
+            {'code_cip': 'P2_CIP', 'nom': 'PRINCEPS 2', 'cis_code': 'CIS_P'},
+            {'code_cip': 'G2_CIP', 'nom': 'GENERIC 2', 'cis_code': 'CIS_G'},
+          ],
+          principes: [
+            {'code_cip': 'P2_CIP', 'principe': 'PRINCIPE_A'},
+            {'code_cip': 'G2_CIP', 'principe': 'PRINCIPE_B'},
+          ],
+          generiqueGroups: [
+            {'group_id': 'GROUP_B', 'libelle': 'MIXED GROUP'},
+          ],
+          groupMembers: [
+            {'code_cip': 'P2_CIP', 'group_id': 'GROUP_B', 'type': 0},
+            {'code_cip': 'G2_CIP', 'group_id': 'GROUP_B', 'type': 1},
+          ],
+        );
+
+        final summaries = await dbService.getGenericGroupSummaries(
+          limit: 10,
+          offset: 0,
+        );
+
+        expect(
+          summaries,
+          isEmpty,
+          reason:
+              'Groups without a fully shared active principle set must be filtered out.',
+        );
+      },
+    );
+
     test('should handle multiple princeps in the same group', () async {
       // GIVEN: A group with multiple princeps and generics
       await dbService.insertBatchData(

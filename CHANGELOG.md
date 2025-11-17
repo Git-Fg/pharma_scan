@@ -1,3 +1,16 @@
+# [2025-11-17] - Validation Déterministe des Principes Actifs
+
+- **Refactorisation de `DatabaseService`** : `getGenericGroupSummaries()` et `getGroupDetails()` s'appuient désormais exclusivement sur une jointure Drift (`principes_actifs` ↔ `group_members`) pour calculer les principes actifs réellement partagés par tous les membres d'un groupe. Les groupes sans intersection sont filtrés automatiquement afin d'éliminer la dernière logique heuristique issue des libellés officiels.
+- **Nouvelle API interne `_getCommonPrincipesForGroups()`** : CTE paginées + découpage par lot (<900 variables SQLite) pour récupérer efficacement les principes communs, réutilisée par plusieurs méthodes.
+- **Tests unitaires & intégration** : 
+  - Ajout de deux tests unitaires dans `test/database_service_test.dart` pour garantir l'extraction déterministe et l'exclusion des groupes incohérents.
+  - Mise à jour de `integration_test/active_principle_grouping_test.dart` afin de vérifier que l'entrée ESOMEPRAZOLE expose bien un résultat propre.
+- **Audit Python renforcé** : `data_validator.py` inclut un contrôle global des contaminations (dosages/formulations) sur 100 % des groupes et consigne la nouvelle Étape 13 dans `AGENTS.md`.
+- **Documentation** : Mise à jour d'`AGENTS.md` et du rapport `rapport_final.txt` pour refléter la validation croisée heuristique vs déterministe.
+- **UI Explorer** : Harmonisation de l'interface de recherche manuelle avec le layout standard en cartes Shadcn (nouveau `MedicamentCard` partagé entre `DatabaseSearchView` et `GroupExplorerView`) et mise à jour des tests widget `database_screen_test.dart` pour couvrir l'expérience card-based.
+- **Base de données** : Réinitialisation de `schemaVersion` à `1` et suppression de la stratégie de migration destructive afin de livrer une version stable destinée aux nouvelles installations uniquement.
+- **Accessibilité Explorer** : Ajout de Scrollbars visibles, de libellés `Semantics`/tooltips et d'une description vocale pour chaque carte de médicament et groupe, garantissant une navigation accessible clavier/lecteur d'écran.
+
 # [2025-11-16] - Groupement Algorithmique des Princeps et Correction Critique
 
 Implémentation du groupement algorithmique des princeps par préfixe commun et correction d'un bug SQL critique qui empêchait l'affichage des résultats dans l'explorateur.

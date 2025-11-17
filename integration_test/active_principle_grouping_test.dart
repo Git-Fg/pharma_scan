@@ -13,7 +13,7 @@ void main() {
   });
 
   testWidgets(
-    'getGenericGroupSummaries should group by cleaned official label and not have duplicates',
+    'getGenericGroupSummaries should use deterministic BDPM data and avoid duplicates',
     (WidgetTester tester) async {
       // GIVEN: The database is initialized with real data.
       final dataService = sl<DataInitializationService>();
@@ -54,6 +54,17 @@ void main() {
         aciclovirSummary.princepsReferenceName.toUpperCase(),
         startsWith('ZOVIRAX'),
         reason: 'The reference name should be the common base name "ZOVIRAX".',
+      );
+
+      // AND: The ESOMEPRAZOLE group should expose the pure molecule name without dosage noise.
+      final esomeprazoleEntry = summaries.firstWhere(
+        (s) => s.commonPrincipes.toUpperCase().contains('ESOMEPRAZOLE'),
+      );
+      expect(
+        esomeprazoleEntry.commonPrincipes.toUpperCase(),
+        equals('ESOMEPRAZOLE'),
+        reason:
+            'Deterministic extraction must return the exact active principle from principes_actifs.',
       );
     },
     timeout: const Timeout(Duration(minutes: 5)),

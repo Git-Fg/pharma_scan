@@ -166,6 +166,8 @@ uv run python data_validator.py
 
 The script generates a detailed audit report located at `data_validation/rapport_final.txt`.
 
+- **NOUVELLE ÉTAPE (Étape 13)** : le script compare la logique heuristique historique avec la jointure déterministe et exécute un audit de « propreté » sur tous les groupes. Si la moindre trace de posologie (`mg`, `ml`, `%`, etc.) ou de mots de formulation (`comprimé`, `gélule`, `solution`, etc.) est détectée dans les résultats déterministes, le rapport liste les groupes concernés pour investigation immédiate. Cette étape DOIT rester verte avant toute refactorisation de la logique Dart.
+
 ### 2.7. Architecture: Tooling & Enhancements
 
 To improve robustness and maintainability, the project uses specific tooling that complements the core architecture.

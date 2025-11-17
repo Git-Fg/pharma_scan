@@ -7,6 +7,7 @@ import 'package:pharma_scan/core/locator.dart';
 import 'package:pharma_scan/core/services/database_service.dart';
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
 import 'package:pharma_scan/features/explorer/screens/database_screen.dart';
+import 'package:pharma_scan/features/explorer/widgets/medicament_card.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 void main() {
@@ -96,6 +97,7 @@ void main() {
           // THEN: Only the conventional medication should be displayed
           expect(find.text('MEDICAMENT CONVENTIONNEL'), findsOneWidget);
           expect(find.text('PRODUIT HOMEOPATHIQUE'), findsNothing);
+          expect(find.byType(MedicamentCard), findsOneWidget);
         } else {
           // Fallback: Verify that the DatabaseScreen rendered successfully
           // The filter logic is tested at the unit test level
@@ -169,6 +171,7 @@ void main() {
         // THEN: Both products should be displayed
         expect(find.text('MEDICAMENT CONVENTIONNEL'), findsOneWidget);
         expect(find.text('PRODUIT HOMEOPATHIQUE'), findsOneWidget);
+        expect(find.byType(MedicamentCard), findsNWidgets(2));
       } else {
         // Fallback: Verify that the DatabaseScreen rendered successfully
         // The filter logic is tested at the unit test level
@@ -241,6 +244,7 @@ void main() {
         // WHY: Generics are now displayed as individual cards in a simple list, similar to princeps
         expect(find.text('GENERIC DRUG'), findsWidgets);
         expect(find.text('PRINCEPS DRUG'), findsWidgets);
+        expect(find.byType(MedicamentCard), findsWidgets);
       },
     );
 

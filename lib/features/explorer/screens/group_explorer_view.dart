@@ -2,6 +2,8 @@
 import 'package:flutter/material.dart';
 import 'package:pharma_scan/core/utils/medicament_helpers.dart';
 import 'package:pharma_scan/features/explorer/models/grouped_by_laboratory_model.dart';
+import 'package:pharma_scan/features/explorer/models/grouped_by_product_model.dart';
+import 'package:pharma_scan/features/explorer/widgets/medicament_card.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:pharma_scan/core/locator.dart';
 import 'package:pharma_scan/core/services/database_service.dart';
@@ -121,10 +123,8 @@ class GroupExplorerViewState extends State<GroupExplorerView> {
       );
     }
 
-    final totalGenerics = details.generics.fold<int>(
-      0,
-      (sum, group) => sum + group.products.length,
-    );
+    final groupedProducts = _groupGenericsByProduct(details.generics);
+    final totalGenerics = groupedProducts.length;
     final totalMeds = details.princeps.length + totalGenerics;
 
     return Scaffold(
@@ -142,7 +142,7 @@ class GroupExplorerViewState extends State<GroupExplorerView> {
             _buildSectionHeader(theme, 'Princeps', details.princeps.length),
             _buildPrincepsList(details.princeps),
             _buildSectionHeader(theme, 'Génériques', totalGenerics),
-            _buildGenericsList(details.generics),
+            _buildGenericsList(groupedProducts),
             if (details.relatedPrinceps.isNotEmpty) ...[
               _buildSectionHeader(
                 theme,
@@ -247,43 +247,126 @@ class GroupExplorerViewState extends State<GroupExplorerView> {
       delegate: SliverChildBuilderDelegate(
         (context, index) => Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          child: _buildMedicamentCard(ShadTheme.of(context), princeps[index]),
+          child: MedicamentCard(medicament: princeps[index]),
         ),
         childCount: princeps.length,
       ),
     );
   }
 
-  Widget _buildGenericsList(List<GroupedByLaboratory> generics) {
-    // Flatten all generics from all groups into a single list
-    final allGenerics = generics.expand((group) => group.products).toList();
-
+  Widget _buildGenericsList(List<GroupedByProduct> groupedProducts) {
     return SliverList(
       delegate: SliverChildBuilderDelegate(
         (context, index) => Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          child: _buildMedicamentCard(
+          child: _buildGroupedProductCard(
             ShadTheme.of(context),
-            allGenerics[index],
+            groupedProducts[index],
           ),
         ),
-        childCount: allGenerics.length,
+        childCount: groupedProducts.length,
       ),
     );
   }
 
-  Widget _buildMedicamentCard(ShadThemeData theme, Medicament med) {
+  List<GroupedByProduct> _groupGenericsByProduct(
+    List<GroupedByLaboratory> generics,
+  ) {
+    final Map<String, _ProductAggregation> aggregation = {};
+
+    for (final group in generics) {
+      for (final medicament in group.products) {
+        final key = _productKey(medicament);
+        final entry = aggregation.putIfAbsent(
+          key,
+          () => _ProductAggregation(
+            productName: medicament.nom,
+            dosage: medicament.dosage,
+            dosageUnit: medicament.dosageUnit,
+          ),
+        );
+
+        final lab = (medicament.titulaire?.trim().isNotEmpty ?? false)
+            ? medicament.titulaire!.trim()
+            : 'Laboratoire Inconnu';
+
+        entry.laboratories.add(lab);
+        entry.codeCips.add(medicament.codeCip);
+      }
+    }
+
+    final groupedProducts = aggregation.values.map((entry) {
+      final laboratories = entry.laboratories.toList()..sort();
+      final codeCips = entry.codeCips.toList();
+
+      return GroupedByProduct(
+        productName: entry.productName,
+        dosage: entry.dosage,
+        dosageUnit: entry.dosageUnit,
+        laboratories: laboratories,
+        codeCips: codeCips,
+      );
+    }).toList()..sort(_compareProducts);
+
+    return groupedProducts;
+  }
+
+  int _compareProducts(GroupedByProduct a, GroupedByProduct b) {
+    if (_sortOption == SortOption.dosage) {
+      final dosageA = a.dosage ?? double.infinity;
+      final dosageB = b.dosage ?? double.infinity;
+      final comparison = dosageA.compareTo(dosageB);
+      if (comparison != 0) return comparison;
+    }
+    return a.productName.compareTo(b.productName);
+  }
+
+  String _productKey(Medicament medicament) {
+    final dosage = medicament.dosage?.toString() ?? 'null';
+    final unit = medicament.dosageUnit ?? 'null';
+    return '${medicament.nom.toUpperCase()}|$dosage|$unit';
+  }
+
+  Widget _buildGroupedProductCard(
+    ShadThemeData theme,
+    GroupedByProduct product,
+  ) {
+    final labsLabel = product.laboratories.join(', ');
+    final dosageLabel = _formatDosage(product.dosage, product.dosageUnit);
+
     return ShadCard(
       padding: const EdgeInsets.all(12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            med.nom,
+            product.productName,
             style: theme.textTheme.p.copyWith(fontWeight: FontWeight.w500),
           ),
+          if (dosageLabel != null) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(
+                  LucideIcons.activity,
+                  size: 14,
+                  color: theme.colorScheme.mutedForeground,
+                ),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    dosageLabel,
+                    style: theme.textTheme.small.copyWith(
+                      color: theme.colorScheme.mutedForeground,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: 8),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Icon(
                 LucideIcons.building2,
@@ -293,30 +376,9 @@ class GroupExplorerViewState extends State<GroupExplorerView> {
               const SizedBox(width: 4),
               Expanded(
                 child: Text(
-                  med.titulaire ?? 'N/A',
+                  'Laboratoires disponibles : $labsLabel',
                   style: theme.textTheme.small.copyWith(
                     color: theme.colorScheme.mutedForeground,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              Icon(
-                LucideIcons.barcode,
-                size: 14,
-                color: theme.colorScheme.mutedForeground,
-              ),
-              const SizedBox(width: 4),
-              Expanded(
-                child: Text(
-                  med.codeCip,
-                  style: theme.textTheme.small.copyWith(
-                    color: theme.colorScheme.mutedForeground,
-                    fontFamily: 'monospace',
                   ),
                 ),
               ),
@@ -326,4 +388,32 @@ class GroupExplorerViewState extends State<GroupExplorerView> {
       ),
     );
   }
+
+  String? _formatDosage(double? dosage, String? unit) {
+    if (dosage == null && unit == null) return null;
+    if (dosage == null) return unit;
+    if (unit == null) return _formatNumber(dosage);
+    return '${_formatNumber(dosage)} $unit';
+  }
+
+  String _formatNumber(double value) {
+    if (value % 1 == 0) {
+      return value.toInt().toString();
+    }
+    return value.toString();
+  }
+}
+
+class _ProductAggregation {
+  _ProductAggregation({
+    required this.productName,
+    required this.dosage,
+    required this.dosageUnit,
+  });
+
+  final String productName;
+  final double? dosage;
+  final String? dosageUnit;
+  final Set<String> laboratories = <String>{};
+  final Set<String> codeCips = <String>{};
 }

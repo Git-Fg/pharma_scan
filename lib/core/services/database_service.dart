@@ -11,6 +11,7 @@ import 'package:pharma_scan/features/scanner/models/medicament_model.dart';
 import 'package:pharma_scan/features/scanner/models/scan_result_model.dart';
 
 class DatabaseService {
+  static const _maxSqlVariables = 900;
   final AppDatabase _db = sl<AppDatabase>();
 
   // WHY: Unified method to handle both generic and princeps scans.
@@ -172,19 +173,8 @@ class DatabaseService {
     }).toList();
 
     // --- PARTIE 2: Trouver les principes actifs communs du groupe ---
-    final commonPrincipesQuery = _db.customSelect(
-      '''
-      SELECT DISTINCT pa.principe
-      FROM group_members gm
-      JOIN principes_actifs pa ON gm.code_cip = pa.code_cip
-      WHERE gm.group_id = ? AND pa.principe IS NOT NULL
-      ''',
-      variables: [Variable.withString(groupId)],
-    );
-    final commonPrincipesResult = await commonPrincipesQuery.get();
-    final commonPrincipes = commonPrincipesResult
-        .map((row) => row.read<String>('principe'))
-        .toList();
+    final commonPrincipesMap = await _getCommonPrincipesForGroups({groupId});
+    final commonPrincipes = commonPrincipesMap[groupId] ?? [];
 
     // --- PARTIE 3: Trouver les princeps associés dans d'autres groupes ---
     List<Medicament> relatedPrincepsList = [];
@@ -463,26 +453,42 @@ class DatabaseService {
     );
 
     final groupLabelsResults = await groupLabelsQuery.get();
+    if (groupLabelsResults.isEmpty) return [];
 
-    // WHY: Phase 2 - Normalize, group, and sort in Dart to get unique normalized labels.
-    // This processing is fast and allows us to determine which groups belong to each normalized label.
+    final groupIds = groupLabelsResults
+        .map((row) => row.read<String>('group_id'))
+        .toSet();
+
+    if (groupIds.isEmpty) return [];
+
+    final deterministicPrincipesMap = await _getCommonPrincipesForGroups(
+      groupIds,
+    );
+
+    // WHY: Phase 2 - Normalize deterministic principles and group identical sets.
     final groupsByPrinciple = <String, Map<String, dynamic>>{};
     for (final row in groupLabelsResults) {
-      final groupLabel = row.read<String>('libelle');
-      final cleanedLabel = cleanGroupLabel(groupLabel);
-      final normalizedLabel = normalize(cleanedLabel);
+      final groupId = row.read<String>('group_id');
+      final deterministicPrincipes = deterministicPrincipesMap[groupId];
+
+      if (deterministicPrincipes == null || deterministicPrincipes.isEmpty) {
+        continue;
+      }
+
+      final displayLabel = deterministicPrincipes.join(', ');
+      final normalizedLabel = normalize(displayLabel);
 
       if (normalizedLabel.isEmpty) continue;
 
-      final groupId = row.read<String>('group_id');
-
       groupsByPrinciple.putIfAbsent(
         normalizedLabel,
-        () => {'displayLabel': cleanedLabel, 'groupIds': <String>{}},
+        () => {'displayLabel': displayLabel, 'groupIds': <String>{}},
       );
 
       groupsByPrinciple[normalizedLabel]!['groupIds'].add(groupId);
     }
+
+    if (groupsByPrinciple.isEmpty) return [];
 
     // Create intermediate summaries with normalized labels for sorting
     final intermediateSummaries = groupsByPrinciple.entries.map((entry) {
@@ -581,6 +587,70 @@ class DatabaseService {
     }
 
     return summaries;
+  }
+
+  Future<Map<String, List<String>>> _getCommonPrincipesForGroups(
+    Set<String> groupIds,
+  ) async {
+    if (groupIds.isEmpty) return {};
+
+    final results = <String, List<String>>{};
+    final groupList = groupIds.toList();
+
+    for (var i = 0; i < groupList.length; i += _maxSqlVariables) {
+      final chunk = groupList.sublist(
+        i,
+        (i + _maxSqlVariables > groupList.length)
+            ? groupList.length
+            : i + _maxSqlVariables,
+      );
+
+      if (chunk.isEmpty) continue;
+
+      final valuesClause = chunk.map((_) => '(?)').join(',');
+      final query = _db.customSelect(
+        '''
+        WITH filtered_groups(group_id) AS (
+          VALUES $valuesClause
+        ),
+        member_counts AS (
+          SELECT gm.group_id, COUNT(DISTINCT gm.code_cip) AS member_count
+          FROM group_members gm
+          WHERE gm.group_id IN (SELECT group_id FROM filtered_groups)
+          GROUP BY gm.group_id
+        ),
+        principes_occurrences AS (
+          SELECT
+            gm.group_id,
+            pa.principe,
+            COUNT(DISTINCT gm.code_cip) AS occurrence_count
+          FROM group_members gm
+          INNER JOIN principes_actifs pa ON pa.code_cip = gm.code_cip
+          WHERE gm.group_id IN (SELECT group_id FROM filtered_groups)
+          GROUP BY gm.group_id, pa.principe
+        )
+        SELECT
+          po.group_id,
+          po.principe
+        FROM principes_occurrences po
+        INNER JOIN member_counts mc ON mc.group_id = po.group_id
+        WHERE po.occurrence_count = mc.member_count
+        ORDER BY po.group_id, po.principe
+        ''',
+        readsFrom: {_db.groupMembers, _db.principesActifs},
+        variables: chunk.map((id) => Variable.withString(id)).toList(),
+      );
+
+      final rows = await query.get();
+      for (final row in rows) {
+        final groupId = row.read<String>('group_id');
+        final principe = row.read<String>('principe');
+
+        results.putIfAbsent(groupId, () => []).add(principe);
+      }
+    }
+
+    return results;
   }
 
   // WHY: Search now includes active ingredients for a more powerful discovery experience.

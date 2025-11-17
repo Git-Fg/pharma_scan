@@ -76,27 +76,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 4;
-
-  @override
-  MigrationStrategy get migration {
-    return MigrationStrategy(
-      onUpgrade: (m, from, to) async {
-        // WHY: Pour le développement, on recrée simplement la base de données
-        // lors d'un changement de schéma. En production, on implémenterait
-        // une vraie migration avec ALTER TABLE.
-        if (from < 4) {
-          // Supprimer toutes les tables et les recréer avec le nouveau schéma
-          await m.deleteTable('group_members');
-          await m.deleteTable('generique_groups');
-          await m.deleteTable('principes_actifs');
-          await m.deleteTable('medicaments');
-          await m.deleteTable('specialites');
-          await m.createAll();
-        }
-      },
-    );
-  }
+  int get schemaVersion => 1;
 }
 
 LazyDatabase _openConnection() {
