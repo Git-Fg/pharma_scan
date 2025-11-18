@@ -232,6 +232,8 @@ class DatabaseService {
   Future<ProductGroupClassification?> classifyProductGroup(
     String groupId,
   ) async {
+    // WHY: Join with MedicamentSummary to access pre-computed cleaned names (nomCanonique)
+    // from the parser. This implements Source of Truth 1 (The Parser) in the Triangulation Strategy.
     final groupMembersQuery = _db.select(_db.specialites).join([
       innerJoin(
         _db.medicaments,
@@ -240,6 +242,10 @@ class DatabaseService {
       innerJoin(
         _db.groupMembers,
         _db.groupMembers.codeCip.equalsExp(_db.medicaments.codeCip),
+      ),
+      innerJoin(
+        _db.medicamentSummary,
+        _db.medicamentSummary.cisCode.equalsExp(_db.specialites.cisCode),
       ),
     ])..where(_db.groupMembers.groupId.equals(groupId));
 
@@ -260,6 +266,7 @@ class DatabaseService {
       final medData = row.readTable(_db.medicaments);
       final specData = row.readTable(_db.specialites);
       final memberData = row.readTable(_db.groupMembers);
+      final summaryData = row.readTable(_db.medicamentSummary);
 
       final principesData =
           principesByCip[medData.codeCip] ?? const <PrincipesActif>[];
@@ -267,8 +274,10 @@ class DatabaseService {
           ? principesData.first
           : null;
 
+      // WHY: Use nomCanonique from MedicamentSummary (pre-cleaned by parser with official form/lab hints)
+      // instead of raw nomSpecialite. This implements the Triangulation Strategy's Source of Truth 1.
       final medicament = Medicament(
-        nom: specData.nomSpecialite,
+        nom: summaryData.nomCanonique,
         codeCip: medData.codeCip,
         principesActifs: principesData.map((p) => p.principe).toList(),
         titulaire: parseMainTitulaire(specData.titulaire),
@@ -302,8 +311,29 @@ class DatabaseService {
     // WHY: Sanitization is already applied in _getCommonPrincipesForGroups
     final commonPrincipes = commonPrincipesMap[groupId] ?? const <String>[];
 
-    final groupedPrinceps = _groupMedicamentsByProduct(princeps);
-    final groupedGenerics = _groupMedicamentsByProduct(generics);
+    // WHY: Identify reference princeps to derive group-level defaults.
+    // Since drugs in the same Generic Group are therapeutically equivalent,
+    // we can safely use the princeps' properties to fill gaps in generic data.
+    // The princeps name is already cleaned (nomCanonique from MedicamentSummary),
+    // so we use it directly without re-processing.
+    final princepsReference = princeps.isNotEmpty ? princeps.first : null;
+    final groupCanonicalName = princepsReference != null
+        ? princepsReference.nom
+        : (commonPrincipes.isNotEmpty
+              ? commonPrincipes.join(' + ')
+              : 'Inconnu');
+    final groupPrimaryDosage = princepsReference?.dosage;
+
+    final groupedPrinceps = _groupMedicamentsByProduct(
+      princeps,
+      groupCanonicalName: groupCanonicalName,
+      groupPrimaryDosage: groupPrimaryDosage,
+    );
+    final groupedGenerics = _groupMedicamentsByProduct(
+      generics,
+      groupCanonicalName: groupCanonicalName,
+      groupPrimaryDosage: groupPrimaryDosage,
+    );
 
     final relatedPrincepsList = await _findRelatedPrinceps(
       groupId,
@@ -311,6 +341,8 @@ class DatabaseService {
     );
     final groupedRelatedPrinceps = _groupMedicamentsByProduct(
       relatedPrincepsList,
+      groupCanonicalName: groupCanonicalName,
+      groupPrimaryDosage: groupPrimaryDosage,
     );
 
     final distinctFormulations = formsSet.toList()..sort();
@@ -364,28 +396,43 @@ class DatabaseService {
     return results;
   }
 
+  // WHY: Groups medicaments by product name and dosage using Triangulation Strategy.
+  // Source 1 (Parser): Uses pre-cleaned names from MedicamentSummary.nomCanonique.
+  // Source 2 (Database): Uses structured dosage from principes_actifs table.
+  // Source 3 (Group Context): Falls back to reference princeps properties when individual
+  // data is incomplete. This leverages the legal equivalence of drugs within the same
+  // Generic Group to fill gaps safely.
   List<GroupedByProduct> _groupMedicamentsByProduct(
-    List<Medicament> medicaments,
-  ) {
+    List<Medicament> medicaments, {
+    required String groupCanonicalName,
+    required Decimal? groupPrimaryDosage,
+  }) {
     if (medicaments.isEmpty) return [];
 
     final buckets = <String, _ProductGroupBucket>{};
 
     for (final medicament in medicaments) {
-      final canonicalName =
-          deriveGroupTitleFromName(medicament.nom).trim().isNotEmpty
-          ? deriveGroupTitleFromName(medicament.nom).trim()
-          : medicament.nom;
-      final dosageKey = medicament.dosage?.toString() ?? 'null';
-      final unitKey = medicament.dosageUnit?.toUpperCase() ?? 'null';
-      final key = '${canonicalName.toUpperCase()}|$dosageKey|$unitKey';
+      // Triangulate Name: Use cleaned name directly (from parser via MedicamentSummary).
+      // Fallback to group standard only if name is too short (parser stripped everything).
+      String nameToUse = medicament.nom.trim();
+      if (nameToUse.length < 3) {
+        nameToUse = groupCanonicalName;
+      }
+
+      // Triangulate Dosage: Use structured DB column (Source 2), fallback to group standard (Source 3).
+      final dosageToUse = medicament.dosage ?? groupPrimaryDosage;
+      final unitToUse = medicament.dosageUnit;
+
+      final dosageKey = dosageToUse?.toString() ?? 'null';
+      final unitKey = unitToUse?.toUpperCase() ?? 'null';
+      final key = '${nameToUse.toUpperCase()}|$dosageKey|$unitKey';
 
       final bucket = buckets.putIfAbsent(
         key,
         () => _ProductGroupBucket(
-          productName: canonicalName,
-          dosage: medicament.dosage,
-          dosageUnit: medicament.dosageUnit,
+          productName: nameToUse,
+          dosage: dosageToUse,
+          dosageUnit: unitToUse,
         ),
       );
 

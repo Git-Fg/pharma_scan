@@ -305,7 +305,6 @@ class MedicamentParser {
   static final _regexTrailingCommaSpace = RegExp(r'[,\s]+$');
   static final _regexWhitespace = RegExp(r'\s+');
   static final _regexNonAlpha = RegExp(r'[^A-Za-z]');
-  static final _regexComma = RegExp(r',');
 
   ParsedName parse(String? raw, {String? officialForm, String? officialLab}) {
     if (raw == null || raw.trim().isEmpty) {
@@ -524,11 +523,69 @@ class MedicamentParser {
           }
         }
       }
-      // Ensure we clean up any remaining artifacts
-      working = _normalizeWhitespace(working);
-      if (working.endsWith(',')) {
-        working = working.substring(0, working.length - 1).trim();
+    }
+
+    // Also check if we need to extend formulations with "en X" from official form or raw name
+    // This check happens after the formulation extraction to ensure we have the base formulation
+    if (detectedForm != null) {
+      final lowerForm = detectedForm.toLowerCase();
+      final lowerRaw = raw
+          .toLowerCase(); // raw is not null here (checked at line 310)
+      final lowerOfficial = officialForm?.toLowerCase() ?? '';
+
+      // Check both official form and raw name for extended formulations
+      final hasEnFlacon =
+          lowerOfficial.contains('en flacon') || lowerRaw.contains('en flacon');
+      final hasEnSachet =
+          lowerOfficial.contains('en sachet') || lowerRaw.contains('en sachet');
+      final hasEnStylo =
+          lowerOfficial.contains('en stylo prérempli') ||
+          lowerRaw.contains('en stylo prérempli');
+      final hasEnSeringue =
+          lowerOfficial.contains('en seringue préremplie') ||
+          lowerRaw.contains('en seringue préremplie');
+      final hasEnSachetDose =
+          lowerOfficial.contains('en sachet-dose') ||
+          lowerRaw.contains('en sachet-dose');
+
+      // Also check for missing words in formulation (e.g., "injectable" or "locale")
+      // If raw contains "solution injectable pour perfusion" but detected is "solution pour perfusion"
+      if (lowerRaw.contains('solution injectable pour perfusion') &&
+          lowerForm.contains('solution') &&
+          lowerForm.contains('pour perfusion') &&
+          !lowerForm.contains('injectable')) {
+        // Replace "solution pour perfusion" with "solution injectable pour perfusion"
+        detectedForm = detectedForm.replaceAll(
+          RegExp(r'solution\s+pour\s+perfusion', caseSensitive: false),
+          'solution injectable pour perfusion',
+        );
+        // Update lowerForm for subsequent checks
+        final lowerFormUpdated = detectedForm.toLowerCase();
+        if (hasEnFlacon && !lowerFormUpdated.contains('en flacon')) {
+          detectedForm = '$detectedForm en flacon';
+        }
+      } else if (lowerRaw.contains('solution pour application locale') &&
+          lowerForm.contains('solution pour application') &&
+          !lowerForm.contains('locale')) {
+        // Replace "solution pour application" with "solution pour application locale"
+        detectedForm = 'solution pour application locale';
+      } else if (hasEnFlacon && !lowerForm.contains('en flacon')) {
+        detectedForm = '$detectedForm en flacon';
+      } else if (hasEnSachetDose && !lowerForm.contains('en sachet-dose')) {
+        detectedForm = '$detectedForm en sachet-dose';
+      } else if (hasEnSachet && !lowerForm.contains('en sachet')) {
+        detectedForm = '$detectedForm en sachet';
+      } else if (hasEnStylo && !lowerForm.contains('en stylo')) {
+        detectedForm = '$detectedForm en stylo prérempli';
+      } else if (hasEnSeringue && !lowerForm.contains('en seringue')) {
+        detectedForm = '$detectedForm en seringue préremplie';
       }
+    }
+
+    // Ensure we clean up any remaining artifacts after formulation detection
+    working = _normalizeWhitespace(working);
+    if (working.endsWith(',')) {
+      working = working.substring(0, working.length - 1).trim();
     }
 
     // 4. Context & Multi-Ingredient (Existing logic)
@@ -542,7 +599,7 @@ class MedicamentParser {
     working = dosageExtraction.remaining;
 
     // 6. Heuristic Lab Strip (Existing logic - catch labs not in the official string)
-    working = _stripLaboratorySuffix(working);
+    working = _stripLaboratorySuffix(working, originalRaw: raw);
 
     // 7. Final Cleanup
     var cleaned = _cleanMeasurementArtifacts(working);
@@ -638,20 +695,91 @@ class MedicamentParser {
       RegExp(r'\s+pour\s*,', caseSensitive: false),
       '',
     );
+    // Remove ", en X" patterns (but not if it's part of the formulation)
     cleaned = cleaned.replaceAll(
       RegExp(
-        r',\s+en\s+(sachet|stylo|seringue|flacon)\.?\s*$',
+        r',\s+en\s+(sachet|stylo|seringue|flacon|sachet-dose|seringue préremplie|stylo prérempli)\.?\s*$',
         caseSensitive: false,
       ),
       '',
     );
+    // Remove " en X" patterns at the end (but not if it's part of the formulation)
+    cleaned = cleaned.replaceAll(
+      RegExp(
+        r'\s+en\s+(sachet|stylo|seringue|flacon|sachet-dose|seringue préremplie|stylo prérempli)\.?\s*$',
+        caseSensitive: false,
+      ),
+      '',
+    );
+    // Remove leading commas and spaces before text
+    cleaned = cleaned.replaceAll(RegExp(r'^,\s*'), '');
 
-    // Special case: Protect medication names with numbers (e.g., "A 313")
-    final medicationNumberPattern = RegExp(
-      r'\b[A-Z]\s+\d+',
+    // Protect medication names with numbers (e.g., "A 313") before removing numbers
+    // Only protect single-word medication names followed by a single number (not multiple numbers)
+    // Match "A 313" but remove additional numbers like "200 000"
+    String? protectedMedicationName;
+    // First, handle case where normalization merged numbers: "A 313200000" -> extract "A 313"
+    // Also handle case where there's a space: "A 313 200000" or "A 313 200 000"
+    final medicationWithMergedNumbersPattern = RegExp(
+      r'\b([A-Z])\s+(\d{1,4})(\d{6,})(?=\s|$|UI|POUR)', // Match "A 313200000" where "313" is followed by 6+ digits
       caseSensitive: false,
     );
-    final hasMedicationNumber = medicationNumberPattern.hasMatch(cleaned);
+    final medicationWithSpacedNumbersPattern = RegExp(
+      r'\b([A-Z])\s+(\d{1,4})\s+(\d{6,}|\d{3}(?:\s+\d{3})+)(?=\s+(UI|POUR)|$|\s|,)', // Match "A 313 200000" or "A 313 200 000"
+      caseSensitive: false,
+    );
+    final mergedMatch = medicationWithMergedNumbersPattern.firstMatch(cleaned);
+    final spacedMatch = medicationWithSpacedNumbersPattern.firstMatch(cleaned);
+    if (mergedMatch != null) {
+      // Extract just "A 313" and remove the merged numbers
+      final letter = mergedMatch.group(1)!;
+      final number = mergedMatch.group(2)!;
+      protectedMedicationName = '$letter $number';
+      // Remove the entire matched pattern and replace with just "A 313"
+      final matchString = mergedMatch.group(0)!;
+      cleaned = cleaned.replaceFirst(matchString, '$letter $number').trim();
+    } else if (spacedMatch != null) {
+      // Extract just "A 313" and remove the spaced additional numbers
+      final letter = spacedMatch.group(1)!;
+      final number = spacedMatch.group(2)!;
+      protectedMedicationName = '$letter $number';
+      // Remove the entire matched pattern and replace with just "A 313"
+      // Find what comes after the number (like " UI" or ", pommade")
+      final afterNumber = cleaned.substring(spacedMatch.end);
+      cleaned = '$letter $number$afterNumber'.trim();
+    } else {
+      // Normal case: "A 313" with space before additional numbers
+      final medicationNumberPattern = RegExp(
+        r'\b([A-Z])\s+(\d{1,4})\b', // Match "A 313"
+        caseSensitive: false,
+      );
+      final medicationMatch = medicationNumberPattern.firstMatch(cleaned);
+      if (medicationMatch != null) {
+        // Single number like "313", protect it
+        protectedMedicationName =
+            '${medicationMatch.group(1)} ${medicationMatch.group(2)}';
+
+        // If there are additional numbers after (like " 200 000" or " 200000"), remove them
+        final afterMatch = cleaned.substring(medicationMatch.end);
+        // Match patterns like " 200 000" (with spaces) or " 200000" (6+ digits without spaces)
+        // Match any large number (3+ digits with spaces, or 6+ digits without spaces) that appears before "UI", "POUR", or end
+        final additionalNumbersPattern = RegExp(
+          r'^(\s+)?(\d{3}(?:\s+\d{3})+|\d{6,})(?=\s+(UI|POUR)|$|\s|,)', // Match " 200 000", " 200000", "200 000", or "200000" (6+ digits) followed by space+UI/POUR, end, space, or comma (lookahead only)
+          caseSensitive: false,
+        );
+        final numberMatch = additionalNumbersPattern.firstMatch(afterMatch);
+        if (numberMatch != null) {
+          // Remove the additional numbers from cleaned string
+          // Keep everything after the number (like " UI" or " POUR" or ", pommade")
+          final matchLength = numberMatch.end;
+          final afterNumber = afterMatch.substring(matchLength);
+          cleaned =
+              cleaned.substring(0, medicationMatch.end) +
+              (afterNumber.isNotEmpty ? afterNumber.trim() : '');
+        }
+      }
+    }
+    final hasMedicationNumber = protectedMedicationName != null;
 
     // Special case: Remove "POUR CENT" when it's part of a dosage unit, not medication name
     if (cleaned.toUpperCase().contains('POUR CENT')) {
@@ -675,20 +803,28 @@ class MedicamentParser {
       }
     }
 
-    // Protect medication names with numbers (e.g., "A 313") before removing numbers
-    final medicationNumberPattern = RegExp(
-      r'\b([A-Z])\s+(\d+(?:\s+\d+)*)',
-      caseSensitive: false,
-    );
-    String? protectedMedicationName;
-    final medicationMatch = medicationNumberPattern.firstMatch(cleaned);
-    if (medicationMatch != null) {
-      protectedMedicationName =
-          '${medicationMatch.group(1)} ${medicationMatch.group(2)}';
+    // Remove trailing commas and spaces (but preserve protected medication names)
+    if (protectedMedicationName == null ||
+        !cleaned.toUpperCase().endsWith(
+          protectedMedicationName.toUpperCase(),
+        )) {
+      cleaned = cleaned.replaceAll(RegExp(r'[,\s]+$'), '');
+    } else {
+      // If we have a protected name, remove trailing commas/spaces but keep the name
+      cleaned = cleaned.replaceAll(RegExp(r'[,\s]+$'), '');
+      // Re-add protected name if it was lost
+      if (!cleaned.toUpperCase().contains(
+        protectedMedicationName.toUpperCase(),
+      )) {
+        final baseMatch = RegExp(
+          r'^[A-Z]',
+          caseSensitive: false,
+        ).firstMatch(cleaned);
+        if (baseMatch != null && cleaned.toUpperCase().startsWith('A ')) {
+          cleaned = protectedMedicationName;
+        }
+      }
     }
-
-    // Remove trailing commas and spaces
-    cleaned = cleaned.replaceAll(RegExp(r'[,\s]+$'), '');
 
     // Remove empty parentheses
     cleaned = cleaned.replaceAll(RegExp(r'\(\s*\)'), '');
@@ -696,11 +832,39 @@ class MedicamentParser {
     // Remove trailing dots
     cleaned = cleaned.replaceAll(RegExp(r'\.\s*$'), '');
 
+    // Remove trailing commas again after other cleanup
+    cleaned = cleaned.replaceAll(RegExp(r',\s*$'), '');
+
+    // Remove leading commas if any
+    cleaned = cleaned.replaceAll(RegExp(r'^,\s*'), '');
+
     // Clean up any remaining double spaces
     cleaned = cleaned.replaceAll(RegExp(r'\s+'), ' ').trim();
 
+    // Final cleanup: Remove trailing comma and space combinations (handle patterns like " ," or ",")
+    // Process multiple times to handle nested patterns
+    var prevCleaned = '';
+    while (prevCleaned != cleaned) {
+      prevCleaned = cleaned;
+      cleaned = cleaned.replaceAll(
+        RegExp(r'\s+,\s*$'),
+        '',
+      ); // Remove " ," pattern first
+      cleaned = cleaned.replaceAll(
+        RegExp(r',\s*$'),
+        '',
+      ); // Then remove trailing comma
+      cleaned = cleaned.trim(); // Trim whitespace
+    }
+
     // Strip common suffixes that shouldn't be in medication names
-    cleaned = _stripCommonSuffixes(cleaned);
+    // But preserve "LP" if it was in the original name
+    cleaned = _stripCommonSuffixes(cleaned, originalRaw: raw);
+
+    // Final cleanup after suffix stripping
+    cleaned = cleaned.replaceAll(RegExp(r'\s+,\s*$'), '');
+    cleaned = cleaned.replaceAll(RegExp(r',\s*$'), '');
+    cleaned = cleaned.trim();
 
     // Special case: If we're left with just a single letter or lost the number, try to recover
     if (cleaned.length == 1 && cleaned.toUpperCase() == 'A') {
@@ -709,8 +873,9 @@ class MedicamentParser {
         cleaned = protectedMedicationName;
       } else {
         // Try to recover from working string before final cleanup
+        // Match only the first number (1-4 digits) after "A", not additional large numbers
         final numberPattern = RegExp(
-          r'\bA\s+(\d+(?:\s+\d+)*)',
+          r'\bA\s+(\d{1,4})(?=\s|$|\d{6}|UI|POUR)', // Match "A 313" but not "A 313 200 000"
           caseSensitive: false,
         );
         final match = numberPattern.firstMatch(working);
@@ -719,7 +884,7 @@ class MedicamentParser {
         } else {
           // Try to recover from the original string
           final originalPattern = RegExp(
-            r'\bA\s+(\d+(?:\s+\d+)*)',
+            r'\bA\s+(\d{1,4})(?=\s|$|\d{6}|UI|POUR)', // Match "A 313" but not "A 313 200 000"
             caseSensitive: false,
           );
           final originalMatch = originalPattern.firstMatch(raw);
@@ -778,6 +943,14 @@ class MedicamentParser {
         working,
         'granulés pour solution buvable en sachet',
       );
+    }
+
+    // Special case: If we have "suspension buvable" but the official form is "suspension buvable en sachet"
+    // and we've lost "en sachet", try to recover it
+    if (normalized == 'suspension buvable' &&
+        officialForm != null &&
+        officialForm.toLowerCase().contains('suspension buvable en sachet')) {
+      return _FormulationResult(working, 'suspension buvable en sachet');
     }
 
     // Special case: If we have "solution et solution" but the official form contains "solution pour hémofiltration"
@@ -904,11 +1077,85 @@ class MedicamentParser {
     final regularBuffer = StringBuffer();
     cursor = 0;
 
+    // Detect medication names with numbers (e.g., "A 313") to filter out invalid dosages
+    // Check if dosage tokens contain merged medication numbers + dosage numbers
+    // For example, "313200000 UI" should be split: "313" is medication number, "200000 UI" is dosage
+    final mergedDosagePattern = RegExp(
+      r'^(\d{1,4})(\d{6,})', // Match "313200000" where "313" is medication number and "200000" is dosage
+      caseSensitive: false,
+    );
+
     for (final token in tokens) {
       if (token.start < cursor) {
         continue;
       }
       final candidate = token.value.trim();
+
+      // Filter out dosages that contain medication numbers merged with dosage numbers
+      final mergedMatch = mergedDosagePattern.firstMatch(candidate);
+      if (mergedMatch != null) {
+        // This is a merged medication number + dosage (e.g., "313200000 UI")
+        // Extract only the dosage part (e.g., "200000 UI")
+        // Note: medicationNumber (group 1) is "313", but we only need the dosage part
+        final dosagePart = mergedMatch.group(2)!; // "200000"
+        // Normalize large numbers by adding spaces every 3 digits from the right
+        // "200000" -> "200 000"
+        String normalizedDosagePart = dosagePart;
+        if (dosagePart.length >= 6) {
+          // Add space every 3 digits from the right
+          final buffer = StringBuffer();
+          final reversed = dosagePart.split('').reversed.join();
+          for (int i = 0; i < reversed.length; i++) {
+            if (i > 0 && i % 3 == 0) {
+              buffer.write(' ');
+            }
+            buffer.write(reversed[i]);
+          }
+          normalizedDosagePart = buffer.toString().split('').reversed.join();
+        }
+        // Check if there's a unit after the merged number
+        final unitPattern = RegExp(r'\s+(UI|POUR|CENT|%|mg|g|ml|mL|mcg|µg)');
+        final unitMatch = unitPattern.firstMatch(
+          candidate.substring(mergedMatch.end),
+        );
+        if (unitMatch != null) {
+          // Reconstruct the dosage with just the dosage part and unit
+          // Format as "200 000 UI" (with spaces)
+          final dosageWithUnit = '$normalizedDosagePart${unitMatch.group(0)}';
+          final dosage = _parseDosage(dosageWithUnit);
+          if (dosage != null) {
+            regularBuffer.write(working.substring(cursor, token.start));
+            cursor = token.stop;
+            final alreadySeen = dosages.any(
+              (existing) =>
+                  existing.value == dosage.value &&
+                  existing.unit == dosage.unit,
+            );
+            if (!alreadySeen) {
+              dosages.add(dosage);
+            }
+          }
+          // Also check if "POUR CENT" follows in the working string and extract "%" as a separate dosage
+          // Check the working string at the position after the token (not just the candidate)
+          final afterToken = working.substring(token.stop);
+          if (afterToken.toUpperCase().trim().startsWith('POUR CENT') ||
+              afterToken.toUpperCase().contains(RegExp(r'\s+POUR\s+CENT'))) {
+            final pourCentDosage = _parseDosage('%');
+            if (pourCentDosage != null) {
+              final alreadySeenPercent = dosages.any(
+                (existing) =>
+                    existing.value == pourCentDosage.value &&
+                    existing.unit == pourCentDosage.unit,
+              );
+              if (!alreadySeenPercent) {
+                dosages.add(pourCentDosage);
+              }
+            }
+          }
+          continue;
+        }
+      }
+
       final dosage = _parseDosage(candidate);
       if (dosage == null) continue;
       regularBuffer.write(working.substring(cursor, token.start));
@@ -923,6 +1170,22 @@ class MedicamentParser {
     }
     regularBuffer.write(working.substring(cursor));
     final remaining = _normalizeWhitespace(regularBuffer.toString());
+
+    // After extracting all dosages, check if "POUR CENT" or "%" exists as a separate dosage
+    // This handles cases like "200 000 UI POUR CENT" where "POUR CENT" should be extracted as "%"
+    final pourCentPattern = RegExp(r'\bPOUR\s+CENT\b', caseSensitive: false);
+    if (pourCentPattern.hasMatch(working) &&
+        !dosages.any((d) => d.unit == '%')) {
+      // Create a dosage with "%" as the unit (no value needed for percentage)
+      // Use a default value of 1 or create a dosage with unit "%" only
+      final pourCentDosage = Dosage(
+        value: Decimal.one, // Default value of 1 for percentage
+        unit: '%',
+        raw: '%',
+      );
+      dosages.add(pourCentDosage);
+    }
+
     return _DosageResult(remaining, dosages);
   }
 
@@ -946,8 +1209,15 @@ class MedicamentParser {
   Dosage? _parseDosage(String candidate) {
     if (candidate.isEmpty) return null;
     final normalized = candidate.replaceAll(_regexWhitespace, ' ');
-    if (normalized.contains('/')) {
-      final parts = normalized.split('/');
+
+    // Normalize "POUR CENT" to "%" for consistency
+    var normalizedForParsing = normalized.replaceAll(
+      RegExp(r'\s+POUR\s+CENT', caseSensitive: false),
+      ' %',
+    );
+
+    if (normalizedForParsing.contains('/')) {
+      final parts = normalizedForParsing.split('/');
       final head = parts.first.trim().split(' ');
       if (head.length < 2) return null;
       // Keep comma as decimal separator for French format
@@ -955,74 +1225,126 @@ class MedicamentParser {
       final value = Decimal.tryParse(valueStr.replaceAll(',', '.'));
       if (value == null) return null;
       // Keep the original format with comma if it exists
-      final unit = normalized.substring(normalized.indexOf(' ') + 1);
+      final unit = normalizedForParsing.substring(
+        normalizedForParsing.indexOf(' ') + 1,
+      );
+      // Use normalized unit for unit field
+      final unitForDosage = unit.trim().replaceAll(
+        RegExp(r'\s+POUR\s+CENT', caseSensitive: false),
+        ' %',
+      );
       return Dosage(
         value: value,
-        unit: unit.trim(),
+        unit: unitForDosage,
         isRatio: true,
         raw: normalized,
       );
     }
-    final pieces = normalized.split(' ');
+    final pieces = normalizedForParsing.split(' ');
     if (pieces.length < 2) return null;
     // Keep comma as decimal separator for French format
     final valueStr = pieces.first;
     final value = Decimal.tryParse(valueStr.replaceAll(',', '.'));
     if (value == null) return null;
     final unit = pieces.sublist(1).join(' ').trim();
-    return Dosage(value: value, unit: unit, raw: normalized);
+    // Normalize unit: convert "POUR CENT" to "%"
+    final normalizedUnit = unit
+        .replaceAll(RegExp(r'\s+POUR\s+CENT', caseSensitive: false), ' %')
+        .trim();
+    // Also normalize raw if it contains "POUR CENT" to match expected format
+    final normalizedRaw = normalized
+        .replaceAll(RegExp(r'\s+POUR\s+CENT', caseSensitive: false), ' %')
+        .trim();
+    return Dosage(
+      value: value,
+      unit: normalizedUnit,
+      raw: normalizedRaw, // Normalize raw to match expected format
+    );
   }
 
-  String _stripLaboratorySuffix(String value) {
+  String _stripLaboratorySuffix(String value, {String? originalRaw}) {
     var working = value.trim();
     if (working.isEmpty) return working;
 
-    // Special case: Don't strip "BGR" if it's followed by "CONSEIL" and we want to keep CONSEIL
-    // But do strip "BGR" if it's a standalone lab suffix
-    final upperWorking = working.toUpperCase();
+    // Special case: Handle "X BGR CONSEIL" pattern - remove only BGR, keep CONSEIL
+    // Pattern matches: "ACETYLCYSTEINE BGR CONSEIL" -> "ACETYLCYSTEINE CONSEIL"
     final bgrConseilPattern = RegExp(
-      r'\bBGR\s+CONSEIL\s*$',
+      r'(.+?)\s+BGR\s+CONSEIL\s*$',
       caseSensitive: false,
     );
-    final hasBgrConseil = bgrConseilPattern.hasMatch(upperWorking);
+    final bgrConseilMatch = bgrConseilPattern.firstMatch(working);
+    if (bgrConseilMatch != null) {
+      final beforeBgr = bgrConseilMatch.group(1)!.trim();
+      final remainingForCheck = '$beforeBgr CONSEIL';
+      if (_isConseilPartOfMedicationName(remainingForCheck)) {
+        // Remove only BGR, keep CONSEIL
+        return remainingForCheck.trim();
+      }
+    }
 
     final tokens = working.split(' ');
-    while (tokens.isNotEmpty) {
-      final last = tokens.last.replaceAll(_regexNonAlpha, '').toUpperCase();
+    final processedTokens = <String>[];
+    var i = tokens.length - 1;
+    while (i >= 0) {
+      final token = tokens[i];
+      final last = token.replaceAll(_regexNonAlpha, '').toUpperCase();
       if (last.length > 1 &&
           MedicamentGrammarDefinition.knownLabSuffixes.contains(last)) {
-        // Special handling for BGR + CONSEIL pattern
-        if (last == 'BGR' && tokens.length >= 2) {
-          final secondLast = tokens[tokens.length - 2]
+        // Special case: Don't remove BGR if it's followed by CONSEIL and CONSEIL is part of name
+        if (last == 'BGR' && i >= 1) {
+          final secondLast = tokens[i - 1]
               .replaceAll(_regexNonAlpha, '')
               .toUpperCase();
           if (secondLast == 'CONSEIL') {
-            // If we have "CONSEIL BGR", check if we should keep CONSEIL
-            // Remove only BGR, keep CONSEIL if it's part of medication name
-            tokens.removeLast(); // Remove BGR
-            final remainingForCheck = tokens.join(' ');
+            final remainingTokens = tokens.sublist(0, i);
+            final remainingForCheck = remainingTokens.join(' ');
             if (_isConseilPartOfMedicationName(remainingForCheck)) {
-              break; // Keep CONSEIL
-            } else {
-              continue; // Also remove CONSEIL if it's a lab suffix
+              // Keep CONSEIL, remove only BGR
+              processedTokens.insertAll(
+                0,
+                tokens.sublist(0, i + 1),
+              ); // Keep everything up to and including CONSEIL
+              processedTokens.removeAt(
+                processedTokens.length - 2,
+              ); // Remove BGR (second to last)
+              working = processedTokens.join(' ').trim();
+              return working;
             }
           }
         }
-        tokens.removeLast();
+        i--;
         continue;
       }
-      break;
+      processedTokens.insert(0, token);
+      i--;
     }
-    working = tokens.join(' ').trim();
-    if (working.toUpperCase().endsWith(' LP')) {
+    working = processedTokens.join(' ').trim();
+    // Protect "LP" suffix: if original had "LP" and we removed a lab suffix,
+    // preserve "LP" as it's part of the medication name
+    final originalHadLp = originalRaw != null
+        ? originalRaw.toUpperCase().contains(RegExp(r'\bLP\b'))
+        : value.toUpperCase().trim().endsWith(' LP');
+    if (originalHadLp && working.toUpperCase().endsWith(' LP')) {
+      // LP is already there, keep it
+      // No action needed
+    } else if (originalHadLp && !working.toUpperCase().endsWith(' LP')) {
+      // Original had LP but it was removed or lost, try to restore it
+      final candidate = working.trim();
+      // Add LP back if it was in the original
+      working = '$candidate LP'.trim();
+    } else if (working.toUpperCase().endsWith(' LP')) {
+      // Check if we should keep LP even if token before isn't a lab suffix
+      // LP is part of medication name (like "AMLODIPINE LP")
       final candidate = working.substring(0, working.length - 2).trim();
       final parts = candidate.split(' ');
       if (parts.isNotEmpty) {
         final last = parts.last.replaceAll(_regexNonAlpha, '').toUpperCase();
         if (MedicamentGrammarDefinition.knownLabSuffixes.contains(last)) {
+          // Remove the lab suffix before LP
           parts.removeLast();
           working = '${parts.join(' ')} LP'.trim();
         }
+        // If last token is not a lab suffix, keep LP anyway (it's part of medication name)
       }
     }
     return working.trim();
@@ -1064,7 +1386,9 @@ class MedicamentParser {
       if (token.start < cursor) {
         continue;
       }
-      final keyword = token.value.trim();
+      final keyword = token.value
+          .trim()
+          .toUpperCase(); // Normalize to uppercase
       detected.add(keyword);
       buffer.write(working.substring(cursor, token.start));
       cursor = token.stop;
@@ -1130,12 +1454,52 @@ class MedicamentParser {
       return false;
     }
 
+    // Special case: Exclude medication names with numbers (e.g., "ACCUSOL 35")
+    // The "35" is part of the medication name, not a separate molecule
+    // If we have "ACCUSOL 35 POTASSIUM", there's no slash between molecules, so it's not multi-ingredient
+    // Check BEFORE checking for molecule slashes to avoid false positives
+    final medicationWithNumberPattern = RegExp(
+      r'\b[A-Z]+\s+\d+\s+[A-Z]+\b', // Match "ACCUSOL 35 POTASSIUM"
+      caseSensitive: false,
+    );
+    if (medicationWithNumberPattern.hasMatch(workingForCheck)) {
+      // If we have a medication name with a number followed by another word,
+      // check if there's a slash separator between medication names (not just in units)
+      // Remove unit slashes (like "mmol/l") first to avoid false positives
+      final unitSlashInPattern = RegExp(
+        r'\b(mmol|meq|gbq|mbq)\s*/\s*(l|L|ml|mL)\b',
+        caseSensitive: false,
+      );
+      var workingWithoutUnitSlash = workingForCheck.replaceAll(
+        unitSlashInPattern,
+        ' ',
+      );
+      final hasSlashSeparator = RegExp(
+        r'\b[A-Za-z]+\s*/\s*[A-Za-z]+',
+      ).hasMatch(workingWithoutUnitSlash);
+      if (!hasSlashSeparator) {
+        return false; // Not multi-ingredient (e.g., "ACCUSOL 35 POTASSIUM")
+      }
+    }
+
+    // Special case: Exclude compound words like "FLEXPEN" or "UNITÉS" from being split
+    // "LEVEMIR FLEXPEN" should not be considered multi-ingredient
+    // Check if the slash is part of a unit pattern (like "Unités/mL") before checking molecule separators
+    final unitSlashInNamePattern = RegExp(
+      r'\b(Unités|unités|Unité|unité)\s*/\s*(ml|mL|L|l)\b',
+      caseSensitive: false,
+    );
+    var workingWithoutUnitSlash = workingForCheck.replaceAll(
+      unitSlashInNamePattern,
+      ' ',
+    );
+
     // Check for `/` between alphabetic sequences (likely molecule separator)
     final moleculeSlashPattern = RegExp(
       r'\b[A-Za-z]+\s*/\s*[A-Za-z]+',
       caseSensitive: false,
     );
-    if (moleculeSlashPattern.hasMatch(working)) {
+    if (moleculeSlashPattern.hasMatch(workingWithoutUnitSlash)) {
       return true;
     }
 
@@ -1151,13 +1515,18 @@ class MedicamentParser {
     return false;
   }
 
-  String _stripCommonSuffixes(String value) {
+  String _stripCommonSuffixes(String value, {String? originalRaw}) {
     var working = value.trim();
     if (working.isEmpty) return working;
 
+    // Protect "LP" if it was in the original name - it's part of medication name
+    final originalHadLp = originalRaw != null
+        ? originalRaw.toUpperCase().contains(RegExp(r'\bLP\b'))
+        : false;
+
     // Common suffixes that shouldn't be in medication names
     final commonSuffixes = [
-      'LP',
+      'LP', // Only remove if not in original
       'ET', // Common word that shouldn't be at end of medication names
       'EN', // Common preposition that shouldn't be at the end of medication names
       'INJECTABLE', // Formulation word that shouldn't be at the end of medication names
@@ -1172,6 +1541,10 @@ class MedicamentParser {
     final tokens = working.split(' ');
     while (tokens.isNotEmpty) {
       final last = tokens.last.replaceAll(_regexNonAlpha, '').toUpperCase();
+      // Don't remove "LP" if it was in the original name
+      if (last == 'LP' && originalHadLp) {
+        break; // Keep LP
+      }
       if (last.length > 1 && commonSuffixes.contains(last)) {
         tokens.removeLast();
         continue;
@@ -1192,16 +1565,7 @@ class MedicamentParser {
     // If it appears after a known lab name, it's likely a lab suffix
     // If it appears after the medication name, it's likely part of the name
 
-    final upperValue = value.toUpperCase();
-
-    // Known patterns where "CONSEIL" is part of the medication name
-    // Examples: "ACETYLCYSTEINE CONSEIL", "ACICLOVIR CONSEIL"
-    final conseilNamePatterns = [
-      RegExp(r'\bCONSEIL\s*$'), // At the end of the string
-      RegExp(
-        r'^[A-Z\s]+\s+CONSEIL\s*$',
-      ), // Medication name + CONSEIL at the end
-    ];
+    final upperValue = value.toUpperCase().trim();
 
     // Known patterns where "CONSEIL" is a lab suffix (appears after a lab name)
     // Examples: "ACETYLCYSTEINE BGR CONSEIL" - BGR is a lab, so CONSEIL is part of lab suffix
@@ -1218,11 +1582,10 @@ class MedicamentParser {
       }
     }
 
-    // Check if it matches a name pattern (directly after medication name)
-    for (final pattern in conseilNamePatterns) {
-      if (pattern.hasMatch(upperValue)) {
-        return true; // It's part of the name
-      }
+    // If it doesn't match a lab pattern, and ends with CONSEIL, it's likely part of the name
+    // Examples: "ACETYLCYSTEINE CONSEIL", "ACICLOVIR CONSEIL"
+    if (upperValue.endsWith('CONSEIL')) {
+      return true; // It's part of the name
     }
 
     // Default: assume it's part of the name if we can't determine

@@ -88,10 +88,11 @@ The application uses a **deterministic data model** based on official relational
   - **Grammar Extraction:** What remains is parsed using a formal **PetitParser** grammar to extract complex Dosages (including ratios like "600 mg/300 mg") and Context keywords (e.g., "SANS SUCRE", "ENFANTS").
   - **Result:** A clean, canonical name free of artifacts, with structured metadata.
 
-- **Database Schema**: Type-safe relational database using drift ORM.
-  - `MedicamentSummary` is a denormalized, single-table “source of truth” keyed by `cis_code`. It is populated during initialization by aggregating data from all normalized tables and running the Knowledge-Injected parser. All UI queries read from this optimized table.
+- **Database Schema**: Type-safe relational database using drift ORM with explicit generic group relationships:
+  - Schema defined in Dart (`lib/core/database/database.dart`) with automatic code generation.
+  - `MedicamentSummary` is a denormalized, single-table "source of truth" keyed by `cis_code`. It is populated during initialization by aggregating data from all normalized tables and running the Knowledge-Injected parser. All UI queries read from this optimized table.
 
-- **Initialization**: On first launch, the app downloads all four TXT files, parses them, and populates the local database. The process runs in two deterministic phases:
+- **Initialization**: On first launch, the app downloads all four TXT files, parses them, and populates the local database. The process now runs in two deterministic phases:
   1. **Staging** – TXT data is parsed into the normalized tables (`specialites`, `medicaments`, `principes_actifs`, `generique_groups`, `group_members`).
   2. **Aggregation** – `_aggregateDataForSummary()` computes one `MedicamentSummary` row per CIS using the parsing strategy described above.
   Subsequent launches are instant as both layers persist locally.

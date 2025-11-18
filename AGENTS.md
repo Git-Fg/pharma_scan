@@ -141,17 +141,17 @@ The application enforces a simple but strict two-layer architecture.
 
 **CRITICAL:** The application uses a **deterministic** data model based on official relational data files from the *Base de Données Publique des Médicaments (BDPM)*. We strictly avoid heuristic guessing when structured data is available.
 
-* **Parsing Strategy: Knowledge Injection:**
-    *   We do **not** parse medication names (e.g., "DOLIPRANE 1000 mg, comprimé") blindly using Regex.
-    *   Instead, we inject the **official truth** from the relational database (`forme_pharmaceutique` from `CIS_bdpm.txt` and `titulaire` from `CIS_bdpm.txt`) directly into the parser.
-    *   **The Parser's Job:** Subtract the known official Form and known official Lab from the raw string. What remains is treated as the Canonical Name and Dosage.
-    *   **Fallback:** Only if the official data is missing or disjoint from the raw text does the parser fall back to grammar-based extraction (PetitParser).
-
 * **Data Sources:** The application downloads individual TXT files directly from BDPM:
   * `CIS_bdpm.txt` - Medication specialties with form, commercialization status, and manufacturer (titulaire)
   * `CIS_CIP_bdpm.txt` - Medicament information (CIS, CIP13, name)
   * `CIS_COMPO_bdpm.txt` - Active ingredient compositions with structured dosage information
   * `CIS_GENER_bdpm.txt` - Generic group relationships (source of truth)
+
+* **Parsing Strategy: Knowledge Injection:**
+  * We do **not** parse medication names (e.g., "DOLIPRANE 1000 mg, comprimé") blindly using Regex.
+  * Instead, we inject the **official truth** from the relational database (`forme_pharmaceutique` from `CIS_bdpm.txt` and `titulaire` from `CIS_bdpm.txt`) directly into the parser.
+  * **The Parser's Job:** Subtract the known official Form and known official Lab from the raw string. What remains is treated as the Canonical Name and Dosage.
+  * **Fallback:** Only if the official data is missing or disjoint from the raw text does the parser fall back to grammar-based extraction (PetitParser).
 
 * **Database Schema (Version 7):**
   * `specialites` - Medication specialties (cis_code, nom_specialite, procedure_type, forme_pharmaceutique, etat_commercialisation, titulaire, conditions_prescription)
@@ -162,7 +162,11 @@ The application enforces a simple but strict two-layer architecture.
     * `type = 0` for princeps, `type = 1` for generic
   * `medicament_summary` - **Single row per CIS** storing the canonical name (dosage/form stripped), princeps/generic flag, `group_id`, JSON-encoded shared active principles, `princeps_de_reference`, and `forme_pharmaceutique`. _All_ explorer/search/scan read paths must consult this table instead of recomputing joins at runtime.
 
-* **Data Initialization:** `DataInitializationService` downloads TXT files directly, parses tab-separated values, and populates the relational schema.
+* **Generic Detection:** Uses explicit group relationships from `group_members` table. **NEVER** infer generic relationships from active ingredient matching.
+
+* **Princeps Name Grouping:** The application uses an algorithmic word-based approach to find common base names for princeps within the same group. The `findCommonPrincepsName()` helper function in `lib/core/utils/medicament_helpers.dart` compares medication names word-by-word to identify the longest common prefix. This replaces fragile regex-based extraction and provides robust, deterministic grouping results.
+
+* **Data Initialization:** `DataInitializationService` downloads TXT files directly, parses tab-separated values, and populates the relational schema. All complex fallback logic and regex-based extraction has been removed.
   * **Phase 1 – Staging:** Populate normalized tables (`specialites`, `medicaments`, `principes_actifs`, `generique_groups`, `group_members`) exactly as parsed from BDPM.
   * **Phase 2 – Aggregation:** Call `_aggregateDataForSummary()` to recalculate every `medicament_summary` row. This phase uses the **Knowledge-Injected Parsing** strategy to populate the `nom_canonique` and `cluster_key` fields cleanly.
 
@@ -172,9 +176,15 @@ The application enforces a simple but strict two-layer architecture.
 
 `data_validator.py` is the **definitive tool** for auditing the raw BDPM data format. It downloads the latest versions of the BDPM files and performs an in-depth analysis to ensure the file structure (columns, separators, encoding) matches the Dart parser's expectations.
 
-**When to Use:** You **MUST** run this script whenever you have the slightest doubt about the data's integrity or before modifying `DataInitializationService`.
+**When to Use:** You **MUST** run this script whenever you have the slightest doubt about the data's integrity, especially in the following scenarios:
+
+* The data initialization process (`initializeDatabase()`) fails unexpectedly.
+* Search results or generic group information appear incorrect or inconsistent.
+* Before attempting to modify or extend the data parsing logic in `DataInitializationService`.
+* To proactively check if the official data source format has changed.
 
 **How to Run:**
+
 ```bash
 uv run python data_validation/data_validator.py
 ```
@@ -183,8 +193,8 @@ uv run python data_validation/data_validator.py
 
 To ensure the "Knowledge-Injected" parser handles the immense variety of French medication names (16,000+ entries) without regression, we use a data-driven testing approach.
 
-1.  **Generate Test Data:** Run `python data_validation/generate_smart_test_data.py`. This script downloads fresh BDPM data and creates a CSV file (`smart_parsing_challenges.csv`) containing "Tricky" cases (Ratios, complex units) and random samples, paired with their official "Truth" (Form, Lab).
-2.  **Run Dart Tests:** The test file `test/core/parser/data_driven_parser_test.dart` reads this CSV and verifies that the parser correctly strips the official Form and Lab from the raw name without leaving artifacts.
+1. **Generate Test Data:** Run `python data_validation/generate_smart_test_data.py`. This script downloads fresh BDPM data and creates a CSV file (`smart_parsing_challenges.csv`) containing "Tricky" cases (Ratios, complex units) and random samples, paired with their official "Truth" (Form, Lab).
+2. **Run Dart Tests:** The test file `test/core/parser/data_driven_parser_test.dart` reads this CSV and verifies that the parser correctly strips the official Form and Lab from the raw name without leaving artifacts.
 
 This replaces the deprecated `product_classifier.py` and `generate_parsing_samples.py` scripts.
 
@@ -220,7 +230,7 @@ Use the standard command-line tools to manage the project.
 * **Run All Tests:** `flutter test`
 * **Quality Gate (Run Before Finalizing Changes):**
     ```bash
-    flutter pub run build_runner build --delete-conflicting-outputs && flutter analyze && flutter test
+    flutter pub run build_runner build --delete-conflicting-outputs && flutter analyze && flutter test && flutter test integration_test
     ```
 
 ---
