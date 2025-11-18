@@ -27,7 +27,7 @@ class DataInitializationService {
        _globalCacheDir = cacheDirectory ?? _resolveDefaultCacheDir();
 
   static const _initializationKey = 'bdpm_data_version';
-  static const _currentDataVersion = '2025-11-18-schema-v3';
+  static const _currentDataVersion = '2025-01-20-rc1';
 
   final SharedPreferences _sharedPreferences;
   final DatabaseService dbService;
@@ -49,8 +49,8 @@ class DataInitializationService {
   }
 
   Future<void> _performFullRefresh() async {
-    final fileBytes = await _downloadAllFiles();
-    final parsedMap = await compute(_parseDataInBackground, fileBytes);
+    final filePaths = await _downloadAllFiles();
+    final parsedMap = await compute(_parseDataInBackground, filePaths);
     final parsedData = _ParsedDataBundle.fromMap(parsedMap);
 
     developer.log(
@@ -75,32 +75,48 @@ class DataInitializationService {
     await _sharedPreferences.setString(_initializationKey, _currentDataVersion);
   }
 
-  Future<Map<String, List<int>>> _downloadAllFiles() async {
-    final results = <String, List<int>>{};
+  Future<Map<String, String>> _downloadAllFiles() async {
+    final results = <String, String>{};
     for (final entry in DataSources.files.entries) {
-      results[entry.key] = await _loadFileBytes(entry.key, entry.value);
+      results[entry.key] = await _getFilePath(entry.key, entry.value);
     }
     return results;
   }
 
-  Future<List<int>> _loadFileBytes(String storageKey, String url) async {
+  Future<String> _getFilePath(String storageKey, String url) async {
     final filename = _extractFilenameFromUrl(url);
-    final cached = await _readGlobalCache(filename);
-    if (cached != null) {
-      developer.log(
-        'Using cached BDPM file $filename from $_globalCacheDir',
-        name: 'DataInitService',
-      );
-      return cached;
+    final cacheDir = _globalCacheDir;
+
+    // Ensure cache directory exists
+    if (cacheDir != null) {
+      final cacheFile = File(p.join(cacheDir, filename));
+      if (await cacheFile.exists()) {
+        developer.log(
+          'Using cached BDPM file $filename from $cacheDir',
+          name: 'DataInitService',
+        );
+        return cacheFile.path;
+      }
     }
 
+    // Download and cache the file if not already cached
     final bytes = await _fetchFileBytesWithCache(
       storageKey: storageKey,
       url: url,
       filename: filename,
     );
-    await _writeGlobalCache(filename, bytes);
-    return bytes;
+
+    // Write to global cache
+    if (cacheDir != null) {
+      await _writeGlobalCache(filename, bytes);
+      return File(p.join(cacheDir, filename)).path;
+    }
+
+    // Fallback to application documents directory
+    final directory = await getApplicationDocumentsDirectory();
+    final file = File('${directory.path}/$filename');
+    await file.writeAsBytes(bytes, flush: true);
+    return file.path;
   }
 
   String _extractFilenameFromUrl(String url) {
@@ -119,14 +135,6 @@ class DataInitializationService {
       return defaultDir.path;
     }
     return null;
-  }
-
-  Future<List<int>?> _readGlobalCache(String filename) async {
-    final cacheDir = _globalCacheDir;
-    if (cacheDir == null) return null;
-    final file = File(p.join(cacheDir, filename));
-    if (!await file.exists()) return null;
-    return file.readAsBytes();
   }
 
   Future<void> _writeGlobalCache(String filename, List<int> bytes) async {
@@ -552,28 +560,36 @@ class _GroupData {
 }
 
 Future<Map<String, dynamic>> _parseDataInBackground(
-  Map<String, List<int>> fileBytes,
+  Map<String, String> filePaths,
 ) async {
+  // Helper to read file inside isolate
+  String? readFileInIsolate(String path) {
+    final file = File(path);
+    if (!file.existsSync()) return null;
+    final bytes = file.readAsBytesSync();
+    return _decodeContent(bytes);
+  }
+
   final conditionsMap = _parseConditions(
-    _decodeContent(fileBytes['conditions']),
+    readFileInIsolate(filePaths['conditions'] ?? ''),
   );
   final specialitesResult = _parseSpecialites(
-    _decodeContent(fileBytes['specialites']),
+    readFileInIsolate(filePaths['specialites'] ?? ''),
     conditionsMap,
   );
 
   final medicamentsResult = _parseMedicaments(
-    _decodeContent(fileBytes['medicaments']),
+    readFileInIsolate(filePaths['medicaments'] ?? ''),
     specialitesResult,
   );
 
   final principes = _parseCompositions(
-    _decodeContent(fileBytes['compositions']),
+    readFileInIsolate(filePaths['compositions'] ?? ''),
     medicamentsResult.cisToCip13,
   );
 
   final generiqueResult = _parseGeneriques(
-    _decodeContent(fileBytes['generiques']),
+    readFileInIsolate(filePaths['generiques'] ?? ''),
     medicamentsResult.cisToCip13,
     medicamentsResult.medicamentCips,
   );

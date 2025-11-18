@@ -25,6 +25,7 @@ class Specialites extends Table {
   Set<Column> get primaryKey => {cisCode};
 }
 
+@TableIndex(name: 'idx_medicaments_cis_code', columns: {#cisCode})
 class Medicaments extends Table {
   TextColumn get codeCip => text()();
   // WHY: Removed nom column - specialites table is the single source of truth for medication names.
@@ -35,6 +36,7 @@ class Medicaments extends Table {
   Set<Column> get primaryKey => {codeCip};
 }
 
+@TableIndex(name: 'idx_principes_code_cip', columns: {#codeCip})
 class PrincipesActifs extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get codeCip => text().references(Medicaments, #codeCip)();
@@ -51,6 +53,8 @@ class GeneriqueGroups extends Table {
   Set<Column> get primaryKey => {groupId};
 }
 
+@TableIndex(name: 'idx_group_members_group_id', columns: {#groupId})
+@TableIndex(name: 'idx_group_members_code_cip', columns: {#codeCip})
 class GroupMembers extends Table {
   TextColumn get codeCip => text().references(Medicaments, #codeCip)();
   TextColumn get groupId => text().references(GeneriqueGroups, #groupId)();
@@ -60,6 +64,16 @@ class GroupMembers extends Table {
   Set<Column> get primaryKey => {codeCip};
 }
 
+@TableIndex(name: 'idx_medicament_summary_group_id', columns: {#groupId})
+@TableIndex(name: 'idx_medicament_summary_cluster_key', columns: {#clusterKey})
+@TableIndex(
+  name: 'idx_medicament_summary_forme_pharmaceutique',
+  columns: {#formePharmaceutique},
+)
+@TableIndex(
+  name: 'idx_medicament_summary_procedure_type',
+  columns: {#procedureType},
+)
 class MedicamentSummary extends Table {
   TextColumn get cisCode => text()();
   TextColumn get nomCanonique => text()();
@@ -101,7 +115,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration {
@@ -201,6 +215,42 @@ class AppDatabase extends _$AppDatabase {
               procedure_type = (SELECT procedure_type FROM specialites WHERE cis_code = medicament_summary.cis_code),
               titulaire = (SELECT titulaire FROM specialites WHERE cis_code = medicament_summary.cis_code),
               conditions_prescription = (SELECT conditions_prescription FROM specialites WHERE cis_code = medicament_summary.cis_code)
+          ''');
+        }
+        if (from < 8) {
+          // WHY: Add indexes on frequently queried columns for performance optimization
+          // Foreign keys and filter columns benefit significantly from indexes
+          await customStatement('''
+            CREATE INDEX IF NOT EXISTS idx_medicaments_cis_code 
+            ON medicaments(cis_code)
+          ''');
+          await customStatement('''
+            CREATE INDEX IF NOT EXISTS idx_principes_code_cip 
+            ON principes_actifs(code_cip)
+          ''');
+          await customStatement('''
+            CREATE INDEX IF NOT EXISTS idx_group_members_group_id 
+            ON group_members(group_id)
+          ''');
+          await customStatement('''
+            CREATE INDEX IF NOT EXISTS idx_group_members_code_cip 
+            ON group_members(code_cip)
+          ''');
+          await customStatement('''
+            CREATE INDEX IF NOT EXISTS idx_medicament_summary_group_id 
+            ON medicament_summary(group_id)
+          ''');
+          await customStatement('''
+            CREATE INDEX IF NOT EXISTS idx_medicament_summary_cluster_key 
+            ON medicament_summary(cluster_key)
+          ''');
+          await customStatement('''
+            CREATE INDEX IF NOT EXISTS idx_medicament_summary_forme_pharmaceutique 
+            ON medicament_summary(forme_pharmaceutique)
+          ''');
+          await customStatement('''
+            CREATE INDEX IF NOT EXISTS idx_medicament_summary_procedure_type 
+            ON medicament_summary(procedure_type)
           ''');
         }
       },

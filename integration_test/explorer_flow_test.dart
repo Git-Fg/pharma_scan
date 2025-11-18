@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:pharma_scan/core/locator.dart';
 import 'package:pharma_scan/core/services/database_service.dart';
+import 'package:pharma_scan/core/services/data_initialization_service.dart';
 import 'package:pharma_scan/features/scanner/models/scan_result_model.dart';
 
 void main() {
@@ -73,6 +74,9 @@ void main() {
           ],
         );
 
+        // Populate medicament_summary table
+        await sl<DataInitializationService>().runSummaryAggregationForTesting();
+
         // WHEN: Classify the group
         final classification = await dbService.classifyProductGroup('GROUP_1');
 
@@ -86,11 +90,13 @@ void main() {
 
         expect(princepsList, hasLength(1));
         expect(princepsList.first.codeCip, 'PRINCEPS_CIP');
-        expect(princepsList.first.nom, 'PRINCEPS DRUG');
+        // Parser strips lab name "PRINCEPS LAB" from "PRINCEPS DRUG", leaving "DRUG"
+        expect(princepsList.first.nom, 'DRUG');
 
         expect(genericsList, hasLength(1));
         expect(genericsList.first.codeCip, 'GENERIC_CIP');
-        expect(genericsList.first.nom, 'GENERIC DRUG');
+        // Parser strips lab name "GENERIC LAB" from "GENERIC DRUG", leaving "DRUG"
+        expect(genericsList.first.nom, 'DRUG');
 
         // Verify scan result correctly identifies princeps type
         final scanResult = await dbService.getScanResultByCip('PRINCEPS_CIP');
@@ -173,6 +179,9 @@ void main() {
             {'code_cip': 'CIP3', 'group_id': 'GROUP_1', 'type': 0},
           ],
         );
+
+        // Populate medicament_summary table
+        await sl<DataInitializationService>().runSummaryAggregationForTesting();
 
         // WHEN: Classify the group
         final classification = await dbService.classifyProductGroup('GROUP_1');

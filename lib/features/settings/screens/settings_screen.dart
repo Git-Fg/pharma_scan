@@ -19,22 +19,8 @@ class SettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
-  ThemeSetting _currentTheme = ThemeSetting.system;
   bool _isResetting = false;
   bool _isCheckingUpdates = false;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _currentTheme = PharmaScanApp.of(context).themeSetting;
-  }
-
-  void _onThemeChanged(ThemeSetting value) {
-    PharmaScanApp.of(context).setTheme(value);
-    setState(() {
-      _currentTheme = value;
-    });
-  }
 
   void _showResetConfirmation() {
     showShadDialog(
@@ -71,7 +57,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       );
 
       if (mounted) {
-        ShadToaster.of(context).show(
+        ShadSonner.of(context).show(
           ShadToast(
             title: const Text('Réinitialisation terminée'),
             description: const Text(
@@ -82,11 +68,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       }
     } catch (_) {
       if (mounted) {
-        ShadToaster.of(context).show(
+        final sonner = ShadSonner.of(context);
+        final toastId = DateTime.now().millisecondsSinceEpoch;
+        sonner.show(
           ShadToast.destructive(
+            id: toastId,
             title: const Text('Erreur de réinitialisation'),
             description: const Text(
               'Impossible de re-télécharger les données. Vérifiez votre connexion internet.',
+            ),
+            action: ShadButton.outline(
+              onPressed: () => sonner.hide(toastId),
+              child: const Text('Fermer'),
             ),
           ),
         );
@@ -120,7 +113,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         force: true,
       );
       if (!mounted) return;
-      ShadToaster.of(context).show(
+      ShadSonner.of(context).show(
         ShadToast(
           title: Text(
             updated ? 'Base BDPM synchronisée' : 'Aucune nouvelle mise à jour',
@@ -134,11 +127,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       );
     } catch (_) {
       if (!mounted) return;
-      ShadToaster.of(context).show(
-        const ShadToast.destructive(
-          title: Text('Synchronisation échouée'),
-          description: Text(
+      final sonner = ShadSonner.of(context);
+      final toastId = DateTime.now().millisecondsSinceEpoch;
+      sonner.show(
+        ShadToast.destructive(
+          id: toastId,
+          title: const Text('Synchronisation échouée'),
+          description: const Text(
             'Impossible de vérifier les dernières données BDPM. Réessayez plus tard.',
+          ),
+          action: ShadButton.outline(
+            onPressed: () => sonner.hide(toastId),
+            child: const Text('Fermer'),
           ),
         ),
       );
@@ -158,6 +158,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final frequencyState = ref.watch(appPreferencesProvider);
     final updateFrequency = frequencyState.value ?? UpdateFrequency.daily;
     final isFrequencyLoading = frequencyState.isLoading;
+    final currentTheme = PharmaScanApp.of(context).themeSetting;
 
     return Scaffold(
       appBar: AppBar(
@@ -177,9 +178,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 Text('Apparence', style: theme.textTheme.h4),
                 const SizedBox(height: 16),
                 ShadRadioGroup<ThemeSetting>(
-                  initialValue: _currentTheme,
+                  initialValue: currentTheme,
                   onChanged: (value) {
-                    if (value != null) _onThemeChanged(value);
+                    if (value != null) {
+                      PharmaScanApp.of(context).setTheme(value);
+                    }
                   },
                   items: const [
                     ShadRadio<ThemeSetting>(

@@ -2,10 +2,12 @@
 import 'dart:async';
 import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart' hide ScanWindowOverlay;
 import 'package:shadcn_ui/shadcn_ui.dart';
 // Importez les modèles et services nécessaires
+import 'package:pharma_scan/core/utils/app_animations.dart';
 import 'package:pharma_scan/core/utils/gs1_parser.dart';
 import 'package:pharma_scan/core/locator.dart';
 import 'package:pharma_scan/core/services/database_service.dart';
@@ -59,6 +61,8 @@ class _CameraScreenState extends State<CameraScreen>
   static const int _maxBubbles = 3;
   static const Duration _bubbleLifetime = Duration(seconds: 15);
   final DatabaseService _dbService = sl<DatabaseService>();
+  final ShadPopoverController _manualEntryPopoverController =
+      ShadPopoverController();
 
   MobileScannerController _createScannerController(bool lockResolution) {
     return MobileScannerController(
@@ -313,11 +317,18 @@ class _CameraScreenState extends State<CameraScreen>
         } else {
           developer.log('No barcodes detected in image', name: 'CameraScreen');
           if (mounted) {
-            ShadToaster.of(context).show(
+            final sonner = ShadSonner.of(context);
+            final toastId = DateTime.now().millisecondsSinceEpoch;
+            sonner.show(
               ShadToast.destructive(
+                id: toastId,
                 title: const Text('Aucun code-barres détecté'),
                 description: const Text(
                   'L\'image ne contient pas de code-barres valide.',
+                ),
+                action: ShadButton.outline(
+                  onPressed: () => sonner.hide(toastId),
+                  child: const Text('Fermer'),
                 ),
               ),
             );
@@ -331,11 +342,18 @@ class _CameraScreenState extends State<CameraScreen>
           stackTrace: stackTrace,
         );
         if (mounted) {
-          ShadToaster.of(context).show(
+          final sonner = ShadSonner.of(context);
+          final toastId = DateTime.now().millisecondsSinceEpoch;
+          sonner.show(
             ShadToast.destructive(
+              id: toastId,
               title: const Text('Erreur d\'analyse'),
               description: Text(
                 'Impossible d\'analyser l\'image: ${e.toString()}',
+              ),
+              action: ShadButton.outline(
+                onPressed: () => sonner.hide(toastId),
+                child: const Text('Fermer'),
               ),
             ),
           );
@@ -355,11 +373,18 @@ class _CameraScreenState extends State<CameraScreen>
         stackTrace: stackTrace,
       );
       if (mounted) {
-        ShadToaster.of(context).show(
+        final sonner = ShadSonner.of(context);
+        final toastId = DateTime.now().millisecondsSinceEpoch;
+        sonner.show(
           ShadToast.destructive(
+            id: toastId,
             title: const Text('Erreur'),
             description: Text(
               'Impossible de sélectionner l\'image: ${e.toString()}',
+            ),
+            action: ShadButton.outline(
+              onPressed: () => sonner.hide(toastId),
+              child: const Text('Fermer'),
             ),
           ),
         );
@@ -379,13 +404,17 @@ class _CameraScreenState extends State<CameraScreen>
           name: 'CameraScreen',
         );
         _addBubble(scanResult);
+        // WHY: Close manual entry popover after successful scan
+        if (_manualEntryPopoverController.isOpen) {
+          _manualEntryPopoverController.toggle();
+        }
       } else {
         developer.log(
           'No medicament found in database for CIP: $codeCip',
           name: 'CameraScreen',
         );
         if (mounted) {
-          ShadToaster.of(context).show(
+          ShadSonner.of(context).show(
             ShadToast(
               title: const Text('Médicament non trouvé'),
               description: Text(
@@ -402,6 +431,14 @@ class _CameraScreenState extends State<CameraScreen>
         error: e,
         stackTrace: stackTrace,
       );
+    }
+  }
+
+  void _onManualCipChanged(String value) {
+    // WHY: Process CIP when all 13 digits are entered
+    if (value.length == 13) {
+      developer.log('Manual CIP entry complete: $value', name: 'CameraScreen');
+      _findMedicament(value);
     }
   }
 
@@ -525,12 +562,93 @@ class _CameraScreenState extends State<CameraScreen>
     );
   }
 
+  Widget _buildManualCipEntry(BuildContext context) {
+    final theme = ShadTheme.of(context);
+    return SizedBox(
+      width: 360,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Saisie manuelle du CIP', style: theme.textTheme.h4),
+                ShadButton.ghost(
+                  onPressed: () => _manualEntryPopoverController.toggle(),
+                  child: const Icon(LucideIcons.x, size: 16),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Entrez le code CIP à 13 chiffres',
+                  style: theme.textTheme.muted,
+                ),
+                const SizedBox(height: 24),
+                ShadInputOTP(
+                  onChanged: _onManualCipChanged,
+                  maxLength: 13,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  children: const [
+                    ShadInputOTPGroup(
+                      children: [
+                        ShadInputOTPSlot(),
+                        ShadInputOTPSlot(),
+                        ShadInputOTPSlot(),
+                        ShadInputOTPSlot(),
+                      ],
+                    ),
+                    SizedBox(width: 8),
+                    ShadInputOTPGroup(
+                      children: [
+                        ShadInputOTPSlot(),
+                        ShadInputOTPSlot(),
+                        ShadInputOTPSlot(),
+                        ShadInputOTPSlot(),
+                      ],
+                    ),
+                    SizedBox(width: 8),
+                    ShadInputOTPGroup(
+                      children: [
+                        ShadInputOTPSlot(),
+                        ShadInputOTPSlot(),
+                        ShadInputOTPSlot(),
+                        ShadInputOTPSlot(),
+                        ShadInputOTPSlot(),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Le médicament sera recherché automatiquement lorsque les 13 chiffres sont saisis.',
+                  style: theme.textTheme.small,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   void dispose() {
     for (final bubble in _activeBubbles) {
       bubble.dismissTimer.cancel();
     }
     WidgetsBinding.instance.removeObserver(this);
+    _manualEntryPopoverController.dispose();
     unawaited(_scannerController.dispose());
     super.dispose();
   }
@@ -591,24 +709,20 @@ class _CameraScreenState extends State<CameraScreen>
                       ),
                     ),
                   ],
-                ).animate().fadeIn(duration: 600.ms),
+                ).animate(effects: AppAnimations.fadeIn),
               ),
             if (_isCameraActive) const ScanWindowOverlay(),
             Positioned(
               top: MediaQuery.of(context).padding.top + 20,
               left: 16,
               right: 16,
-              child:
-                  Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          for (var i = 0; i < _activeBubbles.length; i++)
-                            _buildBubbleItem(_activeBubbles[i], i),
-                        ],
-                      )
-                      .animate()
-                      .fadeIn(duration: 300.ms)
-                      .slideY(begin: -0.2, end: 0, curve: Curves.easeOutBack),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (var i = 0; i < _activeBubbles.length; i++)
+                    _buildBubbleItem(_activeBubbles[i], i),
+                ],
+              ).animate(effects: AppAnimations.bubbleEnter),
             ),
             Positioned(
               // WHY: Position buttons above bottom navigation bar (80px height + padding)
@@ -649,6 +763,14 @@ class _CameraScreenState extends State<CameraScreen>
                         leading: const Icon(LucideIcons.image, size: 20),
                         child: const Text('Galerie'),
                       ),
+                      ShadPopover(
+                        controller: _manualEntryPopoverController,
+                        popover: (context) => _buildManualCipEntry(context),
+                        child: ShadButton.outline(
+                          leading: const Icon(LucideIcons.keyboard, size: 20),
+                          child: const Text('Saisie'),
+                        ),
+                      ),
                       if (_isCameraActive)
                         ShadButton.outline(
                           onPressed: _toggleTorch,
@@ -664,7 +786,7 @@ class _CameraScreenState extends State<CameraScreen>
                     ],
                   ),
                 ],
-              ).animate().fadeIn(delay: 200.ms).slideY(begin: 0.5, end: 0),
+              ).animate(effects: AppAnimations.controlPanelEnter),
             ),
           ],
         ),

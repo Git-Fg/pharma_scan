@@ -9,7 +9,7 @@ PharmaScan is a high-performance Flutter application designed for the rapid scan
 - **Unified Group Explorer**: An intelligent view that presents a canonical overview of a medication group:
   - **Product-Centric Grouping**: Generics are grouped by product name and dosage, not by laboratory, providing a clear, decluttered view of available alternatives.
   - **Associated Therapies**: When viewing a group (e.g., "VALSARTAN"), the explorer proactively displays clickable cards for related combination therapies (e.g., "VALSARTAN/HYDROCHLOROTHIAZIDE") for seamless cross-discovery.
-- **Fuzzy & Grouped Search**: The search engine is powered by a full-text search index (FTS5) for a superior experience:
+- **Fuzzy & Grouped Search**: The search engine is powered by `FuzzyBolt` running in a background isolate for a superior experience:
   - **Typo Tolerance**: The search is resilient to spelling mistakes and partial queries.
   - **Grouped Results**: Search results are unified by group, showing one clear entry per product concept (e.g., "PARACETAMOL 500 mg") instead of an overwhelming list of every individual package.
 - **One-Tap Search Reset**: A contextual clear control instantly resets the explorer search field, taking you back to the generic group summaries without manual text deletion.

@@ -1,6 +1,7 @@
 // lib/features/scanner/widgets/princeps_info_bubble.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:pharma_scan/core/utils/app_animations.dart';
 import 'package:pharma_scan/features/scanner/models/medicament_model.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
@@ -106,7 +107,7 @@ class _PrincepsInfoBubbleState extends State<PrincepsInfoBubble> {
                 style: theme.textTheme.p,
               ),
       ),
-    ).animate().fadeIn(duration: 300.ms).slideY(begin: -0.2, end: 0);
+    ).animate(effects: AppAnimations.bubbleEnter);
   }
 
   Widget? _buildConditionBadge(

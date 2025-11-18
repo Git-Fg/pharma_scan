@@ -1,10 +1,12 @@
 // lib/features/explorer/providers/group_cluster_provider.dart
 
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pharma_scan/core/locator.dart';
 import 'package:pharma_scan/core/services/database_service.dart';
 import 'package:pharma_scan/features/explorer/models/cluster_summary_model.dart';
 import 'package:pharma_scan/features/explorer/models/generic_group_summary_model.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
+
+part 'group_cluster_provider.g.dart';
 
 class ClusterLibraryState {
   const ClusterLibraryState({
@@ -30,22 +32,20 @@ class ClusterLibraryState {
   }
 }
 
-final groupClusterProvider =
-    AsyncNotifierProvider<GroupClusterNotifier, ClusterLibraryState>(
-  GroupClusterNotifier.new,
-);
-
-final clusterGroupsProvider = FutureProvider.family<
-    List<GenericGroupSummary>,
-    String>((ref, clusterKey) async {
+@riverpod
+Future<List<GenericGroupSummary>> clusterGroups(
+  Ref ref,
+  String clusterKey,
+) async {
   final database = sl<DatabaseService>();
   return database.getClusterGroupSummaries(clusterKey);
-});
+}
 
-class GroupClusterNotifier extends AsyncNotifier<ClusterLibraryState> {
+@riverpod
+class GroupClusterNotifier extends _$GroupClusterNotifier {
   static const _pageSize = 40;
 
-  final DatabaseService _databaseService = sl<DatabaseService>();
+  DatabaseService get _databaseService => sl<DatabaseService>();
 
   int _offset = 0;
   bool _isFetchingMore = false;
@@ -102,4 +102,3 @@ class GroupClusterNotifier extends AsyncNotifier<ClusterLibraryState> {
     );
   }
 }
-

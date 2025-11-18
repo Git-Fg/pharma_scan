@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:pharma_scan/core/locator.dart';
 import 'package:pharma_scan/core/providers/preferences_provider.dart';
+import 'package:pharma_scan/core/utils/app_animations.dart';
 import 'package:pharma_scan/features/home/providers/sync_status_provider.dart';
 import 'package:pharma_scan/core/services/sync_service.dart';
 import 'package:pharma_scan/features/explorer/screens/database_screen.dart';
@@ -80,6 +81,36 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         ref.invalidate(searchCandidatesProvider);
         ref.invalidate(groupClusterProvider);
         ref.invalidate(groupSummaryProvider);
+
+        // Show success toast notification
+        if (mounted) {
+          ShadSonner.of(context).show(
+            ShadToast(
+              title: const Text('Mise à jour terminée'),
+              description: Text(next.message ?? 'La base BDPM est à jour.'),
+            ),
+          );
+        }
+      } else if (next.phase == SyncPhase.error &&
+          previous?.phase != SyncPhase.error) {
+        // Show error toast notification only on transition to error
+        if (mounted) {
+          final sonner = ShadSonner.of(context);
+          final toastId = DateTime.now().millisecondsSinceEpoch;
+          sonner.show(
+            ShadToast.destructive(
+              id: toastId,
+              title: const Text('Synchronisation échouée'),
+              description: Text(
+                next.message ?? 'Impossible de synchroniser les données BDPM.',
+              ),
+              action: ShadButton.outline(
+                onPressed: () => sonner.hide(toastId),
+                child: const Text('Fermer'),
+              ),
+            ),
+          );
+        }
       }
     });
 
@@ -134,19 +165,15 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         children: [
           if (syncProgress.phase != SyncPhase.idle)
             _SyncStatusBanner(
-                  progress: syncProgress,
-                  onRetry: syncProgress.phase == SyncPhase.error
-                      ? () => _triggerSync(force: true)
-                      : null,
-                )
-                .animate()
-                .fadeIn(duration: 250.ms)
-                .slideY(begin: -0.1, curve: Curves.easeOutCubic),
+              progress: syncProgress,
+              onRetry: syncProgress.phase == SyncPhase.error
+                  ? () => _triggerSync(force: true)
+                  : null,
+            ).animate(effects: AppAnimations.bannerEnter),
           if (widget.initState == InitializationState.error)
-            _InitializationBanner(onRetry: widget.onRetryInitialization)
-                .animate()
-                .fadeIn(duration: 250.ms)
-                .slideY(begin: -0.05, curve: Curves.easeOutCubic),
+            _InitializationBanner(
+              onRetry: widget.onRetryInitialization,
+            ).animate(effects: AppAnimations.bannerEnter),
           Expanded(
             child: IndexedStack(index: _selectedIndex, children: screens),
           ),

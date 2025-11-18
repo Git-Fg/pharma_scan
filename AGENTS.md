@@ -4,6 +4,10 @@ Your primary mission is to contribute to the development of the **PharmaScan** a
 
 **Core Philosophy:** Prioritize **simplicity**, **robustness**, and **performance**. The application must be instantly responsive, even on low-end devices, as it is a professional tool intended for rapid, repetitive use. The code is the ultimate authority; your contributions must be clear, self-documenting, and rigorously tested.
 
+Constraint : Always use context7 when I need code generation, setup or configuration steps, or
+library/API documentation. This means you should automatically use the Context7 MCP
+tools to resolve library id and get library docs without me having to explicitly ask.
+
 ---
 
 ## 1. Core Protocols & Workflow
@@ -59,6 +63,7 @@ This workflow applies to any code written or modified within the `lib/` director
 ### 2.2. Design System: Centralized Strategy with Shadcn UI
 
 **CRITICAL:** The project uses a centralized, semantic design system based on **Shadcn UI**. This is a non-negotiable architectural constraint to ensure visual consistency and maintainability.
+When you use context7 for shadcn_ui, use the lib id "websites/flutter-shadcn-ui_mariuti"
 
 * **Absolute Prohibition:** You **MUST NEVER** use hardcoded styles directly in widgets. The following are strictly forbidden in widget code:
   * `BoxDecoration` (e.g., `BoxDecoration(color: Colors.blue, ...)`)
@@ -93,9 +98,374 @@ This workflow applies to any code written or modified within the `lib/` director
 
 * **Zero External UI Libraries:** You **MUST NOT** introduce any other UI component libraries. Flutter's native components and the **Shadcn UI** ecosystem provide everything necessary.
 
+#### **2.2.1. Toast Notifications: ShadSonner vs ShadToaster**
+
+**CRITICAL:** The application uses **ShadSonner** as the standard toast notification system. `ShadToaster` is deprecated and **MUST NOT** be used in new code.
+
+* **ShadSonner (Standard):**
+  * ✅ **MUST** be used for all toast notifications throughout the application
+  * ✅ Provides automatic stacking of multiple notifications without overlap
+  * ✅ Better UX for background operations (sync, downloads, errors)
+  * ✅ Native support for action buttons ("Fermer", "Réessayer", etc.)
+  * ✅ Required for operations that may trigger multiple notifications (e.g., sync errors, scan failures)
+  * **Usage Pattern:**
+
+    ```dart
+    final sonner = ShadSonner.of(context);
+    final toastId = DateTime.now().millisecondsSinceEpoch;
+    sonner.show(
+      ShadToast(
+        id: toastId,
+        title: const Text('Title'),
+        description: const Text('Description'),
+        action: ShadButton.outline(
+          onPressed: () => sonner.hide(toastId),
+          child: const Text('Fermer'),
+        ),
+      ),
+    );
+    ```
+
+  * **When to Use:**
+    * Background sync operations (`SyncService`)
+    * Scan errors and failures (`CameraScreen`)
+    * Database operations (reset, sync) (`SettingsScreen`)
+    * Any operation that may produce multiple notifications
+    * Error notifications that benefit from action buttons
+
+* **ShadToaster (Deprecated):**
+  * ❌ **MUST NOT** be used in new code
+  * ❌ Does not support proper stacking of multiple notifications
+  * ❌ Limited action button support
+  * ⚠️ Existing code using `ShadToaster` should be migrated to `ShadSonner` when touched
+
+* **Configuration:**
+  * `ShadSonner` is configured globally in `lib/main.dart` via the `ShadApp` builder
+  * No toast theme configuration is required (removed from `ShadThemeData`)
+  * All toasts automatically inherit the app's theme (light/dark mode)
+
+#### **2.2.2. Typography Standardization via `ShadTextTheme`**
+
+**CRITICAL:** All text styles **MUST** use semantic extensions from `ShadTextTheme`. Manual `TextStyle(...)` declarations and `copyWith()` modifications are strictly forbidden.
+
+* **Absolute Prohibition:** You **MUST NEVER** use:
+  * `TextStyle(...)` constructors directly
+  * `textTheme.xxx.copyWith(...)` to modify colors, font sizes, or font weights
+  * Manual style overrides that break semantic consistency
+
+* **Mandatory Pattern:** Use semantic extensions exclusively:
+  * `theme.textTheme.h4` - For titles and headings (e.g., medication names in cards)
+  * `theme.textTheme.muted` - For secondary information (e.g., titulaires, CIP codes, dosages, descriptions)
+  * `theme.textTheme.small` - For badges, labels, and captions
+  * `theme.textTheme.lead` - For introductory or prominent text
+  * `theme.textTheme.p` - For paragraph text
+
+* **Usage Examples:**
+
+    ```dart
+    // ✅ CORRECT: Using semantic extensions
+    final theme = ShadTheme.of(context);
+    
+    Text(medicament.nom, style: theme.textTheme.h4),
+    Text(titulaire, style: theme.textTheme.muted),
+    Text(codeCip, style: theme.textTheme.muted),
+    Text('Description', style: theme.textTheme.muted),
+    ShadBadge(child: Text('Label', style: theme.textTheme.small)),
+    
+    // ❌ INCORRECT: Manual styles or copyWith
+    Text(
+      medicament.nom,
+      style: theme.textTheme.p.copyWith(fontWeight: FontWeight.w500), // FORBIDDEN
+    ),
+    Text(
+      titulaire,
+      style: theme.textTheme.small.copyWith(
+        color: theme.colorScheme.mutedForeground, // FORBIDDEN
+      ),
+    ),
+    Text(
+      codeCip,
+      style: TextStyle(fontSize: 14, color: Colors.grey), // FORBIDDEN
+    ),
+    ```
+
+* **Benefits:**
+  * Simplified maintenance: All typography is centralized in the theme
+  * Automatic dark/light mode support without additional effort
+  * Consistent visual hierarchy across the application
+  * Reduced code complexity by eliminating manual style overrides
+
+* **Implementation Locations:**
+  * `InfoBubble` - Uses `h4` for titles, `muted` for descriptions, `small` for badges
+  * `MedicamentCard` - Uses `h4` for medication names, `muted` for titulaires, codes, and dosages, `small` for condition badges
+
+#### **2.2.3. Tabular Data Visualization with `ShadTable`**
+
+**CRITICAL:** For any tabular data display (statistics, lists with aligned columns, complex compositions), you **MUST** use `ShadTable` instead of manual `Row`/`Column` layouts. This ensures proper column alignment, better readability, and consistency with the design system.
+
+* **Absolute Prohibition:** You **MUST NEVER** use manual `Row`/`Column` layouts for tabular data:
+  * ❌ `Row(children: [Column(...), Column(...)])` for statistics or aligned data
+  * ❌ Manual alignment with `MainAxisAlignment.spaceAround` or `CrossAxisAlignment` for tabular content
+  * ❌ Custom spacing calculations for column alignment
+
+* **Mandatory Pattern:** Use `ShadTable.list` for tabular data:
+  * ✅ **MUST** be used for statistics headers (e.g., Princeps | Génériques | Principes Actifs)
+  * ✅ **MUST** be used for complex composition lists (e.g., CIP | Nom | Labo)
+  * ✅ Provides automatic column alignment and consistent spacing
+  * ✅ Better readability for structured data
+
+* **Usage Pattern:**
+
+    ```dart
+    // ✅ CORRECT: Using ShadTable for tabular data
+    final theme = ShadTheme.of(context);
+    
+    ShadTable.list(
+      header: [
+        ShadTableCell.header(
+          child: Text('Groupe ID', style: theme.textTheme.table),
+        ),
+        ShadTableCell.header(
+          child: Text('Princeps', style: theme.textTheme.table),
+        ),
+        ShadTableCell.header(
+          child: Text('Principes Actifs', style: theme.textTheme.table),
+        ),
+      ],
+      children: groups.map((summary) {
+        return [
+          ShadTableCell(
+            child: Text(summary.groupId, style: theme.textTheme.p),
+          ),
+          ShadTableCell(
+            child: Text(summary.princepsReferenceName, style: theme.textTheme.p),
+          ),
+          ShadTableCell(
+            child: Text(summary.commonPrincipes, style: theme.textTheme.p),
+          ),
+        ];
+      }).toList(),
+    )
+    
+    // ❌ INCORRECT: Manual Row/Column layout for tabular data
+    Row(
+      mainAxisAlignment: MainAxisAlignment.spaceAround,
+      children: [
+        Column(children: [Text('Label'), Text('Value')]),
+        Column(children: [Text('Label'), Text('Value')]),
+      ],
+    )
+    ```
+
+* **Styling Guidelines:**
+  * Use `theme.textTheme.table` for table headers (`ShadTableCell.header`)
+  * Use `theme.textTheme.p` or `theme.textTheme.h4` for cell content depending on importance
+  * For clickable rows, wrap cell content in `Material` + `InkWell` to maintain tap feedback
+  * For horizontal scrolling on wide tables, wrap `ShadTable.list` in `SingleChildScrollView` with `scrollDirection: Axis.horizontal`
+
+* **When to Use:**
+  * Statistics dashboards (e.g., `DatabaseSearchView` header stats)
+  * Complex composition lists (e.g., `ClusterDetailView` group listings)
+  * Any data that benefits from column alignment (CIP codes, names, laboratories, dosages)
+  * Comparison views where multiple values need to be aligned
+
+* **Implementation Locations:**
+  * `DatabaseSearchView` - Statistics header uses `ShadTable.list` for Princeps | Génériques | Principes Actifs
+  * `ClusterDetailView` - Group listings use `ShadTable.list` for Groupe ID | Princeps | Principes Actifs
+
+* **Benefits:**
+  * Automatic column alignment without manual calculations
+  * Consistent spacing and visual hierarchy
+  * Better readability for structured data
+  * Responsive behavior with horizontal scrolling support
+  * Maintains design system consistency
+
+#### **2.2.4. Advanced Filtering with `ShadSelect`, `ShadRadioGroup`, and `ShadPopover`**
+
+**CRITICAL:** For filtering interfaces (type selection, form selection, advanced search options), you **MUST** use `ShadSelect`, `ShadRadioGroup`, and `ShadPopover` to provide a robust, type-safe, and visually consistent filtering experience.
+
+* **When to Use `ShadRadioGroup`:**
+  * ✅ **MUST** be used for mutually exclusive choices (e.g., Allopathie vs Homéopathie)
+  * ✅ **MUST** be used when there are 2-5 options that need to be clearly visible
+  * ✅ Provides better UX for binary or small categorical choices
+  * ✅ Better accessibility with clear radio button semantics
+
+* **When to Use `ShadSelect`:**
+  * ✅ **MUST** be used for single selection from a list of options (especially when the list is long or dynamic)
+  * ✅ **MUST** be used when options are loaded from the database (e.g., pharmaceutical forms)
+  * ✅ Provides better UX for long lists (>5 items) or when space is limited
+  * ✅ Supports search functionality for very long lists
+  * ✅ Better for dynamic content that may change over time
+
+* **When to Use `ShadPopover`:**
+  * ✅ **MUST** be used to contain filter controls that should not take permanent screen space
+  * ✅ **MUST** be used when combining multiple filter types (e.g., `ShadRadioGroup` + `ShadSelect`)
+  * ✅ Provides a clean, collapsible interface for advanced filtering
+  * ✅ Better UX when filters are secondary to the main content
+
+* **Mandatory Pattern:** Combine these components for filtering interfaces:
+
+    ```dart
+    // ✅ CORRECT: Using ShadPopover with ShadRadioGroup and ShadSelect
+    final theme = ShadTheme.of(context);
+    final popoverController = ShadPopoverController();
+    
+    ShadPopover(
+      controller: popoverController,
+      popover: (context) => SizedBox(
+        width: 320,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Filtres', style: theme.textTheme.h4),
+                  if (hasActiveFilters)
+                    ShadButton.ghost(
+                      onPressed: () {
+                        // Clear filters
+                        popoverController.toggle();
+                      },
+                      child: Text('Réinitialiser', style: theme.textTheme.small),
+                    ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'Type de procédure',
+                    style: theme.textTheme.small.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ShadRadioGroup<String?>(
+                    initialValue: currentFilters.procedureType,
+                    onChanged: (value) {
+                      // Update filter
+                    },
+                    items: [
+                      ShadRadio(value: null, label: const Text('Tous')),
+                      ShadRadio(value: 'Autorisation', label: const Text('Allopathie')),
+                      ShadRadio(
+                        value: 'Enregistrement',
+                        label: const Text('Homéopathie / Phytothérapie'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    'Forme pharmaceutique',
+                    style: theme.textTheme.small.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  FutureBuilder<List<String>>(
+                    future: dbService.getDistinctPharmaceuticalForms(),
+                    builder: (context, snapshot) {
+                      if (!snapshot.hasData) {
+                        return const ShadProgress();
+                      }
+                      return ShadSelect<String?>(
+                        minWidth: double.infinity,
+                        placeholder: const Text('Toutes les formes'),
+                        initialValue: currentFilters.formePharmaceutique,
+                        options: [
+                          ShadOption(value: null, child: const Text('Toutes les formes')),
+                          ...snapshot.data!.map(
+                            (form) => ShadOption(value: form, child: Text(form)),
+                          ),
+                        ],
+                        selectedOptionBuilder: (context, value) {
+                          return Text(value ?? 'Toutes les formes');
+                        },
+                        onChanged: (value) {
+                          // Update filter
+                        },
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+      child: ShadButton.outline(
+        onPressed: popoverController.toggle,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(LucideIcons.slidersHorizontal, size: 16),
+            if (hasActiveFilters) ...[
+              const SizedBox(width: 4),
+              Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary,
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    )
+    
+    // ❌ INCORRECT: Manual dropdown or checkbox implementations
+    DropdownButton<String>(
+      items: [...], // FORBIDDEN
+    )
+    CheckboxListTile(...) // FORBIDDEN for filtering
+    ```
+
+* **Styling Guidelines:**
+  * Use `theme.textTheme.h4` for popover titles
+  * Use `theme.textTheme.small` with `fontWeight: FontWeight.w600` for filter section labels
+  * Use `theme.textTheme.p` for option labels in `ShadRadio` and `ShadSelect`
+  * Always provide a "Réinitialiser" or "Clear" button when filters are active
+  * Show a visual indicator (e.g., colored dot) on the filter button when filters are active
+  * Use `ShadPopoverController` to manage popover state (open/close)
+
+* **State Management:**
+  * Filter state **MUST** be managed via Riverpod providers (preferably `@riverpod`-generated notifiers)
+  * Filter state **MUST** be observed by search/query providers to apply filters automatically
+  * Use `ref.watch(filterProvider)` to observe filter changes
+  * Use `ref.read(filterProvider.notifier).updateFilters(...)` to update filters
+
+* **When to Use:**
+  * Search/filter interfaces (e.g., `DatabaseSearchView` filters)
+  * Settings panels with multiple choice options
+  * Any interface requiring user selection from predefined options
+  * Advanced search forms with multiple filter criteria
+
+* **Implementation Locations:**
+  * `DatabaseSearchView` - Uses `ShadPopover` containing `ShadRadioGroup` (procedure type) and `ShadSelect` (pharmaceutical form) for filtering search results
+
+* **Benefits:**
+  * Type-safe filtering with compile-time guarantees
+  * Consistent visual design across all filter interfaces
+  * Better accessibility with proper semantic components
+  * Automatic theme support (light/dark mode)
+  * Clean, collapsible UI that doesn't clutter the main interface
+  * Easy to extend with additional filter types
+
 ### 2.3. State Management: Minimalist and Local Approach
 
 **Simplicity Principle:** Local `StatefulWidget` state remains the default. Riverpod is reserved for *targeted* cross-layer telemetry (e.g., background sync status or persisted preferences) where multiple widgets/services must observe the same source of truth.
+
+When you use context7, riverpod library id is : `websites/pub_dev-riverpod`
 
 * **`StatefulWidget` is still the Standard:** UI concerns such as `_isCameraActive`, `_infoBubbles`, or form inputs **MUST** be stored via local state and updated with `setState`.
 * **Scoped Riverpod Usage:** Only introduce providers when data needs to be shared outside a single widget tree (e.g., `syncStatusProvider`, `updateFrequencyProvider`). Providers MUST wrap services already registered in `get_it` and should expose read-only state wherever possible.
@@ -134,7 +504,7 @@ The application enforces a simple but strict two-layer architecture.
 * **Asynchronous Operations:** Any long-running operation (DB query, file parsing) **MUST** be `async` to avoid blocking the UI thread.
 * **Duplicate Scan Prevention:** Logic (e.g., a `Set` of recently scanned CIP codes) **MUST** be implemented to prevent displaying the same info bubble multiple times in rapid succession.
 * **Efficient Database Queries:** Complex queries use CTE (Common Table Expression) for pagination and filtering. Algorithmic processing in Dart (e.g., common prefix detection) is used for robust grouping.
-* **Full-Text Search:** The application utilizes SQLite's FTS5 extension to provide fast, typo-tolerant searching across medication names, CIPs, and active ingredients, replacing slower `LIKE` queries.
+* **Isolate-Based Fuzzy Search:** The application uses `FuzzyBolt` to provide fast, typo-tolerant searching. `DatabaseService` exposes a list of candidates from `medicament_summary`, and the search provider executes fuzzy matching in a background isolate to prevent UI blocking.
 * **Pagination:** Large result sets **MUST** be paginated to maintain UI responsiveness. Use infinite scroll with proper offset/limit management.
 
 ### 2.6. Data Model: Deterministic & Knowledge-Injected Parsing
@@ -160,7 +530,7 @@ The application enforces a simple but strict two-layer architecture.
   * `generique_groups` - Generic groups (group_id, libelle)
   * `group_members` - Group membership (code_cip, group_id, type)
     * `type = 0` for princeps, `type = 1` for generic
-  * `medicament_summary` - **Single row per CIS** storing the canonical name (dosage/form stripped), princeps/generic flag, `group_id`, JSON-encoded shared active principles, `princeps_de_reference`, and `forme_pharmaceutique`. _All_ explorer/search/scan read paths must consult this table instead of recomputing joins at runtime.
+  * `medicament_summary` - **Single row per CIS** storing the canonical name (dosage/form stripped), princeps/generic flag, `group_id`, JSON-encoded shared active principles, `princeps_de_reference`, and `forme_pharmaceutique`. *All* explorer/search/scan read paths must consult this table instead of recomputing joins at runtime.
 
 * **Generic Detection:** Uses explicit group relationships from `group_members` table. **NEVER** infer generic relationships from active ingredient matching.
 
@@ -221,6 +591,7 @@ Use the standard command-line tools to manage the project.
 
 * Run `dart run tool/prepare_test_data.dart` (supports `--force` and `--dir=/abs/path`) before the Quality Gate to cache the official BDPM TXT payloads inside `.dart_tool/bdpm_cache`.
 * **Refresh Parser Test Data:** If you suspect the BDPM data format has evolved or to test against new real-world edge cases:
+
     ```bash
     uv run python data_validation/generate_smart_test_data.py
     ```
@@ -229,6 +600,7 @@ Use the standard command-line tools to manage the project.
 * **Static Code Analysis:** `flutter analyze`
 * **Run All Tests:** `flutter test`
 * **Quality Gate (Run Before Finalizing Changes):**
+
     ```bash
     flutter pub run build_runner build --delete-conflicting-outputs && flutter analyze && flutter test && flutter test integration_test
     ```
@@ -240,3 +612,13 @@ Use the standard command-line tools to manage the project.
 ### 4.1. `CHANGELOG.md` Protocol
 
 You **MUST** maintain the `CHANGELOG.md` file at the project root using the defined format.
+
+---
+
+Context7 Library :
+
+* Freezed : `rrousselgit/freezed`
+* Riverpod : `websites/pub_dev-riverpod`
+* shadcnui : `websites/flutter-shadcn-ui_mariuti`
+* flutter_animate : `gskinner/flutter_animate`
+* drift : `websites/pub_dev_drift`

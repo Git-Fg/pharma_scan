@@ -1,6 +1,7 @@
 // lib/features/scanner/widgets/info_bubble.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:pharma_scan/core/utils/app_animations.dart';
 import 'package:pharma_scan/features/scanner/models/medicament_model.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
@@ -50,13 +51,7 @@ class _InfoBubbleState extends State<InfoBubble> {
         children: [
           ShadBadge(
             backgroundColor: theme.colorScheme.primary,
-            child: Text(
-              'GÉNÉRIQUE',
-              style: theme.textTheme.small.copyWith(
-                color: theme.colorScheme.primaryForeground,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            child: Text('GÉNÉRIQUE', style: theme.textTheme.small),
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -72,12 +67,7 @@ class _InfoBubbleState extends State<InfoBubble> {
           ],
         ],
       ),
-      description: Text(
-        'Princeps Associé(s)',
-        style: theme.textTheme.small.copyWith(
-          color: theme.colorScheme.mutedForeground,
-        ),
-      ),
+      description: Text('Princeps Associé(s)', style: theme.textTheme.muted),
       footer: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
@@ -104,7 +94,7 @@ class _InfoBubbleState extends State<InfoBubble> {
                     .toList(),
         ),
       ),
-    ).animate().fadeIn(duration: 300.ms).slideY(begin: -0.2, end: 0);
+    ).animate(effects: AppAnimations.bubbleEnter);
   }
 
   Widget? _buildConditionBadge(
@@ -115,10 +105,7 @@ class _InfoBubbleState extends State<InfoBubble> {
       return null;
     }
     return ShadBadge.outline(
-      child: Text(
-        conditionsPrescription,
-        style: theme.textTheme.small.copyWith(fontWeight: FontWeight.w600),
-      ),
+      child: Text(conditionsPrescription, style: theme.textTheme.small),
     );
   }
 }

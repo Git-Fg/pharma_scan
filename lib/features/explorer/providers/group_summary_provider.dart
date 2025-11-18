@@ -1,9 +1,11 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pharma_scan/core/locator.dart';
 import 'package:pharma_scan/core/services/database_service.dart';
 import 'package:pharma_scan/core/utils/form_category_helper.dart';
 import 'package:pharma_scan/features/explorer/models/explorer_enums.dart';
 import 'package:pharma_scan/features/explorer/models/generic_group_summary_model.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
+
+part 'group_summary_provider.g.dart';
 
 class GroupSummaryState {
   const GroupSummaryState({
@@ -33,15 +35,11 @@ class GroupSummaryState {
   }
 }
 
-final groupSummaryProvider =
-    AsyncNotifierProvider<GroupSummaryNotifier, GroupSummaryState>(
-      GroupSummaryNotifier.new,
-    );
-
-class GroupSummaryNotifier extends AsyncNotifier<GroupSummaryState> {
+@riverpod
+class GroupSummaryNotifier extends _$GroupSummaryNotifier {
   static const int _pageSize = 50;
 
-  final DatabaseService _databaseService = sl<DatabaseService>();
+  DatabaseService get _databaseService => sl<DatabaseService>();
 
   int _offset = 0;
   FormCategory _selectedCategory = FormCategory.oral;

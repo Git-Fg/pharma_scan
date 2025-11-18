@@ -11,6 +11,10 @@ import 'package:shadcn_ui/shadcn_ui.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Configure global animation defaults for consistency
+  Animate.defaultDuration = 300.ms;
+  Animate.defaultCurve = Curves.easeOutCubic;
+
   // Initialize the service locator
   await setupLocator();
 
@@ -82,21 +86,13 @@ class PharmaScanAppState extends State<PharmaScanApp> {
       theme: ShadThemeData(
         brightness: Brightness.light,
         colorScheme: const ShadZincColorScheme.light(),
-        primaryToastTheme: const ShadToastTheme(alignment: Alignment.topCenter),
-        destructiveToastTheme: const ShadToastTheme(
-          alignment: Alignment.topCenter,
-        ),
       ),
       darkTheme: ShadThemeData(
         brightness: Brightness.dark,
         colorScheme: const ShadSlateColorScheme.dark(),
-        primaryToastTheme: const ShadToastTheme(alignment: Alignment.topCenter),
-        destructiveToastTheme: const ShadToastTheme(
-          alignment: Alignment.topCenter,
-        ),
       ),
       builder: (context, child) {
-        return ShadToaster(child: child!);
+        return ShadSonner(child: child!);
       },
       home: _initState == InitializationState.initializing
           ? const LoadingScreen()

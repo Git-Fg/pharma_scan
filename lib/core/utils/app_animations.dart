@@ -1,0 +1,102 @@
+// lib/core/utils/app_animations.dart
+import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+
+/// Centralized animation effects and timing constants for the PharmaScan app.
+///
+/// This file provides reusable Effect instances that can be used throughout
+/// the application to ensure consistent animation behavior and maintainability.
+class AppAnimations {
+  AppAnimations._();
+
+  // Timing constants for standardized animation durations
+  static const Duration fastDuration = Duration(milliseconds: 200);
+  static const Duration standardDuration = Duration(milliseconds: 300);
+  static const Duration mediumDuration = Duration(milliseconds: 400);
+  static const Duration slowDuration = Duration(milliseconds: 600);
+
+  // Standard animation curve used across the app
+  static const Curve standardCurve = Curves.easeOutCubic;
+
+  /// Standard card entrance animation.
+  /// Used for general card widgets entering the screen.
+  static const List<Effect> cardEnter = [
+    FadeEffect(duration: standardDuration, curve: standardCurve),
+    SlideEffect(
+      begin: Offset(0, -0.1),
+      end: Offset.zero,
+      duration: standardDuration,
+      curve: standardCurve,
+    ),
+  ];
+
+  /// Info bubble entrance animation.
+  /// Used for scan result info bubbles (generic and princeps).
+  static const List<Effect> bubbleEnter = [
+    FadeEffect(duration: standardDuration, curve: standardCurve),
+    SlideEffect(
+      begin: Offset(0, -0.2),
+      end: Offset.zero,
+      duration: standardDuration,
+      curve: standardCurve,
+    ),
+  ];
+
+  /// Banner/snackbar entrance animation.
+  /// Used for status banners and notification cards.
+  static const List<Effect> bannerEnter = [
+    FadeEffect(duration: Duration(milliseconds: 250), curve: standardCurve),
+    SlideEffect(
+      begin: Offset(0, -0.1),
+      end: Offset.zero,
+      duration: Duration(milliseconds: 250),
+      curve: standardCurve,
+    ),
+  ];
+
+  /// List item entrance animation (for use with staggered lists).
+  /// Apply this effect to individual list items with an interval.
+  static const List<Effect> listItemEnter = [
+    FadeEffect(duration: fastDuration, curve: standardCurve),
+    SlideEffect(
+      begin: Offset(0, 0.05),
+      end: Offset.zero,
+      duration: fastDuration,
+      curve: standardCurve,
+    ),
+  ];
+
+  /// Loading skeleton animation with shimmer effect.
+  /// Used for loading placeholders in lists.
+  static const List<Effect> skeletonShimmer = [
+    FadeEffect(duration: Duration(milliseconds: 180), curve: standardCurve),
+    SlideEffect(
+      begin: Offset(0, 0.04),
+      end: Offset.zero,
+      duration: Duration(milliseconds: 180),
+      curve: Curves.easeOut,
+    ),
+    ShimmerEffect(
+      duration: Duration(milliseconds: 1200),
+      color: Colors.white24,
+    ),
+  ];
+
+  /// Simple fade-in animation for subtle entrances.
+  static const List<Effect> fadeIn = [
+    FadeEffect(duration: slowDuration, curve: standardCurve),
+  ];
+
+  /// Button/control panel entrance animation.
+  /// Used for control panels that slide up from bottom.
+  static const List<Effect> controlPanelEnter = [
+    FadeEffect(duration: mediumDuration, curve: standardCurve),
+    SlideEffect(
+      begin: Offset(0, 0.5),
+      end: Offset.zero,
+      duration: mediumDuration,
+      delay: Duration(milliseconds: 200),
+      curve: standardCurve,
+    ),
+  ];
+}

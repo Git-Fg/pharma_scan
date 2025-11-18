@@ -30,10 +30,7 @@ class ClusterDetailView extends ConsumerWidget {
         elevation: 0,
         scrolledUnderElevation: 0,
         iconTheme: IconThemeData(color: theme.colorScheme.foreground),
-        title: Text(
-          princepsBrandName,
-          style: theme.textTheme.h4,
-        ),
+        title: Text(princepsBrandName, style: theme.textTheme.h4),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
@@ -58,6 +55,8 @@ class ClusterDetailView extends ConsumerWidget {
                         ? 'Non déterminé'
                         : activeIngredients.join(', '),
                     style: theme.textTheme.p,
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 3,
                   ),
                   const SizedBox(height: 12),
                   ShadBadge.secondary(
@@ -76,99 +75,155 @@ class ClusterDetailView extends ConsumerWidget {
                   if (groups.isEmpty) {
                     return Center(
                       child: Text(
-                        'Aucun groupe n’est associé à ce cluster.',
+                        'Aucun groupe n\'est associé à ce cluster.',
                         style: theme.textTheme.muted,
                       ),
                     );
                   }
-                  return ListView.separated(
-                    itemCount: groups.length,
-                    separatorBuilder: (context, index) =>
-                        const SizedBox(height: 12),
-                    itemBuilder: (context, index) {
-                      final summary = groups[index];
-                      return Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(12),
-                          splashColor:
-                              theme.colorScheme.primary.withValues(alpha: 0.1),
-                          highlightColor:
-                              theme.colorScheme.primary.withValues(alpha: 0.05),
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (context) => GroupExplorerView(
-                                  groupId: summary.groupId,
-                                  onExit: () => Navigator.of(context).pop(),
-                                ),
-                              ),
-                            );
-                          },
-                          child: ShadCard(
-                            padding: const EdgeInsets.all(20),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        summary.princepsReferenceName,
-                                        style: theme.textTheme.h4,
-                                      ),
-                                    ),
-                                    ShadBadge(
-                                      child: Text(
-                                        summary.groupId,
-                                        style:
-                                            theme.textTheme.small.copyWith(
-                                          color: theme
-                                              .colorScheme.primaryForeground,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'Principe(s) actif(s)',
-                                  style: theme.textTheme.small.copyWith(
-                                    color: theme.colorScheme.mutedForeground,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  summary.commonPrincipes.isEmpty
-                                      ? 'Non déterminé'
-                                      : summary.commonPrincipes,
-                                  style: theme.textTheme.p,
-                                ),
-                                const SizedBox(height: 12),
-                                Align(
-                                  alignment: Alignment.centerRight,
-                                  child: ShadButton(
-                                    onPressed: () {
-                                      Navigator.of(context).push(
-                                        MaterialPageRoute(
-                                          builder: (context) => GroupExplorerView(
-                                            groupId: summary.groupId,
-                                            onExit: () =>
-                                                Navigator.of(context).pop(),
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                    child: const Text('Explorer le groupe'),
-                                  ),
-                                ),
-                              ],
+                  return SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minWidth: MediaQuery.of(context).size.width - 32,
+                      ),
+                      child: ShadTable.list(
+                        header: [
+                          ShadTableCell.header(
+                            child: Text(
+                              'Groupe ID',
+                              style: theme.textTheme.table,
                             ),
                           ),
-                        ),
-                      );
-                    },
+                          ShadTableCell.header(
+                            child: Text(
+                              'Princeps',
+                              style: theme.textTheme.table,
+                            ),
+                          ),
+                          ShadTableCell.header(
+                            child: Text(
+                              'Principes Actifs',
+                              style: theme.textTheme.table,
+                            ),
+                          ),
+                        ],
+                        children: groups.map((summary) {
+                          return [
+                            ShadTableCell(
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(8),
+                                  splashColor: theme.colorScheme.primary
+                                      .withValues(alpha: 0.1),
+                                  highlightColor: theme.colorScheme.primary
+                                      .withValues(alpha: 0.05),
+                                  onTap: () {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (context) => GroupExplorerView(
+                                          groupId: summary.groupId,
+                                          onExit: () =>
+                                              Navigator.of(context).pop(),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 12,
+                                    ),
+                                    child: ShadBadge(
+                                      child: Text(
+                                        summary.groupId,
+                                        style: theme.textTheme.small.copyWith(
+                                          color: theme
+                                              .colorScheme
+                                              .primaryForeground,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            ShadTableCell(
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(8),
+                                  splashColor: theme.colorScheme.primary
+                                      .withValues(alpha: 0.1),
+                                  highlightColor: theme.colorScheme.primary
+                                      .withValues(alpha: 0.05),
+                                  onTap: () {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (context) => GroupExplorerView(
+                                          groupId: summary.groupId,
+                                          onExit: () =>
+                                              Navigator.of(context).pop(),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 12,
+                                    ),
+                                    child: Text(
+                                      summary.princepsReferenceName,
+                                      style: theme.textTheme.p,
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: 2,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            ShadTableCell(
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(8),
+                                  splashColor: theme.colorScheme.primary
+                                      .withValues(alpha: 0.1),
+                                  highlightColor: theme.colorScheme.primary
+                                      .withValues(alpha: 0.05),
+                                  onTap: () {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (context) => GroupExplorerView(
+                                          groupId: summary.groupId,
+                                          onExit: () =>
+                                              Navigator.of(context).pop(),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 12,
+                                    ),
+                                    child: Text(
+                                      summary.commonPrincipes.isEmpty
+                                          ? 'Non déterminé'
+                                          : summary.commonPrincipes,
+                                      style: theme.textTheme.p,
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: 2,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ];
+                        }).toList(),
+                      ),
+                    ),
                   );
                 },
                 loading: () => const Center(child: ShadProgress()),
@@ -204,4 +259,3 @@ class ClusterDetailView extends ConsumerWidget {
     );
   }
 }
-

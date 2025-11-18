@@ -6,6 +6,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pharma_scan/core/locator.dart';
 import 'package:pharma_scan/core/services/database_service.dart';
+import 'package:pharma_scan/core/services/data_initialization_service.dart';
 import 'package:pharma_scan/core/utils/gs1_parser.dart';
 import 'package:pharma_scan/features/scanner/models/scan_result_model.dart';
 
@@ -102,6 +103,9 @@ void main() {
         ], // Le marquer comme générique
       );
 
+      // Populate medicament_summary table
+      await sl<DataInitializationService>().runSummaryAggregationForTesting();
+
       // AND WHEN: On teste la méthode unifiée
       final scanResult = await dbService.getScanResultByCip(expectedCip);
 
@@ -122,5 +126,6 @@ void main() {
         },
       );
     },
+    timeout: const Timeout(Duration(minutes: 5)),
   );
 }

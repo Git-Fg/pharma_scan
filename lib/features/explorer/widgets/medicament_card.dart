@@ -62,10 +62,7 @@ class MedicamentCard extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          medicament.nom,
-          style: theme.textTheme.p.copyWith(fontWeight: FontWeight.w500),
-        ),
+        Text(medicament.nom, style: theme.textTheme.h4),
         if (conditionBadge != null) ...[
           const SizedBox(height: 6),
           conditionBadge,
@@ -82,10 +79,9 @@ class MedicamentCard extends StatelessWidget {
             Expanded(
               child: Text(
                 titulaire,
-                style: theme.textTheme.small.copyWith(
-                  color: theme.colorScheme.mutedForeground,
-                ),
+                style: theme.textTheme.muted,
                 overflow: TextOverflow.ellipsis,
+                maxLines: 1,
               ),
             ),
           ],
@@ -100,13 +96,7 @@ class MedicamentCard extends StatelessWidget {
             ),
             const SizedBox(width: 4),
             Expanded(
-              child: Text(
-                medicament.codeCip,
-                style: theme.textTheme.small.copyWith(
-                  color: theme.colorScheme.mutedForeground,
-                  fontFamily: 'monospace',
-                ),
-              ),
+              child: Text(medicament.codeCip, style: theme.textTheme.muted),
             ),
           ],
         ),
@@ -120,14 +110,7 @@ class MedicamentCard extends StatelessWidget {
                 color: theme.colorScheme.mutedForeground,
               ),
               const SizedBox(width: 4),
-              Expanded(
-                child: Text(
-                  dosageLabel,
-                  style: theme.textTheme.small.copyWith(
-                    color: theme.colorScheme.mutedForeground,
-                  ),
-                ),
-              ),
+              Expanded(child: Text(dosageLabel, style: theme.textTheme.muted)),
             ],
           ),
         ],
@@ -169,10 +152,7 @@ class MedicamentCard extends StatelessWidget {
     final condition = medicament.conditionsPrescription;
     if (condition == null || condition.isEmpty) return null;
     return ShadBadge.outline(
-      child: Text(
-        condition,
-        style: theme.textTheme.small.copyWith(fontWeight: FontWeight.w600),
-      ),
+      child: Text(condition, style: theme.textTheme.small),
     );
   }
 }

@@ -3,11 +3,13 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pharma_scan/core/utils/app_animations.dart';
 import 'package:pharma_scan/features/explorer/models/search_result_item_model.dart';
 import 'package:pharma_scan/features/scanner/models/medicament_model.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:pharma_scan/core/locator.dart';
 import 'package:pharma_scan/core/services/database_service.dart';
+import 'package:pharma_scan/features/explorer/models/search_filters_model.dart';
 import 'package:pharma_scan/features/explorer/providers/group_cluster_provider.dart';
 import 'package:pharma_scan/features/explorer/providers/search_provider.dart';
 import 'package:pharma_scan/features/explorer/screens/cluster_detail_view.dart';
@@ -27,6 +29,8 @@ class DatabaseSearchViewState extends ConsumerState<DatabaseSearchView> {
   Timer? _searchDebounce;
   static const _searchDebounceDuration = Duration(milliseconds: 300);
   String _activeQuery = '';
+  final ShadPopoverController _filtersPopoverController =
+      ShadPopoverController();
 
   late ScrollController _scrollController;
   late ScrollController _searchScrollController;
@@ -49,6 +53,7 @@ class DatabaseSearchViewState extends ConsumerState<DatabaseSearchView> {
       ..dispose();
     _scrollController.dispose();
     _searchScrollController.dispose();
+    _filtersPopoverController.dispose();
     super.dispose();
   }
 
@@ -115,7 +120,7 @@ class DatabaseSearchViewState extends ConsumerState<DatabaseSearchView> {
                 children: [
                   if (_stats != null) _buildStatsHeader(theme),
                   const SizedBox(height: 16),
-                  _buildSearchBar(theme),
+                  _buildSearchBarWithFilters(theme),
                   const SizedBox(height: 8),
                   Expanded(
                     child: !hasSearchText
@@ -141,48 +146,264 @@ class DatabaseSearchViewState extends ConsumerState<DatabaseSearchView> {
   Widget _buildStatsHeader(ShadThemeData theme) {
     return Padding(
       padding: const EdgeInsets.only(top: 16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _buildStatItem(theme, 'Princeps', '${_stats!['total_princeps']}'),
-          _buildStatItem(theme, 'Génériques', '${_stats!['total_generiques']}'),
-          _buildStatItem(
-            theme,
-            'Principes Actifs',
-            '${_stats!['total_principes']}',
+      child: ShadTable.list(
+        header: [
+          ShadTableCell.header(
+            child: Text('Princeps', style: theme.textTheme.table),
           ),
+          ShadTableCell.header(
+            child: Text('Génériques', style: theme.textTheme.table),
+          ),
+          ShadTableCell.header(
+            child: Text('Principes Actifs', style: theme.textTheme.table),
+          ),
+        ],
+        children: [
+          [
+            ShadTableCell(
+              child: Text(
+                '${_stats!['total_princeps']}',
+                style: theme.textTheme.h4,
+              ),
+            ),
+            ShadTableCell(
+              child: Text(
+                '${_stats!['total_generiques']}',
+                style: theme.textTheme.h4,
+              ),
+            ),
+            ShadTableCell(
+              child: Text(
+                '${_stats!['total_principes']}',
+                style: theme.textTheme.h4,
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildStatItem(ShadThemeData theme, String label, String value) {
-    return Column(
+  Widget _buildSearchBarWithFilters(ShadThemeData theme) {
+    final filters = ref.watch(searchFiltersProvider);
+    return Row(
       children: [
-        Text(value, style: theme.textTheme.h4),
-        Text(label, style: theme.textTheme.muted),
+        Expanded(child: _buildSearchBar(theme)),
+        const SizedBox(width: 8),
+        _buildFiltersButton(theme, filters),
       ],
     );
   }
 
   Widget _buildSearchBar(ShadThemeData theme) {
     final hasText = _searchController.text.isNotEmpty;
-    return Stack(
-      alignment: Alignment.centerRight,
-      children: [
-        ShadInput(
-          controller: _searchController,
-          placeholder: const Text('Rechercher par nom, CIP, ou principe...'),
-          onChanged: _onSearchChanged,
-          padding: hasText ? const EdgeInsets.only(right: 40) : null,
+    final isDebouncing = _searchDebounce?.isActive ?? false;
+    return ShadInput(
+      controller: _searchController,
+      placeholder: const Text('Rechercher par nom, CIP, ou principe...'),
+      onChanged: _onSearchChanged,
+      leading: Icon(
+        LucideIcons.search,
+        size: 16,
+        color: theme.colorScheme.mutedForeground,
+      ),
+      trailing: hasText
+          ? (isDebouncing
+                ? SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        theme.colorScheme.mutedForeground,
+                      ),
+                    ),
+                  )
+                : ShadButton.ghost(
+                    onPressed: _clearSearchField,
+                    padding: EdgeInsets.zero,
+                    child: Icon(
+                      LucideIcons.x,
+                      size: 16,
+                      color: theme.colorScheme.mutedForeground,
+                    ),
+                  ))
+          : null,
+    );
+  }
+
+  Widget _buildFiltersButton(ShadThemeData theme, SearchFilters filters) {
+    final hasActiveFilters = filters.hasActiveFilters;
+    return ShadPopover(
+      controller: _filtersPopoverController,
+      popover: (context) => _buildFiltersPopover(theme, filters),
+      child: ShadButton.outline(
+        onPressed: _filtersPopoverController.toggle,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              LucideIcons.slidersHorizontal,
+              size: 16,
+              color: theme.colorScheme.foreground,
+            ),
+            if (hasActiveFilters) ...[
+              const SizedBox(width: 4),
+              Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary,
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ],
+          ],
         ),
-        if (hasText)
-          ShadButton.ghost(
-            onPressed: _clearSearchField,
-            leading: const Icon(LucideIcons.x, size: 16),
-            child: const SizedBox.shrink(),
+      ),
+    );
+  }
+
+  Widget _buildFiltersPopover(
+    ShadThemeData theme,
+    SearchFilters currentFilters,
+  ) {
+    return SizedBox(
+      width: 320,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Filtres', style: theme.textTheme.h4),
+                if (currentFilters.hasActiveFilters)
+                  ShadButton.ghost(
+                    onPressed: () {
+                      ref.read(searchFiltersProvider.notifier).clearFilters();
+                      _filtersPopoverController.toggle();
+                    },
+                    padding: EdgeInsets.zero,
+                    child: Text(
+                      'Réinitialiser',
+                      style: theme.textTheme.small.copyWith(
+                        color: theme.colorScheme.primary,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
+          const Divider(height: 1),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Type de procédure',
+                  style: theme.textTheme.small.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _buildProcedureTypeFilter(theme, currentFilters),
+                const SizedBox(height: 24),
+                Text(
+                  'Forme pharmaceutique',
+                  style: theme.textTheme.small.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _buildPharmaceuticalFormFilter(theme, currentFilters),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProcedureTypeFilter(
+    ShadThemeData theme,
+    SearchFilters currentFilters,
+  ) {
+    return ShadRadioGroup<String?>(
+      initialValue: currentFilters.procedureType,
+      onChanged: (value) {
+        ref
+            .read(searchFiltersProvider.notifier)
+            .updateFilters(currentFilters.copyWith(procedureType: value));
+      },
+      items: [
+        ShadRadio(value: null, label: const Text('Tous')),
+        ShadRadio(value: 'Autorisation', label: const Text('Allopathie')),
+        ShadRadio(
+          value: 'Enregistrement',
+          label: const Text('Homéopathie / Phytothérapie'),
+        ),
       ],
+    );
+  }
+
+  Widget _buildPharmaceuticalFormFilter(
+    ShadThemeData theme,
+    SearchFilters currentFilters,
+  ) {
+    return FutureBuilder<List<String>>(
+      future: _dbService.getDistinctPharmaceuticalForms(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return SizedBox(
+            height: 40,
+            child: Center(
+              child: SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    theme.colorScheme.mutedForeground,
+                  ),
+                ),
+              ),
+            ),
+          );
+        }
+
+        final forms = snapshot.data!;
+        if (forms.isEmpty) {
+          return Text('Aucune forme disponible', style: theme.textTheme.muted);
+        }
+
+        return ShadSelect<String?>(
+          minWidth: double.infinity,
+          placeholder: const Text('Toutes les formes'),
+          initialValue: currentFilters.formePharmaceutique,
+          options: [
+            ShadOption(value: null, child: const Text('Toutes les formes')),
+            ...forms.map((form) => ShadOption(value: form, child: Text(form))),
+          ],
+          selectedOptionBuilder: (context, value) {
+            if (value == null) {
+              return const Text('Toutes les formes');
+            }
+            return Text(value);
+          },
+          onChanged: (value) {
+            ref
+                .read(searchFiltersProvider.notifier)
+                .updateFilters(
+                  currentFilters.copyWith(formePharmaceutique: value),
+                );
+          },
+        );
+      },
     );
   }
 
@@ -208,30 +429,30 @@ class DatabaseSearchViewState extends ConsumerState<DatabaseSearchView> {
           final onTapCallback = result.when(
             princepsResult:
                 (princeps, unusedGenerics, groupId, unusedPrinciples) {
-              return () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => GroupExplorerView(
-                      groupId: groupId,
-                      onExit: () => Navigator.of(context).pop(),
-                    ),
-                  ),
-                );
-              };
-            },
+                  return () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => GroupExplorerView(
+                          groupId: groupId,
+                          onExit: () => Navigator.of(context).pop(),
+                        ),
+                      ),
+                    );
+                  };
+                },
             genericResult:
                 (generic, unusedPrincepsList, groupId, unusedPrinciples) {
-              return () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => GroupExplorerView(
-                      groupId: groupId,
-                      onExit: () => Navigator.of(context).pop(),
-                    ),
-                  ),
-                );
-              };
-            },
+                  return () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => GroupExplorerView(
+                          groupId: groupId,
+                          onExit: () => Navigator.of(context).pop(),
+                        ),
+                      ),
+                    );
+                  };
+                },
             // WHY: Explicitly return null for standalone results to disable InkWell feedback
             standaloneResult: (unusedMedicament, unusedPrinciples) => null,
           );
@@ -274,10 +495,10 @@ class DatabaseSearchViewState extends ConsumerState<DatabaseSearchView> {
               ),
             ),
           );
-          return card
-              .animate()
-              .fadeIn(duration: 200.ms, delay: (index * 40).ms)
-              .slideY(begin: 0.05, curve: Curves.easeOutCubic);
+          return card.animate(
+            delay: (index * 40).ms,
+            effects: AppAnimations.listItemEnter,
+          );
         },
       ),
     );
@@ -379,6 +600,8 @@ class DatabaseSearchViewState extends ConsumerState<DatabaseSearchView> {
                                 ? 'Non déterminé'
                                 : cluster.activeIngredients.join(', '),
                             style: theme.textTheme.p,
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 3,
                           ),
                           const SizedBox(height: 12),
                           Wrap(
@@ -428,6 +651,8 @@ class DatabaseSearchViewState extends ConsumerState<DatabaseSearchView> {
                             style: theme.textTheme.p.copyWith(
                               fontWeight: FontWeight.w600,
                             ),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 2,
                           ),
                         ],
                       ),
@@ -508,11 +733,10 @@ class DatabaseSearchViewState extends ConsumerState<DatabaseSearchView> {
             ],
           ),
         );
-        return card
-            .animate()
-            .fadeIn(duration: 180.ms, delay: (index * 40).ms)
-            .slideY(begin: 0.04, curve: Curves.easeOut)
-            .shimmer(duration: 1200.ms);
+        return card.animate(
+          delay: (index * 40).ms,
+          effects: AppAnimations.skeletonShimmer,
+        );
       },
     );
   }
@@ -537,7 +761,12 @@ class DatabaseSearchViewState extends ConsumerState<DatabaseSearchView> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                Text(medicament.nom, style: theme.textTheme.p),
+                Text(
+                  medicament.nom,
+                  style: theme.textTheme.p,
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 2,
+                ),
                 if (medicament.principesActifs.isNotEmpty) ...[
                   const SizedBox(height: 4),
                   Text(
@@ -551,6 +780,8 @@ class DatabaseSearchViewState extends ConsumerState<DatabaseSearchView> {
                   Text(
                     medicament.principesActifs.join(', '),
                     style: theme.textTheme.muted,
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 2,
                   ),
                 ],
               ],
@@ -594,6 +825,8 @@ class DatabaseSearchViewState extends ConsumerState<DatabaseSearchView> {
                   style: theme.textTheme.p.copyWith(
                     fontWeight: FontWeight.w500,
                   ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 2,
                 ),
                 if (princeps.principesActifs.isNotEmpty) ...[
                   const SizedBox(height: 4),
@@ -608,6 +841,8 @@ class DatabaseSearchViewState extends ConsumerState<DatabaseSearchView> {
                   Text(
                     princeps.principesActifs.join(', '),
                     style: theme.textTheme.muted,
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 2,
                   ),
                 ],
               ],
@@ -639,6 +874,8 @@ class DatabaseSearchViewState extends ConsumerState<DatabaseSearchView> {
                     child: Text(
                       '• ${generic.nom}',
                       style: theme.textTheme.muted,
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
                   ),
                 ),
@@ -683,6 +920,8 @@ class DatabaseSearchViewState extends ConsumerState<DatabaseSearchView> {
                   style: theme.textTheme.p.copyWith(
                     fontWeight: FontWeight.w500,
                   ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 2,
                 ),
                 if (generic.principesActifs.isNotEmpty) ...[
                   const SizedBox(height: 4),
@@ -697,6 +936,8 @@ class DatabaseSearchViewState extends ConsumerState<DatabaseSearchView> {
                   Text(
                     generic.principesActifs.join(', '),
                     style: theme.textTheme.muted,
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 2,
                   ),
                 ],
               ],
@@ -728,6 +969,8 @@ class DatabaseSearchViewState extends ConsumerState<DatabaseSearchView> {
                     child: Text(
                       '• ${princeps.nom}',
                       style: theme.textTheme.muted,
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
                   ),
                 ),

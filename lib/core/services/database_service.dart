@@ -26,29 +26,26 @@ class DatabaseService {
   // Uses MedicamentSummary table for faster lookups and pre-calculated data.
   // Hardened against "chameleon" medications that appear as both princeps and generic
   // in different groups. Business rule: princeps status in ANY group wins.
+  // Optimized to use joins instead of sequential queries for better performance.
   Future<ScanResult?> getScanResultByCip(String codeCip) async {
-    // First, get the CIS code for this CIP
-    final medicamentQuery = _db.select(_db.medicaments)
-      ..where((tbl) => tbl.codeCip.equals(codeCip));
-    final medicamentRow = await medicamentQuery.getSingleOrNull();
+    // WHY: Use a single query with joins to get medicament, specialite, and summary data
+    // This reduces 3 sequential queries to 1, improving performance
+    final query = _db.select(_db.medicaments).join([
+      innerJoin(
+        _db.specialites,
+        _db.specialites.cisCode.equalsExp(_db.medicaments.cisCode),
+      ),
+      innerJoin(
+        _db.medicamentSummary,
+        _db.medicamentSummary.cisCode.equalsExp(_db.medicaments.cisCode),
+      ),
+    ])..where(_db.medicaments.codeCip.equals(codeCip));
 
-    if (medicamentRow == null) return null;
+    final result = await query.getSingleOrNull();
+    if (result == null) return null;
 
-    final cisCode = medicamentRow.cisCode;
-
-    // Get the summary data from MedicamentSummary table
-    final summaryQuery = _db.select(_db.medicamentSummary)
-      ..where((tbl) => tbl.cisCode.equals(cisCode));
-    final summaryRow = await summaryQuery.getSingleOrNull();
-
-    if (summaryRow == null) return null;
-
-    // Get full medicament details from specialites
-    final specialiteQuery = _db.select(_db.specialites)
-      ..where((tbl) => tbl.cisCode.equals(cisCode));
-    final specialiteRow = await specialiteQuery.getSingleOrNull();
-
-    if (specialiteRow == null) return null;
+    final specData = result.readTable(_db.specialites);
+    final summaryRow = result.readTable(_db.medicamentSummary);
 
     // Get active principles for this medication
     final principesQuery = _db.select(_db.principesActifs)
@@ -66,14 +63,14 @@ class DatabaseService {
         : null;
 
     final scannedMedicament = Medicament(
-      nom: specialiteRow.nomSpecialite,
+      nom: specData.nomSpecialite,
       codeCip: codeCip,
       principesActifs: commonPrincipes.isNotEmpty ? commonPrincipes : principes,
-      titulaire: parseMainTitulaire(specialiteRow.titulaire),
-      formePharmaceutique: specialiteRow.formePharmaceutique,
+      titulaire: parseMainTitulaire(specData.titulaire),
+      formePharmaceutique: specData.formePharmaceutique,
       dosage: parseDecimalValue(firstPrincipeData?.dosage),
       dosageUnit: firstPrincipeData?.dosageUnit,
-      conditionsPrescription: specialiteRow.conditionsPrescription,
+      conditionsPrescription: specData.conditionsPrescription,
     );
 
     final groupId = summaryRow.groupId;
@@ -261,6 +258,7 @@ class DatabaseService {
     final generics = <Medicament>[];
     final formsSet = <String>{};
     final dosageLabels = <String>{};
+    List<String> commonPrincipes = [];
 
     for (final row in memberRows) {
       final medData = row.readTable(_db.medicaments);
@@ -305,11 +303,14 @@ class DatabaseService {
       } else {
         generics.add(medicament);
       }
-    }
 
-    final commonPrincipesMap = await _getCommonPrincipesForGroups({groupId});
-    // WHY: Sanitization is already applied in _getCommonPrincipesForGroups
-    final commonPrincipes = commonPrincipesMap[groupId] ?? const <String>[];
+      // WHY: Extract common principles from the first summary row we find (they are identical for the group)
+      if (commonPrincipes.isEmpty) {
+        commonPrincipes = _decodeCommonPrincipesList(
+          summaryData.principesActifsCommuns,
+        );
+      }
+    }
 
     // WHY: Identify reference princeps to derive group-level defaults.
     // Since drugs in the same Generic Group are therapeutically equivalent,
@@ -861,42 +862,6 @@ WHERE EXISTS (
     }
   }
 
-  Future<Map<String, List<String>>> _getCommonPrincipesForGroups(
-    Set<String> groupIds,
-  ) async {
-    if (groupIds.isEmpty) return {};
-
-    final results = <String, List<String>>{};
-    final groupList = groupIds.toList();
-
-    for (var i = 0; i < groupList.length; i += _maxSqlVariables) {
-      final chunk = groupList.sublist(
-        i,
-        (i + _maxSqlVariables > groupList.length)
-            ? groupList.length
-            : i + _maxSqlVariables,
-      );
-
-      if (chunk.isEmpty) continue;
-
-      // WHY: Use the generated query from queries.drift
-      // The query uses the list parameter twice (in two CTEs), so we pass it twice
-      final rows = await _db.getCommonPrincipesForGroups(chunk, chunk).get();
-      for (final row in rows) {
-        final groupId = row.groupId;
-        final principe = row.principe;
-
-        // WHY: Sanitize active principle to remove dosage, units, and formulation keywords
-        final sanitizedPrinciple = sanitizeActivePrinciple(principe);
-        if (sanitizedPrinciple.isNotEmpty) {
-          results.putIfAbsent(groupId, () => []).add(sanitizedPrinciple);
-        }
-      }
-    }
-
-    return results;
-  }
-
   Future<bool> hasExistingData() async {
     final totalGroupsQuery = _db.selectOnly(_db.generiqueGroups)
       ..addColumns([_db.generiqueGroups.groupId.count()]);
@@ -904,6 +869,38 @@ WHERE EXISTS (
     final count = totalGroups.read(_db.generiqueGroups.groupId.count()) ?? 0;
 
     return count > 0;
+  }
+
+  // WHY: Get distinct procedure types for filter dropdown
+  Future<List<String>> getDistinctProcedureTypes() async {
+    final query = _db.customSelect(
+      '''
+      SELECT DISTINCT procedure_type
+      FROM medicament_summary
+      WHERE procedure_type IS NOT NULL AND procedure_type != ''
+      ORDER BY procedure_type
+      ''',
+      readsFrom: {_db.medicamentSummary},
+    );
+    final results = await query.get();
+    return results.map((row) => row.read<String>('procedure_type')).toList();
+  }
+
+  // WHY: Get distinct pharmaceutical forms for filter dropdown
+  Future<List<String>> getDistinctPharmaceuticalForms() async {
+    final query = _db.customSelect(
+      '''
+      SELECT DISTINCT forme_pharmaceutique
+      FROM medicament_summary
+      WHERE forme_pharmaceutique IS NOT NULL AND forme_pharmaceutique != ''
+      ORDER BY forme_pharmaceutique
+      ''',
+      readsFrom: {_db.medicamentSummary},
+    );
+    final results = await query.get();
+    return results
+        .map((row) => row.read<String>('forme_pharmaceutique'))
+        .toList();
   }
 }
 

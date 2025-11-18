@@ -2,11 +2,10 @@
 import 'package:decimal/decimal.dart';
 import 'package:flutter/material.dart';
 import 'package:pharma_scan/core/locator.dart';
-import 'package:pharma_scan/core/models/parsed_name.dart';
-import 'package:pharma_scan/core/parser/medicament_grammar.dart';
 import 'package:pharma_scan/core/services/database_service.dart';
 import 'package:pharma_scan/core/utils/dosage_utils.dart';
 import 'package:pharma_scan/features/explorer/models/grouped_by_product_model.dart';
+import 'package:pharma_scan/features/scanner/models/medicament_model.dart';
 import 'package:pharma_scan/features/explorer/models/product_group_classification_model.dart';
 import 'package:pharma_scan/features/explorer/widgets/medicament_card.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
@@ -27,7 +26,6 @@ class GroupExplorerView extends StatefulWidget {
 
 class GroupExplorerViewState extends State<GroupExplorerView> {
   final DatabaseService _dbService = sl<DatabaseService>();
-  final MedicamentParser _medicamentParser = MedicamentParser();
   ProductGroupClassification? _classification;
   bool _isLoadingGroup = true;
 
@@ -138,7 +136,12 @@ class GroupExplorerViewState extends State<GroupExplorerView> {
             child: const Text('Retour'),
           ),
           const SizedBox(height: 12),
-          Text(classification.syntheticTitle, style: theme.textTheme.h3),
+          Text(
+            classification.syntheticTitle,
+            style: theme.textTheme.h3,
+            overflow: TextOverflow.ellipsis,
+            maxLines: 3,
+          ),
           const SizedBox(height: 8),
           for (final line in summaryLines)
             Padding(
@@ -275,12 +278,15 @@ class GroupExplorerViewState extends State<GroupExplorerView> {
                       style: theme.textTheme.p.copyWith(
                         fontWeight: FontWeight.w500,
                       ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 2,
                     ),
                     const SizedBox(height: 4),
                     Text(
                       subtitleText,
                       style: theme.textTheme.muted,
                       overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
                   ],
                 ),
@@ -304,10 +310,7 @@ class GroupExplorerViewState extends State<GroupExplorerView> {
                     ),
                     child: Padding(
                       padding: const EdgeInsets.only(bottom: 12),
-                      child: _buildParsedDetails(
-                        theme,
-                        _medicamentParser.parse(med.nom),
-                      ),
+                      child: _buildStructuredDetails(theme, med),
                     ),
                   ),
               ],
@@ -322,17 +325,11 @@ class GroupExplorerViewState extends State<GroupExplorerView> {
     return formatDosageLabel(dosage: dosage, unit: unit);
   }
 
-  Widget _buildParsedDetails(
-    ShadThemeData theme,
-    ParsedName parsed,
-  ) {
-    final dosageLabels = parsed.dosages.isEmpty
-        ? 'Aucun dosage détecté'
-        : parsed.dosages
-            .map(
-              (dosage) => dosage.raw ?? '${dosage.value} ${dosage.unit}',
-            )
-            .join(', ');
+  Widget _buildStructuredDetails(ShadThemeData theme, Medicament med) {
+    final dosageLabel = formatDosageLabel(
+      dosage: med.dosage,
+      unit: med.dosageUnit,
+    );
 
     return ShadCard(
       padding: const EdgeInsets.all(16),
@@ -341,20 +338,20 @@ class GroupExplorerViewState extends State<GroupExplorerView> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _ParsedDetailRow(
-            label: 'Nom canonique détecté',
-            value: parsed.baseName ?? 'Non identifié',
+            label: 'Nom canonique (Base)',
+            value: med.nom,
             theme: theme,
           ),
           const SizedBox(height: 8),
           _ParsedDetailRow(
-            label: 'Dosages structurés',
-            value: dosageLabels,
+            label: 'Dosage structuré',
+            value: dosageLabel ?? 'Non défini',
             theme: theme,
           ),
           const SizedBox(height: 8),
           _ParsedDetailRow(
-            label: 'Formulation',
-            value: parsed.formulation ?? 'Non identifiée',
+            label: 'Formulation officielle',
+            value: med.formePharmaceutique ?? 'Non identifiée',
             theme: theme,
           ),
         ],
@@ -387,10 +384,7 @@ class _ParsedDetailRow extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 4),
-        Text(
-          value,
-          style: theme.textTheme.p,
-        ),
+        Text(value, style: theme.textTheme.p),
       ],
     );
   }

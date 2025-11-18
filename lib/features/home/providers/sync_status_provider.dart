@@ -1,7 +1,10 @@
-import 'package:riverpod/riverpod.dart';
 import 'package:pharma_scan/core/services/sync_service.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 
-class SyncStatusNotifier extends Notifier<SyncProgress> {
+part 'sync_status_provider.g.dart';
+
+@riverpod
+class SyncStatusNotifier extends _$SyncStatusNotifier {
   @override
   SyncProgress build() => const SyncProgress(phase: SyncPhase.idle);
 
@@ -9,7 +12,3 @@ class SyncStatusNotifier extends Notifier<SyncProgress> {
     state = progress;
   }
 }
-
-final syncStatusProvider = NotifierProvider<SyncStatusNotifier, SyncProgress>(
-  SyncStatusNotifier.new,
-);
