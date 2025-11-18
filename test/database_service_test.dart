@@ -693,7 +693,15 @@ void main() {
 
       final classification = await dbService.classifyProductGroup('GROUP_MAIN');
 
-      expect(classification!.syntheticTitle.contains('PARA PRINCEPS'), isTrue);
+      print('DEBUG: syntheticTitle = "${classification!.syntheticTitle}"');
+      print(
+        'DEBUG: princeps productName: ${classification.princeps.map((p) => p.productName).toList()}',
+      );
+      print(
+        'DEBUG: princeps medicaments: ${classification.princeps.first.medicaments.map((m) => m.nom).toList()}',
+      );
+
+      expect(classification.syntheticTitle.contains('PARA PRINCEPS'), isTrue);
       expect(classification.commonActiveIngredients, ['PARACETAMOL']);
       expect(classification.distinctDosages, contains('500 mg'));
       expect(classification.distinctFormulations, contains('Comprimé'));
