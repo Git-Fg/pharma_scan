@@ -1,9 +1,13 @@
 // test/database_service_test.dart
+import 'dart:convert';
+import 'package:decimal/decimal.dart';
+import 'package:drift/drift.dart' hide isNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/locator.dart';
 import 'package:pharma_scan/core/services/database_service.dart';
+import 'package:pharma_scan/core/utils/medicament_helpers.dart';
 import 'package:pharma_scan/features/scanner/models/scan_result_model.dart';
 
 void main() {
@@ -26,6 +30,105 @@ void main() {
     await database.close();
     await sl.reset();
   });
+
+  // Helper function to populate MedicamentSummary table for tests
+  Future<void> populateMedicamentSummary(AppDatabase db) async {
+    // Get all group members
+    final groupMembers = await db.select(db.groupMembers).get();
+    if (groupMembers.isEmpty) return;
+
+    // Get all specialites and medicaments
+    final specialites = await db.select(db.specialites).get();
+    final medicaments = await db.select(db.medicaments).get();
+    final principes = await db.select(db.principesActifs).get();
+
+    // Group by groupId
+    final groupsByGroupId = <String, List<GroupMember>>{};
+    for (final member in groupMembers) {
+      groupsByGroupId.putIfAbsent(member.groupId, () => []).add(member);
+    }
+
+    // For each group, calculate common principles and reference princeps
+    for (final entry in groupsByGroupId.entries) {
+      final groupId = entry.key;
+      final members = entry.value;
+
+      // Get all CIPs in this group
+      final cips = members.map((m) => m.codeCip).toSet();
+
+      // Get all principles for this group
+      final groupPrincipes = <String, Set<String>>{};
+      for (final cip in cips) {
+        final cipPrincipes = principes
+            .where((p) => p.codeCip == cip)
+            .map((p) => p.principe)
+            .toSet();
+        groupPrincipes[cip] = cipPrincipes;
+      }
+
+      // Calculate common principles (intersection of all)
+      Set<String> commonPrincipes = {};
+      if (groupPrincipes.isNotEmpty) {
+        commonPrincipes = Set<String>.from(groupPrincipes.values.first);
+        for (final cipPrincipes in groupPrincipes.values) {
+          commonPrincipes = commonPrincipes.intersection(cipPrincipes);
+        }
+      }
+
+      // Sanitize common principles
+      final sanitizedPrincipes = commonPrincipes
+          .map((p) => sanitizeActivePrinciple(p))
+          .where((p) => p.isNotEmpty)
+          .toList();
+
+      // Get princeps names for this group
+      final princepsMembers = members.where((m) => m.type == 0).toList();
+      final princepsNames = <String>[];
+      for (final member in princepsMembers) {
+        final medicament = medicaments.firstWhere(
+          (m) => m.codeCip == member.codeCip,
+        );
+        final specialite = specialites.firstWhere(
+          (s) => s.cisCode == medicament.cisCode,
+        );
+        princepsNames.add(specialite.nomSpecialite);
+      }
+
+      final princepsDeReference = findCommonPrincepsName(princepsNames);
+
+      // Insert summary for each member
+      final insertedCis = <String>{};
+      for (final member in members) {
+        final medicament = medicaments.firstWhere(
+          (m) => m.codeCip == member.codeCip,
+        );
+        final specialite = specialites.firstWhere(
+          (s) => s.cisCode == medicament.cisCode,
+        );
+        final nomCanonique = deriveGroupTitleFromName(specialite.nomSpecialite);
+
+        if (!insertedCis.add(medicament.cisCode)) {
+          continue;
+        }
+
+        await db
+            .into(db.medicamentSummary)
+            .insert(
+              MedicamentSummaryCompanion.insert(
+                cisCode: medicament.cisCode,
+                nomCanonique: nomCanonique,
+                isPrinceps: member.type == 0,
+                groupId: Value(groupId),
+                principesActifsCommuns: jsonEncode(sanitizedPrincipes),
+                princepsDeReference: princepsDeReference,
+                formePharmaceutique: Value(specialite.formePharmaceutique),
+                princepsBrandName: princepsDeReference,
+                clusterKey: '${princepsDeReference}_$groupId',
+              ),
+            );
+      }
+    }
+  }
 
   group('DatabaseService with Drift', () {
     test('should return GenericScanResult for a generic', () async {
@@ -52,7 +155,7 @@ void main() {
           {
             'code_cip': 'GENERIC_CIP',
             'principe': 'ACTIVE_PRINCIPLE',
-            'dosage': 500.0,
+            'dosage': '500',
             'dosage_unit': 'mg',
           },
         ],
@@ -64,6 +167,9 @@ void main() {
         ],
       );
 
+      // Populate MedicamentSummary table
+      await populateMedicamentSummary(database);
+
       // WHEN
       final result = await dbService.getScanResultByCip('GENERIC_CIP');
 
@@ -73,7 +179,7 @@ void main() {
       expect(genericResult.medicament.nom, 'GENERIC DRUG');
       expect(genericResult.medicament.principesActifs, ['ACTIVE_PRINCIPLE']);
       expect(genericResult.medicament.titulaire, 'LABORATOIRE TEST');
-      expect(genericResult.medicament.dosage, 500.0);
+      expect(genericResult.medicament.dosage, Decimal.fromInt(500));
       expect(genericResult.medicament.dosageUnit, 'mg');
       expect(genericResult.associatedPrinceps, isEmpty);
     });
@@ -114,6 +220,9 @@ void main() {
           {'code_cip': 'GENERIC_CIP', 'group_id': 'GROUP_1', 'type': 1},
         ],
       );
+
+      // Populate MedicamentSummary table
+      await populateMedicamentSummary(database);
 
       // WHEN: We query for the generic
       final result = await dbService.getScanResultByCip('GENERIC_CIP');
@@ -164,6 +273,9 @@ void main() {
           {'code_cip': 'GENERIC_CIP_1', 'group_id': 'GROUP_1', 'type': 1},
         ],
       );
+
+      // Populate MedicamentSummary table
+      await populateMedicamentSummary(database);
 
       // WHEN
       final result = await dbService.getScanResultByCip('PRINCEPS_CIP');
@@ -255,6 +367,9 @@ void main() {
         ],
       );
 
+      // Populate MedicamentSummary table
+      await populateMedicamentSummary(database);
+
       final summaries = await dbService.getGenericGroupSummaries(
         limit: 10,
         offset: 0,
@@ -320,12 +435,12 @@ void main() {
         specialites: [
           {
             'cis_code': 'CIS_PRINCEPS_1',
-            'nom_specialite': 'PRINCEPS 1',
+            'nom_specialite': 'PRINCEPS ALPHA',
             'procedure_type': 'Autorisation',
           },
           {
             'cis_code': 'CIS_PRINCEPS_2',
-            'nom_specialite': 'PRINCEPS 2',
+            'nom_specialite': 'PRINCEPS BETA',
             'procedure_type': 'Autorisation',
           },
           {
@@ -337,12 +452,12 @@ void main() {
         medicaments: [
           {
             'code_cip': 'PRINCEPS_1_CIP',
-            'nom': 'PRINCEPS 1',
+            'nom': 'PRINCEPS ALPHA',
             'cis_code': 'CIS_PRINCEPS_1',
           },
           {
             'code_cip': 'PRINCEPS_2_CIP',
-            'nom': 'PRINCEPS 2',
+            'nom': 'PRINCEPS BETA',
             'cis_code': 'CIS_PRINCEPS_2',
           },
           {
@@ -366,11 +481,13 @@ void main() {
         ],
       );
 
+      // Populate MedicamentSummary table
+      await populateMedicamentSummary(database);
+
       // WHEN: We query for the first princeps
       final result1 = await dbService.getScanResultByCip('PRINCEPS_1_CIP');
 
       // THEN: We get a PrincepsScanResult with generic labs extracted
-      expect(result1, isNotNull);
       result1!.when(
         generic: (medicament, associatedPrinceps, groupId) {
           fail('Expected PrincepsScanResult but got GenericScanResult');
@@ -385,7 +502,6 @@ void main() {
       final result2 = await dbService.getScanResultByCip('PRINCEPS_2_CIP');
 
       // THEN: We also get the same group info (both princeps share the same group)
-      expect(result2, isNotNull);
       result2!.when(
         generic: (medicament, associatedPrinceps, groupId) {
           fail('Expected PrincepsScanResult but got GenericScanResult');
@@ -450,20 +566,20 @@ void main() {
           ],
         );
 
+        // Populate MedicamentSummary table
+        await populateMedicamentSummary(database);
+
         // WHEN: We query for either CIP13
         final result1 = await dbService.getScanResultByCip('CIP13_1');
         final result2 = await dbService.getScanResultByCip('CIP13_2');
 
         // THEN: Both return PrincepsScanResult with the same generic
-        expect(result1, isNotNull);
-        expect(result2, isNotNull);
-
         result1!.when(
           generic: (medicament, associatedPrinceps, groupId) {
             fail('Expected PrincepsScanResult but got GenericScanResult');
           },
           princeps: (_, moleculeName, genericLabs, groupId) {
-            expect(moleculeName, isNotNull);
+            expect(moleculeName, isNotEmpty);
             expect(genericLabs.length, greaterThanOrEqualTo(0));
           },
         );
@@ -473,7 +589,7 @@ void main() {
             fail('Expected PrincepsScanResult but got GenericScanResult');
           },
           princeps: (_, moleculeName, genericLabs, groupId) {
-            expect(moleculeName, isNotNull);
+            expect(moleculeName, isNotEmpty);
             expect(genericLabs.length, greaterThanOrEqualTo(0));
           },
         );
@@ -554,358 +670,166 @@ void main() {
     });
 
     test(
-      'should search medicaments by name using clean names from specialites',
+      'getAllSearchCandidates returns canonical princeps and generics',
       () async {
-        // GIVEN: Medicaments in the database with clean names from specialites
         await dbService.insertBatchData(
           specialites: [
             {
-              'cis_code': 'CIS_1',
-              'nom_specialite': 'DOLIPRANE',
-              'procedure_type': 'Autorisation',
-            },
-            {
-              'cis_code': 'CIS_2',
-              'nom_specialite': 'ASPIRINE',
-              'procedure_type': 'Autorisation',
-            },
-            {
-              'cis_code': 'CIS_3',
-              'nom_specialite': 'PARACETAMOL',
-              'procedure_type': 'Autorisation',
-            },
-          ],
-          medicaments: [
-            {
-              'code_cip': 'CIP1',
-              'nom': 'plaquette(s) PVC...',
-              'cis_code': 'CIS_1',
-            },
-            {
-              'code_cip': 'CIP2',
-              'nom': 'plaquette(s) aluminium...',
-              'cis_code': 'CIS_2',
-            },
-            {
-              'code_cip': 'CIP3',
-              'nom': 'plaquette(s) blister...',
-              'cis_code': 'CIS_3',
-            },
-          ],
-          principes: [],
-          generiqueGroups: [],
-          groupMembers: [],
-        );
-
-        // WHEN: We search for "DOLIPRANE"
-        final results = await dbService.searchMedicaments('DOLIPRANE');
-
-        // THEN: Only matching medicament is returned with clean name
-        expect(results.length, 1);
-        expect(results.first.nom, 'DOLIPRANE');
-        expect(results.first.codeCip, 'CIP1');
-      },
-    );
-
-    test('should search medicaments by CIP code', () async {
-      // GIVEN: Medicaments in the database
-      await dbService.insertBatchData(
-        specialites: [
-          {
-            'cis_code': 'CIS_1',
-            'nom_specialite': 'MEDICAMENT 1',
-            'procedure_type': 'Autorisation',
-          },
-          {
-            'cis_code': 'CIS_2',
-            'nom_specialite': 'MEDICAMENT 2',
-            'procedure_type': 'Autorisation',
-          },
-        ],
-        medicaments: [
-          {
-            'code_cip': '3400930302613',
-            'nom': 'MEDICAMENT 1',
-            'cis_code': 'CIS_1',
-          },
-          {
-            'code_cip': '3400912345678',
-            'nom': 'MEDICAMENT 2',
-            'cis_code': 'CIS_2',
-          },
-        ],
-        principes: [],
-        generiqueGroups: [],
-        groupMembers: [],
-      );
-
-      // WHEN: We search for "3400930302613"
-      final results = await dbService.searchMedicaments('3400930302613');
-
-      // THEN: Matching medicament is returned with clean name
-      expect(results.length, 1);
-      expect(results.first.codeCip, '3400930302613');
-      expect(results.first.nom, 'MEDICAMENT 1');
-    });
-
-    test('should search medicaments case-insensitively', () async {
-      // GIVEN: Medicaments in the database
-      await dbService.insertBatchData(
-        specialites: [
-          {
-            'cis_code': 'CIS_1',
-            'nom_specialite': 'DOLIPRANE 500mg',
-            'procedure_type': 'Autorisation',
-          },
-          {
-            'cis_code': 'CIS_2',
-            'nom_specialite': 'Aspirine 100mg',
-            'procedure_type': 'Autorisation',
-          },
-        ],
-        medicaments: [
-          {'code_cip': 'CIP1', 'nom': 'DOLIPRANE 500mg', 'cis_code': 'CIS_1'},
-          {'code_cip': 'CIP2', 'nom': 'Aspirine 100mg', 'cis_code': 'CIS_2'},
-        ],
-        principes: [],
-        generiqueGroups: [],
-        groupMembers: [],
-      );
-
-      // WHEN: We search with lowercase
-      final results = await dbService.searchMedicaments('doliprane');
-
-      // THEN: Matching medicament is returned with clean name
-      expect(results.length, 1);
-      expect(results.first.nom, 'DOLIPRANE 500mg');
-    });
-
-    test('should limit search results to 50', () async {
-      // GIVEN: More than 50 medicaments
-      await dbService.insertBatchData(
-        specialites: List.generate(
-          60,
-          (i) => {
-            'cis_code': 'CIS_$i',
-            'nom_specialite': 'MEDICAMENT $i',
-            'procedure_type': 'Autorisation',
-          },
-        ),
-        medicaments: List.generate(
-          60,
-          (i) => {
-            'code_cip': 'CIP$i',
-            'nom': 'MEDICAMENT $i',
-            'cis_code': 'CIS_$i',
-          },
-        ),
-        principes: [],
-        generiqueGroups: [],
-        groupMembers: [],
-      );
-
-      // WHEN: We search for a common term
-      final results = await dbService.searchMedicaments('MED');
-
-      // THEN: Results are limited to 50
-      expect(results.length, lessThanOrEqualTo(50));
-    });
-
-    test('should return empty list for no matches', () async {
-      // GIVEN: Medicaments in the database
-      await dbService.insertBatchData(
-        specialites: [
-          {
-            'cis_code': 'CIS_1',
-            'nom_specialite': 'DOLIPRANE 500mg',
-            'procedure_type': 'Autorisation',
-          },
-        ],
-        medicaments: [
-          {'code_cip': 'CIP1', 'nom': 'DOLIPRANE 500mg', 'cis_code': 'CIS_1'},
-        ],
-        principes: [],
-        generiqueGroups: [],
-        groupMembers: [],
-      );
-
-      // WHEN: We search for something that doesn't match
-      final results = await dbService.searchMedicaments('NONEXISTENT');
-
-      // THEN: Empty list is returned
-      expect(results, isEmpty);
-    });
-
-    test(
-      'should search medicaments by active ingredient (DOLIPRANE with PARACETAMOL)',
-      () async {
-        // GIVEN: DOLIPRANE with PARACETAMOL as active ingredient
-        await dbService.insertBatchData(
-          specialites: [
-            {
-              'cis_code': 'CIS_1',
+              'cis_code': 'CIS_P',
               'nom_specialite': 'DOLIPRANE 500mg',
               'procedure_type': 'Autorisation',
+              'forme_pharmaceutique': 'Comprimé',
+              'titulaire': 'LABO P',
+            },
+            {
+              'cis_code': 'CIS_G',
+              'nom_specialite': 'DOLIPRANE GENERIQUE',
+              'procedure_type': 'Autorisation',
+              'forme_pharmaceutique': 'Gélule',
+              'titulaire': 'LABO G',
             },
           ],
           medicaments: [
-            {'code_cip': 'CIP1', 'nom': 'DOLIPRANE 500mg', 'cis_code': 'CIS_1'},
+            {
+              'code_cip': 'CIP_P',
+              'nom': 'DOLIPRANE 500mg',
+              'cis_code': 'CIS_P',
+            },
+            {
+              'code_cip': 'CIP_G',
+              'nom': 'DOLIPRANE GENERIQUE',
+              'cis_code': 'CIS_G',
+            },
           ],
           principes: [
-            {'code_cip': 'CIP1', 'principe': 'PARACETAMOL'},
+            {'code_cip': 'CIP_P', 'principe': 'PARACETAMOL'},
+            {'code_cip': 'CIP_G', 'principe': 'PARACETAMOL'},
           ],
-          generiqueGroups: [],
-          groupMembers: [],
+          generiqueGroups: [
+            {'group_id': 'GROUP_1', 'libelle': 'Doliprane'},
+          ],
+          groupMembers: [
+            {'code_cip': 'CIP_P', 'group_id': 'GROUP_1', 'type': 0},
+            {'code_cip': 'CIP_G', 'group_id': 'GROUP_1', 'type': 1},
+          ],
         );
 
-        // WHEN: We search for the active ingredient
-        final results = await dbService.searchMedicaments('paracetamol');
+        await populateMedicamentSummary(database);
 
-        // THEN: DOLIPRANE is returned in the results
-        expect(results.length, 1);
-        expect(results.first.nom, 'DOLIPRANE 500mg');
-        expect(results.first.codeCip, 'CIP1');
+        final candidates = await dbService.getAllSearchCandidates();
+        expect(candidates.length, 2);
+
+        final princeps = candidates.firstWhere(
+          (candidate) => candidate.isPrinceps,
+        );
+        final generic = candidates.firstWhere(
+          (candidate) => !candidate.isPrinceps,
+        );
+
+        expect(princeps.groupId, 'GROUP_1');
+        expect(princeps.commonPrinciples, contains('PARACETAMOL'));
+        expect(princeps.medicament.nom, 'DOLIPRANE 500mg');
+        expect(princeps.medicament.titulaire, 'LABO P');
+        expect(princeps.medicament.formePharmaceutique, 'Comprimé');
+
+        expect(generic.groupId, 'GROUP_1');
+        expect(generic.medicament.codeCip, 'CIP_G');
+        expect(generic.nomCanonique, contains('DOLIPRANE'));
+        expect(generic.commonPrinciples, contains('PARACETAMOL'));
+        expect(generic.medicament.formePharmaceutique, 'Gélule');
       },
     );
 
-    test(
-      'should filter out homeopathic products when showAll is false',
-      () async {
-        // GIVEN: A conventional medication and a homeopathic product
-        await dbService.insertBatchData(
-          specialites: [
-            {
-              'cis_code': 'CIS_1',
-              'nom_specialite': 'MEDICAMENT CONVENTIONNEL',
-              'procedure_type': 'Autorisation',
-            },
-            {
-              'cis_code': 'CIS_2',
-              'nom_specialite': 'PRODUIT HOMEOPATHIQUE',
-              'procedure_type': 'Enreg homéo (Proc. Nat.)',
-            },
-          ],
-          medicaments: [
-            {
-              'code_cip': 'CIP1',
-              'nom': 'MEDICAMENT CONVENTIONNEL',
-              'cis_code': 'CIS_1',
-            },
-            {
-              'code_cip': 'CIP2',
-              'nom': 'PRODUIT HOMEOPATHIQUE',
-              'cis_code': 'CIS_2',
-            },
-          ],
-          principes: [],
-          generiqueGroups: [],
-          groupMembers: [],
-        );
-
-        // WHEN: We search with showAll: false
-        final results = await dbService.searchMedicaments(
-          'medicament',
-          showAll: false,
-        );
-
-        // THEN: Only the conventional medication is returned
-        expect(results.length, 1);
-        expect(results.first.nom, 'MEDICAMENT CONVENTIONNEL');
-        expect(results.first.codeCip, 'CIP1');
-      },
-    );
-
-    test('should include homeopathic products when showAll is true', () async {
-      // GIVEN: A conventional medication and a homeopathic product
+    test('getAllSearchCandidates preserves procedure type metadata', () async {
       await dbService.insertBatchData(
         specialites: [
           {
-            'cis_code': 'CIS_1',
+            'cis_code': 'CIS_CONV',
             'nom_specialite': 'MEDICAMENT CONVENTIONNEL',
             'procedure_type': 'Autorisation',
           },
           {
-            'cis_code': 'CIS_2',
+            'cis_code': 'CIS_HOMEO',
             'nom_specialite': 'PRODUIT HOMEOPATHIQUE',
             'procedure_type': 'Enreg homéo (Proc. Nat.)',
           },
         ],
         medicaments: [
           {
-            'code_cip': 'CIP1',
+            'code_cip': 'CIP_CONV',
             'nom': 'MEDICAMENT CONVENTIONNEL',
-            'cis_code': 'CIS_1',
+            'cis_code': 'CIS_CONV',
           },
           {
-            'code_cip': 'CIP2',
+            'code_cip': 'CIP_HOMEO',
             'nom': 'PRODUIT HOMEOPATHIQUE',
-            'cis_code': 'CIS_2',
+            'cis_code': 'CIS_HOMEO',
           },
         ],
         principes: [],
-        generiqueGroups: [],
-        groupMembers: [],
+        generiqueGroups: [
+          {'group_id': 'GROUP_CONV', 'libelle': 'Conventional Group'},
+          {'group_id': 'GROUP_HOMEO', 'libelle': 'Homeopathic Group'},
+        ],
+        groupMembers: [
+          {'code_cip': 'CIP_CONV', 'group_id': 'GROUP_CONV', 'type': 0},
+          {'code_cip': 'CIP_HOMEO', 'group_id': 'GROUP_HOMEO', 'type': 0},
+        ],
       );
 
-      // WHEN: We search with showAll: true (using a term that matches both)
-      final results = await dbService.searchMedicaments('', showAll: true);
+      await populateMedicamentSummary(database);
 
-      // THEN: Both products are returned
-      // Note: Empty search returns all products
-      expect(results.length, greaterThanOrEqualTo(2));
-      final resultNames = results.map((m) => m.nom).toList();
-      expect(
-        resultNames,
-        containsAll(['MEDICAMENT CONVENTIONNEL', 'PRODUIT HOMEOPATHIQUE']),
+      final candidates = await dbService.getAllSearchCandidates();
+      expect(candidates.length, 2);
+
+      final homeopathic = candidates.firstWhere(
+        (candidate) => candidate.cisCode == 'CIS_HOMEO',
       );
+      final conventional = candidates.firstWhere(
+        (candidate) => candidate.cisCode == 'CIS_CONV',
+      );
+
+      expect(homeopathic.procedureType, contains('homéo'));
+      expect(conventional.procedureType, 'Autorisation');
     });
 
-    test(
-      'should filter out phytotherapy products when showAll is false',
-      () async {
-        // GIVEN: A conventional medication and a phytotherapy product
-        await dbService.insertBatchData(
-          specialites: [
-            {
-              'cis_code': 'CIS_1',
-              'nom_specialite': 'MEDICAMENT CONVENTIONNEL',
-              'procedure_type': 'Autorisation',
-            },
-            {
-              'cis_code': 'CIS_2',
-              'nom_specialite': 'PRODUIT PHYTOTHERAPIE',
-              'procedure_type': 'Enreg phyto (Proc. Dec.)',
-            },
-          ],
-          medicaments: [
-            {
-              'code_cip': 'CIP1',
-              'nom': 'MEDICAMENT CONVENTIONNEL',
-              'cis_code': 'CIS_1',
-            },
-            {
-              'code_cip': 'CIP2',
-              'nom': 'PRODUIT PHYTOTHERAPIE',
-              'cis_code': 'CIS_2',
-            },
-          ],
-          principes: [],
-          generiqueGroups: [],
-          groupMembers: [],
-        );
+    test('getAllSearchCandidates sorts by canonical name', () async {
+      await dbService.insertBatchData(
+        specialites: [
+          {
+            'cis_code': 'CIS_B',
+            'nom_specialite': 'BETA MEDIC',
+            'procedure_type': 'Autorisation',
+          },
+          {
+            'cis_code': 'CIS_A',
+            'nom_specialite': 'ALPHA MEDIC',
+            'procedure_type': 'Autorisation',
+          },
+        ],
+        medicaments: [
+          {'code_cip': 'CIP_B', 'nom': 'BETA MEDIC', 'cis_code': 'CIS_B'},
+          {'code_cip': 'CIP_A', 'nom': 'ALPHA MEDIC', 'cis_code': 'CIS_A'},
+        ],
+        principes: [],
+        generiqueGroups: [
+          {'group_id': 'GROUP_B', 'libelle': 'Group B'},
+          {'group_id': 'GROUP_A', 'libelle': 'Group A'},
+        ],
+        groupMembers: [
+          {'code_cip': 'CIP_B', 'group_id': 'GROUP_B', 'type': 0},
+          {'code_cip': 'CIP_A', 'group_id': 'GROUP_A', 'type': 0},
+        ],
+      );
 
-        // WHEN: We search with showAll: false
-        final results = await dbService.searchMedicaments(
-          'medicament',
-          showAll: false,
-        );
+      await populateMedicamentSummary(database);
 
-        // THEN: Only the conventional medication is returned
-        expect(results.length, 1);
-        expect(results.first.nom, 'MEDICAMENT CONVENTIONNEL');
-        expect(results.first.codeCip, 'CIP1');
-      },
-    );
+      final candidates = await dbService.getAllSearchCandidates();
+      expect(candidates.length, 2);
+      final names = candidates.map((c) => c.nomCanonique).toList();
+      final sortedNames = [...names]..sort((a, b) => a.compareTo(b));
+      expect(names, equals(sortedNames));
+    });
 
     test('should include generics with types 2 and 4 in scan results', () async {
       // GIVEN: A group with a princeps and generics of types 1, 2, and 4
@@ -984,11 +908,13 @@ void main() {
         ],
       );
 
+      // Populate MedicamentSummary table
+      await populateMedicamentSummary(database);
+
       // WHEN: We query for the princeps
       final result = await dbService.getScanResultByCip('PRINCEPS_CIP');
 
       // THEN: The result should include all three generics (types 1, 2, and 4)
-      expect(result, isNotNull);
       result!.when(
         generic: (medicament, associatedPrinceps, groupId) {
           fail('Expected PrincepsScanResult but got GenericScanResult');
@@ -1006,15 +932,20 @@ void main() {
         },
       );
 
-      // Verify all generics are in the group by checking getGroupDetails
-      final groupDetails = await dbService.getGroupDetails('GROUP_1');
+      // Verify classification exposes every generic in the group
+      final classification = await dbService.classifyProductGroup('GROUP_1');
+
+      final genericCips = classification!.generics
+          .expand((bucket) => bucket.medicaments)
+          .map((medicament) => medicament.codeCip)
+          .toList();
       expect(
-        groupDetails.generics.length,
-        3,
-      ); // All three generics should be included
+        genericCips,
+        containsAll(['GENERIC_1_CIP', 'GENERIC_2_CIP', 'GENERIC_4_CIP']),
+      );
     });
 
-    test('should return GroupDetails with varied generic types', () async {
+    test('should classify groups with varied generic types', () async {
       // GIVEN: A group with 2 princeps and 3 generics grouped by laboratory
       await dbService.insertBatchData(
         specialites: [
@@ -1099,20 +1030,27 @@ void main() {
         ],
       );
 
-      // WHEN: We get group details
-      final groupDetails = await dbService.getGroupDetails('GROUP_1');
+      // WHEN: We classify the group
+      final classification = await dbService.classifyProductGroup('GROUP_1');
 
-      // THEN: The GroupDetails should contain 2 princeps and 3 generics grouped by laboratory
-      expect(groupDetails.princeps.length, 2);
-      // Generics are now grouped by laboratory, so we should have 3 groups (one per laboratory)
-      expect(groupDetails.generics.length, 3);
+      // THEN: The classification should contain 2 princeps and 3 generic buckets
       expect(
-        groupDetails.princeps.map((p) => p.codeCip),
+        classification!.princeps.expand((bucket) => bucket.medicaments).length,
+        2,
+      );
+      expect(
+        classification.generics.expand((bucket) => bucket.medicaments).length,
+        3,
+      );
+      expect(
+        classification.princeps
+            .expand((bucket) => bucket.medicaments)
+            .map((p) => p.codeCip),
         containsAll(['PRINCEPS_1_CIP', 'PRINCEPS_2_CIP']),
       );
       // Verify all generic products are present across all groups
-      final allGenericCips = groupDetails.generics
-          .expand((g) => g.products.map((p) => p.codeCip))
+      final allGenericCips = classification.generics
+          .expand((bucket) => bucket.medicaments.map((m) => m.codeCip))
           .toList();
       expect(
         allGenericCips,
@@ -1120,9 +1058,221 @@ void main() {
       );
       // Verify grouping by laboratory
       expect(
-        groupDetails.generics.map((g) => g.laboratory),
+        classification.generics.expand((bucket) => bucket.laboratories).toSet(),
         containsAll(['LABORATORY_A', 'LABORATORY_B', 'LABORATORY_C']),
       );
+    });
+
+    test(
+      'classifyProductGroup should surface related princeps sharing active principles',
+      () async {
+        await dbService.insertBatchData(
+          specialites: [
+            {
+              'cis_code': 'CIS_PRINCEPS_A',
+              'nom_specialite': 'PRINCEPS A',
+              'procedure_type': 'Autorisation',
+            },
+            {
+              'cis_code': 'CIS_GENERIC_A',
+              'nom_specialite': 'GENERIC A1',
+              'procedure_type': 'Autorisation',
+            },
+            {
+              'cis_code': 'CIS_PRINCEPS_B',
+              'nom_specialite': 'PRINCEPS B',
+              'procedure_type': 'Autorisation',
+            },
+            {
+              'cis_code': 'CIS_GENERIC_B',
+              'nom_specialite': 'GENERIC B1',
+              'procedure_type': 'Autorisation',
+            },
+          ],
+          medicaments: [
+            {
+              'code_cip': 'PRINCEPS_A_CIP',
+              'nom': 'PRINCEPS A',
+              'cis_code': 'CIS_PRINCEPS_A',
+            },
+            {
+              'code_cip': 'GENERIC_A_CIP',
+              'nom': 'GENERIC A1',
+              'cis_code': 'CIS_GENERIC_A',
+            },
+            {
+              'code_cip': 'PRINCEPS_B_CIP',
+              'nom': 'PRINCEPS B',
+              'cis_code': 'CIS_PRINCEPS_B',
+            },
+            {
+              'code_cip': 'GENERIC_B_CIP',
+              'nom': 'GENERIC B1',
+              'cis_code': 'CIS_GENERIC_B',
+            },
+          ],
+          principes: [
+            {'code_cip': 'PRINCEPS_A_CIP', 'principe': 'PARACETAMOL'},
+            {'code_cip': 'GENERIC_A_CIP', 'principe': 'PARACETAMOL'},
+            // WHY: GROUP_B must have PARACETAMOL (shared) PLUS an additional ingredient to be a related therapy
+            {'code_cip': 'PRINCEPS_B_CIP', 'principe': 'PARACETAMOL'},
+            {'code_cip': 'PRINCEPS_B_CIP', 'principe': 'CAFFEINE'},
+            {'code_cip': 'GENERIC_B_CIP', 'principe': 'PARACETAMOL'},
+            {'code_cip': 'GENERIC_B_CIP', 'principe': 'CAFFEINE'},
+          ],
+          generiqueGroups: [
+            {'group_id': 'GROUP_A', 'libelle': 'PARA GROUP 1'},
+            {'group_id': 'GROUP_B', 'libelle': 'PARA GROUP 2'},
+          ],
+          groupMembers: [
+            {'code_cip': 'PRINCEPS_A_CIP', 'group_id': 'GROUP_A', 'type': 0},
+            {'code_cip': 'GENERIC_A_CIP', 'group_id': 'GROUP_A', 'type': 1},
+            {'code_cip': 'PRINCEPS_B_CIP', 'group_id': 'GROUP_B', 'type': 0},
+            {'code_cip': 'GENERIC_B_CIP', 'group_id': 'GROUP_B', 'type': 1},
+          ],
+        );
+
+        final classification = await dbService.classifyProductGroup('GROUP_A');
+
+        expect(classification!.princeps.length, 1);
+        expect(classification.relatedPrinceps.length, 1);
+        final relatedBucket = classification.relatedPrinceps.first;
+        expect(relatedBucket.medicaments.first.codeCip, 'PRINCEPS_B_CIP');
+        expect(
+          relatedBucket.medicaments.first.principesActifs,
+          contains('PARACETAMOL'),
+        );
+      },
+    );
+  });
+
+  group('classifyProductGroup', () {
+    test('returns canonical classification for deterministic group', () async {
+      await dbService.insertBatchData(
+        specialites: [
+          {
+            'cis_code': 'CIS_PRINCEPS_MAIN',
+            'nom_specialite': 'PARA PRINCEPS 500 mg comprimé',
+            'procedure_type': 'Autorisation',
+            'forme_pharmaceutique': 'Comprimé',
+            'titulaire': 'LAB PRINCEPS',
+          },
+          {
+            'cis_code': 'CIS_GENERIC_A',
+            'nom_specialite': 'PARA GENERIC 500 mg comprimé',
+            'procedure_type': 'Autorisation',
+            'forme_pharmaceutique': 'Comprimé',
+            'titulaire': 'LAB GENERIC A',
+          },
+          {
+            'cis_code': 'CIS_GENERIC_B',
+            'nom_specialite': 'PARA GENERIC 500 mg, comprimé pelliculé',
+            'procedure_type': 'Autorisation',
+            'forme_pharmaceutique': 'Comprimé',
+            'titulaire': 'LAB GENERIC B',
+          },
+          {
+            'cis_code': 'CIS_PRINCEPS_SECOND',
+            'nom_specialite': 'PARA PRINCEPS B 500 mg comprimé',
+            'procedure_type': 'Autorisation',
+            'forme_pharmaceutique': 'Comprimé effervescent',
+            'titulaire': 'LAB SECOND',
+          },
+        ],
+        medicaments: [
+          {
+            'code_cip': 'CIP_PRINCEPS_MAIN',
+            'nom': 'PARA PRINCEPS 500 mg comprimé',
+            'cis_code': 'CIS_PRINCEPS_MAIN',
+          },
+          {
+            'code_cip': 'CIP_GENERIC_A',
+            'nom': 'PARA GENERIC 500 mg comprimé',
+            'cis_code': 'CIS_GENERIC_A',
+          },
+          {
+            'code_cip': 'CIP_GENERIC_B',
+            'nom': 'PARA GENERIC 500 mg, comprimé pelliculé',
+            'cis_code': 'CIS_GENERIC_B',
+          },
+          {
+            'code_cip': 'CIP_PRINCEPS_SECOND',
+            'nom': 'PARA PRINCEPS B 500 mg comprimé',
+            'cis_code': 'CIS_PRINCEPS_SECOND',
+          },
+        ],
+        principes: [
+          {
+            'code_cip': 'CIP_PRINCEPS_MAIN',
+            'principe': 'PARACETAMOL',
+            'dosage': '500',
+            'dosage_unit': 'mg',
+          },
+          {
+            'code_cip': 'CIP_GENERIC_A',
+            'principe': 'PARACETAMOL',
+            'dosage': '500',
+            'dosage_unit': 'mg',
+          },
+          {
+            'code_cip': 'CIP_GENERIC_B',
+            'principe': 'PARACETAMOL',
+            'dosage': '500',
+            'dosage_unit': 'mg',
+          },
+          {
+            'code_cip': 'CIP_PRINCEPS_SECOND',
+            'principe': 'PARACETAMOL',
+            'dosage': '500',
+            'dosage_unit': 'mg',
+          },
+          // WHY: GROUP_SECOND must have PARACETAMOL (shared) PLUS an additional ingredient to be a related therapy
+          {
+            'code_cip': 'CIP_PRINCEPS_SECOND',
+            'principe': 'CAFFEINE',
+            'dosage': '50',
+            'dosage_unit': 'mg',
+          },
+        ],
+        generiqueGroups: [
+          {'group_id': 'GROUP_MAIN', 'libelle': 'PARACETAMOL 500 MG'},
+          {'group_id': 'GROUP_SECOND', 'libelle': 'PARACETAMOL B 500 MG'},
+        ],
+        groupMembers: [
+          {
+            'code_cip': 'CIP_PRINCEPS_MAIN',
+            'group_id': 'GROUP_MAIN',
+            'type': 0,
+          },
+          {'code_cip': 'CIP_GENERIC_A', 'group_id': 'GROUP_MAIN', 'type': 1},
+          {'code_cip': 'CIP_GENERIC_B', 'group_id': 'GROUP_MAIN', 'type': 1},
+          {
+            'code_cip': 'CIP_PRINCEPS_SECOND',
+            'group_id': 'GROUP_SECOND',
+            'type': 0,
+          },
+        ],
+      );
+
+      final classification = await dbService.classifyProductGroup('GROUP_MAIN');
+
+      expect(classification!.syntheticTitle.contains('PARA PRINCEPS'), isTrue);
+      expect(classification.commonActiveIngredients, ['PARACETAMOL']);
+      expect(classification.distinctDosages, contains('500 mg'));
+      expect(classification.distinctFormulations, contains('Comprimé'));
+      expect(classification.princeps.length, 1);
+      expect(classification.princeps.first.medicaments.length, 1);
+      expect(classification.generics.first.medicaments.length, 2);
+      expect(classification.relatedPrinceps.length, 1);
+      expect(
+        classification.relatedPrinceps.first.medicaments.first.codeCip,
+        'CIP_PRINCEPS_SECOND',
+      );
+    });
+
+    test('returns null when group has no members', () async {
+      final classification = await dbService.classifyProductGroup('MISSING');
+      expect(classification, isNull);
     });
   });
 }

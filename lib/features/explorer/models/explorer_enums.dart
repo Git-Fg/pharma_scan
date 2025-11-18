@@ -1,7 +1,5 @@
 // lib/features/explorer/models/explorer_enums.dart
 
-enum SortOption { name, dosage }
-
 enum FormCategory {
   oral, // Comprimé, gélule, capsule, lyophilisat
   syrup, // Sirop, suspension buvable
@@ -13,4 +11,6 @@ enum FormCategory {
   nasalOrl,
   gynecological,
   other, // Formes non classées
+  homeopathy, // Homéopathie
+  phytotherapy, // Phytothérapie
 }

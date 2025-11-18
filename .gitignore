@@ -60,3 +60,5 @@ data_validation/*
 
 # ...but keep the final report.
 !data_validation/rapport_final.txt
+!data_validation/classification_report.txt
+!data_validation/*.py

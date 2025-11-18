@@ -1,12 +1,16 @@
 // lib/core/services/database_service.dart
+import 'dart:convert';
+import 'package:decimal/decimal.dart';
 import 'package:drift/drift.dart';
 import 'package:pharma_scan/core/database/database.dart' hide Medicament;
 import 'package:pharma_scan/core/locator.dart';
+import 'package:pharma_scan/core/utils/dosage_utils.dart';
 import 'package:pharma_scan/core/utils/medicament_helpers.dart';
-import 'package:pharma_scan/core/utils/string_normalizer.dart';
+import 'package:pharma_scan/features/explorer/models/cluster_summary_model.dart';
 import 'package:pharma_scan/features/explorer/models/generic_group_summary_model.dart';
-import 'package:pharma_scan/features/explorer/models/group_details_model.dart';
-import 'package:pharma_scan/features/explorer/models/grouped_by_laboratory_model.dart';
+import 'package:pharma_scan/features/explorer/models/grouped_by_product_model.dart';
+import 'package:pharma_scan/features/explorer/models/product_group_classification_model.dart';
+import 'package:pharma_scan/features/explorer/models/search_candidate_model.dart';
 import 'package:pharma_scan/features/scanner/models/medicament_model.dart';
 import 'package:pharma_scan/features/scanner/models/scan_result_model.dart';
 
@@ -14,42 +18,47 @@ class DatabaseService {
   static const _maxSqlVariables = 900;
   final AppDatabase _db = sl<AppDatabase>();
 
+  // WHY: Provides access to the database for custom operations
+  // Used by DataInitializationService for aggregation logic
+  AppDatabase get database => _db;
+
   // WHY: Unified method to handle both generic and princeps scans.
-  // This method identifies the type of medicament and returns the appropriate result.
+  // Uses MedicamentSummary table for faster lookups and pre-calculated data.
+  // Hardened against "chameleon" medications that appear as both princeps and generic
+  // in different groups. Business rule: princeps status in ANY group wins.
   Future<ScanResult?> getScanResultByCip(String codeCip) async {
-    final groupMemberQuery = _db.select(_db.groupMembers)
+    // First, get the CIS code for this CIP
+    final medicamentQuery = _db.select(_db.medicaments)
       ..where((tbl) => tbl.codeCip.equals(codeCip));
-    final memberInfo = await groupMemberQuery.getSingleOrNull();
+    final medicamentRow = await medicamentQuery.getSingleOrNull();
 
-    if (memberInfo == null) return null;
+    if (medicamentRow == null) return null;
 
-    final allGroupMembersQuery = _db.select(_db.specialites).join([
-      innerJoin(
-        _db.medicaments,
-        _db.medicaments.cisCode.equalsExp(_db.specialites.cisCode),
-      ),
-      innerJoin(
-        _db.groupMembers,
-        _db.groupMembers.codeCip.equalsExp(_db.medicaments.codeCip),
-      ),
-    ])..where(_db.groupMembers.groupId.equals(memberInfo.groupId));
+    final cisCode = medicamentRow.cisCode;
 
-    final groupMembers = await allGroupMembersQuery.get();
+    // Get the summary data from MedicamentSummary table
+    final summaryQuery = _db.select(_db.medicamentSummary)
+      ..where((tbl) => tbl.cisCode.equals(cisCode));
+    final summaryRow = await summaryQuery.getSingleOrNull();
 
-    final scannedMedicamentRow = groupMembers.firstWhere(
-      (row) => row.readTable(_db.medicaments).codeCip == codeCip,
-    );
-    final scannedMedicamentData = scannedMedicamentRow.readTable(
-      _db.specialites,
-    );
-    final scannedMedicamentCip = scannedMedicamentRow
-        .readTable(_db.medicaments)
-        .codeCip;
+    if (summaryRow == null) return null;
 
+    // Get full medicament details from specialites
+    final specialiteQuery = _db.select(_db.specialites)
+      ..where((tbl) => tbl.cisCode.equals(cisCode));
+    final specialiteRow = await specialiteQuery.getSingleOrNull();
+
+    if (specialiteRow == null) return null;
+
+    // Get active principles for this medication
     final principesQuery = _db.select(_db.principesActifs)
       ..where((tbl) => tbl.codeCip.equals(codeCip));
     final principesData = await principesQuery.get();
     final principes = principesData.map((row) => row.principe).toList();
+
+    final commonPrincipes = _decodeCommonPrincipesList(
+      summaryRow.principesActifsCommuns,
+    );
 
     // WHY: On récupère le premier dosage pour le médicament scanné (le plus représentatif)
     final firstPrincipeData = principesData.isNotEmpty
@@ -57,60 +66,173 @@ class DatabaseService {
         : null;
 
     final scannedMedicament = Medicament(
-      nom: scannedMedicamentData.nomSpecialite,
-      codeCip: scannedMedicamentCip,
-      principesActifs: principes,
-      titulaire: scannedMedicamentData.titulaire,
-      formePharmaceutique: scannedMedicamentData.formePharmaceutique,
-      dosage: firstPrincipeData?.dosage,
+      nom: specialiteRow.nomSpecialite,
+      codeCip: codeCip,
+      principesActifs: commonPrincipes.isNotEmpty ? commonPrincipes : principes,
+      titulaire: parseMainTitulaire(specialiteRow.titulaire),
+      formePharmaceutique: specialiteRow.formePharmaceutique,
+      dosage: parseDecimalValue(firstPrincipeData?.dosage),
       dosageUnit: firstPrincipeData?.dosageUnit,
+      conditionsPrescription: specialiteRow.conditionsPrescription,
     );
 
-    if (memberInfo.type == 1) {
-      // Scanned a GENERIC
-      final associatedPrinceps = groupMembers
-          .where((row) => row.readTable(_db.groupMembers).type == 0)
-          .map((row) {
-            final medData = row.readTable(_db.medicaments);
-            final specData = row.readTable(_db.specialites);
-            return Medicament(
-              nom: specData.nomSpecialite,
-              codeCip: medData.codeCip,
-              principesActifs: [],
-            );
-          })
-          .toList();
+    final groupId = summaryRow.groupId;
+    if (groupId == null) {
+      // Standalone medication without a group
+      return null;
+    }
 
-      return ScanResult.generic(
-        medicament: scannedMedicament,
-        associatedPrinceps: associatedPrinceps,
-        groupId: memberInfo.groupId,
-      );
-    } else {
+    // Get all group members from MedicamentSummary
+    final groupMembersQuery = _db.select(_db.medicamentSummary)
+      ..where((tbl) => tbl.groupId.equals(groupId));
+    final groupMembers = await groupMembersQuery.get();
+
+    if (summaryRow.isPrinceps) {
       // Scanned a PRINCEPS
-      final genericLabs = groupMembers
-          .where((row) => row.readTable(_db.groupMembers).type == 1)
-          .map((row) => row.readTable(_db.specialites).titulaire)
-          .where((titulaire) => titulaire != null && titulaire.isNotEmpty)
-          .cast<String>()
-          .toSet()
+      final genericSummaries = groupMembers
+          .where((row) => !row.isPrinceps)
           .toList();
 
-      return ScanResult.princeps(
-        princeps: scannedMedicament,
-        moleculeName: principes.isNotEmpty ? principes.first : 'N/A',
-        genericLabs: genericLabs,
-        groupId: memberInfo.groupId,
-      );
+      // Get generic lab names
+      final genericCisCodes = genericSummaries.map((s) => s.cisCode).toList();
+      if (genericCisCodes.isNotEmpty) {
+        final genericLabsQuery = _db.select(_db.specialites)
+          ..where((tbl) => tbl.cisCode.isIn(genericCisCodes));
+        final genericLabsRows = await genericLabsQuery.get();
+
+        final genericLabs = genericLabsRows
+            .map((row) => row.titulaire)
+            .where((titulaire) => titulaire != null && titulaire.isNotEmpty)
+            .cast<String>()
+            .toSet()
+            .toList();
+
+        return ScanResult.princeps(
+          princeps: scannedMedicament,
+          moleculeName: commonPrincipes.isNotEmpty
+              ? commonPrincipes.first
+              : (principes.isNotEmpty ? principes.first : 'N/A'),
+          genericLabs: genericLabs,
+          groupId: groupId,
+        );
+      } else {
+        return ScanResult.princeps(
+          princeps: scannedMedicament,
+          moleculeName: commonPrincipes.isNotEmpty
+              ? commonPrincipes.first
+              : (principes.isNotEmpty ? principes.first : 'N/A'),
+          genericLabs: [],
+          groupId: groupId,
+        );
+      }
+    } else {
+      // Scanned a GENERIC
+      final princepsSummaries = groupMembers
+          .where((row) => row.isPrinceps)
+          .toList();
+
+      // Get associated princeps details
+      final princepsCisCodes = princepsSummaries.map((s) => s.cisCode).toList();
+      if (princepsCisCodes.isNotEmpty) {
+        final princepsQuery = _db.select(_db.specialites).join([
+          innerJoin(
+            _db.medicaments,
+            _db.medicaments.cisCode.equalsExp(_db.specialites.cisCode),
+          ),
+        ])..where(_db.specialites.cisCode.isIn(princepsCisCodes));
+
+        final princepsRows = await princepsQuery.get();
+
+        final associatedPrinceps = princepsRows.map((row) {
+          final medData = row.readTable(_db.medicaments);
+          final specData = row.readTable(_db.specialites);
+          return Medicament(
+            nom: specData.nomSpecialite,
+            codeCip: medData.codeCip,
+            principesActifs: [],
+            conditionsPrescription: specData.conditionsPrescription,
+          );
+        }).toList();
+
+        return ScanResult.generic(
+          medicament: scannedMedicament,
+          associatedPrinceps: associatedPrinceps,
+          groupId: groupId,
+        );
+      } else {
+        return ScanResult.generic(
+          medicament: scannedMedicament,
+          associatedPrinceps: [],
+          groupId: groupId,
+        );
+      }
     }
   }
 
-  Future<GroupDetails> getGroupDetails(
-    String groupId, {
-    bool showAll = false,
-  }) async {
-    // --- PARTIE 1: Récupérer les membres du groupe actuel ---
-    final allGroupMembersQuery = _db.select(_db.specialites).join([
+  Future<List<SearchCandidate>> getAllSearchCandidates() async {
+    final rows = await _db
+        .customSelect(
+          '''
+          SELECT
+            ms.cis_code,
+            ms.nom_canonique,
+            ms.is_princeps,
+            ms.group_id,
+            ms.principes_actifs_communs,
+            ms.princeps_de_reference,
+            ms.forme_pharmaceutique,
+            ms.procedure_type,
+            ms.titulaire,
+            ms.conditions_prescription,
+            (
+              SELECT code_cip
+              FROM medicaments m
+              WHERE m.cis_code = ms.cis_code
+              LIMIT 1
+            ) AS representative_cip
+          FROM medicament_summary ms
+          ORDER BY ms.nom_canonique COLLATE NOCASE
+          ''',
+          readsFrom: {_db.medicamentSummary, _db.medicaments},
+        )
+        .get();
+
+    return rows.map((row) {
+      final commonPrinciples = _decodeCommonPrincipesList(
+        row.read<String>('principes_actifs_communs'),
+      );
+      final representativeCip =
+          row.read<String?>('representative_cip') ??
+          row.read<String>('cis_code');
+      final formePharmaceutique = row.read<String?>('forme_pharmaceutique');
+
+      final medicament = Medicament(
+        nom: row.read<String>('nom_canonique'),
+        codeCip: representativeCip,
+        principesActifs: commonPrinciples,
+        titulaire: parseMainTitulaire(row.read<String?>('titulaire')),
+        formePharmaceutique: formePharmaceutique,
+        conditionsPrescription: row.read<String?>('conditions_prescription'),
+      );
+
+      return SearchCandidate(
+        cisCode: row.read<String>('cis_code'),
+        nomCanonique: row.read<String>('nom_canonique'),
+        isPrinceps: row.read<int>('is_princeps') == 1,
+        groupId: row.read<String?>('group_id'),
+        commonPrinciples: commonPrinciples,
+        princepsDeReference: row.read<String>('princeps_de_reference'),
+        formePharmaceutique: formePharmaceutique,
+        procedureType: row.read<String?>('procedure_type'),
+        medicament: medicament,
+      );
+    }).toList();
+  }
+
+  Future<ProductGroupClassification?> classifyProductGroup(
+    String groupId,
+  ) async {
+    final groupMembersQuery = _db.select(_db.specialites).join([
       innerJoin(
         _db.medicaments,
         _db.medicaments.cisCode.equalsExp(_db.specialites.cisCode),
@@ -121,20 +243,27 @@ class DatabaseService {
       ),
     ])..where(_db.groupMembers.groupId.equals(groupId));
 
-    final groupMembers = await allGroupMembersQuery.get();
+    final memberRows = await groupMembersQuery.get();
+    if (memberRows.isEmpty) return null;
 
-    final List<Medicament> princepsList = [];
-    final List<Medicament> allGenerics = [];
+    final memberCips = memberRows
+        .map((row) => row.readTable(_db.medicaments).codeCip)
+        .toSet();
+    final principesByCip = await _getPrincipesActifsByCip(memberCips);
 
-    for (final row in groupMembers) {
+    final princeps = <Medicament>[];
+    final generics = <Medicament>[];
+    final formsSet = <String>{};
+    final dosageLabels = <String>{};
+
+    for (final row in memberRows) {
       final medData = row.readTable(_db.medicaments);
       final specData = row.readTable(_db.specialites);
       final memberData = row.readTable(_db.groupMembers);
 
-      final principesQuery = _db.select(_db.principesActifs)
-        ..where((tbl) => tbl.codeCip.equals(medData.codeCip));
-      final principesData = await principesQuery.get();
-      final firstPrincipeData = principesData.isNotEmpty
+      final principesData =
+          principesByCip[medData.codeCip] ?? const <PrincipesActif>[];
+      final firstPrincipe = principesData.isNotEmpty
           ? principesData.first
           : null;
 
@@ -142,116 +271,253 @@ class DatabaseService {
         nom: specData.nomSpecialite,
         codeCip: medData.codeCip,
         principesActifs: principesData.map((p) => p.principe).toList(),
-        dosage: firstPrincipeData?.dosage,
-        dosageUnit: firstPrincipeData?.dosageUnit,
-        titulaire: specData.titulaire,
+        titulaire: parseMainTitulaire(specData.titulaire),
+        formePharmaceutique: specData.formePharmaceutique,
+        dosage: parseDecimalValue(firstPrincipe?.dosage),
+        dosageUnit: firstPrincipe?.dosageUnit,
+        conditionsPrescription: specData.conditionsPrescription,
       );
+
+      final dosageLabel = _formatDosageLabel(
+        medicament.dosage,
+        medicament.dosageUnit,
+      );
+      if (dosageLabel != null) {
+        dosageLabels.add(dosageLabel);
+      }
+
+      final form = specData.formePharmaceutique?.trim();
+      if (form != null && form.isNotEmpty) {
+        formsSet.add(form);
+      }
 
       if (memberData.type == 0) {
-        princepsList.add(medicament);
+        princeps.add(medicament);
       } else {
-        allGenerics.add(medicament);
+        generics.add(medicament);
       }
     }
 
-    // WHY: Group generics by laboratory for a more intuitive UI.
-    // This groups products by their manufacturer, which is more useful for professionals.
-    final Map<String, List<Medicament>> genericsByLab = {};
-    for (final generic in allGenerics) {
-      final lab = generic.titulaire ?? 'Laboratoire Inconnu';
-      genericsByLab.putIfAbsent(lab, () => []).add(generic);
-    }
-
-    final groupedGenericsList = genericsByLab.entries.map((entry) {
-      // Sort products within the group by name for consistency
-      final sortedProducts = List<Medicament>.from(entry.value);
-      sortedProducts.sort((a, b) => a.nom.compareTo(b.nom));
-      return GroupedByLaboratory(
-        laboratory: entry.key,
-        products: sortedProducts,
-      );
-    }).toList();
-
-    // --- PARTIE 2: Trouver les principes actifs communs du groupe ---
     final commonPrincipesMap = await _getCommonPrincipesForGroups({groupId});
-    final commonPrincipes = commonPrincipesMap[groupId] ?? [];
+    // WHY: Sanitization is already applied in _getCommonPrincipesForGroups
+    final commonPrincipes = commonPrincipesMap[groupId] ?? const <String>[];
 
-    // --- PARTIE 3: Trouver les princeps associés dans d'autres groupes ---
-    List<Medicament> relatedPrincepsList = [];
-    if (commonPrincipes.isNotEmpty) {
-      final relatedPrincepsQuery =
-          _db.select(_db.specialites).join([
-              innerJoin(
-                _db.medicaments,
-                _db.medicaments.cisCode.equalsExp(_db.specialites.cisCode),
-              ),
-              innerJoin(
-                _db.groupMembers,
-                _db.groupMembers.codeCip.equalsExp(_db.medicaments.codeCip),
-              ),
-              innerJoin(
-                _db.principesActifs,
-                _db.principesActifs.codeCip.equalsExp(_db.medicaments.codeCip),
-              ),
-            ])
-            ..where(_db.groupMembers.type.equals(0)) // Doit être un princeps
-            ..where(
-              _db.groupMembers.groupId.equals(groupId).not(),
-            ) // Ne doit PAS être dans le groupe actuel
-            ..where(
-              _db.principesActifs.principe.isIn(commonPrincipes),
-            ); // Doit partager le principe actif
+    final groupedPrinceps = _groupMedicamentsByProduct(princeps);
+    final groupedGenerics = _groupMedicamentsByProduct(generics);
 
-      final relatedPrincepsRows = await relatedPrincepsQuery.get();
+    final relatedPrincepsList = await _findRelatedPrinceps(
+      groupId,
+      commonPrincipes,
+    );
+    final groupedRelatedPrinceps = _groupMedicamentsByProduct(
+      relatedPrincepsList,
+    );
 
-      // WHY: Collect unique CIP codes and preserve row data for efficient batch processing.
-      // This eliminates the N+1 query problem by fetching all principes actifs in a single query.
-      final uniquePrincepsMap = <String, TypedResult>{
-        for (final row in relatedPrincepsRows)
-          row.readTable(_db.medicaments).codeCip: row,
-      };
-      final uniqueCips = uniquePrincepsMap.keys.toList();
+    final distinctFormulations = formsSet.toList()..sort();
 
-      Map<String, List<String>> principesByCip = {};
-      if (uniqueCips.isNotEmpty) {
-        // WHY: Batch query to fetch all principes actifs for all unique CIPs at once.
-        final allPrincipesQuery = _db.select(_db.principesActifs)
-          ..where((tbl) => tbl.codeCip.isIn(uniqueCips));
-        final allPrincipesData = await allPrincipesQuery.get();
+    final syntheticTitle = _buildSyntheticTitle(
+      groupId: groupId,
+      princepsNames: princeps.map((m) => m.nom).toList(),
+      fallbackPrincipes: commonPrincipes,
+      dosageLabels: dosageLabels.toList(),
+      formulations: distinctFormulations,
+    );
 
-        for (final pa in allPrincipesData) {
-          principesByCip.putIfAbsent(pa.codeCip, () => []).add(pa.principe);
-        }
-      }
-
-      // WHY: Reconstruct Medicament objects using pre-fetched data from the join and batch query.
-      for (final cip in uniqueCips) {
-        final row = uniquePrincepsMap[cip]!;
-        final specData = row.readTable(_db.specialites);
-        final principeData = row.readTable(_db.principesActifs);
-
-        relatedPrincepsList.add(
-          Medicament(
-            nom: specData.nomSpecialite,
-            codeCip: cip,
-            principesActifs: principesByCip[cip] ?? [],
-            dosage: principeData.dosage,
-            dosageUnit: principeData.dosageUnit,
-            titulaire: specData.titulaire,
-          ),
-        );
-      }
-    }
-
-    return GroupDetails(
-      princeps: princepsList,
-      generics: groupedGenericsList,
-      relatedPrinceps: relatedPrincepsList,
+    return ProductGroupClassification(
+      groupId: groupId,
+      syntheticTitle: syntheticTitle,
+      commonActiveIngredients: commonPrincipes,
+      distinctDosages: dosageLabels.toList(),
+      distinctFormulations: distinctFormulations,
+      princeps: groupedPrinceps,
+      generics: groupedGenerics,
+      relatedPrinceps: groupedRelatedPrinceps,
     );
   }
 
-  // TODO: Remove database clearing on schema change once app is ready for production. Implement proper migration logic instead.
+  Future<Map<String, List<PrincipesActif>>> _getPrincipesActifsByCip(
+    Set<String> codeCips,
+  ) async {
+    if (codeCips.isEmpty) return {};
+
+    final results = <String, List<PrincipesActif>>{};
+    final cipList = codeCips.toList();
+
+    for (var i = 0; i < cipList.length; i += _maxSqlVariables) {
+      final chunk = cipList.sublist(
+        i,
+        (i + _maxSqlVariables > cipList.length)
+            ? cipList.length
+            : i + _maxSqlVariables,
+      );
+      if (chunk.isEmpty) continue;
+
+      final query = _db.select(_db.principesActifs)
+        ..where((tbl) => tbl.codeCip.isIn(chunk));
+      final rows = await query.get();
+
+      for (final row in rows) {
+        results.putIfAbsent(row.codeCip, () => []).add(row);
+      }
+    }
+
+    return results;
+  }
+
+  List<GroupedByProduct> _groupMedicamentsByProduct(
+    List<Medicament> medicaments,
+  ) {
+    if (medicaments.isEmpty) return [];
+
+    final buckets = <String, _ProductGroupBucket>{};
+
+    for (final medicament in medicaments) {
+      final canonicalName =
+          deriveGroupTitleFromName(medicament.nom).trim().isNotEmpty
+          ? deriveGroupTitleFromName(medicament.nom).trim()
+          : medicament.nom;
+      final dosageKey = medicament.dosage?.toString() ?? 'null';
+      final unitKey = medicament.dosageUnit?.toUpperCase() ?? 'null';
+      final key = '${canonicalName.toUpperCase()}|$dosageKey|$unitKey';
+
+      final bucket = buckets.putIfAbsent(
+        key,
+        () => _ProductGroupBucket(
+          productName: canonicalName,
+          dosage: medicament.dosage,
+          dosageUnit: medicament.dosageUnit,
+        ),
+      );
+
+      final lab = (medicament.titulaire?.trim().isNotEmpty ?? false)
+          ? medicament.titulaire!.trim()
+          : 'Laboratoire Inconnu';
+      bucket.laboratories.add(lab);
+      bucket.medicaments.add(medicament);
+    }
+
+    final groupedProducts = buckets.values.map((bucket) {
+      final laboratories = bucket.laboratories.toList()..sort();
+      final presentations = List<Medicament>.from(bucket.medicaments)
+        ..sort((a, b) => a.nom.compareTo(b.nom));
+
+      return GroupedByProduct(
+        productName: bucket.productName,
+        dosage: bucket.dosage,
+        dosageUnit: bucket.dosageUnit,
+        laboratories: laboratories,
+        medicaments: presentations,
+      );
+    }).toList()..sort((a, b) => a.productName.compareTo(b.productName));
+
+    return groupedProducts;
+  }
+
+  // WHY: Build synthetic title using only deterministic data sources.
+  // Removed fallbackLabel (raw generique_groups.libelle) to ensure 100% data consistency.
+  // Title is built from: canonicalName (algorithmic) → fallbackPrincipes (deterministic) → "Groupe $groupId".
+  String _buildSyntheticTitle({
+    required String groupId,
+    required List<String> princepsNames,
+    required List<String> dosageLabels,
+    required List<String> formulations,
+    required List<String> fallbackPrincipes,
+  }) {
+    final candidateNames = princepsNames
+        .where((name) => name.trim().isNotEmpty)
+        .toList();
+    final canonicalName = findCommonPrincepsName(candidateNames);
+    final segments = <String>[];
+
+    if (canonicalName.trim().isNotEmpty) {
+      segments.add(canonicalName.trim());
+    } else if (fallbackPrincipes.isNotEmpty) {
+      segments.add(fallbackPrincipes.join(', '));
+    } else {
+      segments.add('Groupe $groupId');
+    }
+
+    if (dosageLabels.isNotEmpty) {
+      segments.add(dosageLabels.join(', '));
+    }
+
+    if (formulations.isNotEmpty) {
+      segments.add(formulations.join(', '));
+    }
+
+    return segments.join(' • ');
+  }
+
+  String? _formatDosageLabel(Decimal? dosage, String? unit) {
+    return formatDosageLabel(dosage: dosage, unit: unit);
+  }
+
+  // WHY: Finds related princeps from groups that contain ALL of the current group's
+  // active ingredients PLUS at least one additional ingredient. This identifies
+  // "associated therapies" - medications that share the same base ingredients
+  // but have additional active components.
+  Future<List<Medicament>> _findRelatedPrinceps(
+    String groupId,
+    List<String> commonPrincipes,
+  ) async {
+    if (commonPrincipes.isEmpty) return const [];
+
+    // WHY: Use the generated query from queries.drift
+    // Parameters: groupId (appears twice), commonPrincipes list (appears twice)
+    final relatedGroupsRows = await _db
+        .findRelatedPrinceps(groupId, groupId, commonPrincipes, commonPrincipes)
+        .get();
+    if (relatedGroupsRows.isEmpty) return const [];
+
+    final relatedCips = relatedGroupsRows
+        .map((row) => row.codeCip)
+        .toSet()
+        .toList();
+
+    if (relatedCips.isEmpty) return const [];
+
+    // Get full medicament data for related princeps
+    final medicamentsQuery = _db.select(_db.medicaments).join([
+      innerJoin(
+        _db.specialites,
+        _db.specialites.cisCode.equalsExp(_db.medicaments.cisCode),
+      ),
+    ])..where(_db.medicaments.codeCip.isIn(relatedCips));
+
+    final medicamentRows = await medicamentsQuery.get();
+
+    // Get principes actifs for all related medicaments
+    final principesByCip = await _getPrincipesActifsByCip(relatedCips.toSet());
+
+    final relatedPrincepsList = <Medicament>[];
+    for (final row in medicamentRows) {
+      final medData = row.readTable(_db.medicaments);
+      final specData = row.readTable(_db.specialites);
+      final principesData = principesByCip[medData.codeCip] ?? const [];
+      final firstPrincipe = principesData.isNotEmpty
+          ? principesData.first
+          : null;
+
+      relatedPrincepsList.add(
+        Medicament(
+          nom: specData.nomSpecialite,
+          codeCip: medData.codeCip,
+          principesActifs: principesData.map((p) => p.principe).toList(),
+          dosage: parseDecimalValue(firstPrincipe?.dosage),
+          dosageUnit: firstPrincipe?.dosageUnit,
+          titulaire: parseMainTitulaire(specData.titulaire),
+          formePharmaceutique: specData.formePharmaceutique,
+          conditionsPrescription: specData.conditionsPrescription,
+        ),
+      );
+    }
+
+    return relatedPrincepsList;
+  }
+
+  // WHY: Provides a deterministic way to reset the persisted database before reloading BDPM data or starting an integration test run.
   Future<void> clearDatabase() async {
+    await _db.delete(_db.medicamentSummary).go();
     await _db.delete(_db.groupMembers).go();
     await _db.delete(_db.generiqueGroups).go();
     await _db.delete(_db.principesActifs).go();
@@ -279,6 +545,9 @@ class DatabaseService {
               row['etat_commercialisation'] as String?,
             ),
             titulaire: Value(row['titulaire'] as String?),
+            conditionsPrescription: Value(
+              row['conditions_prescription'] as String?,
+            ),
           ),
         ),
         mode: InsertMode.replace,
@@ -288,7 +557,7 @@ class DatabaseService {
         medicaments.map(
           (row) => MedicamentsCompanion(
             codeCip: Value(row['code_cip'] as String),
-            nom: Value(row['nom'] as String),
+            // WHY: Removed nom field - specialites table is the single source of truth for medication names.
             cisCode: Value(row['cis_code'] as String),
           ),
         ),
@@ -300,7 +569,7 @@ class DatabaseService {
           (row) => PrincipesActifsCompanion(
             codeCip: Value(row['code_cip'] as String),
             principe: Value(row['principe'] as String),
-            dosage: Value(row['dosage'] as double?),
+            dosage: Value(row['dosage'] as String?),
             dosageUnit: Value(row['dosage_unit'] as String?),
           ),
         ),
@@ -371,222 +640,178 @@ class DatabaseService {
     };
   }
 
+  Future<List<ClusterSummary>> getClusterSummaries({
+    int limit = 40,
+    int offset = 0,
+  }) async {
+    final rows = await _db
+        .customSelect(
+          '''
+          SELECT
+            cluster_key,
+            princeps_brand_name,
+            MIN(principes_actifs_communs) AS principes_payload,
+            COUNT(DISTINCT group_id) AS group_count,
+            COUNT(*) AS member_count
+          FROM medicament_summary
+          WHERE cluster_key != ''
+            AND group_id IS NOT NULL
+          GROUP BY cluster_key, princeps_brand_name
+          ORDER BY princeps_brand_name COLLATE NOCASE
+          LIMIT ? OFFSET ?
+          ''',
+          variables: [Variable.withInt(limit), Variable.withInt(offset)],
+        )
+        .get();
+
+    return rows.map((row) {
+      final principles = _decodeCommonPrincipesList(
+        row.read<String>('principes_payload'),
+      );
+
+      return ClusterSummary(
+        clusterKey: row.read<String>('cluster_key'),
+        princepsBrandName: row.read<String>('princeps_brand_name'),
+        activeIngredients: principles,
+        groupCount: row.read<int>('group_count'),
+        memberCount: row.read<int>('member_count'),
+      );
+    }).toList();
+  }
+
+  Future<List<GenericGroupSummary>> getClusterGroupSummaries(
+    String clusterKey,
+  ) async {
+    final rows = await _db
+        .customSelect(
+          '''
+          SELECT DISTINCT
+            group_id,
+            princeps_de_reference,
+            principes_actifs_communs AS common_principes
+          FROM medicament_summary
+          WHERE cluster_key = ?
+            AND group_id IS NOT NULL
+          GROUP BY group_id, princeps_de_reference, principes_actifs_communs
+          ORDER BY princeps_de_reference COLLATE NOCASE
+          ''',
+          variables: [Variable.withString(clusterKey)],
+        )
+        .get();
+
+    return rows.map((row) {
+      final commonPrincipesRaw = row.read<String>('common_principes');
+      final commonPrincipes = _formatCommonPrincipes(commonPrincipesRaw);
+      final princepsReference = row.read<String>('princeps_de_reference');
+      final groupId = row.read<String>('group_id');
+
+      return GenericGroupSummary(
+        groupId: groupId,
+        commonPrincipes: commonPrincipes,
+        princepsReferenceName: princepsReference,
+      );
+    }).toList();
+  }
+
   Future<List<GenericGroupSummary>> getGenericGroupSummaries({
     List<String>? formKeywords,
     List<String>? excludeKeywords,
+    List<String>? procedureTypeKeywords,
     int limit = 100,
     int offset = 0,
   }) async {
-    // WHY: Default to oral forms as they are the most common use case.
-    final defaultOralKeywords = [
-      'comprimé',
-      'gélule',
-      'capsule',
-      'lyophilisat',
-      'solution buvable',
-      'sirop',
-      'suspension buvable',
-      'comprimé orodispersible',
-    ];
-    final defaultExcludeKeywords = [
-      'injectable',
-      'injection',
-      'vaginal',
-      'vaginale',
-    ];
-    final keywordsToUse = formKeywords ?? defaultOralKeywords;
-    final excludesToUse = excludeKeywords ?? defaultExcludeKeywords;
+    // WHY: Use the new MedicamentSummary table for much simpler and faster queries
+    // This eliminates complex joins and Dart-based grouping logic
 
-    // Special case: if formKeywords is empty, we want groups where NO form matches excludeKeywords
-    // This is used for the "other" category
-    final String whereClause;
-    if (keywordsToUse.isEmpty && excludesToUse.isNotEmpty) {
-      // For "other" category: find groups where no form matches any exclude keyword
+    // Build WHERE clause based on form keywords or procedure type
+    String whereClause = '';
+    if (procedureTypeKeywords != null && procedureTypeKeywords.isNotEmpty) {
+      final procedureConditions = procedureTypeKeywords
+          .map((kw) => "s.procedure_type LIKE '%${kw.replaceAll("'", "''")}%'")
+          .join(' OR ');
       whereClause =
           '''
-        WHERE NOT EXISTS (
-          SELECT 1
-          FROM group_members gm_exclude
-          INNER JOIN medicaments m_exclude ON gm_exclude.code_cip = m_exclude.code_cip
-          INNER JOIN specialites s_exclude ON m_exclude.cis_code = s_exclude.cis_code
-          WHERE gm_exclude.group_id = gg.group_id
-            AND (${excludesToUse.map((kw) => "s_exclude.forme_pharmaceutique LIKE '%${kw.replaceAll("'", "''")}%'").join(' OR ')})
-        )
-      ''';
-    } else {
-      // Normal case: find groups where at least one form matches keywords and doesn't match excludes
-      final formConditions = keywordsToUse
+WHERE EXISTS (
+  SELECT 1
+  FROM specialites s
+  WHERE s.cis_code = medicament_summary.cis_code
+    AND ($procedureConditions)
+)
+''';
+    } else if (formKeywords != null && formKeywords.isNotEmpty) {
+      final formConditions = formKeywords
           .map(
-            (kw) =>
-                "s2.forme_pharmaceutique LIKE '%${kw.replaceAll("'", "''")}%'",
+            (kw) => "forme_pharmaceutique LIKE '%${kw.replaceAll("'", "''")}%'",
           )
           .join(' OR ');
 
-      final excludeConditions = excludesToUse.isEmpty
-          ? ''
-          : ' AND ${excludesToUse.map((kw) => "s2.forme_pharmaceutique NOT LIKE '%${kw.replaceAll("'", "''")}%'").join(' AND ')}';
+      final excludeConditions = excludeKeywords?.isNotEmpty == true
+          ? excludeKeywords!
+                .map(
+                  (kw) =>
+                      "forme_pharmaceutique NOT LIKE '%${kw.replaceAll("'", "''")}%'",
+                )
+                .join(' AND ')
+          : '';
 
       whereClause =
-          '''
-        WHERE EXISTS (
-          SELECT 1
-          FROM group_members gm2
-          INNER JOIN medicaments m2 ON gm2.code_cip = m2.code_cip
-          INNER JOIN specialites s2 ON m2.cis_code = s2.cis_code
-          WHERE gm2.group_id = gg.group_id AND ($formConditions) $excludeConditions
-        )
-      ''';
+          "WHERE ($formConditions)${excludeConditions.isNotEmpty ? ' AND $excludeConditions' : ''}";
     }
 
-    // WHY: Phase 1 - Fetch only distinct group labels matching the filter.
-    // This is a much smaller dataset than fetching all princeps names.
-    // We fetch group_id and libelle only, which allows us to normalize and group efficiently.
-    final groupLabelsQuery = _db.customSelect(
+    // Query: MedicamentSummary table directly
+    final query = _db.customSelect(
       '''
       SELECT DISTINCT
-        gg.group_id,
-        gg.libelle
-      FROM generique_groups gg
+        principes_actifs_communs as common_principes,
+        princeps_de_reference,
+        group_id
+      FROM medicament_summary
       $whereClause
-      ''',
-      readsFrom: {_db.generiqueGroups},
+      ORDER BY nom_canonique
+      LIMIT ? OFFSET ?
+    ''',
+      variables: [Variable.withInt(limit), Variable.withInt(offset)],
     );
 
-    final groupLabelsResults = await groupLabelsQuery.get();
-    if (groupLabelsResults.isEmpty) return [];
+    final results = await query.get();
 
-    final groupIds = groupLabelsResults
-        .map((row) => row.read<String>('group_id'))
-        .toSet();
-
-    if (groupIds.isEmpty) return [];
-
-    final deterministicPrincipesMap = await _getCommonPrincipesForGroups(
-      groupIds,
-    );
-
-    // WHY: Phase 2 - Normalize deterministic principles and group identical sets.
-    final groupsByPrinciple = <String, Map<String, dynamic>>{};
-    for (final row in groupLabelsResults) {
+    // Convert to GenericGroupSummary objects
+    return results.map((row) {
+      final commonPrincipesRaw = row.read<String>('common_principes');
+      final commonPrincipes = _formatCommonPrincipes(commonPrincipesRaw);
+      final princepsReference = row.read<String>('princeps_de_reference');
       final groupId = row.read<String>('group_id');
-      final deterministicPrincipes = deterministicPrincipesMap[groupId];
 
-      if (deterministicPrincipes == null || deterministicPrincipes.isEmpty) {
-        continue;
-      }
-
-      final displayLabel = deterministicPrincipes.join(', ');
-      final normalizedLabel = normalize(displayLabel);
-
-      if (normalizedLabel.isEmpty) continue;
-
-      groupsByPrinciple.putIfAbsent(
-        normalizedLabel,
-        () => {'displayLabel': displayLabel, 'groupIds': <String>{}},
+      return GenericGroupSummary(
+        groupId: groupId,
+        commonPrincipes: commonPrincipes,
+        princepsReferenceName: princepsReference,
       );
-
-      groupsByPrinciple[normalizedLabel]!['groupIds'].add(groupId);
-    }
-
-    if (groupsByPrinciple.isEmpty) return [];
-
-    // Create intermediate summaries with normalized labels for sorting
-    final intermediateSummaries = groupsByPrinciple.entries.map((entry) {
-      final displayLabel = entry.value['displayLabel'] as String;
-      final groupIds = (entry.value['groupIds'] as Set<String>).toList();
-
-      return {
-        'normalizedLabel': entry.key,
-        'displayLabel': displayLabel,
-        'groupIds': groupIds,
-      };
     }).toList();
+  }
 
-    // Sort by display label (alphabetically by active principle)
-    intermediateSummaries.sort(
-      (a, b) =>
-          (a['displayLabel'] as String).compareTo(b['displayLabel'] as String),
-    );
+  String _formatCommonPrincipes(String? raw) {
+    final principles = _decodeCommonPrincipesList(raw);
+    if (principles.isEmpty) return '';
+    return principles.join(', ');
+  }
 
-    // WHY: Phase 3 - Apply pagination on the sorted unique labels.
-    // This ensures we only process the groups needed for the current page.
-    if (offset >= intermediateSummaries.length) return [];
-    final end = (offset + limit > intermediateSummaries.length)
-        ? intermediateSummaries.length
-        : offset + limit;
-    final paginatedSummaries = intermediateSummaries.sublist(offset, end);
-
-    // WHY: Phase 4 - Fetch princeps names only for the paginated groups.
-    // This dramatically reduces memory usage by fetching princeps data only for the current page.
-    final paginatedGroupIds = <String>{};
-    for (final summary in paginatedSummaries) {
-      paginatedGroupIds.addAll((summary['groupIds'] as List<String>));
-    }
-
-    if (paginatedGroupIds.isEmpty) return [];
-
-    final placeholders = List.generate(
-      paginatedGroupIds.length,
-      (_) => '?',
-    ).join(',');
-    final princepsQuery = _db.customSelect(
-      '''
-      SELECT
-        gm.group_id,
-        s.nom_specialite as princeps_name
-      FROM group_members gm
-      INNER JOIN medicaments m ON gm.code_cip = m.code_cip
-      INNER JOIN specialites s ON m.cis_code = s.cis_code
-      WHERE gm.group_id IN ($placeholders) AND gm.type = 0
-      ''',
-      readsFrom: {_db.groupMembers, _db.medicaments, _db.specialites},
-      variables: paginatedGroupIds
-          .map((id) => Variable.withString(id))
-          .toList(),
-    );
-
-    final princepsResults = await princepsQuery.get();
-
-    // Map princeps names to group IDs
-    final princepsByGroupId = <String, Set<String>>{};
-    for (final row in princepsResults) {
-      final groupId = row.read<String>('group_id');
-      final princepsName = row.read<String?>('princeps_name');
-      if (princepsName != null) {
-        princepsByGroupId
-            .putIfAbsent(groupId, () => <String>{})
-            .add(princepsName);
+  List<String> _decodeCommonPrincipesList(String? raw) {
+    if (raw == null || raw.isEmpty) return const <String>[];
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is List) {
+        return decoded
+            .map((item) => item.toString())
+            .where((value) => value.trim().isNotEmpty)
+            .toList();
       }
+      final trimmed = raw.trim();
+      return trimmed.isEmpty ? const <String>[] : [trimmed];
+    } catch (_) {
+      final trimmed = raw.trim();
+      return trimmed.isEmpty ? const <String>[] : [trimmed];
     }
-
-    // Build final summaries with princeps names
-    final summaries = <GenericGroupSummary>[];
-    for (final summary in paginatedSummaries) {
-      final displayLabel = summary['displayLabel'] as String;
-      final groupIds = summary['groupIds'] as List<String>;
-      final representativeGroupId = groupIds.first;
-
-      // Collect all princeps names from all groups in this normalized label
-      final allPrincepsNames = <String>{};
-      for (final groupId in groupIds) {
-        final princepsNames = princepsByGroupId[groupId];
-        if (princepsNames != null) {
-          allPrincepsNames.addAll(princepsNames);
-        }
-      }
-
-      summaries.add(
-        GenericGroupSummary(
-          groupId: representativeGroupId,
-          commonPrincipes: displayLabel,
-          princepsReferenceName: findCommonPrincepsName(
-            allPrincepsNames.toList(),
-          ),
-        ),
-      );
-    }
-
-    return summaries;
   }
 
   Future<Map<String, List<String>>> _getCommonPrincipesForGroups(
@@ -607,105 +832,44 @@ class DatabaseService {
 
       if (chunk.isEmpty) continue;
 
-      final valuesClause = chunk.map((_) => '(?)').join(',');
-      final query = _db.customSelect(
-        '''
-        WITH filtered_groups(group_id) AS (
-          VALUES $valuesClause
-        ),
-        member_counts AS (
-          SELECT gm.group_id, COUNT(DISTINCT gm.code_cip) AS member_count
-          FROM group_members gm
-          WHERE gm.group_id IN (SELECT group_id FROM filtered_groups)
-          GROUP BY gm.group_id
-        ),
-        principes_occurrences AS (
-          SELECT
-            gm.group_id,
-            pa.principe,
-            COUNT(DISTINCT gm.code_cip) AS occurrence_count
-          FROM group_members gm
-          INNER JOIN principes_actifs pa ON pa.code_cip = gm.code_cip
-          WHERE gm.group_id IN (SELECT group_id FROM filtered_groups)
-          GROUP BY gm.group_id, pa.principe
-        )
-        SELECT
-          po.group_id,
-          po.principe
-        FROM principes_occurrences po
-        INNER JOIN member_counts mc ON mc.group_id = po.group_id
-        WHERE po.occurrence_count = mc.member_count
-        ORDER BY po.group_id, po.principe
-        ''',
-        readsFrom: {_db.groupMembers, _db.principesActifs},
-        variables: chunk.map((id) => Variable.withString(id)).toList(),
-      );
-
-      final rows = await query.get();
+      // WHY: Use the generated query from queries.drift
+      // The query uses the list parameter twice (in two CTEs), so we pass it twice
+      final rows = await _db.getCommonPrincipesForGroups(chunk, chunk).get();
       for (final row in rows) {
-        final groupId = row.read<String>('group_id');
-        final principe = row.read<String>('principe');
+        final groupId = row.groupId;
+        final principe = row.principe;
 
-        results.putIfAbsent(groupId, () => []).add(principe);
+        // WHY: Sanitize active principle to remove dosage, units, and formulation keywords
+        final sanitizedPrinciple = sanitizeActivePrinciple(principe);
+        if (sanitizedPrinciple.isNotEmpty) {
+          results.putIfAbsent(groupId, () => []).add(sanitizedPrinciple);
+        }
       }
     }
 
     return results;
   }
 
-  // WHY: Search now includes active ingredients for a more powerful discovery experience.
-  // It joins with principes_actifs and uses groupBy to return distinct medications.
-  // Conditionally applies a relevance filter to exclude homeopathic and phytotherapy products.
-  Future<List<Medicament>> searchMedicaments(
-    String query, {
-    bool showAll = false,
-  }) async {
-    final sanitizedQuery = '%${query.toLowerCase()}%';
+  Future<bool> hasExistingData() async {
+    final totalGroupsQuery = _db.selectOnly(_db.generiqueGroups)
+      ..addColumns([_db.generiqueGroups.groupId.count()]);
+    final totalGroups = await totalGroupsQuery.getSingle();
+    final count = totalGroups.read(_db.generiqueGroups.groupId.count()) ?? 0;
 
-    final queryBuilder = _db.select(_db.medicaments).join([
-      innerJoin(
-        _db.specialites,
-        _db.specialites.cisCode.equalsExp(_db.medicaments.cisCode),
-      ),
-      // Use a left join as not all medications might have listed principles
-      leftOuterJoin(
-        _db.principesActifs,
-        _db.principesActifs.codeCip.equalsExp(_db.medicaments.codeCip),
-      ),
-    ]);
-
-    // Apply the search condition
-    queryBuilder.where(
-      _db.specialites.nomSpecialite.lower().like(sanitizedQuery) |
-          _db.medicaments.codeCip.like(sanitizedQuery) |
-          _db.principesActifs.principe.lower().like(sanitizedQuery),
-    );
-
-    // Conditionally apply the relevance filter
-    if (!showAll) {
-      queryBuilder.where(
-        _db.specialites.procedureType.lower().like('%homéo%').not() &
-            _db.specialites.procedureType.lower().like('%phyto%').not(),
-      );
-    }
-
-    queryBuilder
-      ..groupBy([_db.medicaments.codeCip])
-      ..limit(50);
-
-    final results = await queryBuilder.get();
-
-    // WHY: For list display, we don't load principes actifs to improve performance.
-    // They will be loaded on detail view via getScanResultByCip.
-    // We use the clean name from specialites table instead of the packaging description.
-    return results.map((row) {
-      final medData = row.readTable(_db.medicaments);
-      final specData = row.readTable(_db.specialites);
-      return Medicament(
-        nom: specData.nomSpecialite,
-        codeCip: medData.codeCip,
-        principesActifs: [],
-      );
-    }).toList();
+    return count > 0;
   }
+}
+
+class _ProductGroupBucket {
+  _ProductGroupBucket({
+    required this.productName,
+    required this.dosage,
+    required this.dosageUnit,
+  });
+
+  final String productName;
+  final Decimal? dosage;
+  final String? dosageUnit;
+  final Set<String> laboratories = <String>{};
+  final List<Medicament> medicaments = [];
 }

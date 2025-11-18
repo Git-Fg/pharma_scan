@@ -1,15 +1,15 @@
 // lib/features/explorer/screens/group_explorer_view.dart
+import 'package:decimal/decimal.dart';
 import 'package:flutter/material.dart';
-import 'package:pharma_scan/core/utils/medicament_helpers.dart';
-import 'package:pharma_scan/features/explorer/models/grouped_by_laboratory_model.dart';
+import 'package:pharma_scan/core/locator.dart';
+import 'package:pharma_scan/core/models/parsed_name.dart';
+import 'package:pharma_scan/core/parser/medicament_grammar.dart';
+import 'package:pharma_scan/core/services/database_service.dart';
+import 'package:pharma_scan/core/utils/dosage_utils.dart';
 import 'package:pharma_scan/features/explorer/models/grouped_by_product_model.dart';
+import 'package:pharma_scan/features/explorer/models/product_group_classification_model.dart';
 import 'package:pharma_scan/features/explorer/widgets/medicament_card.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
-import 'package:pharma_scan/core/locator.dart';
-import 'package:pharma_scan/core/services/database_service.dart';
-import 'package:pharma_scan/features/explorer/models/explorer_enums.dart';
-import 'package:pharma_scan/features/explorer/models/group_details_model.dart';
-import 'package:pharma_scan/features/scanner/models/medicament_model.dart';
 
 class GroupExplorerView extends StatefulWidget {
   final String groupId;
@@ -27,85 +27,25 @@ class GroupExplorerView extends StatefulWidget {
 
 class GroupExplorerViewState extends State<GroupExplorerView> {
   final DatabaseService _dbService = sl<DatabaseService>();
-  GroupDetails? _groupDetails;
+  final MedicamentParser _medicamentParser = MedicamentParser();
+  ProductGroupClassification? _classification;
   bool _isLoadingGroup = true;
-  SortOption _sortOption = SortOption.name;
-  String _groupTitle = 'Détails du Groupe';
 
   @override
   void initState() {
     super.initState();
-    _loadGroupDetails(widget.groupId);
+    _loadGroupClassification(widget.groupId);
   }
 
-  Future<void> _loadGroupDetails(String groupId) async {
+  Future<void> _loadGroupClassification(String groupId) async {
     setState(() => _isLoadingGroup = true);
-    final details = await _dbService.getGroupDetails(groupId);
+    final classification = await _dbService.classifyProductGroup(groupId);
     if (mounted) {
       setState(() {
-        _groupDetails = details;
-        _groupTitle = _deriveGroupTitle(details);
+        _classification = classification;
         _isLoadingGroup = false;
-        _sortLists();
       });
     }
-  }
-
-  String _deriveGroupTitle(GroupDetails details) {
-    if (details.princeps.isNotEmpty) {
-      return cleanGroupLabel(details.princeps.first.nom);
-    }
-    if (details.generics.isNotEmpty &&
-        details.generics.first.products.isNotEmpty) {
-      return cleanGroupLabel(details.generics.first.products.first.nom);
-    }
-    return 'Groupe Inconnu';
-  }
-
-  void _setSortOption(SortOption option) {
-    setState(() {
-      _sortOption = option;
-      _sortLists();
-    });
-  }
-
-  void _sortLists() {
-    if (_groupDetails == null) return;
-
-    final sortedPrinceps = List<Medicament>.from(_groupDetails!.princeps)
-      ..sort(_getComparison);
-    final sortedRelatedPrinceps = List<Medicament>.from(
-      _groupDetails!.relatedPrinceps,
-    )..sort(_getComparison);
-
-    // Sort products within each group, then sort groups by laboratory name
-    // This maintains the grouping structure while ensuring products are sorted
-    final sortedGenerics = _groupDetails!.generics.map((group) {
-      final sortedProducts = List<Medicament>.from(group.products)
-        ..sort(_getComparison);
-      return GroupedByLaboratory(
-        laboratory: group.laboratory,
-        products: sortedProducts,
-      );
-    }).toList()..sort((a, b) => a.laboratory.compareTo(b.laboratory));
-
-    setState(() {
-      _groupDetails = GroupDetails(
-        princeps: sortedPrinceps,
-        generics: sortedGenerics,
-        relatedPrinceps: sortedRelatedPrinceps,
-      );
-    });
-  }
-
-  int _getComparison(Medicament a, Medicament b) {
-    if (_sortOption == SortOption.dosage) {
-      final dosageA = a.dosage ?? double.infinity;
-      final dosageB = b.dosage ?? double.infinity;
-      final comparison = dosageA.compareTo(dosageB);
-      if (comparison != 0) return comparison;
-    }
-    return a.nom.compareTo(b.nom);
   }
 
   @override
@@ -116,16 +56,16 @@ class GroupExplorerViewState extends State<GroupExplorerView> {
       return const Scaffold(body: Center(child: ShadProgress()));
     }
 
-    final details = _groupDetails;
-    if (details == null) {
+    final classification = _classification;
+    if (classification == null) {
       return const Scaffold(
         body: Center(child: Text('Impossible de charger les détails.')),
       );
     }
 
-    final groupedProducts = _groupGenericsByProduct(details.generics);
-    final totalGenerics = groupedProducts.length;
-    final totalMeds = details.princeps.length + totalGenerics;
+    final princepsCount = _countPresentations(classification.princeps);
+    final genericsCount = _countPresentations(classification.generics);
+    final relatedCount = _countPresentations(classification.relatedPrinceps);
 
     return Scaffold(
       backgroundColor: theme.colorScheme.background,
@@ -135,22 +75,32 @@ class GroupExplorerViewState extends State<GroupExplorerView> {
             SliverToBoxAdapter(
               child: _buildAppBarContent(
                 theme,
-                totalMeds,
-                details.relatedPrinceps.length,
+                classification,
+                princepsCount,
+                genericsCount,
+                relatedCount,
               ),
             ),
-            _buildSectionHeader(theme, 'Princeps', details.princeps.length),
-            _buildPrincepsList(details.princeps),
-            _buildSectionHeader(theme, 'Génériques', totalGenerics),
-            _buildGenericsList(groupedProducts),
-            if (details.relatedPrinceps.isNotEmpty) ...[
+            _buildSectionHeader(
+              theme,
+              'Princeps',
+              classification.princeps.length,
+            ),
+            _buildProductList(classification.princeps),
+            _buildSectionHeader(
+              theme,
+              'Génériques',
+              classification.generics.length,
+            ),
+            _buildProductList(classification.generics),
+            if (classification.relatedPrinceps.isNotEmpty) ...[
               _buildSectionHeader(
                 theme,
-                'Princeps Associés',
-                details.relatedPrinceps.length,
+                'Thérapies Associées',
+                classification.relatedPrinceps.length,
                 icon: LucideIcons.link,
               ),
-              _buildPrincepsList(details.relatedPrinceps),
+              _buildTherapiesList(classification.relatedPrinceps),
             ],
             const SliverToBoxAdapter(child: SizedBox(height: 24)),
           ],
@@ -161,50 +111,40 @@ class GroupExplorerViewState extends State<GroupExplorerView> {
 
   Widget _buildAppBarContent(
     ShadThemeData theme,
-    int totalMeds,
+    ProductGroupClassification classification,
+    int princepsCount,
+    int genericsCount,
     int relatedCount,
   ) {
+    final summaryLines = <String>[
+      '$princepsCount princeps • $genericsCount génériques',
+      if (classification.commonActiveIngredients.isNotEmpty)
+        'Principe(s) actif(s) : ${classification.commonActiveIngredients.join(', ')}',
+      if (classification.distinctDosages.isNotEmpty)
+        'Dosages : ${classification.distinctDosages.join(', ')}',
+      if (classification.distinctFormulations.isNotEmpty)
+        'Formes : ${classification.distinctFormulations.join(', ')}',
+      '$relatedCount princeps associés',
+    ];
+
     return ShadCard(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              ShadButton.outline(
-                onPressed: widget.onExit,
-                leading: const Icon(LucideIcons.arrowLeft, size: 16),
-                child: const Text('Retour'),
-              ),
-              const Spacer(),
-              ShadSelect<SortOption>(
-                initialValue: _sortOption,
-                onChanged: (value) {
-                  if (value != null) _setSortOption(value);
-                },
-                options: const [
-                  ShadOption(
-                    value: SortOption.name,
-                    child: Text('Trier par Nom'),
-                  ),
-                  ShadOption(
-                    value: SortOption.dosage,
-                    child: Text('Trier par Dosage'),
-                  ),
-                ],
-                selectedOptionBuilder: (context, value) {
-                  return Text(value == SortOption.name ? 'Nom' : 'Dosage');
-                },
-              ),
-            ],
+          ShadButton.outline(
+            onPressed: widget.onExit,
+            leading: const Icon(LucideIcons.arrowLeft, size: 16),
+            child: const Text('Retour'),
           ),
           const SizedBox(height: 12),
-          Text(_groupTitle, style: theme.textTheme.h3),
-          const SizedBox(height: 4),
-          Text(
-            '$totalMeds médicaments dans ce groupe • $relatedCount princeps associés',
-            style: theme.textTheme.muted,
-          ),
+          Text(classification.syntheticTitle, style: theme.textTheme.h3),
+          const SizedBox(height: 8),
+          for (final line in summaryLines)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 2),
+              child: Text(line, style: theme.textTheme.muted),
+            ),
         ],
       ),
     );
@@ -242,19 +182,7 @@ class GroupExplorerViewState extends State<GroupExplorerView> {
     );
   }
 
-  Widget _buildPrincepsList(List<Medicament> princeps) {
-    return SliverList(
-      delegate: SliverChildBuilderDelegate(
-        (context, index) => Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          child: MedicamentCard(medicament: princeps[index]),
-        ),
-        childCount: princeps.length,
-      ),
-    );
-  }
-
-  Widget _buildGenericsList(List<GroupedByProduct> groupedProducts) {
+  Widget _buildProductList(List<GroupedByProduct> groupedProducts) {
     return SliverList(
       delegate: SliverChildBuilderDelegate(
         (context, index) => Padding(
@@ -269,62 +197,57 @@ class GroupExplorerViewState extends State<GroupExplorerView> {
     );
   }
 
-  List<GroupedByProduct> _groupGenericsByProduct(
-    List<GroupedByLaboratory> generics,
-  ) {
-    final Map<String, _ProductAggregation> aggregation = {};
+  // WHY: Builds a list of clickable therapy cards that navigate to their respective groups.
+  Widget _buildTherapiesList(List<GroupedByProduct> relatedTherapies) {
+    return SliverList(
+      delegate: SliverChildBuilderDelegate((context, index) {
+        final therapy = relatedTherapies[index];
+        // WHY: Get groupId from the first medicament in the group.
+        final groupId = therapy.medicaments.isNotEmpty
+            ? therapy.medicaments.first.groupId
+            : null;
 
-    for (final group in generics) {
-      for (final medicament in group.products) {
-        final key = _productKey(medicament);
-        final entry = aggregation.putIfAbsent(
-          key,
-          () => _ProductAggregation(
-            productName: medicament.nom,
-            dosage: medicament.dosage,
-            dosageUnit: medicament.dosageUnit,
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          child: Semantics(
+            button: true,
+            label: 'Thérapie associée: ${therapy.productName}',
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: groupId != null
+                    ? () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => GroupExplorerView(
+                              groupId: groupId,
+                              onExit: () => Navigator.of(context).pop(),
+                            ),
+                          ),
+                        );
+                      }
+                    : null,
+                borderRadius: BorderRadius.circular(12),
+                splashColor: ShadTheme.of(
+                  context,
+                ).colorScheme.primary.withValues(alpha: 0.1),
+                highlightColor: ShadTheme.of(
+                  context,
+                ).colorScheme.primary.withValues(alpha: 0.05),
+                child: _buildGroupedProductCard(ShadTheme.of(context), therapy),
+              ),
+            ),
           ),
         );
-
-        final lab = (medicament.titulaire?.trim().isNotEmpty ?? false)
-            ? medicament.titulaire!.trim()
-            : 'Laboratoire Inconnu';
-
-        entry.laboratories.add(lab);
-        entry.codeCips.add(medicament.codeCip);
-      }
-    }
-
-    final groupedProducts = aggregation.values.map((entry) {
-      final laboratories = entry.laboratories.toList()..sort();
-      final codeCips = entry.codeCips.toList();
-
-      return GroupedByProduct(
-        productName: entry.productName,
-        dosage: entry.dosage,
-        dosageUnit: entry.dosageUnit,
-        laboratories: laboratories,
-        codeCips: codeCips,
-      );
-    }).toList()..sort(_compareProducts);
-
-    return groupedProducts;
+      }, childCount: relatedTherapies.length),
+    );
   }
 
-  int _compareProducts(GroupedByProduct a, GroupedByProduct b) {
-    if (_sortOption == SortOption.dosage) {
-      final dosageA = a.dosage ?? double.infinity;
-      final dosageB = b.dosage ?? double.infinity;
-      final comparison = dosageA.compareTo(dosageB);
-      if (comparison != 0) return comparison;
-    }
-    return a.productName.compareTo(b.productName);
-  }
-
-  String _productKey(Medicament medicament) {
-    final dosage = medicament.dosage?.toString() ?? 'null';
-    final unit = medicament.dosageUnit ?? 'null';
-    return '${medicament.nom.toUpperCase()}|$dosage|$unit';
+  int _countPresentations(List<GroupedByProduct> products) {
+    return products.fold<int>(
+      0,
+      (total, group) => total + group.medicaments.length,
+    );
   }
 
   Widget _buildGroupedProductCard(
@@ -333,87 +256,142 @@ class GroupExplorerViewState extends State<GroupExplorerView> {
   ) {
     final labsLabel = product.laboratories.join(', ');
     final dosageLabel = _formatDosage(product.dosage, product.dosageUnit);
+    final count = product.medicaments.length;
+
+    final subtitleText = '$count présentation(s) • Laboratoires: $labsLabel';
+
+    return ShadAccordion<String>(
+      children: [
+        ShadAccordionItem<String>(
+          value: product.productName,
+          title: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      product.productName,
+                      style: theme.textTheme.p.copyWith(
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitleText,
+                      style: theme.textTheme.muted,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              if (dosageLabel != null) ...[
+                const SizedBox(width: 12),
+                Text(dosageLabel, style: theme.textTheme.small),
+              ],
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: ShadAccordion<String>(
+              children: [
+                for (final med in product.medicaments)
+                  ShadAccordionItem<String>(
+                    value: '${product.productName}_${med.codeCip}',
+                    title: Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: MedicamentCard(medicament: med, hideDosage: true),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _buildParsedDetails(
+                        theme,
+                        _medicamentParser.parse(med.nom),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  String? _formatDosage(Decimal? dosage, String? unit) {
+    return formatDosageLabel(dosage: dosage, unit: unit);
+  }
+
+  Widget _buildParsedDetails(
+    ShadThemeData theme,
+    ParsedName parsed,
+  ) {
+    final dosageLabels = parsed.dosages.isEmpty
+        ? 'Aucun dosage détecté'
+        : parsed.dosages
+            .map(
+              (dosage) => dosage.raw ?? '${dosage.value} ${dosage.unit}',
+            )
+            .join(', ');
 
     return ShadCard(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(16),
+      backgroundColor: theme.colorScheme.secondary,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            product.productName,
-            style: theme.textTheme.p.copyWith(fontWeight: FontWeight.w500),
+          _ParsedDetailRow(
+            label: 'Nom canonique détecté',
+            value: parsed.baseName ?? 'Non identifié',
+            theme: theme,
           ),
-          if (dosageLabel != null) ...[
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Icon(
-                  LucideIcons.activity,
-                  size: 14,
-                  color: theme.colorScheme.mutedForeground,
-                ),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Text(
-                    dosageLabel,
-                    style: theme.textTheme.small.copyWith(
-                      color: theme.colorScheme.mutedForeground,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
           const SizedBox(height: 8),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(
-                LucideIcons.building2,
-                size: 14,
-                color: theme.colorScheme.mutedForeground,
-              ),
-              const SizedBox(width: 4),
-              Expanded(
-                child: Text(
-                  'Laboratoires disponibles : $labsLabel',
-                  style: theme.textTheme.small.copyWith(
-                    color: theme.colorScheme.mutedForeground,
-                  ),
-                ),
-              ),
-            ],
+          _ParsedDetailRow(
+            label: 'Dosages structurés',
+            value: dosageLabels,
+            theme: theme,
+          ),
+          const SizedBox(height: 8),
+          _ParsedDetailRow(
+            label: 'Formulation',
+            value: parsed.formulation ?? 'Non identifiée',
+            theme: theme,
           ),
         ],
       ),
     );
   }
-
-  String? _formatDosage(double? dosage, String? unit) {
-    if (dosage == null && unit == null) return null;
-    if (dosage == null) return unit;
-    if (unit == null) return _formatNumber(dosage);
-    return '${_formatNumber(dosage)} $unit';
-  }
-
-  String _formatNumber(double value) {
-    if (value % 1 == 0) {
-      return value.toInt().toString();
-    }
-    return value.toString();
-  }
 }
 
-class _ProductAggregation {
-  _ProductAggregation({
-    required this.productName,
-    required this.dosage,
-    required this.dosageUnit,
+class _ParsedDetailRow extends StatelessWidget {
+  const _ParsedDetailRow({
+    required this.label,
+    required this.value,
+    required this.theme,
   });
 
-  final String productName;
-  final double? dosage;
-  final String? dosageUnit;
-  final Set<String> laboratories = <String>{};
-  final Set<String> codeCips = <String>{};
+  final String label;
+  final String value;
+  final ShadThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: theme.textTheme.small.copyWith(
+            color: theme.colorScheme.mutedForeground,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: theme.textTheme.p,
+        ),
+      ],
+    );
+  }
 }

@@ -1015,10 +1015,13 @@ def validate_active_principle_logic(report, dataframes):
         'comprimé', 'gélule', 'solution', 'injectable', 'poudre', 'sirop',
         'suspension', 'crème', 'pommade', 'gel', 'collyre', 'inhalation'
     }
+    FORMULATION_EXCEPTIONS = {
+        'solution': [re.compile(r'\bsolution\s+de\b', re.IGNORECASE)],
+    }
     
     # Pattern to match standalone numbers (but exclude known molecule names with numbers)
     # Known molecules with numbers in their names (legitimate)
-    KNOWN_NUMBERED_MOLECULES = {'4000', '3350', '980', '940', '6000'}
+    KNOWN_NUMBERED_MOLECULES = {'4000', '3350', '980', '940', '6000', '2,4'}
     NUMBER_PATTERN = re.compile(r'\b(\d+([.,]\d+)?)\b')  # Matches numbers
     
     all_group_ids = gener['group_id'].dropna().unique()
@@ -1058,33 +1061,39 @@ def validate_active_principle_logic(report, dataframes):
                 break  # Only report once
         
         # Check for standalone numbers (excluding known molecule names)
-        number_matches = NUMBER_PATTERN.findall(deterministic_result)
-        for match_tuple in number_matches:
-            number_str = match_tuple[0].replace(',', '.')
-            # Check if it's part of a known molecule name
-            # Look for context: if the number is immediately followed by a space and a word,
-            # it might be a dosage, not a molecule name
+        for match in NUMBER_PATTERN.finditer(deterministic_result):
+            number_token = match.group(1)
+            preceding_char = deterministic_result[match.start() - 1] if match.start() > 0 else ''
+            snippet_start = max(0, match.start() - 2)
+            snippet_end = min(len(deterministic_result), match.end() + 2)
+            snippet_upper = deterministic_result[snippet_start:snippet_end].upper()
+            is_known_molecule = (
+                preceding_char == '-' or
+                any(known in snippet_upper for known in KNOWN_NUMBERED_MOLECULES)
+            )
+            if is_known_molecule:
+                continue
+            
             number_with_context = re.search(
-                rf'\b{re.escape(match_tuple[0])}\s+[a-zA-Z]',
+                rf'\b{re.escape(number_token)}\s+[a-zA-Z]',
                 deterministic_result,
                 re.IGNORECASE
             )
-            # Also check if it's a known numbered molecule (like MACROGOL 4000)
-            is_known_molecule = any(
-                known in deterministic_result.upper() 
-                for known in KNOWN_NUMBERED_MOLECULES
-            )
-            
-            if number_with_context and not is_known_molecule:
+            if number_with_context:
                 contamination_reasons.append("chiffre(s) suspect(s)")
                 break  # Only report once
         
         # Check for formulation keywords as whole words (to avoid false positives)
         # Use word boundaries to avoid matching parts of molecule names
         for keyword in FORMULATION_KEYWORDS:
-            # Match as whole word, case insensitive
             pattern = re.compile(rf'\b{re.escape(keyword)}\b', re.IGNORECASE)
             if pattern.search(deterministic_result):
+                exception_patterns = FORMULATION_EXCEPTIONS.get(keyword, [])
+                if any(
+                    exception_pattern.search(deterministic_result)
+                    for exception_pattern in exception_patterns
+                ):
+                    continue
                 contamination_reasons.append(keyword)
         
         if contamination_reasons:

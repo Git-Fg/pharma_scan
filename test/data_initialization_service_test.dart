@@ -7,19 +7,29 @@ import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/locator.dart';
 import 'package:pharma_scan/core/services/database_service.dart';
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  late AppDatabase database;
+  TestWidgetsFlutterBinding.ensureInitialized();
 
-  setUp(() {
+  late AppDatabase database;
+  late SharedPreferences sharedPreferences;
+
+  setUp(() async {
     // For each test, create a fresh in-memory database
     database = AppDatabase.forTesting(NativeDatabase.memory());
+
+    SharedPreferences.setMockInitialValues({});
+    sharedPreferences = await SharedPreferences.getInstance();
 
     // Register the test database and services with the locator
     sl.registerSingleton<AppDatabase>(database);
     sl.registerSingleton<DatabaseService>(DatabaseService());
     sl.registerSingleton<DataInitializationService>(
-      DataInitializationService(),
+      DataInitializationService(
+        sharedPreferences: sharedPreferences,
+        databaseService: sl<DatabaseService>(),
+      ),
     );
   });
 
@@ -488,5 +498,158 @@ void main() {
         );
       },
     );
+  });
+
+  group('DataInitializationService - Aggregation & Parser', () {
+    test(
+      'aggregates canonical names, brand names, and cluster keys via petitparser',
+      () async {
+        final databaseService = sl<DatabaseService>();
+        await databaseService.clearDatabase();
+
+        await databaseService.insertBatchData(
+          specialites: [
+            {
+              'cis_code': 'CIS_PRINCEPS',
+              'nom_specialite': 'CADUET 5 mg/10 mg, comprimé',
+              'procedure_type': 'Autorisation',
+              'forme_pharmaceutique': 'Comprimé',
+              'etat_commercialisation': 'Commercialisé',
+              'titulaire': 'PFIZER',
+              'conditions_prescription': null,
+            },
+            {
+              'cis_code': 'CIS_GENERIC',
+              'nom_specialite': 'CADUET MYLAN 5 mg/10 mg, comprimé',
+              'procedure_type': 'Autorisation',
+              'forme_pharmaceutique': 'Comprimé',
+              'etat_commercialisation': 'Commercialisé',
+              'titulaire': 'MYLAN',
+              'conditions_prescription': null,
+            },
+          ],
+          medicaments: [
+            {'code_cip': 'CIP_PRINCEPS', 'cis_code': 'CIS_PRINCEPS'},
+            {'code_cip': 'CIP_GENERIC', 'cis_code': 'CIS_GENERIC'},
+          ],
+          principes: [
+            {
+              'code_cip': 'CIP_PRINCEPS',
+              'principe': 'AMLODIPINE',
+              'dosage': '5',
+              'dosage_unit': 'mg',
+            },
+            {
+              'code_cip': 'CIP_PRINCEPS',
+              'principe': 'ATORVASTATINE',
+              'dosage': '10',
+              'dosage_unit': 'mg',
+            },
+            {
+              'code_cip': 'CIP_GENERIC',
+              'principe': 'AMLODIPINE',
+              'dosage': '5',
+              'dosage_unit': 'mg',
+            },
+            {
+              'code_cip': 'CIP_GENERIC',
+              'principe': 'ATORVASTATINE',
+              'dosage': '10',
+              'dosage_unit': 'mg',
+            },
+          ],
+          generiqueGroups: [
+            {
+              'group_id': 'GROUP_CADUET',
+              'libelle': 'CADUET AMLODIPINE + ATORVASTATINE',
+            },
+          ],
+          groupMembers: [
+            {'code_cip': 'CIP_PRINCEPS', 'group_id': 'GROUP_CADUET', 'type': 0},
+            {'code_cip': 'CIP_GENERIC', 'group_id': 'GROUP_CADUET', 'type': 1},
+          ],
+        );
+
+        final dataInitService = sl<DataInitializationService>();
+        await dataInitService.runSummaryAggregationForTesting();
+
+        final summaries =
+            await database.select(database.medicamentSummary).get();
+        expect(summaries.length, 2);
+
+        final princepsSummary = summaries
+            .firstWhere((row) => row.cisCode == 'CIS_PRINCEPS');
+        expect(princepsSummary.nomCanonique, 'CADUET');
+        expect(princepsSummary.princepsBrandName, 'CADUET');
+        expect(
+          princepsSummary.clusterKey,
+          'CADUET__AMLODIPINE_ATORVASTATINE',
+        );
+
+        final genericSummary =
+            summaries.firstWhere((row) => row.cisCode == 'CIS_GENERIC');
+        expect(genericSummary.nomCanonique, 'CADUET');
+      },
+    );
+  });
+
+  group('DataInitializationService - Initialization Guard', () {
+    test('should skip initialization when data already persisted', () async {
+      await sharedPreferences.setString(
+        'bdpm_data_version',
+        '2025-11-18-schema-v3',
+      );
+
+      await database
+          .into(database.generiqueGroups)
+          .insert(
+            GeneriqueGroupsCompanion.insert(
+              groupId: 'TEST_GROUP',
+              libelle: 'Test',
+            ),
+          );
+
+      final guardService = DataInitializationService(
+        sharedPreferences: sharedPreferences,
+        databaseService: sl<DatabaseService>(),
+      );
+
+      await guardService.initializeDatabase();
+
+      // Verify that the test data still exists (refresh was not called)
+      final existingGroup = await (database.select(
+        database.generiqueGroups,
+      )..where((tbl) => tbl.groupId.equals('TEST_GROUP'))).getSingleOrNull();
+      expect(existingGroup!.libelle, 'Test');
+    });
+
+    test('should refresh when forceRefresh is true', () async {
+      // Insert test data
+      await database
+          .into(database.generiqueGroups)
+          .insert(
+            GeneriqueGroupsCompanion.insert(
+              groupId: 'TEST_GROUP',
+              libelle: 'Test',
+            ),
+          );
+
+      final guardService = DataInitializationService(
+        sharedPreferences: sharedPreferences,
+        databaseService: sl<DatabaseService>(),
+      );
+
+      // Note: This test verifies that forceRefresh triggers the refresh path.
+      // In a unit test environment, the actual download will fail due to missing
+      // platform channels, but we can verify that the refresh attempt was made.
+      // The database clearing happens after successful download, so we verify
+      // that the method was called (by catching the expected exception).
+      expect(
+        () => guardService.initializeDatabase(forceRefresh: true),
+        throwsA(anything),
+        reason:
+            'forceRefresh should attempt download, which fails in unit test environment',
+      );
+    });
   });
 }

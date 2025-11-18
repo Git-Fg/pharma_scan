@@ -11,19 +11,27 @@ import 'package:pharma_scan/core/locator.dart';
 import 'package:pharma_scan/core/services/database_service.dart';
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
 import 'package:pharma_scan/main.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   late AppDatabase database;
+  late SharedPreferences sharedPreferences;
 
-  setUp(() {
+  setUp(() async {
     // For each test, create a fresh in-memory database
     database = AppDatabase.forTesting(NativeDatabase.memory());
+
+    SharedPreferences.setMockInitialValues({});
+    sharedPreferences = await SharedPreferences.getInstance();
 
     // Register the test database and services with the locator
     sl.registerSingleton<AppDatabase>(database);
     sl.registerSingleton<DatabaseService>(DatabaseService());
     sl.registerSingleton<DataInitializationService>(
-      DataInitializationService(),
+      DataInitializationService(
+        sharedPreferences: sharedPreferences,
+        databaseService: sl<DatabaseService>(),
+      ),
     );
   });
 

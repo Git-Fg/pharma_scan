@@ -41,66 +41,84 @@ class _InfoBubbleState extends State<InfoBubble> {
   @override
   Widget build(BuildContext context) {
     final theme = ShadTheme.of(context);
-    return Positioned(
-      top: MediaQuery.of(context).padding.top + 20,
-      left: 20,
-      right: 20,
-      child: ShadCard(
-        title: Row(
-          children: [
-            ShadBadge(
-              backgroundColor: theme.colorScheme.primary,
-              child: Text(
-                'GÉNÉRIQUE',
-                style: theme.textTheme.small.copyWith(
-                  color: theme.colorScheme.primaryForeground,
-                  fontWeight: FontWeight.bold,
-                ),
+    final conditionBadge = _buildConditionBadge(
+      theme,
+      widget.medicament.conditionsPrescription,
+    );
+    return ShadCard(
+      title: Row(
+        children: [
+          ShadBadge(
+            backgroundColor: theme.colorScheme.primary,
+            child: Text(
+              'GÉNÉRIQUE',
+              style: theme.textTheme.small.copyWith(
+                color: theme.colorScheme.primaryForeground,
+                fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                widget.medicament.nom,
-                style: theme.textTheme.h4,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-        description: Text(
-          'Princeps Associé(s)',
-          style: theme.textTheme.small.copyWith(
-            color: theme.colorScheme.mutedForeground,
           ),
-        ),
-        footer: Row(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            ShadButton.outline(
-              onPressed: widget.onExplore,
-              leading: const Icon(LucideIcons.search, size: 16),
-              child: const Text('Explorer le Groupe'),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              widget.medicament.nom,
+              style: theme.textTheme.h4,
+              overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(width: 8),
-            ShadButton.destructive(
-              onPressed: widget.onClose,
-              child: const Text('Fermer'),
-            ),
-          ],
-        ),
-        child: Padding(
-          padding: const EdgeInsets.only(top: 8.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: widget.associatedPrinceps.isEmpty
-                ? [Text('Aucun princeps trouvé.', style: theme.textTheme.p)]
-                : widget.associatedPrinceps
-                      .map((p) => Text('• ${p.nom}', style: theme.textTheme.p))
-                      .toList(),
           ),
+          if (conditionBadge != null) ...[
+            const SizedBox(width: 8),
+            conditionBadge,
+          ],
+        ],
+      ),
+      description: Text(
+        'Princeps Associé(s)',
+        style: theme.textTheme.small.copyWith(
+          color: theme.colorScheme.mutedForeground,
+        ),
+      ),
+      footer: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          ShadButton.outline(
+            onPressed: widget.onExplore,
+            leading: const Icon(LucideIcons.search, size: 16),
+            child: const Text('Explorer le Groupe'),
+          ),
+          const SizedBox(width: 8),
+          ShadButton.destructive(
+            onPressed: widget.onClose,
+            child: const Text('Fermer'),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.only(top: 8.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: widget.associatedPrinceps.isEmpty
+              ? [Text('Aucun princeps trouvé.', style: theme.textTheme.p)]
+              : widget.associatedPrinceps
+                    .map((p) => Text('• ${p.nom}', style: theme.textTheme.p))
+                    .toList(),
         ),
       ),
     ).animate().fadeIn(duration: 300.ms).slideY(begin: -0.2, end: 0);
+  }
+
+  Widget? _buildConditionBadge(
+    ShadThemeData theme,
+    String? conditionsPrescription,
+  ) {
+    if (conditionsPrescription == null || conditionsPrescription.isEmpty) {
+      return null;
+    }
+    return ShadBadge.outline(
+      child: Text(
+        conditionsPrescription,
+        style: theme.textTheme.small.copyWith(fontWeight: FontWeight.w600),
+      ),
+    );
   }
 }

@@ -1,47 +1,143 @@
 // lib/features/home/screens/main_screen.dart
 import 'package:flutter/material.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
-import 'package:pharma_scan/features/scanner/screens/camera_screen.dart';
-import 'package:pharma_scan/features/explorer/screens/database_screen.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class MainScreen extends StatefulWidget {
-  const MainScreen({super.key});
+import 'package:pharma_scan/core/locator.dart';
+import 'package:pharma_scan/core/providers/preferences_provider.dart';
+import 'package:pharma_scan/features/home/providers/sync_status_provider.dart';
+import 'package:pharma_scan/core/services/sync_service.dart';
+import 'package:pharma_scan/features/explorer/screens/database_screen.dart';
+import 'package:pharma_scan/features/scanner/screens/camera_screen.dart';
+import 'package:pharma_scan/features/settings/screens/settings_screen.dart';
+import 'package:shadcn_ui/shadcn_ui.dart';
+
+enum InitializationState { initializing, success, error }
+
+class MainScreen extends ConsumerStatefulWidget {
+  final InitializationState initState;
+  final VoidCallback onRetryInitialization;
+
+  const MainScreen({
+    required this.initState,
+    required this.onRetryInitialization,
+    super.key,
+  });
 
   @override
-  State<MainScreen> createState() => _MainScreenState();
+  ConsumerState<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainScreenState extends State<MainScreen> {
+class _MainScreenState extends ConsumerState<MainScreen> {
   int _selectedIndex = 0;
-  String? _groupIdToExplore;
+  final GlobalKey<NavigatorState> _scannerNavigatorKey =
+      GlobalKey<NavigatorState>();
+  final GlobalKey<NavigatorState> _explorerNavigatorKey =
+      GlobalKey<NavigatorState>();
+  final GlobalKey<State<CameraScreen>> _cameraScreenKey = GlobalKey();
+  late final SyncService _syncService = sl<SyncService>();
 
-  void _navigateToExplorerWithGroup(String groupId) {
+  void _onTabChanged(int newIndex) {
     setState(() {
-      _selectedIndex = 1;
-      _groupIdToExplore = groupId;
+      _selectedIndex = newIndex;
     });
+    // WHY: Notify CameraScreen when visibility changes to stop/start camera
+    CameraScreen.onVisibilityChanged(_cameraScreenKey, newIndex == 0);
   }
 
-  void _clearGroupExploration() {
-    setState(() {
-      _groupIdToExplore = null;
+  Future<bool> _triggerSync({bool force = false}) {
+    return _syncService
+        .checkForUpdates(
+          resolveFrequency: () => ref.read(appPreferencesProvider.future),
+          reportStatus: (progress) =>
+              ref.read(syncStatusProvider.notifier).updateStatus(progress),
+          force: force,
+        )
+        .catchError((_) => false);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _triggerSync();
     });
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = ShadTheme.of(context);
+    final titles = ['Scanner', 'Explorer'];
+    final syncProgress = ref.watch(syncStatusProvider);
 
+    // WHY: Each tab has its own Navigator to maintain independent navigation stacks.
+    // This allows proper back button handling within each tab.
     final List<Widget> screens = [
-      CameraScreen(onExploreGroup: _navigateToExplorerWithGroup),
-      DatabaseScreen(
-        groupIdToExplore: _groupIdToExplore,
-        onClearGroup: _clearGroupExploration,
+      Navigator(
+        key: _scannerNavigatorKey,
+        onGenerateRoute: (settings) {
+          return MaterialPageRoute(
+            builder: (context) => CameraScreen(
+              key: _cameraScreenKey,
+              isVisible: _selectedIndex == 0,
+            ),
+          );
+        },
+      ),
+      Navigator(
+        key: _explorerNavigatorKey,
+        onGenerateRoute: (settings) {
+          return MaterialPageRoute(
+            builder: (context) => const DatabaseScreen(),
+          );
+        },
       ),
     ];
 
     return Scaffold(
-      body: IndexedStack(index: _selectedIndex, children: screens),
+      appBar: AppBar(
+        title: Text(
+          titles[_selectedIndex],
+          style: theme.textTheme.h4.copyWith(
+            color: theme.colorScheme.foreground,
+          ),
+        ),
+        backgroundColor: theme.colorScheme.background,
+        elevation: 0,
+        actions: [
+          ShadButton.ghost(
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (context) => const SettingsScreen()),
+              );
+            },
+            leading: const Icon(LucideIcons.settings, size: 20),
+            child: const SizedBox.shrink(),
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
+      body: Column(
+        children: [
+          if (syncProgress.phase != SyncPhase.idle)
+            _SyncStatusBanner(
+                  progress: syncProgress,
+                  onRetry: syncProgress.phase == SyncPhase.error
+                      ? () => _triggerSync(force: true)
+                      : null,
+                )
+                .animate()
+                .fadeIn(duration: 250.ms)
+                .slideY(begin: -0.1, curve: Curves.easeOutCubic),
+          if (widget.initState == InitializationState.error)
+            _InitializationBanner(onRetry: widget.onRetryInitialization)
+                .animate()
+                .fadeIn(duration: 250.ms)
+                .slideY(begin: -0.05, curve: Curves.easeOutCubic),
+          Expanded(
+            child: IndexedStack(index: _selectedIndex, children: screens),
+          ),
+        ],
+      ),
       // WHY: Custom bottom navigation bar using Shadcn theme styling.
       // Positioned at bottom for ergonomic thumb access.
       bottomNavigationBar: Container(
@@ -69,7 +165,7 @@ class _MainScreenState extends State<MainScreen> {
   ) {
     final isSelected = _selectedIndex == index;
     return GestureDetector(
-      onTap: () => setState(() => _selectedIndex = index),
+      onTap: () => _onTabChanged(index),
       behavior: HitTestBehavior.opaque,
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -91,6 +187,137 @@ class _MainScreenState extends State<MainScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _InitializationBanner extends StatelessWidget {
+  final VoidCallback onRetry;
+
+  const _InitializationBanner({required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = ShadTheme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: ShadCard(
+        title: Row(
+          children: [
+            const Icon(Icons.warning_amber_rounded),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Erreur lors de la mise à jour des données',
+                style: theme.textTheme.h4,
+              ),
+            ),
+          ],
+        ),
+        description: Text(
+          'Certaines fonctionnalités peuvent être limitées tant que la base BDPM n’est pas synchronisée.',
+          style: theme.textTheme.muted,
+        ),
+        footer: Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            ShadButton.outline(
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const SettingsScreen(),
+                  ),
+                );
+              },
+              child: const Text('Ouvrir les réglages'),
+            ),
+            const SizedBox(width: 8),
+            ShadButton(onPressed: onRetry, child: const Text('Réessayer')),
+          ],
+        ),
+        child: const SizedBox.shrink(),
+      ),
+    );
+  }
+}
+
+class _SyncStatusBanner extends StatelessWidget {
+  const _SyncStatusBanner({required this.progress, this.onRetry});
+
+  final SyncProgress progress;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = ShadTheme.of(context);
+
+    late final IconData icon;
+    late final String title;
+    final description = progress.message;
+
+    switch (progress.phase) {
+      case SyncPhase.waitingNetwork:
+        icon = LucideIcons.wifiOff;
+        title = 'Connexion requise';
+        break;
+      case SyncPhase.checking:
+        icon = LucideIcons.search;
+        title = 'Recherche de mises à jour';
+        break;
+      case SyncPhase.downloading:
+        icon = LucideIcons.download;
+        title = 'Téléchargement BDPM';
+        break;
+      case SyncPhase.applying:
+        icon = LucideIcons.databaseZap;
+        title = 'Mise à jour locale';
+        break;
+      case SyncPhase.success:
+        icon = LucideIcons.circleCheck;
+        title = 'Synchronisation terminée';
+        break;
+      case SyncPhase.error:
+        icon = LucideIcons.triangleAlert;
+        title = 'Synchronisation échouée';
+        break;
+      case SyncPhase.idle:
+        return const SizedBox.shrink();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: ShadCard(
+        title: Row(
+          children: [
+            Icon(icon, color: theme.colorScheme.primary),
+            const SizedBox(width: 8),
+            Expanded(child: Text(title, style: theme.textTheme.h4)),
+          ],
+        ),
+        description: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (description != null)
+              Text(description, style: theme.textTheme.muted),
+            if (progress.phase == SyncPhase.downloading &&
+                progress.progress != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: ShadProgress(value: progress.progress!),
+              ),
+          ],
+        ),
+        footer: progress.phase == SyncPhase.error && onRetry != null
+            ? Align(
+                alignment: Alignment.centerRight,
+                child: ShadButton.outline(
+                  onPressed: onRetry,
+                  child: const Text('Réessayer'),
+                ),
+              )
+            : null,
+        child: const SizedBox.shrink(),
       ),
     );
   }

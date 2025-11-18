@@ -1,99 +1,84 @@
 // lib/main.dart
 import 'package:flutter/material.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
-import 'package:pharma_scan/features/home/screens/main_screen.dart';
-import 'package:pharma_scan/features/home/screens/loading_screen.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pharma_scan/core/locator.dart';
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
+import 'package:pharma_scan/core/utils/theme_preferences.dart';
+import 'package:pharma_scan/features/home/screens/loading_screen.dart';
+import 'package:pharma_scan/features/home/screens/main_screen.dart';
+import 'package:shadcn_ui/shadcn_ui.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Initialize the service locator
-  setupLocator();
+  await setupLocator();
 
-  runApp(const PharmaScanApp());
+  runApp(const ProviderScope(child: PharmaScanApp()));
 }
 
 class PharmaScanApp extends StatefulWidget {
   const PharmaScanApp({super.key});
 
   @override
-  State<PharmaScanApp> createState() => _PharmaScanAppState();
+  State<PharmaScanApp> createState() => PharmaScanAppState();
+
+  static PharmaScanAppState of(BuildContext context) =>
+      context.findAncestorStateOfType<PharmaScanAppState>()!;
 }
 
-class _PharmaScanAppState extends State<PharmaScanApp> {
-  bool _isInitializing = true;
-  String? _errorMessage;
+class PharmaScanAppState extends State<PharmaScanApp> {
+  InitializationState _initState = InitializationState.initializing;
+  ThemeSetting _themeSetting = ThemeSetting.system;
+
+  ThemeSetting get themeSetting => _themeSetting;
 
   @override
   void initState() {
     super.initState();
+    _loadTheme();
     _initializeDatabase();
+  }
+
+  Future<void> _loadTheme() async {
+    final theme = await ThemePreferences.getTheme();
+    setTheme(theme);
+  }
+
+  void setTheme(ThemeSetting setting) {
+    setState(() {
+      _themeSetting = setting;
+    });
+    ThemePreferences.setTheme(setting);
   }
 
   Future<void> _initializeDatabase() async {
     try {
       setState(() {
-        _errorMessage = null;
-        _isInitializing = true;
+        _initState = InitializationState.initializing;
       });
       await sl<DataInitializationService>().initializeDatabase();
+
       if (mounted) {
         setState(() {
-          _isInitializing = false;
+          _initState = InitializationState.success;
         });
       }
     } catch (e) {
       if (mounted) {
         setState(() {
-          _isInitializing = false;
-          _errorMessage = e.toString();
+          _initState = InitializationState.error;
         });
       }
     }
   }
 
-  void _showErrorDialog(BuildContext context) {
-    showShadDialog(
-      context: context,
-      builder: (context) => ShadDialog.alert(
-        title: const Text('Erreur d\'initialisation'),
-        description: Text(
-          'Impossible d\'initialiser la base de données.\n\n'
-          'Vérifiez votre connexion internet et réessayez.',
-        ),
-        actions: [
-          ShadButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              _initializeDatabase();
-            },
-            child: const Text('Réessayer'),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    // Show error dialog if initialization failed
-    if (_errorMessage != null && !_isInitializing) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && context.mounted && _errorMessage != null) {
-          _showErrorDialog(context);
-          // Clear error message after showing dialog
-          setState(() {
-            _errorMessage = null;
-          });
-        }
-      });
-    }
-
     return ShadApp(
       title: 'PharmaScan',
       debugShowCheckedModeBanner: false,
+      themeMode: ThemePreferences.toThemeMode(_themeSetting),
       theme: ShadThemeData(
         brightness: Brightness.light,
         colorScheme: const ShadZincColorScheme.light(),
@@ -113,9 +98,12 @@ class _PharmaScanAppState extends State<PharmaScanApp> {
       builder: (context, child) {
         return ShadToaster(child: child!);
       },
-      home: _isInitializing
+      home: _initState == InitializationState.initializing
           ? const LoadingScreen()
-          : const MainScreen(), // Navigation principale avec Scanner et Explorer
+          : MainScreen(
+              initState: _initState,
+              onRetryInitialization: _initializeDatabase,
+            ),
     );
   }
 }

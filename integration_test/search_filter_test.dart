@@ -1,220 +1,147 @@
 // integration_test/search_filter_test.dart
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-import 'package:pharma_scan/core/locator.dart';
-import 'package:pharma_scan/core/services/database_service.dart';
+import 'package:pharma_scan/features/explorer/models/search_candidate_model.dart';
+import 'package:pharma_scan/features/explorer/models/search_result_item_model.dart';
+import 'package:pharma_scan/features/explorer/providers/search_provider.dart';
+import 'package:pharma_scan/features/scanner/models/medicament_model.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  setUpAll(() {
-    setupLocator();
-  });
-
-  // Nettoyer et réinitialiser la base de données avant chaque test
-  setUp(() async {
-    await sl<DatabaseService>().clearDatabase();
-  });
-
-  group('Search Filter Integration Tests', () {
-    testWidgets('should filter out homeopathic products by default', (
+  group('Fuzzy search provider integration', () {
+    testWidgets('filters out homeopathic entries by default', (
       WidgetTester tester,
     ) async {
-      // GIVEN: Database with conventional and homeopathic medications with similar names
-      final dbService = sl<DatabaseService>();
-      await dbService.insertBatchData(
-        specialites: [
-          {
-            'cis_code': 'CIS_CONV',
-            'nom_specialite': 'MEDICAMENT TEST',
-            'procedure_type': 'Autorisation',
-          },
-          {
-            'cis_code': 'CIS_HOMEO',
-            'nom_specialite': 'MEDICAMENT TEST HOMEOPATHIQUE',
-            'procedure_type': 'Enreg homéo (Proc. Nat.)',
-          },
+      final container = ProviderContainer(
+        overrides: [
+          searchCandidatesProvider.overrideWith(
+            (ref) async => [
+              _buildCandidate(
+                cisCode: 'CIS_CONV',
+                nomCanonique: 'MEDICAMENT TEST',
+                groupId: 'GROUP_CONV',
+                isPrinceps: true,
+                procedureType: 'Autorisation',
+                medicamentName: 'MEDICAMENT TEST',
+              ),
+              _buildCandidate(
+                cisCode: 'CIS_HOMEO',
+                nomCanonique: 'MEDICAMENT HOMEO',
+                groupId: 'GROUP_HOMEO',
+                isPrinceps: true,
+                procedureType: 'Enreg homéo (Proc. Nat.)',
+                medicamentName: 'MEDICAMENT HOMEO',
+              ),
+            ],
+          ),
         ],
-        medicaments: [
-          {
-            'code_cip': 'CIP_CONV',
-            'nom': 'MEDICAMENT TEST',
-            'cis_code': 'CIS_CONV',
-          },
-          {
-            'code_cip': 'CIP_HOMEO',
-            'nom': 'MEDICAMENT TEST HOMEOPATHIQUE',
-            'cis_code': 'CIS_HOMEO',
-          },
-        ],
-        principes: [],
-        generiqueGroups: [],
-        groupMembers: [],
+      );
+      addTearDown(container.dispose);
+
+      final results = await container.read(
+        searchResultsProvider('medicament').future,
       );
 
-      // WHEN: Search with showAll: false (default)
-      final results = await dbService.searchMedicaments(
-        'medicament',
-        showAll: false,
-      );
-
-      // THEN: Only conventional medication should appear
+      expect(results, isA<List<SearchResultItem>>());
       expect(results.length, 1);
-      expect(results.first.nom, 'MEDICAMENT TEST');
-      expect(results.first.codeCip, 'CIP_CONV');
-    });
-
-    testWidgets('should include homeopathic products when filter is disabled', (
-      WidgetTester tester,
-    ) async {
-      // GIVEN: Database with conventional and homeopathic medications
-      final dbService = sl<DatabaseService>();
-      await dbService.insertBatchData(
-        specialites: [
-          {
-            'cis_code': 'CIS_CONV',
-            'nom_specialite': 'MEDICAMENT TEST',
-            'procedure_type': 'Autorisation',
-          },
-          {
-            'cis_code': 'CIS_HOMEO',
-            'nom_specialite': 'MEDICAMENT TEST HOMEOPATHIQUE',
-            'procedure_type': 'Enreg homéo (Proc. Nat.)',
-          },
-        ],
-        medicaments: [
-          {
-            'code_cip': 'CIP_CONV',
-            'nom': 'MEDICAMENT TEST',
-            'cis_code': 'CIS_CONV',
-          },
-          {
-            'code_cip': 'CIP_HOMEO',
-            'nom': 'MEDICAMENT TEST HOMEOPATHIQUE',
-            'cis_code': 'CIS_HOMEO',
-          },
-        ],
-        principes: [],
-        generiqueGroups: [],
-        groupMembers: [],
-      );
-
-      // WHEN: Search with showAll: true
-      final results = await dbService.searchMedicaments(
-        'medicament',
-        showAll: true,
-      );
-
-      // THEN: Both products should appear
-      expect(results.length, 2);
-      expect(
-        results.map((m) => m.nom),
-        containsAll(['MEDICAMENT TEST', 'MEDICAMENT TEST HOMEOPATHIQUE']),
+      results.first.when(
+        princepsResult:
+            (unusedPrinceps, unusedGenerics, groupId, unusedPrinciples) {
+              expect(groupId, 'GROUP_CONV');
+            },
+        genericResult:
+            (unusedGeneric, unusedPrinceps, groupId, unusedPrinciples) {
+              expect(groupId, 'GROUP_CONV');
+            },
+        standaloneResult: (unusedMedicament, unusedPrinciples) {
+          fail('Expected grouped result for filtered search');
+        },
       );
     });
 
-    testWidgets('should re-apply filter when toggled back on', (
+    testWidgets('returns grouped princeps results with generics', (
       WidgetTester tester,
     ) async {
-      // GIVEN: Database with conventional and homeopathic medications
-      final dbService = sl<DatabaseService>();
-      await dbService.insertBatchData(
-        specialites: [
-          {
-            'cis_code': 'CIS_CONV',
-            'nom_specialite': 'MEDICAMENT TEST',
-            'procedure_type': 'Autorisation',
-          },
-          {
-            'cis_code': 'CIS_HOMEO',
-            'nom_specialite': 'MEDICAMENT TEST HOMEOPATHIQUE',
-            'procedure_type': 'Enreg homéo (Proc. Nat.)',
-          },
+      final container = ProviderContainer(
+        overrides: [
+          searchCandidatesProvider.overrideWith(
+            (ref) async => [
+              _buildCandidate(
+                cisCode: 'CIS_PRINCEPS',
+                nomCanonique: 'DOLIPRANE',
+                groupId: 'GROUP_1',
+                isPrinceps: true,
+                procedureType: 'Autorisation',
+                medicamentName: 'DOLIPRANE 500mg',
+                commonPrinciples: ['PARACETAMOL'],
+              ),
+              _buildCandidate(
+                cisCode: 'CIS_GENERIC',
+                nomCanonique: 'DOLIPRANE GENERIQUE',
+                groupId: 'GROUP_1',
+                isPrinceps: false,
+                procedureType: 'Autorisation',
+                medicamentName: 'DOLIPRANE GENERIQUE',
+                commonPrinciples: ['PARACETAMOL'],
+              ),
+            ],
+          ),
         ],
-        medicaments: [
-          {
-            'code_cip': 'CIP_CONV',
-            'nom': 'MEDICAMENT TEST',
-            'cis_code': 'CIS_CONV',
-          },
-          {
-            'code_cip': 'CIP_HOMEO',
-            'nom': 'MEDICAMENT TEST HOMEOPATHIQUE',
-            'cis_code': 'CIS_HOMEO',
-          },
-        ],
-        principes: [],
-        generiqueGroups: [],
-        groupMembers: [],
+      );
+      addTearDown(container.dispose);
+
+      final results = await container.read(
+        searchResultsProvider('doliprane').future,
       );
 
-      // WHEN: Search with showAll: true (filter off)
-      final resultsWithAll = await dbService.searchMedicaments(
-        'medicament',
-        showAll: true,
-      );
-      expect(resultsWithAll.length, 2);
-
-      // WHEN: Search again with showAll: false (filter on)
-      final resultsFiltered = await dbService.searchMedicaments(
-        'medicament',
-        showAll: false,
-      );
-
-      // THEN: Only conventional medication should appear again
-      expect(resultsFiltered.length, 1);
-      expect(resultsFiltered.first.nom, 'MEDICAMENT TEST');
-      expect(resultsFiltered.first.codeCip, 'CIP_CONV');
-    });
-
-    testWidgets('should search by active ingredient with filter applied', (
-      WidgetTester tester,
-    ) async {
-      // GIVEN: Database with medications having active ingredients
-      final dbService = sl<DatabaseService>();
-      await dbService.insertBatchData(
-        specialites: [
-          {
-            'cis_code': 'CIS_1',
-            'nom_specialite': 'MEDICAMENT CONVENTIONNEL',
-            'procedure_type': 'Autorisation',
-          },
-          {
-            'cis_code': 'CIS_2',
-            'nom_specialite': 'MEDICAMENT HOMEOPATHIQUE',
-            'procedure_type': 'Enreg homéo (Proc. Nat.)',
-          },
-        ],
-        medicaments: [
-          {
-            'code_cip': 'CIP1',
-            'nom': 'MEDICAMENT CONVENTIONNEL',
-            'cis_code': 'CIS_1',
-          },
-          {
-            'code_cip': 'CIP2',
-            'nom': 'MEDICAMENT HOMEOPATHIQUE',
-            'cis_code': 'CIS_2',
-          },
-        ],
-        principes: [
-          {'code_cip': 'CIP1', 'principe': 'PARACETAMOL'},
-          {'code_cip': 'CIP2', 'principe': 'PARACETAMOL'},
-        ],
-        generiqueGroups: [],
-        groupMembers: [],
-      );
-
-      // WHEN: Search by active ingredient with showAll: false (filter active)
-      final results = await dbService.searchMedicaments(
-        'paracetamol',
-        showAll: false,
-      );
-
-      // THEN: Only conventional medication with the active ingredient should be returned
       expect(results.length, 1);
-      expect(results.first.nom, 'MEDICAMENT CONVENTIONNEL');
-      expect(results.first.codeCip, 'CIP1');
+      final first = results.first;
+      first.when(
+        princepsResult: (princeps, generics, groupId, commonPrinciples) {
+          expect(groupId, 'GROUP_1');
+          expect(princeps.nom, contains('DOLIPRANE'));
+          expect(generics.length, 1);
+          expect(commonPrinciples, contains('PARACETAMOL'));
+        },
+        genericResult:
+            (
+              unusedGeneric,
+              unusedPrincepsList,
+              unusedGroupId,
+              unusedPrinciples,
+            ) => fail('Expected princeps result for group'),
+        standaloneResult: (unusedMedicament, unusedPrinciples) =>
+            fail('Expected grouped result, not standalone'),
+      );
     });
   });
+}
+
+SearchCandidate _buildCandidate({
+  required String cisCode,
+  required String nomCanonique,
+  required bool isPrinceps,
+  required String procedureType,
+  required String medicamentName,
+  String? groupId,
+  List<String> commonPrinciples = const ['PARACETAMOL'],
+}) {
+  return SearchCandidate(
+    cisCode: cisCode,
+    nomCanonique: nomCanonique,
+    isPrinceps: isPrinceps,
+    groupId: groupId,
+    commonPrinciples: commonPrinciples,
+    princepsDeReference: 'PRINCEPS REF',
+    formePharmaceutique: 'Comprimé',
+    procedureType: procedureType,
+    medicament: Medicament(
+      nom: medicamentName,
+      codeCip: '$cisCode-CIP',
+      principesActifs: commonPrinciples,
+      formePharmaceutique: 'Comprimé',
+    ),
+  );
 }

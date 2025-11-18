@@ -16,19 +16,29 @@ This workflow applies to any code written or modified within the `lib/` director
 
 2. **Implement:** Write clean, performant code, strictly adhering to the technical best practices defined in this document.
 
-3. **Generate Code (NEW):** If you modify any data models (files annotated with `@freezed`), you **MUST** run the code generator to apply your changes.
+    * **Update Tests Concurrently:** If your changes affect existing business logic, you **MUST** update the corresponding unit or integration tests in the same scope of work. Tests are not an afterthought; they are an integral part of the implementation.
+
+3. **Generate Code:** If you modify any data models (files annotated with `@freezed` or `@DriftDatabase`), you **MUST** run the code generator to apply your changes.
 
     ```bash
     flutter pub run build_runner build --delete-conflicting-outputs
     ```
 
-4. **Verify (The Quality Gate):** Before finalizing your changes, you are responsible for validating your work. Execute the unified verification command:
+4. **Verify (The Quality Gate):** Before finalizing your changes, you are responsible for validating your work.
 
-    ```bash
-    flutter pub run build_runner build --delete-conflicting-outputs && flutter analyze && flutter test
-    ```
+    1. **Execute the Unified Verification Command:**
 
-    This command generates freezed code, analyzes static code quality, and runs the unit and widget test suite. You **MUST** resolve all errors and critical warnings it reports.
+        ```bash
+        flutter pub run build_runner build --delete-conflicting-outputs && flutter analyze && flutter test
+        ```
+
+        This command generates code, analyzes static quality, and runs the full test suite. You **MUST** resolve all errors and critical warnings it reports.
+
+    2. **Run Relevant Integration Tests:** After the Quality Gate passes, you **MUST** identify and run any integration tests relevant to your changes to confirm end-to-end functionality.
+
+        * *Example*: A change in `DatabaseService` requires re-running `data_pipeline_test.dart` and `generic_group_summaries_test.dart`.
+        * *Example*: A change in `Gs1Parser` requires re-running `image_scanning_test.dart`.
+        * *Example*: Any update to deterministic grouping/validation logic (`DataInitializationService`, `DatabaseService`, or `data_validator.py`) requires re-running `integration_test/active_principle_grouping_test.dart`.
 
 ---
 
@@ -40,6 +50,13 @@ These are the fundamental code quality principles for this project.
 
 * **Comments Explain the "Why":** Comments should justify a design decision or clarify complex logic (`// WHY: ...`), not describe what the code does.
 * **Zero Debugging Artifacts:** Before finalizing your changes, you **MUST** remove all `print()`, `debugPrint()`, and commented-out code.
+
+#### **2.1.1. CRITICAL: Strict Adherence to Task Scope**
+
+* **Rule of Focused Modification:** You **MUST** confine your modifications exclusively to the files and logic directly related to the current task, unless explicitly instructed otherwise.
+* **Prohibition of Unsolicited Corrections:** You **MUST NEVER** perform "iterative corrections" or refactor code in files outside your assigned scope, even if you identify a potential error or inconsistency.
+* **WHY:** This policy is critical to prevent scope creep, avoid introducing unintended side effects in unrelated modules, and maintain overall project stability. Each change must be deliberate and traceable to a specific request.
+* **Correct Protocol:** If you identify a potential issue outside your current scope, you should report it as a separate concern to be addressed in a future, dedicated task. Do not fix it proactively.
 
 ### 2.2. Design System: Centralized Strategy with Shadcn UI
 
@@ -80,11 +97,17 @@ These are the fundamental code quality principles for this project.
 
 ### 2.3. State Management: Minimalist and Local Approach
 
-**Simplicity Principle:** The PharmaScan application is designed to be simple. We will **NOT** use a global state management solution (like Riverpod, BLoC, etc.) unless future complexity absolutely requires it.
+**Simplicity Principle:** Local `StatefulWidget` state remains the default. Riverpod is reserved for *targeted* cross-layer telemetry (e.g., background sync status or persisted preferences) where multiple widgets/services must observe the same source of truth.
 
-* **`StatefulWidget` is the Standard:** UI state (like `_isCameraActive` or the `_infoBubbles` list) **MUST** be managed locally using `StatefulWidget` and `setState`.
-* **No Global State:** State is not shared between screens. This constraint maintains simplicity, predictability, and performance.
-* **Service Access:** Widgets can instantiate and directly call service classes (like `DatabaseService`) as there is no complex logic to orchestrate.
+* **`StatefulWidget` is still the Standard:** UI concerns such as `_isCameraActive`, `_infoBubbles`, or form inputs **MUST** be stored via local state and updated with `setState`.
+* **Scoped Riverpod Usage:** Only introduce providers when data needs to be shared outside a single widget tree (e.g., `syncStatusProvider`, `updateFrequencyProvider`). Providers MUST wrap services already registered in `get_it` and should expose read-only state wherever possible.
+* **No Global Mutable Singletons:** State is never stored in static fields or global variables. Riverpod + services replace the need for ad-hoc globals while keeping logic testable.
+* **Service Access:** Widgets retrieve business services through `sl<T>()` (or Riverpod providers built on top of it) and never embed parsing/business logic directly in the UI layer.
+* **ProviderScope coverage:** Every rendered widget tree (including tests via `pumpWidget`) MUST start with a `ProviderScope`. Missing scopes trigger `Bad state: No ProviderScope found` failures.
+* **AsyncValue handling:** Always render loading/error branches via `AsyncValue.when(...)`. Only call `.requireValue` after an eager-init guard consumed the non-data states.
+* **Avoid async gaps disposing providers:** Watch `autoDispose` providers before hitting an `await` boundary. The Riverpod docs highlight that the previous pattern (`await` then `ref.watch`) forces the provider to pause/dispose.
+* **Prefer `@riverpod`-generated Notifiers:** Shared state belongs in code-generated Notifiers/AsyncNotifiers (via `riverpod_annotation`) so `riverpod_lint` enforces encapsulation. Expose imperative APIs (`updateStatus()`, `increment()`) instead of mutating `state` externally.
+* **Static provider declarations:** Providers must be top-level `final` values. Never create providers dynamically inside builds; static declarations unlock caching, hot reload consistency, and linting.
 
 ### 2.4. Architecture: Strict Two-Layer Separation
 
@@ -112,7 +135,8 @@ The application enforces a simple but strict two-layer architecture.
 * **Targeted Scanning:** The `MobileScannerController` **MUST** be configured to detect only `BarcodeFormat.dataMatrix` to minimize CPU usage.
 * **Asynchronous Operations:** Any long-running operation (DB query, file parsing) **MUST** be `async` to avoid blocking the UI thread.
 * **Duplicate Scan Prevention:** Logic (e.g., a `Set` of recently scanned CIP codes) **MUST** be implemented to prevent displaying the same info bubble multiple times in rapid succession.
-* **Efficient Database Queries:** Complex queries should use CTE (Common Table Expression) for pagination and filtering. Group results in Dart when algorithmic processing is needed (e.g., common prefix detection) rather than relying solely on SQL aggregation.
+* **Efficient Database Queries:** Complex queries use CTE (Common Table Expression) for pagination and filtering. Algorithmic processing in Dart (e.g., common prefix detection) is used for robust grouping.
+* **Full-Text Search:** The application utilizes SQLite's FTS5 extension to provide fast, typo-tolerant searching across medication names, CIPs, and active ingredients, replacing slower `LIKE` queries.
 * **Pagination:** Large result sets **MUST** be paginated to maintain UI responsiveness. Use infinite scroll with proper offset/limit management.
 
 ### 2.6. Data Model: Deterministic Generic Group Relationships
@@ -132,23 +156,25 @@ The application enforces a simple but strict two-layer architecture.
   * `generique_groups` - Generic groups (group_id, libelle)
   * `group_members` - Group membership (code_cip, group_id, type)
     * `type = 0` for princeps, `type = 1` for generic
+  * `medicament_summary` - **Single row per CIS** storing the canonical name (dosage/form stripped), princeps/generic flag, `group_id`, JSON-encoded shared active principles, `princeps_de_reference`, and `forme_pharmaceutique`. _All_ explorer/search/scan read paths must consult this table instead of recomputing joins at runtime.
 
 * **Generic Detection:** Uses explicit group relationships from `group_members` table. **NEVER** infer generic relationships from active ingredient matching.
 
-* **Data Extraction:** **CRITICAL - NO REGEX OR HEURISTICS**: All data extraction is performed through structured parsing of official TXT files. The application **MUST NEVER** use regex patterns, string manipulation, or heuristic approximations to extract data (e.g., laboratory names, dosages, active ingredient names). All data comes directly from the structured columns of the official BDPM files:
-  * Laboratory (titulaire) comes from column 10 of `CIS_bdpm.txt`
-  * Dosage comes from column 4 of `CIS_COMPO_bdpm.txt` and is parsed into numeric value and unit
-  * Common active ingredients for groups are extracted via SQL joins on the `principes_actifs` table, not by parsing group labels
+* **Data Extraction:** Must be validated with the python script.
 
 * **Princeps Name Grouping:** The application uses an algorithmic word-based approach to find common base names for princeps within the same group. The `findCommonPrincepsName()` helper function in `lib/core/utils/medicament_helpers.dart` compares medication names word-by-word to identify the longest common prefix. This replaces fragile regex-based extraction and provides robust, deterministic grouping results.
 
 * **Data Initialization:** `DataInitializationService` downloads TXT files directly, parses tab-separated values, and populates the relational schema. All complex fallback logic and regex-based extraction has been removed.
+  * **Phase 1 – Staging:** Populate normalized tables (`specialites`, `medicaments`, `principes_actifs`, `generique_groups`, `group_members`) exactly as parsed from BDPM.
+  * **Phase 2 – Aggregation:** Immediately call `_aggregateDataForSummary()` to recalculate every `medicament_summary` row. **No UI/service is allowed to backfill this table on-demand.**
+
+* **Reset Policy:** `DatabaseService.clearDatabase()` must wipe both the staging tables and `medicament_summary`. Any developer utility that seeds test data **MUST** call `populateMedicamentSummary()` (see `test/database_service_test.dart`) before asserting on explorer/search behaviors.
 
 * **Database Migration:** When the schema changes, a migration strategy is defined in `AppDatabase.migration`. For development, migrations recreate tables with the new schema. In production, proper `ALTER TABLE` migrations would be implemented.
 
-#### **2.6.1. Data Source Integrity Verification (`data_validator.py`)**
+#### **2.6.1. Data Source Integrity Auditor**
 
-To ensure the absolute integrity of the application's data logic, an external Python audit script (`data_validator.py`) is provided. This script downloads the latest versions of the BDPM files and performs an in-depth analysis to validate all assumptions made by the Flutter parsing logic.
+`data_validator.py` is the **definitive tool** for auditing the raw BDPM data format and the assumptions made by the Dart parser. This external Python audit script downloads the latest versions of the BDPM files and performs an in-depth analysis to validate all assumptions made by the Flutter parsing logic.
 
 **When to Use:** You **MUST** run this script whenever you have the slightest doubt about the data's integrity, especially in the following scenarios:
 
@@ -161,12 +187,22 @@ To ensure the absolute integrity of the application's data logic, an external Py
 The project is configured to use `uv`, a modern Python project and package manager. It automatically handles the script's dependencies (`pandas`, `requests`) in a temporary environment. No manual `pip install` or `requirements.txt` is needed.
 
 ```bash
-uv run python data_validator.py
+uv run python data_validation/data_validator.py
 ```
 
 The script generates a detailed audit report located at `data_validation/rapport_final.txt`.
 
-- **NOUVELLE ÉTAPE (Étape 13)** : le script compare la logique heuristique historique avec la jointure déterministe et exécute un audit de « propreté » sur tous les groupes. Si la moindre trace de posologie (`mg`, `ml`, `%`, etc.) ou de mots de formulation (`comprimé`, `gélule`, `solution`, etc.) est détectée dans les résultats déterministes, le rapport liste les groupes concernés pour investigation immédiate. Cette étape DOIT rester verte avant toute refactorisation de la logique Dart.
+#### **2.6.2. Prototyping with the Product Classifier**
+
+`product_classifier.py` is a **developer utility** for rapidly testing and validating grouping logic with `pandas` before implementing it in Dart. This lightweight companion script mirrors the Drift joins with `pandas` and prints a human-readable summary (reference princeps name, common principles, dosages, forms) for any `group_id`. This tool is positioned as a **development aid** to facilitate rapid iteration during feature development, rather than a mandatory validation step.
+
+* **How to Run:**
+
+    ```bash
+    uv run python data_validation/product_classifier.py
+    ```
+
+* **Workflow:** Edit the `test_group_ids` list inside the script to target specific BDPM groups, then review the printed analysis to validate naming, dosage coverage, and formulation diversity.
 
 ### 2.7. Architecture: Tooling & Enhancements
 
@@ -179,20 +215,41 @@ To improve robustness and maintainability, the project uses specific tooling tha
   * **Code Generation:** After modifying any `@freezed` class, **MUST** run `flutter pub run build_runner build --delete-conflicting-outputs`.
 
 * **Service Location (`get_it`):** The project uses `get_it` as a simple service locator to decouple the UI layer from service implementations. Widgets **MUST** retrieve service instances (like `DatabaseService`) from the central locator (`sl<T>()`) instead of using static singletons. This improves testability by allowing mock services to be injected during widget tests.
+* **Background Sync (`SyncService` + `AppPreferences` provider):** Automatic BDPM refreshes are orchestrated by `SyncService`, which (a) reads user preferences from the Riverpod-backed `AppPreferences` provider (SharedPreferences under the hood), (b) waits for network connectivity, (c) hashes each downloaded TXT file, and (d) triggers `DataInitializationService.initializeDatabase(forceRefresh: true)` when any hash changes. UI surfaces progress via Riverpod (`syncStatusProvider`), so new flows MUST publish state through providers rather than ad-hoc callbacks. Manual syncs (e.g., Settings) must call `checkForUpdates(force: true)` to reuse the same pipeline.
 
 * **Type-Safe Database (`drift`):** All database interactions **MUST** be performed through the `drift` ORM. Raw SQL strings are strictly forbidden in service-layer code. `drift` generates a type-safe API from Dart-based schema definitions, providing compile-time safety for all queries and eliminating runtime SQL errors.
   * **Schema Definition:** Database schema is defined in `lib/core/database/database.dart` using Dart table classes (`@DriftDatabase`). After schema changes, **MUST** run `flutter pub run build_runner build --delete-conflicting-outputs` to regenerate type-safe query methods.
-  * **Query Pattern:** Use drift's type-safe query builder API (`select()`, `where()`, `join()`) instead of raw SQL strings. For complex queries, use `customSelect()` as a last resort. When using `customSelect()`, prefer CTE (Common Table Expression) for complex pagination and filtering scenarios.
+  * **Query Pattern for Simple Queries:** For basic CRUD operations, **MUST** use drift's type-safe query builder API (`select()`, `where()`, `join()`).
+  * **Query Pattern for Complex Queries:** For all complex queries (e.g., those with CTEs, subqueries, or complex joins), you **MUST** use **`.drift` files**. Raw SQL strings via `customSelect()` are strictly forbidden. Queries are defined in `.drift` files, which provide full SQL syntax highlighting, IDE support, and compile-time validation against the Dart schema.
+  * **Dynamic Queries:** For queries that require dynamic `WHERE` clauses, the standard is a **hybrid approach**: define the static part of the query (e.g., `SELECT` and `JOIN`s) in a `.drift` file, and then apply dynamic filters in Dart using the fluent `.where()` method on the generated `Selectable`.
   * **Companion Objects:** When inserting data from Maps, manually convert to Companion objects using `Companion(column: Value(data))` syntax. Drift does not provide `.fromJson()` on Companions.
   * **Testing:** Use `AppDatabase.forTesting(NativeDatabase.memory())` for in-memory test databases. This ensures complete test isolation without file system dependencies.
-  * **Avoid:** Never write raw SQL strings in service code. Never access `database` getter directly (use service methods instead). Never skip code generation after schema changes.
+  * **Avoid:** Never use `customSelect()` or write raw SQL strings in service code. Never access `database` getter directly (use service methods instead). Never skip code generation after schema or `.drift` file changes.
   * **Algorithmic Processing:** When grouping or processing data requires word-based algorithms (e.g., finding common prefixes), perform the grouping in Dart after fetching individual rows from the database. This allows for more robust and maintainable logic compared to complex SQL aggregation.
+
+### 2.8. Navigation with Nested Navigators
+
+The application uses a robust **Nested Navigator** pattern to manage navigation stacks independently for each main tab (Scanner, Explorer). This provides a predictable user experience and correctly handles the Android system back button without manual state management.
+
+* **Tab-Specific Stacks:** `MainScreen` contains an `IndexedStack` where each child is a `Navigator` widget, not a screen. This gives the Scanner tab and the Explorer tab their own isolated navigation histories.
+
+* **Seamless Navigation:** When a user scans a code and taps "Explore Group," the `GroupExplorerView` is pushed onto the Scanner tab's local navigator stack. Hitting "Back" correctly pops this view and returns to the camera screen.
+
+* **Preserved State:** Switching between tabs preserves the navigation state of each stack. A user can navigate deep into a group on the Explorer tab, switch to the Scanner tab, and then return to the Explorer tab to find their navigation history intact.
+
+* **No `PopScope`:** This architecture eliminates the need for `PopScope` and complex state-tracking callbacks to manage back button behavior. The Flutter framework handles the navigation stack automatically and correctly.
 
 ---
 
 ## 3. Development Toolkit & Commands
 
 Use the standard command-line tools to manage the project.
+
+### Pre-Test Tooling
+
+* Run `dart run tool/prepare_test_data.dart` (supports `--force` and `--dir=/abs/path`) before the Quality Gate to cache the official BDPM TXT payloads inside `.dart_tool/bdpm_cache`. This prevents repeated network downloads during integration tests.
+* The cache directory is auto-detected. Override it by exporting `PHARMA_BDPM_CACHE=/absolute/path/to/cache` so both app runtime and tests reuse the same fixtures.
+* Integration tests MUST seed data via `ensureIntegrationTestDatabase()` (`integration_test/test_bootstrap.dart`). This helper seeds once per run using the cached TXT files and removes any direct calls to `DataInitializationService.initializeDatabase()` inside tests.
 
 * **Install/Update Dependencies:**
 
@@ -219,10 +276,11 @@ Use the standard command-line tools to manage the project.
     ```
 
 * **Test Suite:**
-  * The project includes a comprehensive test suite with unit, widget, and integration tests.
-  * **Unit Tests**: Cover critical business logic including GS1 Data Matrix parsing, TXT data initialization, and all database service operations (search, generic group relationships, statistics).
+  * The project includes a comprehensive test suite with unit, widget, and integration tests. All tests **MUST** remain optimal and up-to-date.
+  * **Unit Tests**: Cover critical business logic including GS1 Data Matrix parsing, TXT data initialization, and all database service operations.
   * **Widget Tests**: Verify that core UI components render correctly.
-  * **Integration Tests**: Validate end-to-end user flows, such as the complete data initialization pipeline, barcode scanning from static images, and algorithmic princeps grouping with real TXT data.
+  * **Integration Tests**: Validate end-to-end user flows, such as the complete data initialization pipeline, barcode scanning from static images, and algorithmic princeps grouping.
+  * **Test Maintenance is Mandatory:** Any modification to existing logic **MUST** be accompanied by a corresponding update to the relevant tests. A feature or fix is not considered complete until its tests are updated and passing.
   * **Note**: All tests utilize `drift`'s in-memory database for fast, isolated, and reliable execution without file system dependencies.
 
 * **Update App Launcher Icons:**

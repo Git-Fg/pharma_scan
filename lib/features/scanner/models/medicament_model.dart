@@ -1,4 +1,5 @@
 // lib/features/scanner/models/medicament_model.dart
+import 'package:decimal/decimal.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'medicament_model.freezed.dart';
@@ -11,7 +12,10 @@ abstract class Medicament with _$Medicament {
     required List<String> principesActifs,
     String? titulaire,
     String? formePharmaceutique,
-    double? dosage,
+    Decimal? dosage,
     String? dosageUnit,
+    String? groupId,
+    int? groupMemberType,
+    String? conditionsPrescription,
   }) = _Medicament;
 }

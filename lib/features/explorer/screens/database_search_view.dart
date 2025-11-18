@@ -1,178 +1,35 @@
 // lib/features/explorer/screens/database_search_view.dart
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:pharma_scan/features/explorer/models/generic_group_summary_model.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pharma_scan/features/explorer/models/search_result_item_model.dart';
+import 'package:pharma_scan/features/scanner/models/medicament_model.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:pharma_scan/core/locator.dart';
 import 'package:pharma_scan/core/services/database_service.dart';
-import 'package:pharma_scan/features/explorer/models/explorer_enums.dart';
-import 'package:pharma_scan/features/explorer/widgets/medicament_card.dart';
-import 'package:pharma_scan/features/scanner/models/medicament_model.dart';
-import 'package:pharma_scan/features/scanner/models/scan_result_model.dart';
+import 'package:pharma_scan/features/explorer/providers/group_cluster_provider.dart';
+import 'package:pharma_scan/features/explorer/providers/search_provider.dart';
+import 'package:pharma_scan/features/explorer/screens/cluster_detail_view.dart';
+import 'package:pharma_scan/features/explorer/screens/group_explorer_view.dart';
 
-class DatabaseSearchView extends StatefulWidget {
-  final Function(String) onGroupSelected;
-
-  const DatabaseSearchView({required this.onGroupSelected, super.key});
+class DatabaseSearchView extends ConsumerStatefulWidget {
+  const DatabaseSearchView({super.key});
 
   @override
-  State<DatabaseSearchView> createState() => DatabaseSearchViewState();
+  ConsumerState<DatabaseSearchView> createState() => DatabaseSearchViewState();
 }
 
-class DatabaseSearchViewState extends State<DatabaseSearchView> {
+class DatabaseSearchViewState extends ConsumerState<DatabaseSearchView> {
   Map<String, dynamic>? _stats;
-  List<Medicament> _searchResults = [];
-  bool _isSearching = false;
   final TextEditingController _searchController = TextEditingController();
   final DatabaseService _dbService = sl<DatabaseService>();
+  Timer? _searchDebounce;
+  static const _searchDebounceDuration = Duration(milliseconds: 300);
+  String _activeQuery = '';
 
-  bool _showAllProducts = false;
-  List<GenericGroupSummary> _genericGroupSummaries = [];
-  bool _isLoadingSummaries = false;
-
-  // Pagination state
-  int _currentOffset = 0;
-  bool _hasMore = true;
-  bool _isLoadingMore = false;
   late ScrollController _scrollController;
   late ScrollController _searchScrollController;
-  static const int _pageSize = 50;
-
-  FormCategory _selectedCategory = FormCategory.oral;
-
-  final Map<FormCategory, List<String>> _categoryKeywords = {
-    FormCategory.oral: [
-      'comprimé',
-      'gélule',
-      'capsule',
-      'lyophilisat',
-      'comprimé orodispersible',
-      'film orodispersible',
-      'gomme',
-      'gomme à mâcher',
-      'pastille',
-      'pastille à sucer',
-      'plante pour tisane',
-      'plantes pour tisane',
-      'plante(s) pour tisane',
-      'mélange de plantes pour tisane',
-      'plante en vrac',
-    ],
-    FormCategory.syrup: ['sirop', 'suspension buvable'],
-    FormCategory.drinkableDrops: [
-      'solution buvable',
-      'gouttes buvables',
-      'solution en gouttes',
-      'solution gouttes',
-    ],
-    FormCategory.sachet: [
-      'sachet',
-      'poudre pour solution buvable',
-      'poudre pour suspension buvable',
-      'granulé',
-      'granules',
-      'granulés',
-      'poudre',
-    ],
-    FormCategory.injectable: [
-      'injectable',
-      'injection',
-      'perfusion',
-      'solution pour perfusion',
-      'poudre pour solution injectable',
-      'solution pour injection',
-      'dispersion pour perfusion',
-      'usage parentéral',
-      'parentéral',
-      'poudre et solvant',
-      'générateur radiopharmaceutique',
-      'précurseur radiopharmaceutique',
-      'solution pour dialyse',
-      'solution pour hémofiltration',
-      'solution pour instillation',
-      'solution cardioplégique',
-      'solution pour administration intravésicale',
-      'suspension pour instillation',
-    ],
-    FormCategory.gynecological: [
-      'ovule',
-      'pessaire',
-      'comprimé vaginal',
-      'crème vaginale',
-      'gel vaginal',
-      'capsule vaginale',
-      'tampon vaginal',
-      'anneau vaginal',
-    ],
-    FormCategory.externalUse: [
-      'crème',
-      'pommade',
-      'gel',
-      'lotion',
-      'pâte',
-      'cutanée',
-      'cutané',
-      'application locale',
-      'application cutanée',
-      'dispositif transdermique',
-      'patch',
-      'patchs',
-      'emplâtre',
-      'compresse',
-      'bâton pour application',
-      'mousse pour application',
-      'mousse',
-      'pansement',
-      'implant',
-      'shampooing',
-      'solution filmogène pour application',
-      'dispositif pour application',
-      'solution pour application',
-      'solution moussant',
-      'solution pour lavage',
-      'suppositoire',
-    ],
-    FormCategory.ophthalmic: [
-      'collyre',
-      'ophtalmique',
-      'solution ophtalmique',
-      'pommade ophtalmique',
-      'gel ophtalmique',
-      'solution pour irrigation oculaire',
-    ],
-    FormCategory.nasalOrl: [
-      'nasale',
-      'auriculaire',
-      'buccale',
-      'aérosol',
-      'spray nasal',
-      'gouttes nasales',
-      'gouttes auriculaires',
-      'bain de bouche',
-      'collutoire',
-      'gaz pour inhalation',
-      'gaz',
-      'cartouche pour inhalation',
-      'dispersion pour inhalation',
-      'inhalation',
-      'insert',
-      'solution pour pulvérisation',
-    ],
-    FormCategory.other:
-        [], // Formes non classées - logique spéciale dans DatabaseService
-  };
-
-  final Map<FormCategory, List<String>> _categoryExclusions = {
-    FormCategory.oral: ['buvable', 'solution', 'suspension'],
-    FormCategory.syrup: [],
-    FormCategory.drinkableDrops: [],
-    FormCategory.sachet: ['injectable', 'injection', 'parentéral', 'solvant'],
-    FormCategory.injectable: [],
-    FormCategory.gynecological: [],
-    FormCategory.externalUse: ['vaginal', 'vaginale'],
-    FormCategory.ophthalmic: [],
-    FormCategory.nasalOrl: [],
-    FormCategory.other: [],
-  };
 
   @override
   void initState() {
@@ -180,13 +37,16 @@ class DatabaseSearchViewState extends State<DatabaseSearchView> {
     _scrollController = ScrollController();
     _searchScrollController = ScrollController();
     _scrollController.addListener(_onScroll);
+    _searchController.addListener(_refreshSearchUi);
     _loadStats();
-    _loadGroupSummaries();
   }
 
   @override
   void dispose() {
-    _searchController.dispose();
+    _searchDebounce?.cancel();
+    _searchController
+      ..removeListener(_refreshSearchUi)
+      ..dispose();
     _scrollController.dispose();
     _searchScrollController.dispose();
     super.dispose();
@@ -202,265 +62,48 @@ class DatabaseSearchViewState extends State<DatabaseSearchView> {
   void _onScroll() {
     if (!_scrollController.hasClients) return;
     if (_scrollController.position.pixels >=
-            _scrollController.position.maxScrollExtent - 200 &&
-        _hasMore &&
-        !_isLoadingMore &&
-        !_isLoadingSummaries) {
-      _loadMoreGroupSummaries();
+        _scrollController.position.maxScrollExtent - 200) {
+      final clusterState = ref.read(groupClusterProvider);
+      final data = clusterState.value;
+      if (data == null || !data.hasMore || data.isLoadingMore) {
+        return;
+      }
+      ref.read(groupClusterProvider.notifier).loadMore();
     }
   }
 
-  Future<void> _loadGroupSummaries({bool loadMore = false}) async {
-    if (!loadMore) {
-      setState(() {
-        _isLoadingSummaries = true;
-        _currentOffset = 0;
-        _hasMore = true;
-        _genericGroupSummaries = [];
-      });
-    } else {
-      setState(() => _isLoadingMore = true);
-    }
+  void _onSearchChanged(String query) {
+    _searchDebounce?.cancel();
 
-    try {
-      // Special handling for "other" category: exclude all other categories' keywords
-      List<String>? formKeywords;
-      List<String>? excludeKeywords;
-
-      if (_selectedCategory == FormCategory.other) {
-        // Collect all keywords from all other categories
-        final allOtherKeywords = <String>[];
-        for (final category in FormCategory.values) {
-          if (category != FormCategory.other) {
-            allOtherKeywords.addAll(_categoryKeywords[category] ?? []);
-          }
-        }
-        formKeywords =
-            []; // Empty - we want forms that don't match any category
-        excludeKeywords = allOtherKeywords;
-      } else {
-        formKeywords = _categoryKeywords[_selectedCategory];
-        excludeKeywords = _categoryExclusions[_selectedCategory];
-      }
-
-      final summaries = await _dbService.getGenericGroupSummaries(
-        formKeywords: formKeywords,
-        excludeKeywords: excludeKeywords,
-        limit: _pageSize,
-        offset: _currentOffset,
-      );
-
-      if (mounted) {
-        setState(() {
-          if (loadMore) {
-            _genericGroupSummaries.addAll(summaries);
-            _currentOffset += summaries.length;
-            _hasMore = summaries.length == _pageSize;
-            _isLoadingMore = false;
-          } else {
-            _genericGroupSummaries = summaries;
-            _currentOffset = summaries.length;
-            _hasMore = summaries.length == _pageSize;
-            _isLoadingSummaries = false;
-          }
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          if (loadMore) {
-            _isLoadingMore = false;
-          } else {
-            _isLoadingSummaries = false;
-          }
-        });
-      }
-    }
-  }
-
-  Future<void> _loadMoreGroupSummaries() async {
-    if (!_hasMore || _isLoadingMore) return;
-    await _loadGroupSummaries(loadMore: true);
-  }
-
-  void _toggleFilter() {
-    setState(() {
-      _showAllProducts = !_showAllProducts;
-      if (_searchController.text.isNotEmpty) {
-        _performSearch(_searchController.text);
-      }
-    });
-  }
-
-  Future<void> _performSearch(String query) async {
     if (query.trim().isEmpty) {
-      setState(() {
-        _searchResults = [];
-        _isSearching = false;
-      });
+      setState(() => _activeQuery = '');
       return;
     }
 
-    setState(() => _isSearching = true);
-    final results = await _dbService.searchMedicaments(
-      query,
-      showAll: _showAllProducts,
-    );
-    if (mounted) {
-      setState(() {
-        _searchResults = results;
-        _isSearching = false;
-      });
-    }
+    _searchDebounce = Timer(_searchDebounceDuration, () {
+      if (!mounted) return;
+      setState(() => _activeQuery = query.trim());
+    });
   }
 
-  void _showDetails(Medicament basicMedicament) async {
-    final result = await _dbService.getScanResultByCip(basicMedicament.codeCip);
+  void _clearSearchField() {
+    _searchDebounce?.cancel();
+    _searchController.clear();
+    setState(() => _activeQuery = '');
+  }
 
+  void _refreshSearchUi() {
     if (!mounted) return;
-
-    showShadSheet(
-      side: ShadSheetSide.bottom,
-      context: context,
-      builder: (context) {
-        final theme = ShadTheme.of(context);
-
-        if (result == null) {
-          return ShadSheet(
-            title: const Text('Détails non disponibles'),
-            description: const Text('Impossible de charger les détails.'),
-            actions: [
-              ShadButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Fermer'),
-              ),
-            ],
-          );
-        }
-
-        return result.when(
-          generic: (medicament, associatedPrinceps, groupId) {
-            return _buildSheetContent(
-              context,
-              'GÉNÉRIQUE',
-              theme.colorScheme.primary,
-              medicament,
-              associatedPrinceps: associatedPrinceps,
-            );
-          },
-          princeps: (princeps, moleculeName, genericLabs, groupId) {
-            return _buildSheetContent(
-              context,
-              'PRINCEPS',
-              theme.colorScheme.secondary,
-              princeps,
-              associatedGenerics: [],
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Widget _buildSheetContent(
-    BuildContext context,
-    String badgeText,
-    Color badgeColor,
-    Medicament medicament, {
-    List<Medicament>? associatedGenerics,
-    List<Medicament>? associatedPrinceps,
-  }) {
-    final theme = ShadTheme.of(context);
-    return ShadSheet(
-      title: Row(
-        children: [
-          ShadBadge(
-            backgroundColor: badgeColor,
-            child: Text(
-              badgeText,
-              style: TextStyle(
-                color: badgeColor == theme.colorScheme.primary
-                    ? theme.colorScheme.primaryForeground
-                    : theme.colorScheme.secondaryForeground,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              medicament.nom,
-              style: theme.textTheme.h4,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
-      ),
-      description: Text('CIP: ${medicament.codeCip}'),
-      actions: [
-        ShadButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Fermer'),
-        ),
-      ],
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        child: associatedGenerics != null
-            ? Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Génériques Associés (${associatedGenerics.length}):',
-                    style: theme.textTheme.lead,
-                  ),
-                  const SizedBox(height: 8),
-                  ...associatedGenerics.map(
-                    (g) => Padding(
-                      padding: const EdgeInsets.only(bottom: 4),
-                      child: Text('• ${g.nom}', style: theme.textTheme.p),
-                    ),
-                  ),
-                ],
-              )
-            : associatedPrinceps != null && associatedPrinceps.isNotEmpty
-            ? Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Princeps Associé(s) (${associatedPrinceps.length}):',
-                    style: theme.textTheme.lead,
-                  ),
-                  const SizedBox(height: 8),
-                  ...associatedPrinceps.map(
-                    (p) => Padding(
-                      padding: const EdgeInsets.only(bottom: 4),
-                      child: Text('• ${p.nom}', style: theme.textTheme.p),
-                    ),
-                  ),
-                ],
-              )
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text('Principes Actifs:', style: theme.textTheme.lead),
-                  const SizedBox(height: 8),
-                  ...medicament.principesActifs.map(
-                    (p) => Padding(
-                      padding: const EdgeInsets.only(bottom: 4),
-                      child: Text('• $p', style: theme.textTheme.p),
-                    ),
-                  ),
-                ],
-              ),
-      ),
-    );
+    setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = ShadTheme.of(context);
+    final clusters = ref.watch(groupClusterProvider);
+    final searchResults = ref.watch(searchResultsProvider(_activeQuery));
+    final hasSearchText = _searchController.text.isNotEmpty;
+    final isDebouncing = _searchDebounce?.isActive ?? false;
     return Scaffold(
       backgroundColor: theme.colorScheme.background,
       body: SafeArea(
@@ -475,25 +118,19 @@ class DatabaseSearchViewState extends State<DatabaseSearchView> {
                   _buildSearchBar(theme),
                   const SizedBox(height: 8),
                   Expanded(
-                    child: _isSearching
-                        ? Center(
-                            child: ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 300),
-                              child: const ShadProgress(),
-                            ),
-                          )
-                        : _searchController.text.isNotEmpty
-                        ? _buildSearchResults(theme)
-                        : _buildGroupSummaryView(theme),
+                    child: !hasSearchText
+                        ? _buildClusterLibraryView(theme, clusters)
+                        : isDebouncing
+                        ? _buildSkeletonList(theme)
+                        : searchResults.when(
+                            data: (items) => _buildSearchResults(theme, items),
+                            loading: () => _buildSkeletonList(theme),
+                            error: (error, _) =>
+                                _buildSearchError(theme, error),
+                          ),
                   ),
                 ],
               ),
-            ),
-            Positioned(
-              bottom: 16,
-              left: 16,
-              right: 16,
-              child: _buildFormFilterButtons(theme),
             ),
           ],
         ),
@@ -529,37 +166,31 @@ class DatabaseSearchViewState extends State<DatabaseSearchView> {
   }
 
   Widget _buildSearchBar(ShadThemeData theme) {
-    return Row(
+    final hasText = _searchController.text.isNotEmpty;
+    return Stack(
+      alignment: Alignment.centerRight,
       children: [
-        Expanded(
-          child: ShadInput(
-            controller: _searchController,
-            placeholder: const Text('Rechercher par nom, CIP, ou principe...'),
-            onChanged: _performSearch,
-          ),
+        ShadInput(
+          controller: _searchController,
+          placeholder: const Text('Rechercher par nom, CIP, ou principe...'),
+          onChanged: _onSearchChanged,
+          padding: hasText ? const EdgeInsets.only(right: 40) : null,
         ),
-        const SizedBox(width: 8),
-        ShadTooltip(
-          builder: (context) =>
-              const Text('Afficher/Cacher les produits non-médicaments'),
-          child: ShadButton.ghost(
-            onPressed: _toggleFilter,
-            leading: Icon(
-              LucideIcons.funnel,
-              size: 20,
-              color: _showAllProducts
-                  ? theme.colorScheme.primary
-                  : theme.colorScheme.mutedForeground,
-            ),
+        if (hasText)
+          ShadButton.ghost(
+            onPressed: _clearSearchField,
+            leading: const Icon(LucideIcons.x, size: 16),
             child: const SizedBox.shrink(),
           ),
-        ),
       ],
     );
   }
 
-  Widget _buildSearchResults(ShadThemeData theme) {
-    if (_searchResults.isEmpty) {
+  Widget _buildSearchResults(
+    ShadThemeData theme,
+    List<SearchResultItem> results,
+  ) {
+    if (results.isEmpty) {
       return Center(
         child: Text('Aucun résultat trouvé.', style: theme.textTheme.muted),
       );
@@ -570,39 +201,116 @@ class DatabaseSearchViewState extends State<DatabaseSearchView> {
       child: ListView.separated(
         controller: _searchScrollController,
         padding: const EdgeInsets.symmetric(vertical: 8),
-        itemCount: _searchResults.length,
+        itemCount: results.length,
         separatorBuilder: (context, index) => const SizedBox(height: 12),
         itemBuilder: (context, index) {
-          final med = _searchResults[index];
-          return MedicamentCard(
-            medicament: med,
-            onTap: () => _showDetails(med),
-            trailing: ShadTooltip(
-              builder: (context) => const Text('Ouvrir les détails'),
-              child: ShadIconButton.ghost(
-                icon: const Icon(LucideIcons.chevronRight, size: 16),
-                onPressed: () => _showDetails(med),
+          final result = results[index];
+          final card = Semantics(
+            button: true,
+            label: result.when(
+              princepsResult:
+                  (princeps, generics, unusedGroupId, unusedPrinciples) =>
+                      'Princeps ${princeps.nom} avec ${generics.length} génériques',
+              genericResult:
+                  (generic, princepsList, unusedGroupId, unusedPrinciples) =>
+                      'Générique ${generic.nom} avec ${princepsList.length} princeps',
+              standaloneResult: (medicament, unusedPrinciples) =>
+                  'Médicament ${medicament.nom}',
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () {
+                  result.when(
+                    princepsResult:
+                        (princeps, unusedGenerics, groupId, unusedPrinciples) {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => GroupExplorerView(
+                                groupId: groupId,
+                                onExit: () => Navigator.of(context).pop(),
+                              ),
+                            ),
+                          );
+                        },
+                    genericResult:
+                        (
+                          generic,
+                          unusedPrincepsList,
+                          groupId,
+                          unusedPrinciples,
+                        ) {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => GroupExplorerView(
+                                groupId: groupId,
+                                onExit: () => Navigator.of(context).pop(),
+                              ),
+                            ),
+                          );
+                        },
+                    standaloneResult: (unusedMedicament, unusedPrinciples) {
+                      // No navigation target for standalone medications (no group)
+                    },
+                  );
+                },
+                borderRadius: BorderRadius.circular(12),
+                splashColor: theme.colorScheme.primary.withValues(alpha: 0.1),
+                highlightColor: theme.colorScheme.primary.withValues(
+                  alpha: 0.05,
+                ),
+                child: result.when(
+                  princepsResult:
+                      (princeps, generics, unusedGroupId, unusedPrinciples) =>
+                          _buildPrincepsSearchCard(theme, princeps, generics),
+                  genericResult:
+                      (
+                        generic,
+                        princepsList,
+                        unusedGroupId,
+                        unusedPrinciples,
+                      ) =>
+                          _buildGenericSearchCard(theme, generic, princepsList),
+                  standaloneResult: (medicament, unusedPrinciples) =>
+                      _buildStandaloneSearchCard(theme, medicament),
+                ),
               ),
             ),
           );
+          return card
+              .animate()
+              .fadeIn(duration: 200.ms, delay: (index * 40).ms)
+              .slideY(begin: 0.05, curve: Curves.easeOutCubic);
         },
       ),
     );
   }
 
-  Widget _buildGroupSummaryView(ShadThemeData theme) {
-    if (_isLoadingSummaries) {
-      return Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 300),
-          child: const ShadProgress(),
-        ),
-      );
+  Widget _buildSearchError(ShadThemeData theme, Object error) {
+    return Center(
+      child: Text(
+        'Une erreur est survenue pendant la recherche.\n${error.toString()}',
+        style: theme.textTheme.muted,
+        textAlign: TextAlign.center,
+      ),
+    );
+  }
+
+  Widget _buildClusterLibraryView(
+    ShadThemeData theme,
+    AsyncValue<ClusterLibraryState> clusters,
+  ) {
+    if (clusters.isLoading) {
+      return _buildSkeletonList(theme);
     }
-    if (_genericGroupSummaries.isEmpty) {
+    final data = clusters.asData?.value;
+    if (clusters.hasError && (data == null || data.items.isEmpty)) {
+      return _buildClusterError(theme);
+    }
+    if (data == null || data.items.isEmpty) {
       return Center(
         child: Text(
-          'Aucun groupe à afficher pour cette catégorie.',
+          'Aucun cluster de produits à afficher.',
           style: theme.textTheme.muted,
         ),
       );
@@ -611,15 +319,15 @@ class DatabaseSearchViewState extends State<DatabaseSearchView> {
     return ListView.separated(
       controller: _scrollController,
       padding: const EdgeInsets.symmetric(vertical: 8),
-      itemCount: _genericGroupSummaries.length + (_isLoadingMore ? 1 : 0),
+      itemCount: data.items.length + (data.isLoadingMore ? 1 : 0),
       separatorBuilder: (context, index) {
-        if (index == _genericGroupSummaries.length) {
+        if (index == data.items.length) {
           return const SizedBox.shrink();
         }
         return const SizedBox(height: 12);
       },
       itemBuilder: (context, index) {
-        if (index == _genericGroupSummaries.length) {
+        if (index == data.items.length) {
           return Padding(
             padding: const EdgeInsets.all(16),
             child: Center(
@@ -630,15 +338,25 @@ class DatabaseSearchViewState extends State<DatabaseSearchView> {
             ),
           );
         }
-        final summary = _genericGroupSummaries[index];
+        final cluster = data.items[index];
         return Semantics(
           button: true,
           label:
-              'Groupe ${summary.princepsReferenceName}, principes actifs ${summary.commonPrincipes}',
+              'Cluster ${cluster.princepsBrandName}, principes actifs ${cluster.activeIngredients.join(', ')}',
           child: Material(
             color: Colors.transparent,
             child: InkWell(
-              onTap: () => widget.onGroupSelected(summary.groupId),
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => ClusterDetailView(
+                      clusterKey: cluster.clusterKey,
+                      princepsBrandName: cluster.princepsBrandName,
+                      activeIngredients: cluster.activeIngredients,
+                    ),
+                  ),
+                );
+              },
               borderRadius: BorderRadius.circular(12),
               splashColor: theme.colorScheme.primary.withValues(alpha: 0.1),
               highlightColor: theme.colorScheme.primary.withValues(alpha: 0.05),
@@ -652,7 +370,7 @@ class DatabaseSearchViewState extends State<DatabaseSearchView> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Principe(s) Actif(s)',
+                            'Principe(s) actif(s)',
                             style: theme.textTheme.small.copyWith(
                               color: theme.colorScheme.mutedForeground,
                               fontWeight: FontWeight.w500,
@@ -660,8 +378,31 @@ class DatabaseSearchViewState extends State<DatabaseSearchView> {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            summary.commonPrincipes,
+                            cluster.activeIngredients.isEmpty
+                                ? 'Non déterminé'
+                                : cluster.activeIngredients.join(', '),
                             style: theme.textTheme.p,
+                          ),
+                          const SizedBox(height: 12),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              ShadBadge(
+                                child: Text(
+                                  '${cluster.groupCount} groupe(s)',
+                                  style: theme.textTheme.small.copyWith(
+                                    color: theme.colorScheme.primaryForeground,
+                                  ),
+                                ),
+                              ),
+                              ShadBadge.secondary(
+                                child: Text(
+                                  '${cluster.memberCount} spécialités',
+                                  style: theme.textTheme.small,
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
@@ -669,7 +410,7 @@ class DatabaseSearchViewState extends State<DatabaseSearchView> {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: Icon(
-                        LucideIcons.arrowRight,
+                        LucideIcons.arrowRightLeft,
                         color: theme.colorScheme.mutedForeground,
                       ),
                     ),
@@ -678,7 +419,7 @@ class DatabaseSearchViewState extends State<DatabaseSearchView> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Princeps de Référence',
+                            'Marque princeps',
                             style: theme.textTheme.small.copyWith(
                               color: theme.colorScheme.mutedForeground,
                               fontWeight: FontWeight.w500,
@@ -686,13 +427,19 @@ class DatabaseSearchViewState extends State<DatabaseSearchView> {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            summary.princepsReferenceName,
+                            cluster.princepsBrandName,
                             style: theme.textTheme.p.copyWith(
-                              fontWeight: FontWeight.w500,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ],
                       ),
+                    ),
+                    const SizedBox(width: 8),
+                    Icon(
+                      LucideIcons.chevronRight,
+                      size: 16,
+                      color: theme.colorScheme.mutedForeground,
                     ),
                   ],
                 ),
@@ -704,113 +451,320 @@ class DatabaseSearchViewState extends State<DatabaseSearchView> {
     );
   }
 
-  Widget _buildFormFilterButtons(ShadThemeData theme) {
-    return ShadCard(
-      padding: const EdgeInsets.all(8),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildFilterButton(
-              theme,
-              FormCategory.oral,
-              'Oral',
-              LucideIcons.pill,
+  Widget _buildClusterError(ShadThemeData theme) {
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 400),
+        child: ShadCard(
+          title: Text('Erreur de chargement', style: theme.textTheme.h4),
+          description: Text(
+            'Impossible de récupérer la bibliothèque des clusters. Vérifiez votre connexion puis réessayez.',
+            style: theme.textTheme.muted,
+          ),
+          footer: Align(
+            alignment: Alignment.centerRight,
+            child: ShadButton(
+              onPressed: () => ref.invalidate(groupClusterProvider),
+              child: const Text('Réessayer'),
             ),
-            const SizedBox(width: 8),
-            _buildFilterButton(
-              theme,
-              FormCategory.syrup,
-              'Sirop',
-              LucideIcons.droplet,
-            ),
-            const SizedBox(width: 8),
-            _buildFilterButton(
-              theme,
-              FormCategory.drinkableDrops,
-              'Gouttes',
-              LucideIcons.beaker,
-            ),
-            const SizedBox(width: 8),
-            _buildFilterButton(
-              theme,
-              FormCategory.sachet,
-              'Sachet',
-              LucideIcons.package,
-            ),
-            const SizedBox(width: 8),
-            _buildFilterButton(
-              theme,
-              FormCategory.injectable,
-              'Injectable',
-              LucideIcons.syringe,
-            ),
-            const SizedBox(width: 8),
-            _buildFilterButton(
-              theme,
-              FormCategory.externalUse,
-              'Externe',
-              LucideIcons.circleDot,
-            ),
-            const SizedBox(width: 8),
-            _buildFilterButton(
-              theme,
-              FormCategory.ophthalmic,
-              'Yeux',
-              LucideIcons.eye,
-            ),
-            const SizedBox(width: 8),
-            _buildFilterButton(
-              theme,
-              FormCategory.nasalOrl,
-              'ORL',
-              LucideIcons.ear,
-            ),
-            const SizedBox(width: 8),
-            _buildFilterButton(
-              theme,
-              FormCategory.gynecological,
-              'Gynéco',
-              LucideIcons.heart,
-            ),
-            const SizedBox(width: 8),
-            _buildFilterButton(
-              theme,
-              FormCategory.other,
-              'Autre',
-              LucideIcons.ellipsis,
-            ),
-          ],
+          ),
+          child: const SizedBox.shrink(),
         ),
       ),
     );
   }
 
-  Widget _buildFilterButton(
-    ShadThemeData theme,
-    FormCategory category,
-    String label,
-    IconData icon,
-  ) {
-    final isSelected = _selectedCategory == category;
-    return ShadButton(
-      onPressed: () {
-        if (!isSelected) {
-          setState(() {
-            _selectedCategory = category;
-          });
-          _loadGroupSummaries();
-        }
+  Widget _buildSkeletonList(ShadThemeData theme) {
+    final placeholderColor = theme.colorScheme.muted.withValues(alpha: 0.3);
+    return ListView.separated(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      itemCount: 4,
+      separatorBuilder: (context, index) => const SizedBox(height: 12),
+      itemBuilder: (context, index) {
+        final card = ShadCard(
+          padding: const EdgeInsets.all(20),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _SkeletonBlock(
+                      height: 12,
+                      width: 120,
+                      color: placeholderColor,
+                    ),
+                    const SizedBox(height: 12),
+                    _SkeletonBlock(height: 16, color: placeholderColor),
+                    const SizedBox(height: 8),
+                    _SkeletonBlock(
+                      height: 16,
+                      width: 160,
+                      color: placeholderColor,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+              _SkeletonBlock(height: 16, width: 24, color: placeholderColor),
+            ],
+          ),
+        );
+        return card
+            .animate()
+            .fadeIn(duration: 180.ms, delay: (index * 40).ms)
+            .slideY(begin: 0.04, curve: Curves.easeOut)
+            .shimmer(duration: 1200.ms);
       },
-      backgroundColor: isSelected
-          ? theme.colorScheme.primary
-          : Colors.transparent,
-      foregroundColor: isSelected
-          ? theme.colorScheme.primaryForeground
-          : theme.colorScheme.foreground,
-      leading: Icon(icon, size: 16),
-      child: Text(label),
+    );
+  }
+
+  Widget _buildStandaloneSearchCard(
+    ShadThemeData theme,
+    Medicament medicament,
+  ) {
+    return ShadCard(
+      padding: const EdgeInsets.all(20),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Médicament',
+                  style: theme.textTheme.small.copyWith(
+                    color: theme.colorScheme.mutedForeground,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(medicament.nom, style: theme.textTheme.p),
+                if (medicament.principesActifs.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    'Principe(s) actif(s):',
+                    style: theme.textTheme.small.copyWith(
+                      color: theme.colorScheme.mutedForeground,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    medicament.principesActifs.join(', '),
+                    style: theme.textTheme.muted,
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Icon(
+            LucideIcons.chevronRight,
+            size: 16,
+            color: theme.colorScheme.mutedForeground,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPrincepsSearchCard(
+    ShadThemeData theme,
+    Medicament princeps,
+    List<Medicament> generics,
+  ) {
+    return ShadCard(
+      padding: const EdgeInsets.all(20),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 2,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Princeps',
+                  style: theme.textTheme.small.copyWith(
+                    color: theme.colorScheme.mutedForeground,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  princeps.nom,
+                  style: theme.textTheme.p.copyWith(
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                if (princeps.principesActifs.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    'Principe(s) actif(s):',
+                    style: theme.textTheme.small.copyWith(
+                      color: theme.colorScheme.mutedForeground,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    princeps.principesActifs.join(', '),
+                    style: theme.textTheme.muted,
+                  ),
+                ],
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Icon(
+              LucideIcons.arrowRightLeft,
+              color: theme.colorScheme.mutedForeground,
+            ),
+          ),
+          Expanded(
+            flex: 3,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Génériques (${generics.length})',
+                  style: theme.textTheme.small.copyWith(
+                    color: theme.colorScheme.mutedForeground,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                ...generics.map(
+                  (generic) => Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Text(
+                      '• ${generic.nom}',
+                      style: theme.textTheme.muted,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Icon(
+            LucideIcons.chevronRight,
+            size: 16,
+            color: theme.colorScheme.mutedForeground,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGenericSearchCard(
+    ShadThemeData theme,
+    Medicament generic,
+    List<Medicament> princeps,
+  ) {
+    return ShadCard(
+      padding: const EdgeInsets.all(20),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 3,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Générique',
+                  style: theme.textTheme.small.copyWith(
+                    color: theme.colorScheme.mutedForeground,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  generic.nom,
+                  style: theme.textTheme.p.copyWith(
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                if (generic.principesActifs.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    'Principe(s) actif(s):',
+                    style: theme.textTheme.small.copyWith(
+                      color: theme.colorScheme.mutedForeground,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    generic.principesActifs.join(', '),
+                    style: theme.textTheme.muted,
+                  ),
+                ],
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Icon(
+              LucideIcons.arrowRightLeft,
+              color: theme.colorScheme.mutedForeground,
+            ),
+          ),
+          Expanded(
+            flex: 2,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Princeps (${princeps.length})',
+                  style: theme.textTheme.small.copyWith(
+                    color: theme.colorScheme.mutedForeground,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                ...princeps.map(
+                  (princeps) => Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Text(
+                      '• ${princeps.nom}',
+                      style: theme.textTheme.muted,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Icon(
+            LucideIcons.chevronRight,
+            size: 16,
+            color: theme.colorScheme.mutedForeground,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SkeletonBlock extends StatelessWidget {
+  const _SkeletonBlock({required this.height, required this.color, this.width});
+
+  final double height;
+  final double? width;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: height,
+      width: width,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(6),
+      ),
     );
   }
 }

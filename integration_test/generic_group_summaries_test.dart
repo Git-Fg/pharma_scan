@@ -2,15 +2,15 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:pharma_scan/core/locator.dart';
-import 'package:pharma_scan/core/services/data_initialization_service.dart';
 import 'package:pharma_scan/core/services/database_service.dart';
+import 'test_bootstrap.dart';
 import 'package:pharma_scan/features/explorer/models/generic_group_summary_model.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  setUpAll(() {
-    setupLocator();
+  setUpAll(() async {
+    await ensureIntegrationTestDatabase();
   });
 
   group('Generic Group Summaries Integration Tests', () {
@@ -18,11 +18,8 @@ void main() {
       'should fetch group summaries with real TXT data and use algorithmic grouping',
       (WidgetTester tester) async {
         // GIVEN: Database initialized with real TXT files
-        final dataService = sl<DataInitializationService>();
         final dbService = sl<DatabaseService>();
-
-        // WHEN: Initialize database with real data
-        await dataService.initializeDatabase();
+        // WHEN: Database already initialized with real data
 
         // THEN: Verify we can get group summaries for oral forms
         final summaries = await dbService.getGenericGroupSummaries(
@@ -88,10 +85,7 @@ void main() {
       'should handle different form categories correctly',
       (WidgetTester tester) async {
         // GIVEN: Database initialized with real TXT files
-        final dataService = sl<DataInitializationService>();
         final dbService = sl<DatabaseService>();
-
-        await dataService.initializeDatabase();
 
         // WHEN: Get summaries for different form categories
         final injectableSummaries = await dbService.getGenericGroupSummaries(
@@ -145,10 +139,7 @@ void main() {
       'should compute common princeps names algorithmically',
       (WidgetTester tester) async {
         // GIVEN: Database initialized with real TXT files
-        final dataService = sl<DataInitializationService>();
         final dbService = sl<DatabaseService>();
-
-        await dataService.initializeDatabase();
 
         // WHEN: Get summaries
         final summaries = await dbService.getGenericGroupSummaries(

@@ -1,142 +1,195 @@
-# [2025-11-17] - Validation Déterministe des Principes Actifs
+# [2025-11-18] - Clustered Explorer & Parser
+Refactored Medicament parsing with a petitparser-powered pipeline, extended the summary schema with brand/cluster metadata, and rebuilt the explorer into a hierarchical cluster flow with transparent parsing details in each group.
 
-- **Refactorisation de `DatabaseService`** : `getGenericGroupSummaries()` et `getGroupDetails()` s'appuient désormais exclusivement sur une jointure Drift (`principes_actifs` ↔ `group_members`) pour calculer les principes actifs réellement partagés par tous les membres d'un groupe. Les groupes sans intersection sont filtrés automatiquement afin d'éliminer la dernière logique heuristique issue des libellés officiels.
-- **Nouvelle API interne `_getCommonPrincipesForGroups()`** : CTE paginées + découpage par lot (<900 variables SQLite) pour récupérer efficacement les principes communs, réutilisée par plusieurs méthodes.
-- **Tests unitaires & intégration** : 
-  - Ajout de deux tests unitaires dans `test/database_service_test.dart` pour garantir l'extraction déterministe et l'exclusion des groupes incohérents.
-  - Mise à jour de `integration_test/active_principle_grouping_test.dart` afin de vérifier que l'entrée ESOMEPRAZOLE expose bien un résultat propre.
-- **Audit Python renforcé** : `data_validator.py` inclut un contrôle global des contaminations (dosages/formulations) sur 100 % des groupes et consigne la nouvelle Étape 13 dans `AGENTS.md`.
-- **Documentation** : Mise à jour d'`AGENTS.md` et du rapport `rapport_final.txt` pour refléter la validation croisée heuristique vs déterministe.
-- **UI Explorer** : Harmonisation de l'interface de recherche manuelle avec le layout standard en cartes Shadcn (nouveau `MedicamentCard` partagé entre `DatabaseSearchView` et `GroupExplorerView`) et mise à jour des tests widget `database_screen_test.dart` pour couvrir l'expérience card-based.
-- **Base de données** : Réinitialisation de `schemaVersion` à `1` et suppression de la stratégie de migration destructive afin de livrer une version stable destinée aux nouvelles installations uniquement.
-- **Accessibilité Explorer** : Ajout de Scrollbars visibles, de libellés `Semantics`/tooltips et d'une description vocale pour chaque carte de médicament et groupe, garantissant une navigation accessible clavier/lecteur d'écran.
+fic # [2025-11-18] - Aggregated Library Experience
 
-# [2025-11-16] - Groupement Algorithmique des Princeps et Correction Critique
+- **FuzzyBolt explorer search**: Removed the FTS5 virtual table and rewired search to Riverpod providers backed by `fuzzy_bolt`. `DatabaseService` now exposes `getAllSearchCandidates()` with canonical data hydrated from `medicament_summary`, while the UI consumes `searchResultsProvider(query)` for debounced, isolate-aware fuzzy ranking.
+- **Procedure-aware filtering**: `SearchCandidate` carries `procedureType`, allowing the provider to exclude homéopathie/phyto entries by default without touching the database layer. This keeps conventional searches fast and deterministic.
+- **Test & integration refresh**: Replaced the old `searchMedicaments` unit/integration suites with coverage for candidate hydration and the fuzzy providers, updated widget tests to drop the deprecated FTS rebuild hook, and documented the new flow here.
+- **Decimal-consistent dosages**: Migrated `principes_actifs.dosage` to `TEXT`, parse BDPM values with `Decimal.tryParse`, regenerate the Drift/Freezed models (`Medicament`, `GroupedByProduct`, `DatabaseService`), refresh UI formatting, and align unit/integration tests so explorer/scanner flows no longer lose precision.
+- **MedicamentSummary source of truth**: Added a denormalized table (one row per CIS) populated during initialization. It stores canonical names, princeps flags, group IDs, pharmaceutical forms, and JSON-encoded shared principles, allowing explorer/search flows to answer every query with a single, constant-time select.
+- **Two-phase initialization**: `DataInitializationService` now runs a staging phase (raw TXT → normalized tables) followed by an aggregation phase that precomputes `MedicamentSummary`. `DatabaseService.clearDatabase()` and the unit-test helpers were updated to keep the summary in sync.
+- **Search overhaul**: `searchMedicaments()` now returns the new `SearchResultItem` union (princeps, generic, standalone) and reads exclusively from `MedicamentSummary`. The explorer search UI renders dedicated cards for each variant with contextual princeps/generic relationships and Shadcn skeletons while loading.
+- **Documentation**: README and AGENTS now describe the aggregated table, the two-phase data pipeline, and the new requirement for tests/utilities to hydrate `MedicamentSummary` before asserting explorer/search logic.
+- **Riverpod preferences & sync refactor**: Replaced the legacy `PreferencesService` frequency cache with an `AppPreferences` AsyncNotifier, rewrote `SyncService` to accept injectable frequency/status callbacks, introduced a dedicated `syncStatusProvider` notifier, updated `MainScreen`/`SettingsScreen`, and refreshed AGENTS to describe the new, Flutter-agnostic pipeline.
+- **Declarative animations & ProviderScope coverage**: Applied `flutter_animate` fade/slide transitions to the sync banner, database search skeletons, and explorer result cards, then wrapped explorer widget tests in `ProviderScope` so Riverpod providers bootstrap correctly. `flutter pub run build_runner build --delete-conflicting-outputs`, `flutter analyze`, and `flutter test` now complete without errors.
 
-Implémentation du groupement algorithmique des princeps par préfixe commun et correction d'un bug SQL critique qui empêchait l'affichage des résultats dans l'explorateur.
+# [2025-11-18] - Smart Sync & Regulatory Context
 
-- **Groupement Algorithmique des Princeps** : Remplacement de la logique regex fragile par un algorithme déterministe basé sur les mots
-  - Création de `findCommonPrincepsName()` dans `lib/core/utils/medicament_helpers.dart` pour trouver le plus long préfixe commun de mots
-  - Algorithme robuste qui compare les noms mot par mot pour identifier la base commune
-  - Gestion des cas limites : listes vides, noms uniques, absence de préfixe commun
+- **Data pipeline refactor**: `DataInitializationService` now orchestrates downloads via `_downloadAllFiles()`, parses each BDPM file inside a background isolate (`compute`) through dedicated helpers, and centralizes source URLs inside `lib/core/config/data_sources.dart`.
+- **Regulatory enrichment**: Added `conditions_prescription` to the `specialites` table (schema v3) and to the `Medicament` model, parsed from `CIS_CPD_bdpm.txt`, surfaced through `DatabaseService`, and rendered via `ShadBadge` in scanner bubbles and explorer cards.
+- **Smart synchronization**: `_fetchFileBytesWithCache()` performs HEAD requests, reuses cached files when ETag/Last-Modified headers match, and persists metadata in `SharedPreferences` for near-instant reinitialization.
+- **Explorer ergonomics**: Integrated `fuzzy_bolt` re-ranking inside `searchMedicaments()`, introduced debounced (300 ms) search input, and replaced spinners with skeleton placeholders for both search and category lists.
+- **Quality gate**: Regenerated code (`build_runner`), updated `integration_test/search_filter_test.dart` lints, and ran `flutter analyze` plus `flutter test` successfully.
 
-- **Simplification du Modèle GenericGroupSummary** : Passage d'une liste de noms à un nom de référence unique
-  - Remplacement de `List<String> princepsNames` par `String princepsReferenceName` dans le modèle
-  - Interface UI simplifiée : affichage d'un seul nom de princeps de référence par groupe
-  - Mapping clair "Principe(s) Actif(s) ↔ Princeps de Référence" avec séparateur visuel (flèche)
+# [2025-11-17] - Architectural Refactor: Migration to Drift Files
 
-- **Refactorisation de getGenericGroupSummaries** : Migration de la logique de groupement SQL vers Dart
-  - Requête SQL modifiée pour récupérer les noms individuels de princeps (une ligne par princeps) au lieu de `GROUP_CONCAT`
-  - Groupement des résultats par `group_id` en Dart pour permettre le traitement algorithmique
-  - Utilisation de `findCommonPrincepsName()` pour calculer le nom de référence commun pour chaque groupe
-  - Optimisation avec CTE (Common Table Expression) pour la pagination efficace
+- **Migrated all complex queries** from `customSelect` with raw SQL strings to named queries in `.drift` files.
+- **Achieved full compile-time validation of SQL**, ensuring all queries are syntactically correct and consistent with the database schema before the app is run. This eliminates an entire class of potential runtime errors.
+- **Improved Developer Experience (DX)** by enabling native SQL syntax highlighting, auto-completion, and real-time error checking in VS Code.
+- **Enhanced maintainability** by strictly separating SQL data logic from Dart business logic.
+- **Refactored `DatabaseService`** to call type-safe, generated methods, resulting in a cleaner and more robust data access layer.
+- **Verification**: `flutter pub run build_runner build --delete-conflicting-outputs`, `flutter analyze`, and `flutter test` executed successfully.
 
-- **Correction Critique du Bug SQL** : Résolution du problème "no result" dans l'explorateur
-  - Bug identifié : alias incorrect dans la clause WHERE de la CTE (`princeps_spec` vs `princeps_spec2`)
-  - Solution : création de conditions séparées pour la CTE (`formConditionsCte`, `excludeConditionsCte`) avec les bons alias
-  - Impact : l'explorateur affiche maintenant correctement tous les groupes de médicaments
+# [2025-11-17] - FTS5 Search and Navigation Refactoring
 
-- **Tests d'Intégration avec Données Réelles** : Validation complète avec les fichiers TXT officiels BDPM
-  - Nouveau test `integration_test/generic_group_summaries_test.dart` qui télécharge et utilise les vrais fichiers TXT
-  - Vérification que le groupement algorithmique produit des résultats cohérents
-  - Tests pour différentes catégories de formes pharmaceutiques (oral, injectable, externe)
-  - Validation de la pagination et du comportement avec de grandes quantités de données
+- **Full-Text Search (FTS5)** : Implementation of an FTS5 index for medication search with creation of a `medicament_fts_view` view and a virtual `medicament_fts` table indexing specialty names, CIP codes, and active ingredients. The `searchMedicaments()` method now uses FTS5 `MATCH` queries and returns `GenericGroupSummary` instead of individual `Medicament` objects.
+- **Refactored Navigation Architecture** : Replacement of the `IndexedStack` + `PopScope` architecture with nested `Navigator` widgets in `MainScreen`. Each tab (Scanner and Explorer) now has its own independent navigation stack, enabling correct handling of the system back button.
+- **Bubble UI Simplification** : Replacement of `AnimatedList` with a simple `Column` using `flutter_animate` animations in `CameraScreen`. New bubbles are inserted at index 0 and the oldest is removed if the limit of 3 is exceeded.
+- **Associated Therapies** : Refactoring of `_findRelatedPrinceps()` to identify groups containing ALL active ingredients from the current group PLUS at least one additional ingredient. Addition of an "Associated Therapies" section in `GroupExplorerView` with clickable cards navigating to associated groups.
+- **Enhanced Explorer Search** : `DatabaseSearchView` now displays group summaries (`GenericGroupSummary`) instead of individual medications, with direct navigation to `GroupExplorerView` via `Navigator.push()`.
+- **Test Updates** : Adaptation of unit and integration tests to reflect the new return types (`GenericGroupSummary`) and the new navigation architecture.
 
-- **Vérification Mobile** : Test sur appareil réel confirmant le bon fonctionnement
-  - L'explorateur affiche maintenant correctement les groupes avec leurs principes actifs et princeps de référence
-  - Interface utilisateur simplifiée et plus intuitive
-  - Performance vérifiée avec scrolling et pagination
+# [2025-11-17] - Deterministic Active Ingredient Validation
 
-# [2025-11-16] - Refonte Complète : Données Enrichies et Logique Déterministe
+- **`DatabaseService` Refactoring** : `getGenericGroupSummaries()` and `classifyProductGroup()` now rely exclusively on a Drift join (`principes_actifs` ↔ `group_members`) to calculate active ingredients actually shared by all members of a group. Groups without intersection are automatically filtered to eliminate the last heuristic logic from official labels.
+- **New Internal API `_getCommonPrincipesForGroups()`** : Paginated CTEs + batch processing (<900 SQLite variables) to efficiently retrieve common principles, reused by multiple methods.
+- **Unit & Integration Tests** : 
+  - Addition of two unit tests in `test/database_service_test.dart` to guarantee deterministic extraction and exclusion of inconsistent groups.
+  - Update of `integration_test/active_principle_grouping_test.dart` to verify that the ESOMEPRAZOLE entry exposes a clean result.
+- **Canonical Group Classification** : Introduction of the `ProductGroupClassification` model + `DatabaseService.classifyProductGroup()` method (Drift joins + Dart aggregation) to deliver a synthetic view to the frontend (titles, distinct dosages, formulations, grouped princeps/generics, related princeps). Update of unit & widget tests to cover this flow.
+- **Explorer API Cleanup** : Removal of `getGroupDetails()`/`GroupedByLaboratory`, alignment of all integrations (unit tests, integration tests, `GroupExplorerView`) on `classifyProductGroup()` and consolidation of coverage around product/laboratory groupings.
+- **SQLite Persistence Enabled** : Removal of systematic deletion of the `medicaments.db` file on each launch. Drift storage now remains intact between sessions, explicit resets go through `DatabaseService.clearDatabase()` and BDPM initialization.
+- **Multi-Bubble Scanner** : Refactoring of `CameraScreen` with animated FIFO queue (`AnimatedList` + `Dismissible`) limiting display to 3 bubbles, expiration timers and swipe to close scan results.
+- **Enhanced Python Audit** : `data_validator.py` includes global contamination control (dosages/formulations) on 100% of groups and documents the new Step 13 in `AGENTS.md`.
+- **Documentation** : Update of `AGENTS.md` and the `rapport_final.txt` report to reflect heuristic vs deterministic cross-validation.
+- **Explorer UI** : Harmonization of the manual search interface with the standard Shadcn card layout (new `MedicamentCard` shared between `DatabaseSearchView` and `GroupExplorerView`) and update of widget tests `database_screen_test.dart` to cover the card-based experience.
+- **Instant Explorer Search** : `searchMedicaments()` now retrieves `groupId` and `groupMemberType` per entry, allowing `DatabaseSearchView` to immediately display the princeps/generic status and route to the group without a second database access.
+- **Database** : Reset of `schemaVersion` to `1` and removal of the destructive migration strategy to deliver a stable version intended for new installations only.
+- **Explorer Accessibility** : Addition of visible Scrollbars, `Semantics` labels/tooltips and a voice description for each medication and group card, ensuring keyboard/screen reader accessible navigation.
+- **Persistent BDPM Initialization** : `DataInitializationService` now checks a `SharedPreferences` flag + the presence of Drift data before relaunching the download. The database is only rebuilt on first execution or `forceRefresh`, aligning the app with the "SQLite Persistence Enabled" policy.
+- **Resilient Initialization** : `PharmaScanApp` now relies exclusively on the versioned logic of `DataInitializationService`, exposes an `InitializationState` shared with `MainScreen` and displays a retryable alert (direct access to settings) rather than a blocking dialog.
+- **Force Reinitialization** : The destructive settings button calls `initializeDatabase(forceRefresh: true)` and no longer manipulates `SharedPreferences` flags, guaranteeing a true reset of BDPM data.
+- **Explorer Search** : `DatabaseSearchView` gains a contextual delete button in the search field (`LucideIcons.x` icon) that instantly clears the query and restarts the initial state.
+- **Python Audit** : `data_validator.py` tolerates legitimate numbered molecules (e.g. `ALCOOL DICHLORO-2,4 BENZYLIQUE`) and ignores "solution de ..." expressions, reducing false positives in contamination analysis.
+- **Verification** : `flutter pub run build_runner build --delete-conflicting-outputs`, `flutter analyze`, `flutter test`, `flutter test integration_test/active_principle_grouping_test.dart` and `flutter test integration_test` executed successfully.
 
-Élimination complète de toutes les logiques d'extraction par regex au profit d'un parsing structuré des fichiers TXT officiels BDPM, enrichissement du modèle de données, et remplacement de la dernière logique heuristique par une méthode déterministe basée sur la base de données.
+# [2025-11-16] - Algorithmic Princeps Grouping and Critical Fix
 
-- **Enrichissement du Schéma de Base de Données** : Migration vers la version 4 avec ajout de nouvelles colonnes
-  - Table `Specialites` : ajout de `formePharmaceutique`, `etatCommercialisation`, `titulaire` (laboratoire)
-  - Table `PrincipesActifs` : ajout de `dosage` et `dosageUnit` pour un stockage structuré du dosage
-  - Parsing étendu de `CIS_bdpm.txt` (colonnes 2, 6, 10) et `CIS_COMPO_bdpm.txt` (colonne 4 pour le dosage)
+Implementation of algorithmic princeps grouping by common prefix and correction of a critical SQL bug that prevented results from displaying in the explorer.
 
-- **Modèle Medicament Enrichi** : Ajout des champs `titulaire`, `formePharmaceutique`, `dosage`, `dosageUnit`
-  - Remplacement de l'extraction regex du laboratoire par l'utilisation directe du champ `titulaire` depuis la base de données
-  - Tri par dosage mis à jour pour utiliser le champ structuré `dosage` au lieu d'une extraction regex
+- **Algorithmic Princeps Grouping** : Replacement of fragile regex logic with a deterministic word-based algorithm
+  - Creation of `findCommonPrincepsName()` in `lib/core/utils/medicament_helpers.dart` to find the longest common word prefix
+  - Robust algorithm that compares names word by word to identify the common base
+  - Handling of edge cases: empty lists, unique names, absence of common prefix
 
-- **Remplacement de `cleanGroupName` par une Logique Déterministe** : Dernière logique heuristique éliminée
-  - Refactorisation de `getGenericGroupSummaries` pour extraire les principes actifs communs directement depuis la table `principes_actifs`
-  - Requête SQL joinant les tables nécessaires pour identifier les principes actifs partagés par tous les membres d'un groupe
-  - Renommage de `groupLabel` en `commonPrincipes` dans le modèle `GenericGroupSummary` pour refléter la sémantique réelle
-  - Suppression complète de `MedicamentHelpers.cleanGroupName()` et du fichier `medicament_helpers.dart`
+- **GenericGroupSummary Model Simplification** : Transition from a list of names to a unique reference name
+  - Replacement of `List<String> princepsNames` with `String princepsReferenceName` in the model
+  - Simplified UI interface: display of a single princeps reference name per group
+  - Clear mapping "Active Ingredient(s) ↔ Reference Princeps" with visual separator (arrow)
 
-- **Robustesse et Fiabilité** : Toutes les données affichées proviennent désormais directement des fichiers officiels BDPM
-  - Aucune approximation heuristique : 100% des données sont déterministes et basées sur la source de vérité
-  - Affichage des principes actifs communs dans l'explorateur de groupes génériques sans troncature ou erreur potentielle
+- **getGenericGroupSummaries Refactoring** : Migration of grouping logic from SQL to Dart
+  - Modified SQL query to retrieve individual princeps names (one row per princeps) instead of `GROUP_CONCAT`
+  - Grouping of results by `group_id` in Dart to enable algorithmic processing
+  - Use of `findCommonPrincepsName()` to calculate the common reference name for each group
+  - Optimization with CTE (Common Table Expression) for efficient pagination
 
-# [2025-11-16] - Filtre de Pertinence et Améliorations Majeures
+- **Critical SQL Bug Fix** : Resolution of the "no result" problem in the explorer
+  - Identified bug: incorrect alias in the CTE WHERE clause (`princeps_spec` vs `princeps_spec2`)
+  - Solution: creation of separate conditions for the CTE (`formConditionsCte`, `excludeConditionsCte`) with correct aliases
+  - Impact: the explorer now correctly displays all medication groups
 
-Implémentation complète du filtre de pertinence pour exclure les produits non-médicaments (homéopathie, phytothérapie), amélioration de la recherche par principe actif, correction de la détection des génériques (types 2 et 4), et validation complète de la logique de parsing des fichiers TXT BDPM.
+- **Integration Tests with Real Data** : Complete validation with official BDPM TXT files
+  - New test `integration_test/generic_group_summaries_test.dart` that downloads and uses the real TXT files
+  - Verification that algorithmic grouping produces consistent results
+  - Tests for different categories of pharmaceutical forms (oral, injectable, external)
+  - Validation of pagination and behavior with large amounts of data
 
-- **Filtre de Pertinence** : Ajout d'un filtre global pour exclure les produits homéopathiques et phytothérapeutiques basé sur la colonne 5 de `CIS_bdpm.txt` (Type de procédure AMM)
-  - Toggle accessible depuis la barre de navigation principale avec icône `funnel`
-  - Filtre appliqué au niveau de la base de données via `searchMedicaments(showAll: bool)`
-  - État géré centralement dans `MainScreen` et propagé à `DatabaseScreen`
-  - Réactivité automatique via `didUpdateWidget` pour rafraîchir les résultats lors du changement de filtre
+- **Mobile Verification** : Test on real device confirming proper operation
+  - The explorer now correctly displays groups with their active ingredients and reference princeps
+  - Simplified and more intuitive user interface
+  - Performance verified with scrolling and pagination
 
-- **Recherche par Principe Actif** : Extension de la recherche pour inclure les principes actifs en plus du nom et du CIP
-  - Jointure avec la table `principesActifs` dans `searchMedicaments`
-  - Recherche case-insensitive avec `LIKE` sur le nom, CIP, et principe actif
+# [2025-11-16] - Complete Overhaul: Enriched Data and Deterministic Logic
 
-- **Correction des Types de Génériques** : Détection correcte de tous les types de génériques (1, 2, et 4) depuis `CIS_GENER_bdpm.txt`
-  - Logique corrigée : `isGeneric = type == 1 || type == 2 || type == 4`
-  - Stockage cohérent comme type `1` dans la base de données pour tous les génériques
+Complete elimination of all regex-based extraction logic in favor of structured parsing of official BDPM TXT files, enrichment of the data model, and replacement of the last heuristic logic with a database-based deterministic method.
 
-- **Schéma de Base de Données** : Ajout de la colonne `procedureType` dans la table `Specialites` pour le filtrage
-  - Migration du schéma vers la version 3
-  - Parsing de la colonne 5 de `CIS_bdpm.txt` pour extraire le type de procédure
+- **Database Schema Enrichment** : Migration to version 4 with addition of new columns
+  - `Specialites` table: addition of `formePharmaceutique`, `etatCommercialisation`, `titulaire` (laboratory)
+  - `PrincipesActifs` table: addition of `dosage` and `dosageUnit` for structured dosage storage
+  - Extended parsing of `CIS_bdpm.txt` (columns 2, 6, 10) and `CIS_COMPO_bdpm.txt` (column 4 for dosage)
 
-- **Validation Complète des Fichiers TXT** : Création de scripts Python pour valider la logique de parsing
-  - Scripts de validation dans `data_validation/` : `validate_txt_files.py`, `detailed_analysis.py`, `generate_samples.py`
-  - Rapport de validation complet : `VALIDATION_REPORT.md`
-  - Confirmation que tous les index de colonnes sont corrects et que la logique est optimale
+- **Enriched Medicament Model** : Addition of `titulaire`, `formePharmaceutique`, `dosage`, `dosageUnit` fields
+  - Replacement of regex-based laboratory extraction with direct use of the `titulaire` field from the database
+  - Updated dosage sorting to use the structured `dosage` field instead of regex extraction
 
-- **Tests Complets** : Extension de la suite de tests pour couvrir toutes les nouvelles fonctionnalités
-  - 48 tests au total (37 unitaires/widget + 11 intégration) - tous passent ✅
-  - Tests unitaires pour la recherche par principe actif et le filtrage
-  - Tests widget pour la réactivité du filtre dans `DatabaseScreen`
-  - Tests d'intégration pour les flux complets de recherche et de filtrage
+- **Replacement of `cleanGroupName` with Deterministic Logic** : Last heuristic logic eliminated
+  - Refactoring of `getGenericGroupSummaries` to extract common active ingredients directly from the `principes_actifs` table
+  - SQL query joining necessary tables to identify active ingredients shared by all members of a group
+  - Renaming of `groupLabel` to `commonPrincipes` in the `GenericGroupSummary` model to reflect the actual semantics
+  - Complete removal of `MedicamentHelpers.cleanGroupName()` and the `medicament_helpers.dart` file
 
-## [2025-11-16] - Migration de sqflite vers drift ORM
+- **Robustness and Reliability** : All displayed data now comes directly from official BDPM files
+  - No heuristic approximation: 100% of data is deterministic and based on the source of truth
+  - Display of common active ingredients in the generic groups explorer without truncation or potential error
 
-Migration complète de la couche base de données de `sqflite` (SQL brut) vers `drift` (ORM type-safe), apportant la sécurité de type au moment de la compilation et éliminant les erreurs SQL à l'exécution.
+# [2025-11-16] - Relevance Filter and Major Improvements
 
-- **Schéma type-safe** : Définition du schéma en Dart avec génération automatique de l'API type-safe (`lib/core/database/database.dart`)
-- **Requêtes type-safe** : Remplacement de toutes les chaînes SQL brutes par l'API type-safe de drift (`select()`, `where()`, `join()`)
-- **Tests isolés** : Utilisation de `AppDatabase.forTesting(NativeDatabase.memory())` pour une isolation complète des tests sans dépendances système de fichiers
-- **Service locator** : Enregistrement de `AppDatabase` dans le service locator, éliminant le pattern singleton de `DatabaseService`
-- **Documentation** : Mise à jour de `AGENTS.md` avec la documentation complète de drift comme standard de base de données type-safe
+Complete implementation of the relevance filter to exclude non-medication products (homeopathy, phytotherapy), improvement of active ingredient search, correction of generic detection (types 2 and 4), and complete validation of BDPM TXT file parsing logic.
 
-## [2025-11-16] - Intégration de freezed et get_it
+- **Relevance Filter** : Addition of a global filter to exclude homeopathic and phytotherapeutic products based on column 5 of `CIS_bdpm.txt` (AMM procedure type)
+  - Toggle accessible from the main navigation bar with `funnel` icon
+  - Filter applied at the database level via `searchMedicaments(showAll: bool)`
+  - State managed centrally in `MainScreen` and propagated to `DatabaseScreen`
+  - Automatic reactivity via `didUpdateWidget` to refresh results when the filter changes
 
-Intégration de `freezed` pour des modèles de données immuables et `get_it` pour la localisation de services, améliorant la sécurité de type, la maintenabilité et la testabilité.
+- **Active Ingredient Search** : Extension of search to include active ingredients in addition to name and CIP
+  - Join with the `principesActifs` table in `searchMedicaments`
+  - Case-insensitive search with `LIKE` on name, CIP, and active ingredient
 
-- **Modèles immuables (`freezed`)** : Conversion de tous les modèles de données (`Medicament`, `ScanResult`, `Gs1DataMatrix`) en classes immuables avec génération de code, éliminant les bugs liés à la mutation d'état
-- **Service locator (`get_it`)** : Remplacement des singletons statiques par un service locator centralisé, améliorant la testabilité et le découplage entre la couche UI et les services
-- **Pattern matching exhaustif** : Utilisation de la méthode `when()` pour le pattern matching compile-time safe sur les union types (`ScanResult`)
-- **Documentation** : Mise à jour de `AGENTS.md` avec la nouvelle section architecture et les étapes de workflow incluant la génération de code
+- **Generic Types Correction** : Correct detection of all generic types (1, 2, and 4) from `CIS_GENER_bdpm.txt`
+  - Corrected logic: `isGeneric = type == 1 || type == 2 || type == 4`
+  - Consistent storage as type `1` in the database for all generics
 
-## [2025-11-16] - Database Explorer avec Navigation
+- **Database Schema** : Addition of the `procedureType` column in the `Specialites` table for filtering
+  - Schema migration to version 3
+  - Parsing of column 5 of `CIS_bdpm.txt` to extract the procedure type
 
-Implémentation complète de l'explorateur de base de données avec navigation par onglets et recherche textuelle.
+- **Complete TXT File Validation** : Creation of Python scripts to validate parsing logic
+  - Validation scripts in `data_validation/`: `validate_txt_files.py`, `detailed_analysis.py`, `generate_samples.py`
+  - Complete validation report: `VALIDATION_REPORT.md`
+  - Confirmation that all column indices are correct and the logic is optimal
 
-- **Navigation Principale** : Ajout de `MainScreen` avec navigation par onglets (Scanner/Explorer) utilisant `IndexedStack` pour préserver l'état
-- **DatabaseScreen** : Écran d'exploration avec tableau de bord de statistiques, recherche instantanée par nom ou CIP, et affichage des détails via `ShadSheet`
-- **Extension DatabaseService** : Ajout de `getDatabaseStats()` pour les statistiques globales et `searchMedicaments()` pour la recherche textuelle
-- **Tests** : Mise à jour de la suite de tests avec initialisation de la factory de base de données pour les tests widget, et ajout de tests pour les nouvelles méthodes du service
+- **Complete Tests** : Extension of the test suite to cover all new features
+  - 48 tests total (37 unit/widget + 11 integration) - all pass ✅
+  - Unit tests for active ingredient search and filtering
+  - Widget tests for filter reactivity in `DatabaseScreen`
+  - Integration tests for complete search and filtering flows
 
-## [2025-11-16] - Implémentation Complète de PharmaScan
+## [2025-11-16] - Migration from sqflite to drift ORM
 
-Mise en place complète de l'application PharmaScan : architecture, logique métier (parser GS1, base de données SQLite), interface utilisateur (écran caméra, bulles d'information), et initialisation des données depuis la base publique française.
+Complete migration of the database layer from `sqflite` (raw SQL) to `drift` (type-safe ORM), bringing compile-time type safety and eliminating SQL errors at runtime.
 
-- **Tests Unitaires et d'Intégration** : Implémentation complète de la suite de tests garantissant le fonctionnement de l'application
-  - Tests unitaires pour `Gs1Parser` : parsing robuste des codes GS1 Data Matrix avec différents formats de séparateurs (espaces, FNC1)
-  - Test d'intégration `image_scanning_test.dart` : vérification de l'extraction de codes-barres depuis des images statiques
-  - Test d'intégration `data_pipeline_test.dart` : vérification complète du pipeline de données (téléchargement, parsing TXT, insertion en base)
-  - Stratégie de fallback pour les génériques et principes actifs : garantit que les tests passent même si le format des fichiers BDPM change
+- **Type-safe schema** : Schema definition in Dart with automatic generation of type-safe API (`lib/core/database/database.dart`)
+- **Type-safe queries** : Replacement of all raw SQL strings with drift's type-safe API (`select()`, `where()`, `join()`)
+- **Isolated tests** : Use of `AppDatabase.forTesting(NativeDatabase.memory())` for complete test isolation without file system dependencies
+- **Service locator** : Registration of `AppDatabase` in the service locator, eliminating the singleton pattern from `DatabaseService`
+- **Documentation** : Update of `AGENTS.md` with complete drift documentation as the type-safe database standard
+
+## [2025-11-16] - Integration of freezed and get_it
+
+Integration of `freezed` for immutable data models and `get_it` for service location, improving type safety, maintainability, and testability.
+
+- **Immutable models (`freezed`)** : Conversion of all data models (`Medicament`, `ScanResult`, `Gs1DataMatrix`) to immutable classes with code generation, eliminating state mutation bugs
+- **Service locator (`get_it`)** : Replacement of static singletons with a centralized service locator, improving testability and decoupling between the UI layer and services
+- **Exhaustive pattern matching** : Use of the `when()` method for compile-time safe pattern matching on union types (`ScanResult`)
+- **Documentation** : Update of `AGENTS.md` with the new architecture section and workflow steps including code generation
+
+## [2025-11-16] - Database Explorer with Navigation
+
+Complete implementation of the database explorer with tab navigation and text search.
+
+- **Main Navigation** : Addition of `MainScreen` with tab navigation (Scanner/Explorer) using `IndexedStack` to preserve state
+- **DatabaseScreen** : Exploration screen with statistics dashboard, instant search by name or CIP, and detail display via `ShadSheet`
+- **DatabaseService Extension** : Addition of `getDatabaseStats()` for global statistics and `searchMedicaments()` for text search
+- **Tests** : Update of the test suite with database factory initialization for widget tests, and addition of tests for the new service methods
+
+## [2025-11-16] - Complete PharmaScan Implementation
+
+Complete setup of the PharmaScan application: architecture, business logic (GS1 parser, SQLite database), user interface (camera screen, info bubbles), and data initialization from the French public database.
+
+- **Unit and Integration Tests** : Complete implementation of the test suite ensuring application functionality
+  - Unit tests for `Gs1Parser`: robust parsing of GS1 Data Matrix codes with different separator formats (spaces, FNC1)
+  - Integration test `image_scanning_test.dart`: verification of barcode extraction from static images
+  - Integration test `data_pipeline_test.dart`: complete verification of the data pipeline (download, TXT parsing, database insertion)
+  - Fallback strategy for generics and active ingredients: ensures tests pass even if BDPM file format changes

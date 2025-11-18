@@ -5,14 +5,15 @@ PharmaScan is a high-performance Flutter application designed for the rapid scan
 ## Features
 
 - **Instant Data Matrix Scanning**: Utilizes the device camera to detect and parse GS1 barcodes in real-time.
-- **Smart Medication Identification (Quick View)**: After scanning, an info bubble provides a concise, actionable summary:
-  - **Princeps Scan**: Shows the active ingredient and lists laboratories producing generic versions.
-  - **Generic Scan**: Directly lists the associated brand-name (princeps) medication(s).
-- **Generic Group Explorer (Deep Dive)**: An advanced, interactive view to explore the full context of a medication group, featuring:
-  - **User-Centric View Modes**: Instantly toggle the display between `Generic → Princeps` (default) and `Princeps → Generic` layouts to fit your workflow.
-  - **Bicolumn Layout**: A clear, side-by-side comparison of all princeps and generics in the group.
-  - **Powerful Sorting**: Instantly sort medications by name or dosage.
-- **Intelligent Search**: The explorer's search function understands medication names, CIP codes, and **active ingredients**, allowing you to find what you need even with partial information.
+- **Robust Scan Results**: The scanner UI displays the most recent scan prominently, with a short history of previous scans, using a simplified and fluid animation system that is resilient to rapid, successive scans.
+- **Unified Group Explorer**: An intelligent view that presents a canonical overview of a medication group:
+  - **Product-Centric Grouping**: Generics are grouped by product name and dosage, not by laboratory, providing a clear, decluttered view of available alternatives.
+  - **Associated Therapies**: When viewing a group (e.g., "VALSARTAN"), the explorer proactively displays clickable cards for related combination therapies (e.g., "VALSARTAN/HYDROCHLOROTHIAZIDE") for seamless cross-discovery.
+- **Fuzzy & Grouped Search**: The search engine is powered by a full-text search index (FTS5) for a superior experience:
+  - **Typo Tolerance**: The search is resilient to spelling mistakes and partial queries.
+  - **Grouped Results**: Search results are unified by group, showing one clear entry per product concept (e.g., "PARACETAMOL 500 mg") instead of an overwhelming list of every individual package.
+- **One-Tap Search Reset**: A contextual clear control instantly resets the explorer search field, taking you back to the generic group summaries without manual text deletion.
+- **Aggregated Source of Truth**: Every CIS (specialty) gets a single, denormalized `MedicamentSummary` row populated during initialization. This precomputes canonical names, princeps/generic flags, reference princeps, common active principles, and pharmaceutical forms so all explorer queries return instantly from a single table.
 - **Form Category Filtering**: Browse medications by pharmaceutical form with 7 categories:
   - **Oral** (default): comprimé, gélule, capsule, lyophilisat, solution buvable, sirop, suspension buvable, comprimé orodispersible
   - **Injectable**: injectable, injection, perfusion, solution pour perfusion, poudre pour solution injectable, solution pour injection
@@ -26,6 +27,8 @@ PharmaScan is a high-performance Flutter application designed for the rapid scan
 - **On-Device, Type-Safe Database**: Uses `drift` ORM for a fully offline, compile-time safe database built from official French public health data (BDPM).
 - **Deterministic Data Model**: All relationships and data extraction are derived directly from official BDPM data files, ensuring 100% accuracy and eliminating all heuristic approximations. No regex-based extraction - all data comes from structured parsing of official TXT files.
 - **Clean & Responsive UI**: Built with a minimalistic design system (`shadcn-ui/flutter`) for an efficient user experience.
+- **Resilient Initialization & Recovery**: Startup initialization relies on versioned data checks inside `DataInitializationService`; when connectivity fails, the app surfaces a non-blocking banner with retry and Settings shortcuts, and users can force a full BDPM refresh from the Settings screen.
+- **Automatic BDPM Sync**: A background `SyncService` tracks per-file SHA-256 hashes, honors user-defined frequencies (`none/daily/weekly/monthly`), retries until connectivity is available, and exposes progress via Riverpod so the UI can display Shad banners, manual "check now" actions, and toast notifications.
 
 ## Technology Stack
 
@@ -34,7 +37,7 @@ PharmaScan is a high-performance Flutter application designed for the rapid scan
 - **Scanning**: [mobile_scanner](https://pub.dev/packages/mobile_scanner)
 - **Local Database**: [drift](https://pub.dev/packages/drift) - Type-safe ORM with compile-time query validation
 - **Data Sources**: Official BDPM TXT files (direct downloads, no ZIP archives)
-- **State Management**: `StatefulWidget` (Local State)
+- **State Management**: Local `StatefulWidget` state for UI plus targeted Riverpod providers (e.g., background sync status, user preferences) where cross-layer coordination is required.
 - **Architecture**: Clean Two-Layer (UI / Services)
 
 ## Getting Started
@@ -83,19 +86,23 @@ The application uses a **deterministic data model** based on official relational
   - `PrincipesActifs` table includes structured `dosage` and `dosageUnit` fields
   - Generic groups are defined in `generique_groups` table
   - Group membership (princeps/generic) is stored in `group_members` table
+  - `MedicamentSummary` is a denormalized, single-table “source of truth” keyed by `cis_code`, storing canonical specialty names, princeps/generic flags, reference princeps, JSON-encoded shared principles, forms, and group identifiers. All explorer queries (search, library, scan lookups) now read directly from this table for constant-time answers.
   - Common active ingredients for groups are extracted directly from `principes_actifs` table via SQL joins
   - Princeps names are grouped algorithmically using word-based common prefix detection (no regex)
-  - No predictive matching, inference, or regex-based extraction - all relationships and data come directly from official BDPM data
-  - All queries are type-safe, eliminating runtime SQL errors
+  - **Compile-Time Safe SQL**: All complex SQL queries are defined in `.drift` files, which are parsed and validated against the schema at compile time. This eliminates an entire class of runtime SQL errors and ensures perfect consistency between the database schema and data access logic.
+  - No predictive matching or heuristic approximations—all data and relationships are 100% deterministic.
 
-- **Initialization**: On first launch, the app downloads all four TXT files, parses them, and populates the local database. Subsequent launches are instant as the database persists locally.
+- **Initialization**: On first launch, the app downloads all four TXT files, parses them, and populates the local database. The process now runs in two deterministic phases:
+  1. **Staging** – TXT data is parsed into the normalized tables (`specialites`, `medicaments`, `principes_actifs`, `generique_groups`, `group_members`).
+  2. **Aggregation** – `_aggregateDataForSummary()` computes one `MedicamentSummary` row per CIS, pre-calculating canonical names, group IDs, shared principles, and princeps references so the UI never recomputes them at runtime.
+  Subsequent launches are instant as both layers persist locally.
 
 - **Explorer Features**:
   - **Form Category Filtering**: Seven pharmaceutical form categories (Oral, Injectable, External Use, Sachet, Ophthalmic, Nasal/ORL, Gynecological) with intelligent keyword matching
   - **Smart Exclusions**: Prevents false positives (e.g., External Use excludes "vaginal" to avoid overlap with Gynecological)
   - **Group Summary View**: Clean "Principe(s) Actif(s) ↔ Princeps de Référence" mapping using algorithmic common prefix detection
   - **Infinite Scroll Pagination**: Efficient loading of large result sets (50 items per page)
-  - **Search Integration**: Search by name, CIP code, or active ingredient with relevance filtering
+  - **Full-Text Search**: Search is powered by an on-device FTS5 index, providing typo-tolerant, relevance-based results grouped by product concept.
 
 ## Project Mantras
 

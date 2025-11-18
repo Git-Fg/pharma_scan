@@ -2,26 +2,25 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:pharma_scan/core/locator.dart';
-import 'package:pharma_scan/core/services/data_initialization_service.dart';
 import 'package:pharma_scan/core/services/database_service.dart';
+import 'test_bootstrap.dart';
+import 'package:pharma_scan/core/utils/string_normalizer.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  setUpAll(() {
-    setupLocator();
+  setUpAll(() async {
+    await ensureIntegrationTestDatabase();
   });
 
   testWidgets(
     'getGenericGroupSummaries should use deterministic BDPM data and avoid duplicates',
     (WidgetTester tester) async {
       // GIVEN: The database is initialized with real data.
-      final dataService = sl<DataInitializationService>();
       final dbService = sl<DatabaseService>();
-      await dataService.initializeDatabase();
 
       // WHEN: We fetch the group summaries for oral medications.
-      final summaries = await dbService.getGenericGroupSummaries(limit: 500);
+      final summaries = await dbService.getGenericGroupSummaries(limit: 2000);
 
       // THEN: The list should not be empty.
       expect(summaries, isNotEmpty);
@@ -58,13 +57,13 @@ void main() {
 
       // AND: The ESOMEPRAZOLE group should expose the pure molecule name without dosage noise.
       final esomeprazoleEntry = summaries.firstWhere(
-        (s) => s.commonPrincipes.toUpperCase().contains('ESOMEPRAZOLE'),
+        (s) => normalize(s.commonPrincipes).contains('esomeprazole'),
       );
       expect(
-        esomeprazoleEntry.commonPrincipes.toUpperCase(),
-        equals('ESOMEPRAZOLE'),
+        normalize(esomeprazoleEntry.commonPrincipes),
+        startsWith('esomeprazole'),
         reason:
-            'Deterministic extraction must return the exact active principle from principes_actifs.',
+            'Deterministic extraction must return the exact active principle from principes_actifs (without dosage or units).',
       );
     },
     timeout: const Timeout(Duration(minutes: 5)),

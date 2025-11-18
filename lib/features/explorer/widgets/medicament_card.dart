@@ -1,5 +1,6 @@
 // lib/features/explorer/widgets/medicament_card.dart
 import 'package:flutter/material.dart';
+import 'package:pharma_scan/core/utils/dosage_utils.dart';
 import 'package:pharma_scan/features/scanner/models/medicament_model.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
@@ -10,12 +11,14 @@ class MedicamentCard extends StatelessWidget {
     this.onTap,
     this.trailing,
     this.padding,
+    this.hideDosage = false,
   });
 
   final Medicament medicament;
   final VoidCallback? onTap;
   final Widget? trailing;
   final EdgeInsetsGeometry? padding;
+  final bool hideDosage;
 
   @override
   Widget build(BuildContext context) {
@@ -54,6 +57,7 @@ class MedicamentCard extends StatelessWidget {
   Widget _buildMedicamentInfo(ShadThemeData theme) {
     final titulaire = medicament.titulaire ?? 'Titulaire inconnu';
     final dosageLabel = _formatDosage();
+    final conditionBadge = _buildConditionBadge(theme);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -62,6 +66,10 @@ class MedicamentCard extends StatelessWidget {
           medicament.nom,
           style: theme.textTheme.p.copyWith(fontWeight: FontWeight.w500),
         ),
+        if (conditionBadge != null) ...[
+          const SizedBox(height: 6),
+          conditionBadge,
+        ],
         const SizedBox(height: 8),
         Row(
           children: [
@@ -102,12 +110,12 @@ class MedicamentCard extends StatelessWidget {
             ),
           ],
         ),
-        if (dosageLabel != null) ...[
+        if (!hideDosage && dosageLabel != null) ...[
           const SizedBox(height: 6),
           Row(
             children: [
               Icon(
-                LucideIcons.activity,
+                LucideIcons.flaskConical,
                 size: 14,
                 color: theme.colorScheme.mutedForeground,
               ),
@@ -128,21 +136,10 @@ class MedicamentCard extends StatelessWidget {
   }
 
   String? _formatDosage() {
-    final dosage = medicament.dosage;
-    final unit = medicament.dosageUnit;
-
-    if (dosage == null && unit == null) return null;
-    if (dosage == null) return unit;
-    if (unit == null) return _formatNumber(dosage);
-
-    return '${_formatNumber(dosage)} $unit';
-  }
-
-  String _formatNumber(double value) {
-    if (value % 1 == 0) {
-      return value.toInt().toString();
-    }
-    return value.toString();
+    return formatDosageLabel(
+      dosage: medicament.dosage,
+      unit: medicament.dosageUnit,
+    );
   }
 
   String _buildSemanticsLabel() {
@@ -151,15 +148,31 @@ class MedicamentCard extends StatelessWidget {
     if (medicament.titulaire != null) {
       buffer.write(', titulaire ${medicament.titulaire}');
     }
-    final dosage = _formatDosage();
-    if (dosage != null) {
-      buffer.write(', dosage $dosage');
+    if (!hideDosage) {
+      final dosage = _formatDosage();
+      if (dosage != null) {
+        buffer.write(', dosage $dosage');
+      }
     }
     if (medicament.principesActifs.isNotEmpty) {
       buffer.write(
         ', principes actifs ${medicament.principesActifs.take(3).join(', ')}',
       );
     }
+    if (medicament.conditionsPrescription != null) {
+      buffer.write(', condition ${medicament.conditionsPrescription}');
+    }
     return buffer.toString();
+  }
+
+  Widget? _buildConditionBadge(ShadThemeData theme) {
+    final condition = medicament.conditionsPrescription;
+    if (condition == null || condition.isEmpty) return null;
+    return ShadBadge.outline(
+      child: Text(
+        condition,
+        style: theme.textTheme.small.copyWith(fontWeight: FontWeight.w600),
+      ),
+    );
   }
 }

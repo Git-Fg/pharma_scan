@@ -12,8 +12,8 @@ import 'package:pharma_scan/features/scanner/models/scan_result_model.dart';
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  setUpAll(() {
-    setupLocator();
+  setUpAll(() async {
+    await setupLocator();
   });
 
   testWidgets(
