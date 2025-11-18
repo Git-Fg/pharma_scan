@@ -205,8 +205,38 @@ class DatabaseSearchViewState extends ConsumerState<DatabaseSearchView> {
         separatorBuilder: (context, index) => const SizedBox(height: 12),
         itemBuilder: (context, index) {
           final result = results[index];
+          final onTapCallback = result.when(
+            princepsResult:
+                (princeps, unusedGenerics, groupId, unusedPrinciples) {
+              return () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => GroupExplorerView(
+                      groupId: groupId,
+                      onExit: () => Navigator.of(context).pop(),
+                    ),
+                  ),
+                );
+              };
+            },
+            genericResult:
+                (generic, unusedPrincepsList, groupId, unusedPrinciples) {
+              return () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => GroupExplorerView(
+                      groupId: groupId,
+                      onExit: () => Navigator.of(context).pop(),
+                    ),
+                  ),
+                );
+              };
+            },
+            // WHY: Explicitly return null for standalone results to disable InkWell feedback
+            standaloneResult: (unusedMedicament, unusedPrinciples) => null,
+          );
           final card = Semantics(
-            button: true,
+            button: onTapCallback != null,
             label: result.when(
               princepsResult:
                   (princeps, generics, unusedGroupId, unusedPrinciples) =>
@@ -220,40 +250,7 @@ class DatabaseSearchViewState extends ConsumerState<DatabaseSearchView> {
             child: Material(
               color: Colors.transparent,
               child: InkWell(
-                onTap: () {
-                  result.when(
-                    princepsResult:
-                        (princeps, unusedGenerics, groupId, unusedPrinciples) {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (context) => GroupExplorerView(
-                                groupId: groupId,
-                                onExit: () => Navigator.of(context).pop(),
-                              ),
-                            ),
-                          );
-                        },
-                    genericResult:
-                        (
-                          generic,
-                          unusedPrincepsList,
-                          groupId,
-                          unusedPrinciples,
-                        ) {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (context) => GroupExplorerView(
-                                groupId: groupId,
-                                onExit: () => Navigator.of(context).pop(),
-                              ),
-                            ),
-                          );
-                        },
-                    standaloneResult: (unusedMedicament, unusedPrinciples) {
-                      // No navigation target for standalone medications (no group)
-                    },
-                  );
-                },
+                onTap: onTapCallback,
                 borderRadius: BorderRadius.circular(12),
                 splashColor: theme.colorScheme.primary.withValues(alpha: 0.1),
                 highlightColor: theme.colorScheme.primary.withValues(

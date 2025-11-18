@@ -22,5 +22,7 @@ abstract class ParsedName with _$ParsedName {
     String? baseName,
     @Default(<Dosage>[]) List<Dosage> dosages,
     String? formulation,
+    @Default(<String>[]) List<String> contextAttributes,
+    @Default(false) bool isMultiIngredient,
   }) = _ParsedName;
 }

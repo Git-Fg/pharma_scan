@@ -1,7 +1,13 @@
-# [2025-11-18] - Clustered Explorer & Parser
-Refactored Medicament parsing with a petitparser-powered pipeline, extended the summary schema with brand/cluster metadata, and rebuilt the explorer into a hierarchical cluster flow with transparent parsing details in each group.
+# [2025-11-18] - Smart Parsing & Data-Driven Robustness
 
-fic # [2025-11-18] - Aggregated Library Experience
+- **Knowledge-Injected Parsing Engine**: Replaced the previous heuristic parser with a deterministic "Subtraction Strategy." The parser now accepts official "Truths" (Pharmaceutical Form and Laboratory Name) directly from the BDPM database during initialization. It surgically removes these known entities from the raw medication string before using `PetitParser` grammar to extract complex dosages (ratios, multi-ingredients) and context (e.g., "SANS SUCRE", "ENFANTS"). This guarantees a 100% clean canonical name and eliminates false positives where lab names were mistaken for molecules or vice-versa.
+- **Data-Driven Validation Suite**: Introduced `data_driven_parser_test.dart` backed by a Python-generated dataset (`smart_parsing_challenges.csv`) containing 100 real-world edge cases (including complex biologicals and homeopathy). This test suite enforces strict quality gates: zero units allowed in base names, mandatory context extraction, and perfect formulation detection.
+- **Python Tooling Refactor**: Consolidated the Python maintenance scripts. Deleted obsolete prototypes (`product_classifier.py`, `generate_parsing_samples.py`) and established `generate_smart_test_data.py` as the bridge between official government data and Dart integration tests.
+- **Optimized Aggregation Pipeline**: Updated `DataInitializationService` to use the new parser. The aggregation phase now runs an O(N) logic with pre-grouped maps instead of nested loops, significantly speeding up the "Applying updates" phase during database initialization.
+- **Reactive Data Architecture**: Fixed a critical disconnect where UI providers (`searchCandidates`, `groupCluster`) were not listening to the sync service. The application now hot-reloads its data instantly upon successful background sync without requiring a restart.
+- **UX Polish**: Disbaled misleading ripple effects on standalone search results and improved accessibility labels for complex dosage forms.
+
+# [2025-11-18] - Aggregated Library Experience
 
 - **FuzzyBolt explorer search**: Removed the FTS5 virtual table and rewired search to Riverpod providers backed by `fuzzy_bolt`. `DatabaseService` now exposes `getAllSearchCandidates()` with canonical data hydrated from `medicament_summary`, while the UI consumes `searchResultsProvider(query)` for debounced, isolate-aware fuzzy ranking.
 - **Procedure-aware filtering**: `SearchCandidate` carries `procedureType`, allowing the provider to exclude homéopathie/phyto entries by default without touching the database layer. This keeps conventional searches fast and deterministic.

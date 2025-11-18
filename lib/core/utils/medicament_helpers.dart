@@ -256,7 +256,17 @@ String parseMainTitulaire(String? rawTitulaire) {
   for (final part in parts) {
     final trimmed = part.trim();
     if (trimmed.isNotEmpty) {
-      return trimmed;
+      // Remove legal entity suffixes for cleaner matching
+      final cleaned = trimmed
+          .replaceAll(
+            RegExp(r'\s+(SAS|SA|SARL|GMBH|LTD|INC)$', caseSensitive: false),
+            '',
+          )
+          .trim();
+
+      if (cleaned.isNotEmpty) {
+        return cleaned;
+      }
     }
   }
 

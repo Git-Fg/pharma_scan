@@ -62,3 +62,4 @@ data_validation/*
 !data_validation/rapport_final.txt
 !data_validation/classification_report.txt
 !data_validation/*.py
+!data_validation/*.csv

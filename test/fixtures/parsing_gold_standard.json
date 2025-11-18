@@ -1,0 +1,470 @@
+[
+    {
+      "category": "Ratios",
+      "raw_name": "ABACAVIR/LAMIVUDINE ACCORD 600 mg/300 mg, comprimé pelliculé",
+      "official_form": "comprimé pelliculé",
+      "official_lab": "ACCORD HEALTHCARE FRANCE",
+      "expected": {
+        "base_name": "ABACAVIR/LAMIVUDINE",
+        "dosages": ["600 mg/300 mg"],
+        "formulation": "comprimé pelliculé",
+        "is_multi_ingredient": true,
+        "context": []
+      }
+    },
+    {
+      "category": "Ratios",
+      "raw_name": "ABACAVIR/LAMIVUDINE ARROW 600 mg/300 mg, comprimé pelliculé",
+      "official_form": "comprimé pelliculé",
+      "official_lab": "ARROW GENERIQUES",
+      "expected": {
+        "base_name": "ABACAVIR/LAMIVUDINE",
+        "dosages": ["600 mg/300 mg"],
+        "formulation": "comprimé pelliculé",
+        "is_multi_ingredient": true,
+        "context": []
+      }
+    },
+    {
+      "category": "Ratios",
+      "raw_name": "ABACAVIR/LAMIVUDINE/ZIDOVUDINE VIATRIS 300 mg/150 mg/300 mg, comprimé pelliculé",
+      "official_form": "comprimé pelliculé",
+      "official_lab": "VIATRIS SANTE",
+      "expected": {
+        "base_name": "ABACAVIR/LAMIVUDINE/ZIDOVUDINE",
+        "dosages": ["300 mg/150 mg", "300 mg"],
+        "formulation": "comprimé pelliculé",
+        "is_multi_ingredient": true,
+        "context": []
+      }
+    },
+    {
+      "category": "Ratios",
+      "raw_name": "ACIDE ALENDRONIQUE/CHOLECALCIFEROL (VITAMINE D3) CRISTERS 70 mg/2800 UI, comprimé",
+      "official_form": "comprimé",
+      "official_lab": "CRISTERS",
+      "expected": {
+        "base_name": "ACIDE ALENDRONIQUE/CHOLECALCIFEROL",
+        "dosages": ["70 mg/2800 UI"],
+        "formulation": "comprimé",
+        "is_multi_ingredient": true,
+        "context": []
+      }
+    },
+    {
+      "category": "Context",
+      "raw_name": "ACETYLCYSTEINE ALPEX 600 mg ADULTES, granulés pour solution buvable",
+      "official_form": "granulés pour solution buvable",
+      "official_lab": "ALPEX PHARMA (IRL) (IRLANDE)",
+      "expected": {
+        "base_name": "ACETYLCYSTEINE",
+        "dosages": ["600 mg"],
+        "formulation": "granulés pour solution buvable",
+        "is_multi_ingredient": false,
+        "context": ["ADULTES"]
+      }
+    },
+    {
+      "category": "Context",
+      "raw_name": "ACETYLCYSTEINE BGR CONSEIL 200 mg SANS SUCRE, poudre pour solution buvable en sachet-dose",
+      "official_form": "poudre pour solution buvable",
+      "official_lab": "BIOGARAN",
+      "expected": {
+        "base_name": "ACETYLCYSTEINE CONSEIL",
+        "dosages": ["200 mg"],
+        "formulation": "poudre pour solution buvable en sachet-dose",
+        "is_multi_ingredient": false,
+        "context": ["SANS SUCRE"]
+      }
+    },
+    {
+      "category": "Context",
+      "raw_name": "ADVILMED ENFANTS ET NOURRISSONS 20 mg/1 ml, suspension buvable en flacon",
+      "official_form": "suspension buvable",
+      "official_lab": "HALEON FRANCE",
+      "expected": {
+        "base_name": "ADVILMED",
+        "dosages": ["20 mg/1 ml"],
+        "formulation": "suspension buvable en flacon",
+        "is_multi_ingredient": false,
+        "context": ["ENFANTS", "NOURRISSONS"]
+      }
+    },
+    {
+      "category": "Context",
+      "raw_name": "ALGINATE DE SODIUM/BICARBONATE DE SODIUM ARROW CONSEIL 500 mg/267 mg pour 10 mL sans sucre, suspension buvable en sachet édulcorée à la saccharine sodique",
+      "official_form": "suspension buvable",
+      "official_lab": "ARROW GENERIQUES",
+      "expected": {
+        "base_name": "ALGINATE DE SODIUM/BICARBONATE DE SODIUM CONSEIL",
+        "dosages": ["500 mg/267 mg", "10 mL"],
+        "formulation": "suspension buvable en sachet",
+        "is_multi_ingredient": true,
+        "context": ["SANS SUCRE"]
+      }
+    },
+    {
+      "category": "Context",
+      "raw_name": "ALGINATE DE SODIUM/BICARBONATE DE SODIUM SANDOZ CONSEIL 500 mg/267 mg MENTHE SANS SUCRE, suspension buvable en sachet édulcorée à la saccharine sodique",
+      "official_form": "suspension buvable",
+      "official_lab": "SANDOZ",
+      "expected": {
+        "base_name": "ALGINATE DE SODIUM/BICARBONATE DE SODIUM CONSEIL",
+        "dosages": ["500 mg/267 mg"],
+        "formulation": "suspension buvable en sachet",
+        "is_multi_ingredient": true,
+        "context": ["MENTHE", "SANS SUCRE"]
+      }
+    },
+    {
+      "category": "Context",
+      "raw_name": "AMOXICILLINE ACIDE CLAVULANIQUE ALMUS 100 mg/12,5 mg par mL ENFANTS, poudre pour suspension buvable (rapport amoxicilline/acide clavulanique : 8/1)",
+      "official_form": "poudre pour suspension buvable",
+      "official_lab": "ALMUS FRANCE",
+      "expected": {
+        "base_name": "AMOXICILLINE ACIDE CLAVULANIQUE",
+        "dosages": ["100 mg/12,5 mg"],
+        "formulation": "poudre pour suspension buvable",
+        "is_multi_ingredient": false,
+        "context": ["ENFANTS"]
+      }
+    },
+    {
+      "category": "Complex Units",
+      "raw_name": "A 313 200 000 UI POUR CENT, pommade",
+      "official_form": "pommade",
+      "official_lab": "PHARMA DEVELOPPEMENT",
+      "expected": {
+        "base_name": "A 313",
+        "dosages": ["200 000 UI", "%"],
+        "formulation": "pommade",
+        "is_multi_ingredient": false,
+        "context": []
+      }
+    },
+    {
+      "category": "Complex Units",
+      "raw_name": "ACCUSOL 35 POTASSIUM 2 mmol/l, solution pour hémofiltration, hémodialyse et hémodiafiltration",
+      "official_form": "solution et  solution pour hémofiltration pour hémodialyse et pour hémodiafiltration",
+      "official_lab": "NIKKISO BELGIUM (BELGIQUE)",
+      "expected": {
+        "base_name": "ACCUSOL 35 POTASSIUM",
+        "dosages": ["2 mmol/l"],
+        "formulation": "solution pour hémofiltration, hémodialyse et hémodiafiltration",
+        "is_multi_ingredient": false,
+        "context": []
+      }
+    },
+    {
+      "category": "Random Sample",
+      "raw_name": "LEVEMIR FLEXPEN 100 Unités/mL, solution injectable en stylo prérempli",
+      "official_form": "solution injectable",
+      "official_lab": "NOVO NORDISK (DANEMARK)",
+      "expected": {
+        "base_name": "LEVEMIR FLEXPEN",
+        "dosages": ["100 Unités/mL"],
+        "formulation": "solution injectable en stylo prérempli",
+        "is_multi_ingredient": false,
+        "context": []
+      }
+    },
+    {
+      "category": "Random Sample",
+      "raw_name": "ACICLOVIR VIATRIS CONSEIL 5 %, crème",
+      "official_form": "crème",
+      "official_lab": "VIATRIS SANTE",
+      "expected": {
+        "base_name": "ACICLOVIR CONSEIL",
+        "dosages": ["5 %"],
+        "formulation": "crème",
+        "is_multi_ingredient": false,
+        "context": []
+      }
+    },
+    {
+      "category": "Random Sample",
+      "raw_name": "GLIADEL 7,7 mg, implant",
+      "official_form": "implant",
+      "official_lab": "CLINIGEN HEALTHCARE (PAYS BAS)",
+      "expected": {
+        "base_name": "GLIADEL",
+        "dosages": ["7,7 mg"],
+        "formulation": "implant",
+        "is_multi_ingredient": false,
+        "context": []
+      }
+    },
+    {
+      "category": "Random Sample",
+      "raw_name": "INFLUVAC, suspension injectable en seringue préremplie. Vaccin grippal inactivé à antigènes de surface",
+      "official_form": "suspension injectable",
+      "official_lab": "VIATRIS MEDICAL",
+      "expected": {
+        "base_name": "INFLUVAC",
+        "dosages": [],
+        "formulation": "suspension injectable en seringue préremplie",
+        "is_multi_ingredient": false,
+        "context": []
+      }
+    },
+    {
+      "category": "Random Sample",
+      "raw_name": "ACEBUTOLOL ARROW 200 mg, comprimé pelliculé",
+      "official_form": "comprimé pelliculé",
+      "official_lab": "ARROW GENERIQUES",
+      "expected": {
+        "base_name": "ACEBUTOLOL",
+        "dosages": ["200 mg"],
+        "formulation": "comprimé pelliculé",
+        "is_multi_ingredient": false,
+        "context": []
+      }
+    },
+    {
+      "category": "Random Sample",
+      "raw_name": "AMINOSTAB, solution injectable pour perfusion en flacon",
+      "official_form": "solution pour perfusion",
+      "official_lab": "FRESENIUS KABI FRANCE",
+      "expected": {
+        "base_name": "AMINOSTAB",
+        "dosages": [],
+        "formulation": "solution injectable pour perfusion en flacon",
+        "is_multi_ingredient": false,
+        "context": []
+      }
+    },
+    {
+      "category": "Random Sample",
+      "raw_name": "DIMETANE SANS SUCRE 133 mg/100 ml, sirop",
+      "official_form": "sirop",
+      "official_lab": "BIOCODEX",
+      "expected": {
+        "base_name": "DIMETANE",
+        "dosages": ["133 mg/100 ml"],
+        "formulation": "sirop",
+        "is_multi_ingredient": false,
+        "context": ["SANS SUCRE"]
+      }
+    },
+    {
+      "category": "Random Sample",
+      "raw_name": "FERVEX ENFANTS SANS SUCRE, granulés pour solution buvable en sachet",
+      "official_form": "granulés pour solution buvable",
+      "official_lab": "UPSA",
+      "expected": {
+        "base_name": "FERVEX",
+        "dosages": [],
+        "formulation": "granulés pour solution buvable en sachet",
+        "is_multi_ingredient": false,
+        "context": ["ENFANTS", "SANS SUCRE"]
+      }
+    },
+    {
+      "category": "Random Sample",
+      "raw_name": "NEBIDO 1000 mg/4 ml, solution injectable",
+      "official_form": "solution injectable",
+      "official_lab": "LABORATOIRES GRUNENTHAL",
+      "expected": {
+        "base_name": "NEBIDO",
+        "dosages": ["1000 mg/4 ml"],
+        "formulation": "solution injectable",
+        "is_multi_ingredient": false,
+        "context": []
+      }
+    },
+    {
+      "category": "Random Sample",
+      "raw_name": "ZADITEN 1 mg, gélule",
+      "official_form": "gélule",
+      "official_lab": "ALFASIGMA (ITALIE)",
+      "expected": {
+        "base_name": "ZADITEN",
+        "dosages": ["1 mg"],
+        "formulation": "gélule",
+        "is_multi_ingredient": false,
+        "context": []
+      }
+    },
+    {
+      "category": "Random Sample",
+      "raw_name": "ANGIPAX, comprimé orodispersible",
+      "official_form": "comprimé orodispersible",
+      "official_lab": "LEHNING",
+      "expected": {
+        "base_name": "ANGIPAX",
+        "dosages": [],
+        "formulation": "comprimé orodispersible",
+        "is_multi_ingredient": false,
+        "context": []
+      }
+    },
+    {
+      "category": "Random Sample",
+      "raw_name": "ACTONEL 5 mg, comprimé pelliculé",
+      "official_form": "comprimé pelliculé",
+      "official_lab": "THERAMEX IRELAND (IRLANDE)",
+      "expected": {
+        "base_name": "ACTONEL",
+        "dosages": ["5 mg"],
+        "formulation": "comprimé pelliculé",
+        "is_multi_ingredient": false,
+        "context": []
+      }
+    },
+    {
+      "category": "Random Sample",
+      "raw_name": "TERIFLUNOMIDE ARROW 14 mg, comprimé pelliculé",
+      "official_form": "comprimé pelliculé",
+      "official_lab": "ARROW GENERIQUES",
+      "expected": {
+        "base_name": "TERIFLUNOMIDE",
+        "dosages": ["14 mg"],
+        "formulation": "comprimé pelliculé",
+        "is_multi_ingredient": false,
+        "context": []
+      }
+    },
+    {
+      "category": "Random Sample",
+      "raw_name": "PREGABALINE ARROW 200 mg, gélule",
+      "official_form": "gélule",
+      "official_lab": "ARROW GENERIQUES",
+      "expected": {
+        "base_name": "PREGABALINE",
+        "dosages": ["200 mg"],
+        "formulation": "gélule",
+        "is_multi_ingredient": false,
+        "context": []
+      }
+    },
+    {
+      "category": "Random Sample",
+      "raw_name": "SPIRONOLACTONE ALTIZIDE ZENTIVA 25 mg/15 mg, comprimé sécable",
+      "official_form": "comprimé sécable",
+      "official_lab": "ZENTIVA FRANCE",
+      "expected": {
+        "base_name": "SPIRONOLACTONE ALTIZIDE",
+        "dosages": ["25 mg/15 mg"],
+        "formulation": "comprimé sécable",
+        "is_multi_ingredient": false,
+        "context": []
+      }
+    },
+    {
+      "category": "Random Sample",
+      "raw_name": "CLAMOXYL 500 mg/5 ml, poudre pour suspension buvable",
+      "official_form": "poudre pour suspension buvable",
+      "official_lab": "GLAXOSMITHKLINE",
+      "expected": {
+        "base_name": "CLAMOXYL",
+        "dosages": ["500 mg/5 ml"],
+        "formulation": "poudre pour suspension buvable",
+        "is_multi_ingredient": false,
+        "context": []
+      }
+    },
+    {
+      "category": "Random Sample",
+      "raw_name": "NUROFENFLASH 200 mg, comprimé pelliculé",
+      "official_form": "comprimé pelliculé",
+      "official_lab": "RECKITT BENCKISER HEALTHCARE FRANCE",
+      "expected": {
+        "base_name": "NUROFENFLASH",
+        "dosages": ["200 mg"],
+        "formulation": "comprimé pelliculé",
+        "is_multi_ingredient": false,
+        "context": []
+      }
+    },
+    {
+      "category": "Random Sample",
+      "raw_name": "CHLORHEXIDINE AQUEUSE COLOREE STERILE GILBERT A 0,05 POUR CENT, solution pour application locale",
+      "official_form": "solution pour application",
+      "official_lab": "LABORATOIRES GILBERT",
+      "expected": {
+        "base_name": "CHLORHEXIDINE AQUEUSE COLOREE STERILE A",
+        "dosages": ["0,05 %"],
+        "formulation": "solution pour application locale",
+        "is_multi_ingredient": false,
+        "context": []
+      }
+    },
+    {
+      "category": "Random Sample",
+      "raw_name": "ZORYON 40 mg, gélule",
+      "official_form": "gélule",
+      "official_lab": "ASSISTANCE PUBLIQUE - HOPITAUX DE PARIS - AP-HP",
+      "expected": {
+        "base_name": "ZORYON",
+        "dosages": ["40 mg"],
+        "formulation": "gélule",
+        "is_multi_ingredient": false,
+        "context": []
+      }
+    },
+    {
+      "category": "Random Sample",
+      "raw_name": "ZESTORETIC 20 mg/12,5 mg, comprimé sécable",
+      "official_form": "comprimé sécable",
+      "official_lab": "ATNAHS PHARMA NETHERLANDS (PAYS-BAS)",
+      "expected": {
+        "base_name": "ZESTORETIC",
+        "dosages": ["20 mg/12,5 mg"],
+        "formulation": "comprimé sécable",
+        "is_multi_ingredient": false,
+        "context": []
+      }
+    },
+    {
+      "category": "Random Sample",
+      "raw_name": "NETAXEN 1 mg/3 mg par ml, collyre en solution",
+      "official_form": "collyre en solution",
+      "official_lab": "SIFI (ITALIE)",
+      "expected": {
+        "base_name": "NETAXEN",
+        "dosages": ["1 mg/3 mg"],
+        "formulation": "collyre en solution",
+        "is_multi_ingredient": false,
+        "context": []
+      }
+    },
+    {
+      "category": "Random Sample",
+      "raw_name": "MINIRIN 4 microgrammes/mL, solution injectable",
+      "official_form": "solution injectable",
+      "official_lab": "FERRING (FRANCE)",
+      "expected": {
+        "base_name": "MINIRIN",
+        "dosages": ["4 microgrammes/mL"],
+        "formulation": "solution injectable",
+        "is_multi_ingredient": false,
+        "context": []
+      }
+    },
+    {
+      "category": "Random Sample",
+      "raw_name": "HYPOPHYSINE BOIRON, degré de dilution compris entre 4CH et 30CH ou entre 8DH et 60DH",
+      "official_form": "comprimé et solution(s) et granules et poudre et pommade",
+      "official_lab": "BOIRON",
+      "expected": {
+        "base_name": "HYPOPHYSINE",
+        "dosages": ["4CH", "30CH", "8DH", "60DH"],
+        "formulation": null,
+        "is_multi_ingredient": false,
+        "context": []
+      }
+    },
+    {
+      "category": "Random Sample",
+      "raw_name": "RIVAROXABAN ARROW 20 mg, comprimé pelliculé",
+      "official_form": "comprimé pelliculé",
+      "official_lab": "ARROW GENERIQUES",
+      "expected": {
+        "base_name": "RIVAROXABAN",
+        "dosages": ["20 mg"],
+        "formulation": "comprimé pelliculé",
+        "is_multi_ingredient": false,
+        "context": []
+      }
+    }
+  ]

@@ -23,11 +23,11 @@ PharmaScan is a high-performance Flutter application designed for the rapid scan
   - **Nasal/ORL**: nasale, auriculaire, buccale, aérosol, spray nasal, gouttes nasales, gouttes auriculaires
   - **Gynecological**: ovule, pessaire, comprimé vaginal, crème vaginale, gel vaginal, capsule vaginale, tampon vaginal, anneau vaginal
   - Intelligent exclusions prevent false positives (e.g., External Use excludes "vaginal" to avoid overlap with Gynecological)
-- **Algorithmic Princeps Grouping**: Advanced word-based algorithm that identifies common base names for princeps within the same group, providing a clean "Generic Principle ↔ Princeps Reference" mapping in the explorer view. The algorithm compares medication names word-by-word to find the longest common prefix, replacing fragile regex-based extraction.
+- **Algorithmic Princeps Grouping**: Advanced word-based algorithm that identifies common base names for princeps within the same group, providing a clean "Generic Principle ↔ Princeps Reference" mapping in the explorer view.
 - **On-Device, Type-Safe Database**: Uses `drift` ORM for a fully offline, compile-time safe database built from official French public health data (BDPM).
-- **Deterministic Data Model**: All relationships and data extraction are derived directly from official BDPM data files, ensuring 100% accuracy and eliminating all heuristic approximations. No regex-based extraction - all data comes from structured parsing of official TXT files.
+- **Deterministic Data Model**: All relationships and data extraction are derived directly from official BDPM data files, ensuring 100% accuracy and eliminating all heuristic approximations.
 - **Clean & Responsive UI**: Built with a minimalistic design system (`shadcn-ui/flutter`) for an efficient user experience.
-- **Resilient Initialization & Recovery**: Startup initialization relies on versioned data checks inside `DataInitializationService`; when connectivity fails, the app surfaces a non-blocking banner with retry and Settings shortcuts, and users can force a full BDPM refresh from the Settings screen.
+- **Resilient Initialization & Recovery**: Startup initialization relies on versioned data checks inside `DataInitializationService`; when connectivity fails, the app surfaces a non-blocking banner with retry and Settings shortcuts.
 - **Automatic BDPM Sync**: A background `SyncService` tracks per-file SHA-256 hashes, honors user-defined frequencies (`none/daily/weekly/monthly`), retries until connectivity is available, and exposes progress via Riverpod so the UI can display Shad banners, manual "check now" actions, and toast notifications.
 
 ## Technology Stack
@@ -80,29 +80,21 @@ The application uses a **deterministic data model** based on official relational
   - `CIS_COMPO_bdpm.txt` - Active ingredient compositions with structured dosage information
   - `CIS_GENER_bdpm.txt` - Generic group relationships (authoritative source)
 
-- **Database Schema**: Type-safe relational database using drift ORM with explicit generic group relationships:
-  - Schema defined in Dart (`lib/core/database/database.dart`) with automatic code generation
-  - Enriched data model: `Specialites` table includes `formePharmaceutique`, `etatCommercialisation`, and `titulaire` (manufacturer)
-  - `PrincipesActifs` table includes structured `dosage` and `dosageUnit` fields
-  - Generic groups are defined in `generique_groups` table
-  - Group membership (princeps/generic) is stored in `group_members` table
-  - `MedicamentSummary` is a denormalized, single-table “source of truth” keyed by `cis_code`, storing canonical specialty names, princeps/generic flags, reference princeps, JSON-encoded shared principles, forms, and group identifiers. All explorer queries (search, library, scan lookups) now read directly from this table for constant-time answers.
-  - Common active ingredients for groups are extracted directly from `principes_actifs` table via SQL joins
-  - Princeps names are grouped algorithmically using word-based common prefix detection (no regex)
-  - **Compile-Time Safe SQL**: All complex SQL queries are defined in `.drift` files, which are parsed and validated against the schema at compile time. This eliminates an entire class of runtime SQL errors and ensures perfect consistency between the database schema and data access logic.
-  - No predictive matching or heuristic approximations—all data and relationships are 100% deterministic.
+- **Parsing Strategy: Knowledge Injection**:
+  We use a unique parsing strategy to ensure perfect accuracy even with inconsistent medication names:
+  - **Input:** The raw medication string (e.g., "DOLIPRANE 1000 mg, comprimé").
+  - **Injection:** We inject the *Official Form* (from column 2) and *Official Laboratory* (from column 10) into the parser as "Truths".
+  - **Subtraction:** The parser deterministically removes these known strings from the raw name.
+  - **Grammar Extraction:** What remains is parsed using a formal **PetitParser** grammar to extract complex Dosages (including ratios like "600 mg/300 mg") and Context keywords (e.g., "SANS SUCRE", "ENFANTS").
+  - **Result:** A clean, canonical name free of artifacts, with structured metadata.
 
-- **Initialization**: On first launch, the app downloads all four TXT files, parses them, and populates the local database. The process now runs in two deterministic phases:
+- **Database Schema**: Type-safe relational database using drift ORM.
+  - `MedicamentSummary` is a denormalized, single-table “source of truth” keyed by `cis_code`. It is populated during initialization by aggregating data from all normalized tables and running the Knowledge-Injected parser. All UI queries read from this optimized table.
+
+- **Initialization**: On first launch, the app downloads all four TXT files, parses them, and populates the local database. The process runs in two deterministic phases:
   1. **Staging** – TXT data is parsed into the normalized tables (`specialites`, `medicaments`, `principes_actifs`, `generique_groups`, `group_members`).
-  2. **Aggregation** – `_aggregateDataForSummary()` computes one `MedicamentSummary` row per CIS, pre-calculating canonical names, group IDs, shared principles, and princeps references so the UI never recomputes them at runtime.
+  2. **Aggregation** – `_aggregateDataForSummary()` computes one `MedicamentSummary` row per CIS using the parsing strategy described above.
   Subsequent launches are instant as both layers persist locally.
-
-- **Explorer Features**:
-  - **Form Category Filtering**: Seven pharmaceutical form categories (Oral, Injectable, External Use, Sachet, Ophthalmic, Nasal/ORL, Gynecological) with intelligent keyword matching
-  - **Smart Exclusions**: Prevents false positives (e.g., External Use excludes "vaginal" to avoid overlap with Gynecological)
-  - **Group Summary View**: Clean "Principe(s) Actif(s) ↔ Princeps de Référence" mapping using algorithmic common prefix detection
-  - **Infinite Scroll Pagination**: Efficient loading of large result sets (50 items per page)
-  - **Full-Text Search**: Search is powered by an on-device FTS5 index, providing typo-tolerant, relevance-based results grouped by product concept.
 
 ## Project Mantras
 
@@ -115,18 +107,9 @@ The current version of PharmaScan is focused on rapid identification and generic
 ### 1. Regulatory Information (Prescription Status)
 
 - **Feature Goal**: Display the specific prescription and dispensing conditions for each medication directly within the app's detail view (e.g., "Sur Ordonnance - Liste I", "Vente Libre", "Stupéfiant").
-
-- **Core Modification**: This enhancement would involve integrating the `CIS_CPD_bdpm.txt` file into the data pipeline. A new field would be added to the local database to store this regulatory status, which would then be displayed using a clear badge or label in the user interface.
-
-- **Required Analysis**: Before implementation, a thorough analysis of the `CIS_CPD_bdpm.txt` file is required. The primary task is to identify **all unique values** for the "Condition de prescription et de délivrance" to create a definitive mapping to user-friendly, standardized labels. This ensures that every regulatory status is handled correctly and presented unambiguously to the user.
+- **Core Modification**: This enhancement involves integrating the `CIS_CPD_bdpm.txt` file into the data pipeline.
 
 ### 2. Real-Time Availability Status (Stock Shortages)
 
-- **Feature Goal**: Provide near real-time information on medication availability, highlighting products currently in "Rupture de stock" (Out of Stock) or "Tension d'approvisionnement" (Supply Tension). This would be a high-impact feature for daily professional use.
-
-- **Core Modification**: This is a major architectural enhancement that would require moving beyond the current offline-first model. The implementation would involve integrating the `CIS_CIP_Dispo_Spec.txt` file.
-
-- **Required Analysis**: The core challenge is the **high volatility** of this data. The analysis must focus on:
-    1. **Update Frequency**: Determining how often the official source file is updated.
-    2. **Architectural Impact**: Designing a new background service or an API-based mechanism to fetch this specific data far more frequently than the main database (e.g., daily).
-    3. **UI/UX for Data Staleness**: Designing a clear way to inform the user about the age of the availability data (e.g., "Statut au 16/11/2025 à 08:00") to prevent decisions based on outdated information, especially when the device is offline.
+- **Feature Goal**: Provide near real-time information on medication availability.
+- **Core Modification**: Requires integrating the `CIS_CIP_Dispo_Spec.txt` file and potentially a more frequent sync mechanism.

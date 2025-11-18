@@ -49,9 +49,10 @@ void main() {
       const raw = 'BETADINE 10 mg/24 heures';
       final result = parser.parse(raw);
 
-      expect(result.baseName, 'BETADINE s');
+      expect(result.baseName, 'BETADINE');
       expect(result.baseName!.contains('/24 heures'), isFalse);
-      expect(result.dosages.single.raw, '10 mg/24 heure');
+      // The parser correctly extracts the full unit text including "heures"
+      expect(result.dosages.single.raw, '10 mg/24 heures');
     });
 
     test('keeps LP suffix after stripping lab names', () {
@@ -76,6 +77,58 @@ void main() {
       expect(result.baseName, isNull);
       expect(result.dosages, isEmpty);
       expect(result.formulation, isNull);
+      expect(result.contextAttributes, isEmpty);
+      expect(result.isMultiIngredient, isFalse);
+    });
+
+    test('extracts context keywords', () {
+      const raw = 'ACETYLCYSTEINE ALPEX 600 mg ADULTES, granulés pour solution buvable';
+      final result = parser.parse(raw);
+
+      expect(result.baseName, contains('ACETYLCYSTEINE'));
+      expect(result.contextAttributes, contains('ADULTES'));
+    });
+
+    test('extracts multiple context keywords', () {
+      const raw = 'ALGINATE DE SODIUM/BICARBONATE DE SODIUM SANDOZ CONSEIL 500 mg/267 mg MENTHE SANS SUCRE, suspension buvable en sachet édulcorée à la saccharine sodique';
+      final result = parser.parse(raw);
+
+      expect(result.contextAttributes, contains('MENTHE'));
+      expect(result.contextAttributes, contains('SANS SUCRE'));
+    });
+
+    test('detects multi-ingredient medications with slash separator', () {
+      const raw = 'ABACAVIR/LAMIVUDINE ACCORD 600 mg/300 mg, comprimé pelliculé';
+      final result = parser.parse(raw);
+
+      expect(result.isMultiIngredient, isTrue);
+      expect(result.baseName, contains('ABACAVIR/LAMIVUDINE'));
+    });
+
+    test('detects multi-ingredient medications with plus separator', () {
+      const raw = 'BIMATOPROST/TIMOLOL BIOGARAN 0,3 mg/mL + 5 mg/mL, collyre en solution';
+      final result = parser.parse(raw);
+
+      expect(result.isMultiIngredient, isTrue);
+    });
+
+    test('does not detect dosage ratios as multi-ingredient', () {
+      const raw = 'DOLIPRANE 5 mg/10 mg, comprimé';
+      final result = parser.parse(raw);
+
+      // "5 mg/10 mg" is a ratio dosage, not a molecule separator
+      expect(result.isMultiIngredient, isFalse);
+    });
+
+    test('handles multi-dosage separated by et', () {
+      const raw = 'CHAMPIX 0,5 mg et 1 mg, comprimé pelliculé';
+      final result = parser.parse(raw);
+
+      expect(result.dosages.length, greaterThanOrEqualTo(1));
+      // Both dosages should be extracted
+      final dosageValues = result.dosages.map((d) => d.value).toList();
+      expect(dosageValues, contains(Decimal.parse('0.5')));
+      expect(dosageValues, contains(Decimal.fromInt(1)));
     });
   });
 }

@@ -393,14 +393,17 @@ List<Map<String, dynamic>> _computeSummaryRecords(_AggregationDataDTO dto) {
     groupData.allPrincipes.addAll(principes);
   }
 
+  // WHY: Pre-group rows by groupId to avoid O(N^2) lookups in the loop below
+  final rowsByGroupId = <String, List<Map<String, dynamic>>>{};
+  for (final row in dto.groups) {
+    final groupId = row['group_id'] as String;
+    rowsByGroupId.putIfAbsent(groupId, () => []).add(row);
+  }
+
   // Calculate common principles for each group (principles present in ALL medications)
   for (final groupData in groupsData.values) {
-    // Get all medications in this group from the raw data
-    // This is a bit inefficient O(N^2), but N is small per group usually.
-    // Better: Pre-group rows by groupId.
-    final groupRows = dto.groups
-        .where((row) => row['group_id'] == groupData.groupId)
-        .toList();
+    // WHY: Use the pre-grouped map instead of iterating list with .where()
+    final groupRows = rowsByGroupId[groupData.groupId] ?? const [];
 
     if (groupRows.isNotEmpty) {
       final firstCip = groupRows.first['code_cip'] as String;
@@ -468,7 +471,12 @@ List<Map<String, dynamic>> _computeSummaryRecords(_AggregationDataDTO dto) {
     final groupData = groupsData[groupId]!;
     final sanitizedPrincipes = groupData.sanitizedPrincipes;
     final princepsDeReference = groupData.princepsDeReference;
-    final parsedName = medicamentParser.parse(nomSpecialite);
+    // Pass the official form and lab as hints to the parser
+    final parsedName = medicamentParser.parse(
+      nomSpecialite,
+      officialForm: formePharmaceutique,
+      officialLab: titulaire,
+    );
 
     // Sanitize active principles
     final principesJson = jsonEncode(sanitizedPrincipes);

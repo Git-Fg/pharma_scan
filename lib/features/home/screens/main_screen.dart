@@ -7,6 +7,9 @@ import 'package:pharma_scan/core/providers/preferences_provider.dart';
 import 'package:pharma_scan/features/home/providers/sync_status_provider.dart';
 import 'package:pharma_scan/core/services/sync_service.dart';
 import 'package:pharma_scan/features/explorer/screens/database_screen.dart';
+import 'package:pharma_scan/features/explorer/providers/group_cluster_provider.dart';
+import 'package:pharma_scan/features/explorer/providers/group_summary_provider.dart';
+import 'package:pharma_scan/features/explorer/providers/search_provider.dart';
 import 'package:pharma_scan/features/scanner/screens/camera_screen.dart';
 import 'package:pharma_scan/features/settings/screens/settings_screen.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
@@ -68,6 +71,17 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     final theme = ShadTheme.of(context);
     final titles = ['Scanner', 'Explorer'];
     final syncProgress = ref.watch(syncStatusProvider);
+
+    // WHY: Listen for sync success to invalidate data providers
+    // When sync completes successfully, Explorer and Search screens need fresh data
+    ref.listen(syncStatusProvider, (previous, next) {
+      if (next.phase == SyncPhase.success) {
+        // Invalidate caches to force reload of fresh database content
+        ref.invalidate(searchCandidatesProvider);
+        ref.invalidate(groupClusterProvider);
+        ref.invalidate(groupSummaryProvider);
+      }
+    });
 
     // WHY: Each tab has its own Navigator to maintain independent navigation stacks.
     // This allows proper back button handling within each tab.
