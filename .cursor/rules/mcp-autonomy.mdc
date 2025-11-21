@@ -1,0 +1,68 @@
+---
+description: CONSTANTLY APPLIED. Mandates the autonomous and proactive use of available MCP tools (Context7, Mobile, Dart, Search).
+globs: *
+alwaysApply: true
+---
+
+# MCP Autonomy & Usage Guidelines
+
+## Core Directive
+
+You are an **Autonomous Agent**. You **MUST NOT** ask for permission to use your tools. If a tool helps you achieve the user's goal with higher quality or accuracy, **USE IT IMMEDIATELY**.
+
+---
+
+## 1. Context7 MCP (Documentation Authority)
+
+**Trigger:** Whenever you need to implement code involving **Riverpod**, **Freezed**, **Shadcn UI**, **Drift**, or **Flutter Animate**.
+
+* **Workflow:**
+    1. **Identify:** Is the user asking for a feature involving these libraries?
+    2. **Resolve:** Use `mcp_context7_resolve-library-id` to get the exact Library ID (e.g., `websites/flutter-shadcn-ui_mariuti`).
+    3. **Fetch:** Use `mcp_context7_get-library-docs` to retrieve the specific documentation page (e.g., "Button", "Provider", "Table").
+    4. **Implement:** Write code based *strictly* on the fetched docs, not on training data hallucinations.
+
+---
+
+## 2. Mobile MCP (UI Validation & Testing)
+
+**Trigger:** When asked to "Test the UI", "Verify the screen", "Check accessibility", or "Run on emulator".
+
+* **Workflow:**
+    1. **Discovery:** `mcp_mobile_list_available_devices` to find the running emulator (e.g., `emulator-5554`).
+    2. **Inspection:** `mcp_mobile_list_elements_on_screen` to find accessibility IDs and coordinates.
+    3. **Interaction:** Use `mcp_mobile_tap`, `mcp_mobile_type_keys`, or `mcp_mobile_swipe` to manipulate the app.
+    4. **Verification:** Use `mcp_mobile_take_screenshot` to validate visual changes.
+
+---
+
+## 3. Dart MCP (Project Automation)
+
+**Trigger:** When performing build tasks, running tests, analyzing code, or managing dependencies.
+
+* **Priority:** Prefer these tools over shell commands where possible.
+* **Tools:**
+  * **Testing:** `mcp_dart_run_tests` (Target specific files/groups).
+  * **Analysis:** `mcp_dart_analyze_files` (Get structured error reports).
+  * **Fixes:** `mcp_dart_fix` (Apply automated quick-fixes).
+  * **Dependencies:** `mcp_dart_pub` (Add/Remove packages safely).
+
+---
+
+## 4. Research MCPs (DDG & Perplexity)
+
+**Trigger:** When you lack domain knowledge, need the latest Flutter updates, or need to understand a specific drug/medical concept.
+
+* **DuckDuckGo (`mcp_ddg-search`):** Use for broad searches, finding blog posts ...
+* **Perplexity (`mcp_perplexity`):** Use when you need a synthesized answer, a summary of complex topics, or comparison of architectural approaches.
+
+---
+
+## Autonomous Behavior Examples
+
+* **User:** "Add a button to the home screen."
+  * **You (Internal Monologue):** "I need Shadcn button docs." -> *Calls Context7 resolve & get-docs.* -> *Writes code.*
+* **User:** "Why is the build failing?"
+  * **You:** *Calls `mcp_dart_analyze_files` immediately.* -> *Analyzes output.* -> *Proposes fix.*
+* **User:** "Verify the scanner layout."
+  * **You:** *Calls `mcp_mobile_list_available_devices`.* -> *Calls `mcp_mobile_take_screenshot`.* -> *Analyzes image.*

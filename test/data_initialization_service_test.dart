@@ -3,40 +3,42 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 import 'package:pharma_scan/core/database/database.dart';
-import 'package:pharma_scan/core/locator.dart';
-import 'package:pharma_scan/core/services/database_service.dart';
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:pharma_scan/core/services/drift_database_service.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   late AppDatabase database;
-  late SharedPreferences sharedPreferences;
+  late DriftDatabaseService databaseService;
+  late DataInitializationService dataInitializationService;
+  late Directory documentsDir;
 
   setUp(() async {
+    documentsDir = await Directory.systemTemp.createTemp('pharma_scan_test_');
+    PathProviderPlatform.instance = _FakePathProviderPlatform(
+      documentsDir.path,
+    );
+
     // For each test, create a fresh in-memory database
-    database = AppDatabase.forTesting(NativeDatabase.memory());
+    final dbFile = File(p.join(documentsDir.path, 'medicaments.db'));
+    database = AppDatabase.forTesting(NativeDatabase(dbFile));
 
-    SharedPreferences.setMockInitialValues({});
-    sharedPreferences = await SharedPreferences.getInstance();
-
-    // Register the test database and services with the locator
-    sl.registerSingleton<AppDatabase>(database);
-    sl.registerSingleton<DatabaseService>(DatabaseService());
-    sl.registerSingleton<DataInitializationService>(
-      DataInitializationService(
-        sharedPreferences: sharedPreferences,
-        databaseService: sl<DatabaseService>(),
-      ),
+    databaseService = DriftDatabaseService(database);
+    dataInitializationService = DataInitializationService(
+      databaseService: databaseService,
     );
   });
 
   tearDown(() async {
     // Close the database and reset the locator after each test
     await database.close();
-    await sl.reset();
+    if (documentsDir.existsSync()) {
+      await documentsDir.delete(recursive: true);
+    }
   });
 
   group('DataInitializationService - Parsing Logic', () {
@@ -504,7 +506,6 @@ void main() {
     test(
       'aggregates canonical names, brand names, and cluster keys via petitparser',
       () async {
-        final databaseService = sl<DatabaseService>();
         await databaseService.clearDatabase();
 
         await databaseService.insertBatchData(
@@ -570,26 +571,39 @@ void main() {
           ],
         );
 
-        final dataInitService = sl<DataInitializationService>();
-        await dataInitService.runSummaryAggregationForTesting();
+        await dataInitializationService.runSummaryAggregationForTesting();
 
-        final summaries =
-            await database.select(database.medicamentSummary).get();
+        final summaries = await database
+            .select(database.medicamentSummary)
+            .get();
         expect(summaries.length, 2);
 
-        final princepsSummary = summaries
-            .firstWhere((row) => row.cisCode == 'CIS_PRINCEPS');
+        final princepsSummary = summaries.firstWhere(
+          (row) => row.cisCode == 'CIS_PRINCEPS',
+        );
         expect(princepsSummary.nomCanonique, 'CADUET');
         expect(princepsSummary.princepsBrandName, 'CADUET');
-        expect(
-          princepsSummary.clusterKey,
-          'CADUET__AMLODIPINE_ATORVASTATINE',
-        );
+        expect(princepsSummary.clusterKey, 'CADUET__AMLODIPINE_ATORVASTATINE');
 
-        final genericSummary =
-            summaries.firstWhere((row) => row.cisCode == 'CIS_GENERIC');
+        final genericSummary = summaries.firstWhere(
+          (row) => row.cisCode == 'CIS_GENERIC',
+        );
         expect(genericSummary.nomCanonique, 'CADUET');
       },
     );
   });
+}
+
+class _FakePathProviderPlatform extends PathProviderPlatform {
+  _FakePathProviderPlatform(this._documentsPath);
+  @override
+  Future<String?> getApplicationDocumentsPath() async => _documentsPath;
+
+  @override
+  Future<String?> getTemporaryPath() async {
+    final tempDir = await Directory.systemTemp.createTemp('pharma_scan_tmp_');
+    return tempDir.path;
+  }
+
+  final String _documentsPath;
 }

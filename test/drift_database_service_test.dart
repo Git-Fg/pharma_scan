@@ -1,46 +1,50 @@
 // test/database_service_test.dart
+import 'dart:io';
+
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as p;
 import 'package:pharma_scan/core/database/database.dart';
-import 'package:pharma_scan/core/locator.dart';
-import 'package:pharma_scan/core/services/database_service.dart';
+import 'package:pharma_scan/core/database/mappers.dart';
+import 'package:pharma_scan/core/services/drift_database_service.dart';
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:pharma_scan/features/explorer/repositories/explorer_repository.dart';
+import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   late AppDatabase database;
-  late DatabaseService dbService;
+  late DriftDatabaseService dbService;
+  late DataInitializationService dataInitializationService;
+  late Directory documentsDir;
 
   setUp(() async {
-    // For each test, create a fresh in-memory database
-    database = AppDatabase.forTesting(NativeDatabase.memory());
-
-    // Initialize SharedPreferences for tests
-    SharedPreferences.setMockInitialValues({});
-    final sharedPreferences = await SharedPreferences.getInstance();
-
-    // Register the test database and services with the locator
-    sl.registerSingleton<AppDatabase>(database);
-    sl.registerSingleton<DatabaseService>(DatabaseService());
-    sl.registerSingleton<DataInitializationService>(
-      DataInitializationService(
-        sharedPreferences: sharedPreferences,
-        databaseService: sl<DatabaseService>(),
-      ),
+    documentsDir = await Directory.systemTemp.createTemp('pharma_scan_test_');
+    PathProviderPlatform.instance = _FakePathProviderPlatform(
+      documentsDir.path,
     );
 
-    dbService = sl<DatabaseService>();
+    // For each test, create a fresh in-memory database
+    final dbFile = File(p.join(documentsDir.path, 'medicaments.db'));
+    database = AppDatabase.forTesting(NativeDatabase(dbFile));
+
+    dbService = DriftDatabaseService(database);
+    dataInitializationService = DataInitializationService(
+      databaseService: dbService,
+    );
   });
 
   tearDown(() async {
     // Close the database and reset the locator after each test
     await database.close();
-    await sl.reset();
+    if (documentsDir.existsSync()) {
+      await documentsDir.delete(recursive: true);
+    }
   });
 
-  group('DatabaseService with Drift', () {
+  group('DriftDatabaseService with Drift', () {
     test('getGenericGroupSummaries returns deterministic principles', () async {
-      final dbService = sl<DatabaseService>();
       await dbService.insertBatchData(
         specialites: [
           {
@@ -80,7 +84,7 @@ void main() {
       );
 
       // Populate MedicamentSummary table
-      await sl<DataInitializationService>().runSummaryAggregationForTesting();
+      await dataInitializationService.runSummaryAggregationForTesting();
 
       final summaries = await dbService.getGenericGroupSummaries(
         limit: 10,
@@ -94,7 +98,6 @@ void main() {
     test(
       'getGenericGroupSummaries skips groups without shared principles',
       () async {
-        final dbService = sl<DatabaseService>();
         await dbService.insertBatchData(
           specialites: [
             {
@@ -259,9 +262,10 @@ void main() {
           ],
         );
 
-        await sl<DataInitializationService>().runSummaryAggregationForTesting();
+        await dataInitializationService.runSummaryAggregationForTesting();
 
-        final candidates = await dbService.getAllSearchCandidates();
+        final repository = ExplorerRepository(dbService);
+        final candidates = await repository.getAllSearchCandidates();
         expect(candidates.length, 2);
 
         final princeps = candidates.firstWhere(
@@ -322,20 +326,22 @@ void main() {
         ],
       );
 
-      await sl<DataInitializationService>().runSummaryAggregationForTesting();
+      await dataInitializationService.runSummaryAggregationForTesting();
 
-      final candidates = await dbService.getAllSearchCandidates();
-      expect(candidates.length, 2);
+      final result = await dbService.getAllSearchCandidates();
+      expect(result.length, 2);
 
-      final homeopathic = candidates.firstWhere(
-        (candidate) => candidate.cisCode == 'CIS_HOMEO',
-      );
-      final conventional = candidates.firstWhere(
-        (candidate) => candidate.cisCode == 'CIS_CONV',
-      );
+      // Get specialite data to check procedure type
+      final homeoSpec = dbService.database.select(
+        dbService.database.specialites,
+      )..where((tbl) => tbl.cisCode.equals('CIS_HOMEO'));
+      final convSpec = dbService.database.select(dbService.database.specialites)
+        ..where((tbl) => tbl.cisCode.equals('CIS_CONV'));
+      final homeoSpecData = await homeoSpec.getSingleOrNull();
+      final convSpecData = await convSpec.getSingleOrNull();
 
-      expect(homeopathic.procedureType, contains('homéo'));
-      expect(conventional.procedureType, 'Autorisation');
+      expect(homeoSpecData?.procedureType, contains('homéo'));
+      expect(convSpecData?.procedureType, 'Autorisation');
     });
 
     test('getAllSearchCandidates sorts by canonical name', () async {
@@ -367,11 +373,11 @@ void main() {
         ],
       );
 
-      await sl<DataInitializationService>().runSummaryAggregationForTesting();
+      await dataInitializationService.runSummaryAggregationForTesting();
 
-      final candidates = await dbService.getAllSearchCandidates();
-      expect(candidates.length, 2);
-      final names = candidates.map((c) => c.nomCanonique).toList();
+      final result = await dbService.getAllSearchCandidates();
+      expect(result.length, 2);
+      final names = result.map((s) => s.nomCanonique).toList();
       final sortedNames = [...names]..sort((a, b) => a.compareTo(b));
       expect(names, equals(sortedNames));
     });
@@ -461,10 +467,11 @@ void main() {
         ],
       );
 
-      await sl<DataInitializationService>().runSummaryAggregationForTesting();
+      await dataInitializationService.runSummaryAggregationForTesting();
 
       // WHEN: We classify the group
-      final classification = await dbService.classifyProductGroup('GROUP_1');
+      final classificationDto = await dbService.classifyProductGroup('GROUP_1');
+      final classification = classificationDto?.toDomain();
 
       // THEN: The classification should contain 2 princeps and 3 generic buckets
       expect(
@@ -565,9 +572,12 @@ void main() {
           ],
         );
 
-        await sl<DataInitializationService>().runSummaryAggregationForTesting();
+        await dataInitializationService.runSummaryAggregationForTesting();
 
-        final classification = await dbService.classifyProductGroup('GROUP_A');
+        final classificationDto = await dbService.classifyProductGroup(
+          'GROUP_A',
+        );
+        final classification = classificationDto?.toDomain();
 
         expect(classification!.princeps.length, 1);
         expect(classification.relatedPrinceps.length, 1);
@@ -689,9 +699,12 @@ void main() {
         ],
       );
 
-      await sl<DataInitializationService>().runSummaryAggregationForTesting();
+      await dataInitializationService.runSummaryAggregationForTesting();
 
-      final classification = await dbService.classifyProductGroup('GROUP_MAIN');
+      final classificationDto = await dbService.classifyProductGroup(
+        'GROUP_MAIN',
+      );
+      final classification = classificationDto?.toDomain();
 
       // WHY: The parser removes "PRINCEPS" from medication names as it's a qualifier (princeps = original medication),
       // not part of the actual medication brand name. The baseName will be "PARA", not "PARA PRINCEPS".
@@ -717,8 +730,23 @@ void main() {
     });
 
     test('returns null when group has no members', () async {
-      final classification = await dbService.classifyProductGroup('MISSING');
+      final classificationDto = await dbService.classifyProductGroup('MISSING');
+      final classification = classificationDto?.toDomain();
       expect(classification, isNull);
     });
   });
+}
+
+class _FakePathProviderPlatform extends PathProviderPlatform {
+  _FakePathProviderPlatform(this._documentsPath);
+  @override
+  Future<String?> getApplicationDocumentsPath() async => _documentsPath;
+
+  @override
+  Future<String?> getTemporaryPath() async {
+    final tempDir = await Directory.systemTemp.createTemp('pharma_scan_tmp_');
+    return tempDir.path;
+  }
+
+  final String _documentsPath;
 }

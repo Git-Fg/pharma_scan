@@ -1,16 +1,20 @@
 // integration_test/generic_group_summaries_test.dart
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-import 'package:pharma_scan/core/locator.dart';
-import 'package:pharma_scan/core/services/database_service.dart';
+import 'package:pharma_scan/core/providers/core_providers.dart';
+import 'package:pharma_scan/core/services/drift_database_service.dart';
 import 'test_bootstrap.dart';
-import 'package:pharma_scan/features/explorer/models/generic_group_summary_model.dart';
+import 'package:pharma_scan/features/explorer/models/generic_group_entity.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
+  late DriftDatabaseService dbService;
+
   setUpAll(() async {
     await ensureIntegrationTestDatabase();
+    final container = integrationTestContainer;
+    dbService = container.read(driftDatabaseServiceProvider);
   });
 
   group('Generic Group Summaries Integration Tests', () {
@@ -18,7 +22,6 @@ void main() {
       'should fetch group summaries with real TXT data and use algorithmic grouping',
       (WidgetTester tester) async {
         // GIVEN: Database initialized with real TXT files
-        final dbService = sl<DatabaseService>();
         // WHEN: Database already initialized with real data
 
         // THEN: Verify we can get group summaries for oral forms
@@ -76,7 +79,7 @@ void main() {
         );
 
         // Next page should have different results (or be empty if we've exhausted)
-        expect(nextPage, isA<List<GenericGroupSummary>>());
+        expect(nextPage, isA<List<GenericGroupEntity>>());
       },
       timeout: const Timeout(Duration(minutes: 5)),
     );
@@ -85,7 +88,6 @@ void main() {
       'should handle different form categories correctly',
       (WidgetTester tester) async {
         // GIVEN: Database initialized with real TXT files
-        final dbService = sl<DatabaseService>();
 
         // WHEN: Get summaries for different form categories
         final injectableSummaries = await dbService.getGenericGroupSummaries(
@@ -122,8 +124,8 @@ void main() {
 
         // THEN: Verify results are appropriate for each category
         // (Some categories might have fewer results, which is fine)
-        expect(injectableSummaries, isA<List<GenericGroupSummary>>());
-        expect(externalSummaries, isA<List<GenericGroupSummary>>());
+        expect(injectableSummaries, isA<List<GenericGroupEntity>>());
+        expect(externalSummaries, isA<List<GenericGroupEntity>>());
 
         // Verify all summaries have the correct structure
         // Note: Some groups might legitimately have empty common principles, so we filter them out
@@ -152,7 +154,6 @@ void main() {
       'should compute common princeps names algorithmically',
       (WidgetTester tester) async {
         // GIVEN: Database initialized with real TXT files
-        final dbService = sl<DatabaseService>();
 
         // WHEN: Get summaries
         final summaries = await dbService.getGenericGroupSummaries(

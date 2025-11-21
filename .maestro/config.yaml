@@ -1,0 +1,12 @@
+appId: com.pharmascan.app
+testOutputDir: .maestro/output
+flows:
+  - 'ui_audit/*.yaml'
+includeTags:
+  - ui_audit
+executionOrder:
+  continueOnFailure: false
+platform:
+  android:
+    disableAnimations: true
+

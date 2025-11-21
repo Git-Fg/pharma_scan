@@ -1,19 +1,36 @@
-import 'package:pharma_scan/core/locator.dart';
-import 'package:pharma_scan/core/services/data_initialization_service.dart';
-import 'package:pharma_scan/core/services/database_service.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pharma_scan/core/database/database.dart';
+import 'package:pharma_scan/core/providers/core_providers.dart';
 
-bool _locatorReady = false;
+ProviderContainer? _integrationTestContainer;
 bool _databaseSeeded = false;
 
+Future<ProviderContainer> _ensureContainer() async {
+  if (_integrationTestContainer != null) return _integrationTestContainer!;
+
+  final database = AppDatabase();
+
+  _integrationTestContainer = ProviderContainer(
+    overrides: [appDatabaseProvider.overrideWithValue(database)],
+  );
+  return _integrationTestContainer!;
+}
+
 Future<void> ensureIntegrationTestDatabase() async {
-  if (!_locatorReady) {
-    await setupLocator();
-    _locatorReady = true;
-  }
+  final container = await _ensureContainer();
   if (_databaseSeeded) return;
 
-  final dbService = sl<DatabaseService>();
+  final dbService = container.read(driftDatabaseServiceProvider);
   await dbService.clearDatabase();
-  await sl<DataInitializationService>().initializeDatabase();
+  await container.read(dataInitializationServiceProvider).initializeDatabase();
   _databaseSeeded = true;
 }
+
+Future<ProviderContainer> ensureIntegrationTestContainer() =>
+    _ensureContainer();
+
+ProviderContainer get integrationTestContainer =>
+    _integrationTestContainer ??
+    (throw StateError(
+      'Integration test container not initialized. Call ensureIntegrationTestDatabase() first.',
+    ));

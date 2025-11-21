@@ -1,5 +1,7 @@
 // lib/features/home/screens/loading_screen.dart
 import 'package:flutter/material.dart';
+import 'package:gap/gap.dart';
+import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 class LoadingScreen extends StatelessWidget {
@@ -23,15 +25,15 @@ class LoadingScreen extends StatelessWidget {
                   size: 64,
                   color: theme.colorScheme.primary,
                 ),
-                const SizedBox(height: 24),
-                Text('PharmaScan', style: theme.textTheme.h2),
-                const SizedBox(height: 8),
+                const Gap(24),
+                Text(Strings.appName, style: theme.textTheme.h2),
+                const Gap(8),
                 Text(
-                  'Initialisation de la base de données...',
+                  Strings.databaseInitialization,
                   style: theme.textTheme.muted,
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 32),
+                const Gap(32),
                 ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 300),
                   child: const ShadProgress(),

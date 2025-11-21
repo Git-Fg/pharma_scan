@@ -1,7 +1,7 @@
 name: pharma_scan
 description: "A new Flutter project."
 # The following line prevents the package from being accidentally published to
-# pub.dev using `flutter pub publish`. This is preferred for private packages.
+# pub.dev using `dart pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 
 # The following defines the version and build number for your application.
@@ -23,10 +23,10 @@ environment:
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
-# consider running `flutter pub upgrade --major-versions`. Alternatively,
+# consider running `dart pub upgrade --major-versions`. Alternatively,
 # dependencies can be manually updated by changing the version numbers below to
 # the latest version available on pub.dev. To see which dependencies have newer
-# versions available, run `flutter pub outdated`.
+# versions available, run `dart pub outdated`.
 dependencies:
   flutter:
     sdk: flutter
@@ -39,22 +39,26 @@ dependencies:
   mobile_scanner: ^7.1.3
   path: ^1.9.0
   path_provider: ^2.1.5
-  http: ^1.6.0
   crypto: ^3.0.6
   lucide_icons_flutter: ^3.1.6
   image_picker: ^1.2.1
   freezed_annotation: ^3.1.0
-  get_it: ^9.0.5
   drift: ^2.29.0
   sqlite3_flutter_libs: ^0.5.40
   sqlite3: ^2.9.4
-  shared_preferences: ^2.5.3
   fuzzy_bolt: ^2.0.2
   flutter_riverpod: ^3.0.3
   decimal: ^3.2.4
   riverpod_annotation: ^3.0.3
   petitparser: ^7.0.1
   riverpod: ^3.0.3
+  go_router: ^17.0.0
+  collection: ^1.19.1
+  talker: ^5.1.0
+  talker_flutter: ^5.1.0
+  talker_riverpod_logger: ^5.1.0
+  gap: ^3.0.1
+  dio: ^5.9.0
 
 dev_dependencies:
   flutter_test:
@@ -70,11 +74,12 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   flutter_launcher_icons: ^0.14.4
   test: ^1.26.2
-  mockito: ^5.5.0
   build_runner: ^2.7.1
   freezed: ^3.2.3
   drift_dev: ^2.29.0
   riverpod_generator: ^3.0.3
+  mocktail: ^1.0.4
+  path_provider_platform_interface: ^2.1.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -88,8 +93,8 @@ flutter:
   uses-material-design: true
 
   # To add assets to your application, add an assets section, like this:
-  assets:
-    - assets/test_images/
+  # assets:
+  #   - assets/test_images/  # Moved to test assets - not included in production bundle
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

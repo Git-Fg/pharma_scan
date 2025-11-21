@@ -1,21 +1,25 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:pharma_scan/core/database/database.dart';
-import 'package:pharma_scan/core/locator.dart';
-import 'package:pharma_scan/core/services/database_service.dart';
+import 'package:pharma_scan/core/providers/core_providers.dart';
+import 'package:pharma_scan/core/services/drift_database_service.dart';
 import 'test_bootstrap.dart';
 import 'package:pharma_scan/features/scanner/models/scan_result_model.dart';
+import 'package:pharma_scan/features/scanner/repositories/scanner_repository.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  late DatabaseService dbService;
+  late DriftDatabaseService dbService;
+  late ScannerRepository scannerRepository;
   late AppDatabase db;
 
   setUpAll(() async {
     await ensureIntegrationTestDatabase();
-    dbService = sl<DatabaseService>();
-    db = sl<AppDatabase>();
+    final container = integrationTestContainer;
+    dbService = container.read(driftDatabaseServiceProvider);
+    scannerRepository = ScannerRepository(dbService);
+    db = container.read(appDatabaseProvider);
   });
 
   group('Data Pipeline - ScanResult Type Mapping', () {
@@ -35,7 +39,9 @@ void main() {
         }
 
         final codeCipGenerique = generiquesResult.read<String>('code_cip');
-        final scanResult = await dbService.getScanResultByCip(codeCipGenerique);
+        final scanResult = await scannerRepository.getScanResult(
+          codeCipGenerique,
+        );
 
         // THEN: Verify it returns GenericScanResult with correct structure
         expect(scanResult, isA<GenericScanResult>());
@@ -48,6 +54,9 @@ void main() {
           },
           princeps: (princeps, moleculeName, genericLabs, groupId) {
             fail('Expected GenericScanResult but got PrincepsScanResult');
+          },
+          standalone: (medicament) {
+            fail('Expected GenericScanResult but got StandaloneScanResult');
           },
         );
       },
@@ -70,7 +79,7 @@ void main() {
         }
 
         final codeCipPrinceps = princepsResult.read<String>('code_cip');
-        final princepsScanResult = await dbService.getScanResultByCip(
+        final princepsScanResult = await scannerRepository.getScanResult(
           codeCipPrinceps,
         );
 
@@ -85,13 +94,16 @@ void main() {
             expect(moleculeName, isNotEmpty);
             // Content verification is sufficient - type is guaranteed by model
           },
+          standalone: (medicament) {
+            fail('Expected PrincepsScanResult but got StandaloneScanResult');
+          },
         );
       },
       timeout: const Timeout(Duration(minutes: 5)),
     );
 
     testWidgets(
-      'should return null for a medicament with no group membership',
+      'should return StandaloneScanResult for a medicament with no group membership',
       (WidgetTester tester) async {
         // GIVEN: Database initialized with real data
         // WHEN: Find a medicament without group membership and get its scan result
@@ -106,16 +118,29 @@ void main() {
         }
 
         final codeCipStandalone = nonGroupedResult.read<String>('code_cip');
-        final standaloneScanResult = await dbService.getScanResultByCip(
+        final standaloneScanResult = await scannerRepository.getScanResult(
           codeCipStandalone,
         );
 
-        // THEN: Verify it returns null (standalone medicaments are not scannable)
+        // THEN: Verify it returns StandaloneScanResult (standalone medicaments are now scannable)
         expect(
           standaloneScanResult,
-          isNull,
+          isNotNull,
           reason:
-              'Standalone medicament without group membership should return null: $codeCipStandalone',
+              'Standalone medicament should return StandaloneScanResult: $codeCipStandalone',
+        );
+        expect(standaloneScanResult, isA<StandaloneScanResult>());
+        standaloneScanResult!.when(
+          generic: (medicament, associatedPrinceps, groupId) {
+            fail('Expected StandaloneScanResult but got GenericScanResult');
+          },
+          princeps: (princeps, moleculeName, genericLabs, groupId) {
+            fail('Expected StandaloneScanResult but got PrincepsScanResult');
+          },
+          standalone: (medicament) {
+            expect(medicament.codeCip, codeCipStandalone);
+            expect(medicament.nom, isNotEmpty);
+          },
         );
       },
       timeout: const Timeout(Duration(minutes: 5)),

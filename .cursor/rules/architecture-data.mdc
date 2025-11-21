@@ -1,0 +1,249 @@
+---
+description: Architecture rules for data layer, Riverpod patterns, Drift safety, and model segregation.
+globs: lib/core/services/**, lib/core/database/**, lib/core/parser/**, lib/features/**/screens/**, lib/features/**/widgets/**, data_validation/**
+---
+
+# Architecture & Data Layer (The Foundation)
+
+## 1. Model Segregation & Mappers (MANDATORY)
+
+**Critical Rule:** UI layers MUST NEVER import Drift-generated classes directly.
+
+* **Forbidden:** Importing `MedicamentRow`, `SpecialiteCompanion`, or any other generated `*Row` or `*Companion` classes in UI files (`lib/features/**/screens/` or `lib/features/**/widgets/`).
+* **Required Solution:**
+  * Create **Domain Entities** using `freezed` packages (pure Dart classes).
+  * Create **Mappers** (extensions or dedicated mapper classes) to transform Drift rows into domain models.
+  * Services expose domain models, not raw database rows.
+
+**Complex Mapper Rule:**
+
+* **Mandate:** If a mapping function (Drift DTO → Domain) exceeds 20 lines or involves complex logic (e.g., grouping, transformations, business rules), it MUST be moved to `lib/core/database/mappers.dart` as an extension method or static helper.
+* **Rationale:** Keeps Services focused on data fetching, not transformation logic. Centralizes mapping code for maintainability.
+* **Pattern:** Services return DTOs (e.g., `ProductGroupData`), Repositories call `.toDomain()` extensions from `mappers.dart`.
+
+**Example Pattern:**
+
+```dart
+// ❌ FORBIDDEN in UI:
+import 'package:pharma_scan/core/database/database.dart';
+
+// ✅ CORRECT: UI imports domain model:
+import 'package:pharma_scan/features/scanner/models/scan_result_model.dart';
+
+// Service returns DTO
+Future<ProductGroupData?> classifyProductGroup(String groupId) {
+  // ... fetch data ...
+  return ProductGroupData(...);
+}
+
+// Repository uses mapper extension from mappers.dart
+Future<ProductGroupClassification?> classifyProductGroup(String groupId) {
+  final data = await _databaseService.classifyProductGroup(groupId);
+  return data?.toDomain();  // Extension defined in mappers.dart
+}
+
+// Mapper defined in lib/core/database/mappers.dart
+extension ProductGroupDataMapper on ProductGroupData {
+  ProductGroupClassification toDomain() {
+    // ... complex mapping logic (>20 lines) ...
+  }
+}
+```
+
+## 2. AsyncValue & Stream Standards (Riverpod)
+
+### Observable Data Exposure
+
+* **Mandate:** All service methods exposing observable data MUST return `Stream<T>` (not `Future<T>`).
+* **UI Consumption:** UI MUST consume streams via `ref.watch(provider)` and handle states using `.when()` or `switch` on `AsyncValue`.
+* **Error Handling:** Prohibited to use manual `try/catch` blocks for data reads. Let `AsyncValue` capture errors naturally.
+* **Mutations (Writes):** For write operations in controllers/notifiers, MUST use `AsyncValue.guard(() async { ... })` pattern.
+
+### Transient State Management (Anti-Flickering)
+
+* **Mandate:** Configure `skipLoadingOnRefresh: true` and `skipLoadingOnReload: true` in `.when()` calls for data lists to avoid spurious spinners during silent updates.
+
+**Example Pattern:**
+
+```dart
+// Provider returning Stream
+@riverpod
+Stream<List<Medicament>> medicaments(MedicamentsRef ref) {
+  return databaseService.watchAllMedicaments();
+}
+
+// UI consumption
+ref.watch(medicamentsProvider).when(
+  data: (medicaments) => ListView(...),
+  loading: () => CircularProgressIndicator(),
+  error: (err, stack) => ErrorWidget(err),
+  skipLoadingOnRefresh: true,  // REQUIRED
+  skipLoadingOnReload: true,   // REQUIRED
+);
+
+// Mutation pattern
+Future<void> saveMedicament(Medicament m) async {
+  state = await AsyncValue.guard(() async {
+    await databaseService.insert(m);
+    return m;
+  });
+}
+```
+
+## 3. Drift Safety Rules
+
+### Null-Safe Queries
+
+* **Rule:** ALWAYS replace `watchSingle()` with `watchSingleOrNull()` to avoid crashes on concurrent deletions.
+* **Type Converters:** When using `TypeConverters` for complex JSON columns, MUST include error handling inside `fromSql` with internal `try/catch` to prevent crashes on malformed data.
+
+**Example Pattern:**
+
+```dart
+// ❌ UNSAFE:
+final row = await (db.select(db.medicaments)..where((t) => t.id.equals(id)))
+    .watchSingle();  // Crashes if row deleted concurrently
+
+// ✅ SAFE:
+final row = await (db.select(db.medicaments)..where((t) => t.id.equals(id)))
+    .watchSingleOrNull();  // Returns null if missing
+
+// ✅ SAFE TypeConverter:
+class JsonTypeConverter extends TypeConverter<Map<String, dynamic>, String> {
+  @override
+  Map<String, dynamic> fromSql(String fromDb) {
+    try {
+      return jsonDecode(fromDb) as Map<String, dynamic>;
+    } catch (_) {
+      return {};  // Fallback instead of crashing
+    }
+  }
+  @override
+  String toSql(Map<String, dynamic> value) => jsonEncode(value);
+}
+```
+
+### Large Set Queries with `.isIn()` (Anti-Boilerplate Rule)
+
+* **Critical Rule:** Since Drift 2.24.0+, `.isIn()` automatically handles large sets internally by splitting queries or creating temporary tables. **Manual chunking is NO LONGER NECESSARY** and should be avoided to reduce boilerplate.
+
+* **Version Requirement:** This optimization is available in Drift 2.24.0+. The project uses Drift 2.29.0+, so manual chunking is strictly forbidden.
+
+* **When to Use:** Use `.isIn()` directly with large collections (hundreds or thousands of items) without manual splitting.
+
+* **Forbidden Pattern (Legacy Boilerplate):**
+
+```dart
+// ❌ FORBIDDEN - Manual chunking boilerplate:
+static const _maxSqlVariables = 900;  // DO NOT DEFINE THIS
+for (var i = 0; i < ids.length; i += _maxSqlVariables) {
+  final chunk = ids.sublist(i, (i + _maxSqlVariables > ids.length) ? ids.length : i + _maxSqlVariables);
+  final query = db.select(db.table)..where((t) => t.id.isIn(chunk));
+  final rows = await query.get();
+  // ... accumulate results
+}
+```
+
+* **Required Pattern (Modern Drift):**
+
+```dart
+// ✅ CORRECT - Direct usage, Drift handles large sets automatically:
+final query = db.select(db.table)..where((t) => t.id.isIn(ids));
+final rows = await query.get();
+// Drift 2.24.0+ internally splits or uses temporary tables as needed
+```
+
+* **Use Cases:**
+  * Querying multiple rows by ID: `tbl.cisCode.isIn(cisCodes)`
+  * Filtering by multiple foreign keys: `tbl.codeCip.isIn(codeCips)`
+  * Any `IN` clause with large collections
+
+* **Benefits:**
+  * Reduced boilerplate code (no chunking loops)
+  * Automatic optimization by Drift
+  * Cleaner, more maintainable code
+  * Same performance characteristics
+
+* **Commenting:** When using `.isIn()` with large sets, add a comment explaining that Drift handles it internally:
+
+```dart
+// WHY: Drift 2.24.0+ handles large sets internally, so manual chunking is no longer needed.
+final query = db.select(db.table)..where((t) => t.id.isIn(largeIdList));
+```
+
+## 4. Knowledge-Injected Parsing Strategy
+
+We strictly avoid heuristic guessing. Parsing uses a "Subtraction Strategy":
+
+1. **Input:** Raw string (e.g., "DOLIPRANE 1000 mg, comprimé").
+2. **Injection:** Inject official "Truths" from `CIS_bdpm.txt` (Form, Lab) into the parser.
+3. **Subtraction:** Deterministically strip the known Form and Lab.
+4. **Extraction:** Use `PetitParser` on the *remainder* to get Dosage and Context.
+
+**Rule:** If modifying `MedicamentParser`, you MUST run `test/core/parser/data_driven_parser_test.dart`.
+
+## 5. Database Architecture (Drift)
+
+* **Source of Truth:** `MedicamentSummary` table (denormalized).
+  * All Explorer/Search queries MUST read from this table.
+  * It is populated during Phase 2 of `DataInitializationService`.
+* **Migration:** Use named queries in `.drift` files over raw Dart strings.
+* **Reset Policy:** `DatabaseService.clearDatabase()` must wipe staging tables AND `medicament_summary`.
+
+## Configuration & Settings (Unified Storage)
+
+* **Storage:** Persist all user preferences (theme, sync cadence) and sync metadata (`bdpmVersion`, `lastSyncEpoch`, hashes/dates) in the Drift `AppSettings` table (singleton row `id=1`). No other storage engines are allowed.
+* **Access:** Expose a single `watchSettings()` stream from `DriftDatabaseService` and compute derived providers from its rows. Do not read the table directly from UI layers.
+* **Reactive:** Settings-driven providers MUST return `Stream<T>` so UI updates instantly when rows change.
+* **Initialization:** `DriftDatabaseService` is responsible for seeding `AppSettings` lazily (insert row with defaults) and for helper mutations such as `updateTheme`, `updateSyncFrequency`, and `updateSyncTimestamp`.
+
+## 6. Data Pipeline & Validation
+
+* **Initialization:**
+  * Phase 1: Staging (Raw TXT -> Normalized Tables).
+  * Phase 2: Aggregation (Compute `MedicamentSummary`).
+* **Python Auditor (`data_validator.py`):**
+  * Run this script if you suspect BDPM data format changes or if search results look wrong.
+  * Command: `uv run python data_validation/data_validator.py`
+* **Test Data:** Use `generate_smart_test_data.py` to create the `smart_parsing_challenges.csv` for integration tests.
+
+## 7. Active Principle Logic
+
+* **Generic Detection:** STRICTLY use `group_members` table relationships. Never infer generics via string matching.
+* **Princeps Grouping:** Use `findCommonPrincepsName()` (algorithmic word-prefix) in `medicament_helpers.dart`. Do not use Regex for grouping.
+
+## 8. Data Processing Safety
+
+* **Isolate Resilience:** Parsing functions running in `compute()` MUST wrap risky logic in `try/catch` blocks returning neutral fallback values rather than crashing the entire isolate.
+* **Standalone Handling:** Search logic MUST explicitly handle "Orphan" medications (CIS without Group) by performing a `LEFT JOIN` check or a union query, as `MedicamentSummary` might be sparse.
+
+## 9. Error Reporting & Logging
+
+* **Repositories:** Catch exceptions from data sources, log the failure via `LoggerService.error()`, then rethrow domain-specific errors or return `Either/Result` types.
+* **Data Sources:** Log raw HTTP/DB failures immediately via `LoggerService.error()` before propagating.
+* **Observability:** The `LoggerService` singleton lives in the `core` layer—use it in services, parsers, and isolates where Riverpod `Ref` access is unavailable.
+* **Network:** All outbound HTTP clients must be the DI-provided instance, wrapped with `TalkerHttpClient` so request/response metadata is captured in Talker.
+
+## 10. Dependency Injection (Pure Riverpod)
+
+* **Service Definition:** Services must be plain Dart classes that receive every dependency through their constructors.
+* **Provider Definition:** Each service or core dependency MUST have a corresponding `@Riverpod(keepAlive: true)` provider that composes other providers via `ref.watch`.
+* **Forbidden:** `GetIt`, `sl<T>()`, singletons, or any ad-hoc service locator.
+* **Async Dependencies:** Initialize async resources (e.g., `SharedPreferences`) before `runApp` and override their providers via `ProviderScope(overrides: [...])`.
+* **Testing:** Replace global setup helpers with `ProviderContainer`/`ProviderScope` overrides per test. Inject in-memory databases and mock preferences explicitly.
+
+```dart
+class AuthService {
+  AuthService(this.db, this.prefs);
+
+  final AppDatabase db;
+  final SharedPreferences prefs;
+}
+
+@Riverpod(keepAlive: true)
+AuthService authService(Ref ref) {
+  final db = ref.watch(appDatabaseProvider);
+  final prefs = ref.watch(sharedPreferencesProvider);
+  return AuthService(db, prefs);
+}
+```

@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:gap/gap.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
-import 'package:pharma_scan/core/locator.dart';
+import 'package:pharma_scan/core/providers/core_providers.dart';
+import 'package:pharma_scan/core/utils/adaptive_overlay.dart';
+import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/models/update_frequency.dart';
 import 'package:pharma_scan/core/providers/preferences_provider.dart';
+import 'package:pharma_scan/core/providers/theme_provider.dart';
+import 'package:pharma_scan/core/router/app_routes.dart';
 import 'package:pharma_scan/features/home/providers/sync_status_provider.dart';
-import 'package:pharma_scan/core/services/data_initialization_service.dart';
-import 'package:pharma_scan/core/services/sync_service.dart';
-import 'package:pharma_scan/core/utils/theme_preferences.dart';
-import 'package:pharma_scan/main.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -23,25 +25,68 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _isCheckingUpdates = false;
 
   void _showResetConfirmation() {
-    showShadDialog(
+    final theme = ShadTheme.of(context);
+    final isMobile = MediaQuery.sizeOf(context).width < 600;
+
+    showAdaptiveOverlay(
       context: context,
-      builder: (context) => ShadDialog.alert(
-        title: const Text('Réinitialiser la base de données ?'),
-        description: const Text(
-          'Cette action supprimera toutes les données locales et les re-téléchargera. '
-          'Cette opération est irréversible et peut prendre plusieurs minutes.',
-        ),
-        actions: [
-          ShadButton.outline(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Annuler'),
-          ),
-          ShadButton.destructive(
-            onPressed: _performReset,
-            child: const Text('Confirmer'),
-          ),
-        ],
-      ),
+      builder: (overlayContext) {
+        if (isMobile) {
+          // Mobile : ShadCard dans BottomSheet
+          return ShadCard(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(Strings.resetDatabaseTitle, style: theme.textTheme.h4),
+                const Gap(12),
+                Text(
+                  Strings.resetDatabaseDescription,
+                  style: theme.textTheme.muted,
+                ),
+                const Gap(24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    ShadButton.outline(
+                      onPressed: () => Navigator.of(overlayContext).pop(),
+                      child: const Text(Strings.cancel),
+                    ),
+                    const Gap(8),
+                    ShadButton.destructive(
+                      onPressed: () {
+                        Navigator.of(overlayContext).pop();
+                        _performReset();
+                      },
+                      child: const Text(Strings.confirm),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        } else {
+          // Desktop : ShadDialog
+          return ShadDialog.alert(
+            title: const Text(Strings.resetDatabaseTitle),
+            description: const Text(Strings.resetDatabaseDescription),
+            actions: [
+              ShadButton.outline(
+                onPressed: () => Navigator.of(overlayContext).pop(),
+                child: const Text(Strings.cancel),
+              ),
+              ShadButton.destructive(
+                onPressed: () {
+                  Navigator.of(overlayContext).pop();
+                  _performReset();
+                },
+                child: const Text(Strings.confirm),
+              ),
+            ],
+          );
+        }
+      },
     );
   }
 
@@ -52,17 +97,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     });
 
     try {
-      await sl<DataInitializationService>().initializeDatabase(
-        forceRefresh: true,
-      );
+      await ref
+          .read(dataInitializationServiceProvider)
+          .initializeDatabase(forceRefresh: true);
 
       if (mounted) {
         ShadSonner.of(context).show(
-          ShadToast(
-            title: const Text('Réinitialisation terminée'),
-            description: const Text(
-              'La base de données a été mise à jour avec succès.',
-            ),
+          const ShadToast(
+            title: Text(Strings.resetComplete),
+            description: Text(Strings.resetSuccess),
           ),
         );
       }
@@ -73,13 +116,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         sonner.show(
           ShadToast.destructive(
             id: toastId,
-            title: const Text('Erreur de réinitialisation'),
-            description: const Text(
-              'Impossible de re-télécharger les données. Vérifiez votre connexion internet.',
-            ),
+            title: const Text(Strings.resetError),
+            description: const Text(Strings.resetErrorDescription),
             action: ShadButton.outline(
               onPressed: () => sonner.hide(toastId),
-              child: const Text('Fermer'),
+              child: const Text(Strings.close),
             ),
           ),
         );
@@ -99,29 +140,28 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       _isCheckingUpdates = true;
     });
 
-    showShadDialog(
+    showAdaptiveOverlay(
       context: context,
-      barrierDismissible: false,
-      builder: (_) => const _SyncProgressDialog(),
+      isDismissible: false,
+      builder: (overlayContext) =>
+          _SyncProgressDialog(isMobile: MediaQuery.sizeOf(context).width < 600),
     );
 
     try {
-      final updated = await sl<SyncService>().checkForUpdates(
-        resolveFrequency: () => ref.read(appPreferencesProvider.future),
-        reportStatus: (progress) =>
-            ref.read(syncStatusProvider.notifier).updateStatus(progress),
-        force: true,
-      );
+      final updated = await ref
+          .read(syncServiceProvider)
+          .checkForUpdates(
+            resolveFrequency: () => ref.read(appPreferencesProvider.future),
+            reportStatus: (progress) =>
+                ref.read(syncStatusProvider.notifier).updateStatus(progress),
+            force: true,
+          );
       if (!mounted) return;
       ShadSonner.of(context).show(
         ShadToast(
-          title: Text(
-            updated ? 'Base BDPM synchronisée' : 'Aucune nouvelle mise à jour',
-          ),
+          title: Text(updated ? Strings.bdpmSynced : Strings.noNewUpdates),
           description: Text(
-            updated
-                ? 'Les dernières données BDPM ont été appliquées.'
-                : 'Vos données locales sont déjà à jour.',
+            updated ? Strings.latestBdpmDataApplied : Strings.localDataUpToDate,
           ),
         ),
       );
@@ -132,13 +172,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       sonner.show(
         ShadToast.destructive(
           id: toastId,
-          title: const Text('Synchronisation échouée'),
-          description: const Text(
-            'Impossible de vérifier les dernières données BDPM. Réessayez plus tard.',
-          ),
+          title: const Text(Strings.syncFailed),
+          description: const Text(Strings.unableToCheckBdpmUpdates),
           action: ShadButton.outline(
             onPressed: () => sonner.hide(toastId),
-            child: const Text('Fermer'),
+            child: const Text(Strings.close),
           ),
         ),
       );
@@ -158,11 +196,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final frequencyState = ref.watch(appPreferencesProvider);
     final updateFrequency = frequencyState.value ?? UpdateFrequency.daily;
     final isFrequencyLoading = frequencyState.isLoading;
-    final currentTheme = PharmaScanApp.of(context).themeSetting;
+    final themeAsync = ref.watch(themeProvider);
+    final currentTheme = themeSettingFromThemeMode(
+      themeAsync.value ?? ThemeMode.system,
+    );
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Réglages'),
+        title: const Text(Strings.settings),
         backgroundColor: theme.colorScheme.background,
         elevation: 0,
         iconTheme: IconThemeData(color: theme.colorScheme.foreground),
@@ -175,33 +216,33 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Apparence', style: theme.textTheme.h4),
-                const SizedBox(height: 16),
+                Text(Strings.appearance, style: theme.textTheme.h4),
+                const Gap(16),
                 ShadRadioGroup<ThemeSetting>(
                   initialValue: currentTheme,
                   onChanged: (value) {
                     if (value != null) {
-                      PharmaScanApp.of(context).setTheme(value);
+                      ref.read(themeProvider.notifier).setTheme(value);
                     }
                   },
                   items: const [
                     ShadRadio<ThemeSetting>(
                       value: ThemeSetting.system,
-                      label: Text('Thème du système'),
+                      label: Text(Strings.systemTheme),
                     ),
                     ShadRadio<ThemeSetting>(
                       value: ThemeSetting.light,
-                      label: Text('Thème clair'),
+                      label: Text(Strings.lightTheme),
                     ),
                     ShadRadio<ThemeSetting>(
                       value: ThemeSetting.dark,
-                      label: Text('Thème sombre'),
+                      label: Text(Strings.darkTheme),
                     ),
                   ],
                 ),
-                const SizedBox(height: 48),
-                Text('Synchronisation', style: theme.textTheme.h4),
-                const SizedBox(height: 16),
+                const Gap(48),
+                Text(Strings.sync, style: theme.textTheme.h4),
+                const Gap(16),
                 ShadRadioGroup<UpdateFrequency>(
                   initialValue: updateFrequency,
                   onChanged: isFrequencyLoading
@@ -215,64 +256,87 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   items: const [
                     ShadRadio<UpdateFrequency>(
                       value: UpdateFrequency.none,
-                      label: Text('Ne jamais rechercher'),
+                      label: Text(Strings.never),
                     ),
                     ShadRadio<UpdateFrequency>(
                       value: UpdateFrequency.daily,
-                      label: Text('Une fois par jour'),
+                      label: Text(Strings.daily),
                     ),
                     ShadRadio<UpdateFrequency>(
                       value: UpdateFrequency.weekly,
-                      label: Text('Une fois par semaine'),
+                      label: Text(Strings.weekly),
                     ),
                     ShadRadio<UpdateFrequency>(
                       value: UpdateFrequency.monthly,
-                      label: Text('Une fois par mois'),
+                      label: Text(Strings.monthly),
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
+                const Gap(8),
                 Text(
-                  'Détermine la fréquence de vérification des nouvelles données BDPM.',
+                  Strings.determinesCheckFrequency,
                   style: theme.textTheme.muted,
                 ),
-                const SizedBox(height: 48),
-                Text('Données', style: theme.textTheme.h4),
-                const SizedBox(height: 16),
-                ShadButton(
-                  onPressed: _isCheckingUpdates ? null : _runManualSync,
-                  leading: const Icon(LucideIcons.refreshCw, size: 16),
-                  child: Text(
-                    _isCheckingUpdates
-                        ? 'Vérification en cours...'
-                        : 'Vérifier les mises à jour maintenant',
+                const Gap(48),
+                Text(Strings.data, style: theme.textTheme.h4),
+                const Gap(16),
+                Semantics(
+                  button: true,
+                  label: _isCheckingUpdates
+                      ? Strings.checkingUpdatesTitle
+                      : Strings.checkUpdatesNow,
+                  enabled: !_isCheckingUpdates,
+                  child: ShadButton(
+                    onPressed: _isCheckingUpdates ? null : _runManualSync,
+                    leading: const Icon(LucideIcons.refreshCw, size: 16),
+                    child: Text(
+                      _isCheckingUpdates
+                          ? Strings.checkingUpdatesInProgress
+                          : Strings.checkUpdatesNow,
+                    ),
                   ),
                 ),
-                const SizedBox(height: 12),
-                ShadButton.destructive(
-                  onPressed: _showResetConfirmation,
-                  leading: const Icon(LucideIcons.databaseZap, size: 16),
-                  child: const Text('Forcer la réinitialisation de la base'),
+                const Gap(12),
+                Semantics(
+                  button: true,
+                  label:
+                      'Forcer la réinitialisation complète de la base de données',
+                  hint:
+                      'Cette action supprimera toutes les données locales et les re-téléchargera',
+                  child: ShadButton.destructive(
+                    onPressed: _showResetConfirmation,
+                    leading: const Icon(LucideIcons.databaseZap, size: 16),
+                    child: const Text(Strings.forceReset),
+                  ),
                 ),
-                const SizedBox(height: 8),
+                const Gap(8),
                 Text(
-                  'Utilisez cette option si les données semblent corrompues ou pour forcer une mise à jour manuelle.',
+                  Strings.forceResetDescription,
                   style: theme.textTheme.muted,
+                ),
+                const Gap(24),
+                Text(Strings.diagnostics, style: theme.textTheme.h4),
+                const Gap(12),
+                Semantics(
+                  button: true,
+                  label: Strings.showApplicationLogs,
+                  hint: Strings.openDetailedViewForSupport,
+                  child: ShadButton.outline(
+                    onPressed: () => context.push(AppRoutes.logs),
+                    leading: const Icon(LucideIcons.terminal, size: 16),
+                    child: const Text(Strings.showLogs),
+                  ),
                 ),
               ],
             ),
           ),
           if (_isResetting)
-            Container(
+            ColoredBox(
               color: theme.colorScheme.background.withValues(alpha: 0.8),
               child: const Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
-                  children: [
-                    ShadProgress(),
-                    SizedBox(height: 16),
-                    Text('Réinitialisation en cours...'),
-                  ],
+                  children: [ShadProgress(), Gap(16), Text(Strings.resetting)],
                 ),
               ),
             ),
@@ -283,27 +347,53 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 }
 
 class _SyncProgressDialog extends StatelessWidget {
-  const _SyncProgressDialog();
+  const _SyncProgressDialog({required this.isMobile});
+
+  final bool isMobile;
 
   @override
   Widget build(BuildContext context) {
     final theme = ShadTheme.of(context);
-    return ShadDialog(
-      title: const Text('Vérification des mises à jour'),
-      description: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const SizedBox(height: 16),
-          const ShadProgress(),
-          const SizedBox(height: 12),
-          Text(
-            'Patientez pendant la synchronisation avec le BDPM…',
-            style: theme.textTheme.muted,
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-      actions: const [],
-    );
+
+    if (isMobile) {
+      // Mobile : ShadCard dans BottomSheet
+      return ShadCard(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(Strings.checkUpdates, style: theme.textTheme.h4),
+            const Gap(16),
+            const ShadProgress(),
+            const Gap(12),
+            Text(
+              Strings.pleaseWaitSync,
+              style: theme.textTheme.muted,
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
+    } else {
+      // Desktop : ShadDialog
+      return ShadDialog(
+        title: const Text(Strings.checkUpdatesTitle),
+        description: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Gap(16),
+            const ShadProgress(),
+            const Gap(12),
+            Text(
+              Strings.pleaseWaitSync,
+              style: theme.textTheme.muted,
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+        actions: const [],
+      );
+    }
   }
 }

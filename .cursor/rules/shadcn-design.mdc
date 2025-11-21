@@ -1,0 +1,150 @@
+---
+description: UI, UX, and Design System rules. Enforces Shadcn UI usage.
+globs: lib/features/**/screens/*.dart, lib/features/**/widgets/*.dart, lib/main.dart
+---
+
+# Design System: Shadcn UI
+
+**CRITICAL:** This project enforces a strict design system.
+
+## 1. Forbidden Practices
+
+* ❌ `BoxDecoration(color: Colors.blue)`
+* ❌ `TextStyle(fontSize: 16, color: Colors.red)`
+* ❌ `Colors.grey` (Direct color access)
+* ❌ `ShadToaster` (Deprecated)
+
+## 2. Mandatory Patterns
+
+* **Theme Access:** Always use `final theme = ShadTheme.of(context);`.
+* **Typography:** Use semantic names: `theme.textTheme.h4`, `theme.textTheme.muted`, `theme.textTheme.small`.
+* **Colors:** Use `theme.colorScheme.card`, `theme.colorScheme.destructive`, etc.
+
+## 3. Component Standards
+
+* **Toasts:** MUST use **ShadSonner**.
+
+    ```dart
+    ShadSonner.of(context).show(ShadToast(title: Text('...')));
+    ```
+
+* **Tabular Data:** MUST use `ShadTable.list`. Never build tables using Rows/Columns manually.
+* **Filtering:** Use `ShadPopover` containing `ShadRadioGroup` (for <5 options) or `ShadSelect` (for dynamic lists).
+* **Icons:** Use `LucideIcons`.
+
+### Header Consistency
+
+* **Rule:** Full-screen detail pages (`ClusterDetailView`, `GroupExplorerView`, etc.) MUST use `PharmaBackHeader` from `lib/core/widgets/ui_kit/pharma_back_header.dart` for their navigation row instead of ad-hoc `Row`/`Button` combos.
+* **Rationale:** Keeps back-button semantics, padding, and typography uniform while guaranteeing the touch target requirements defined by the UI Kit.
+
+## 4. Animation
+
+* Use `flutter_animate` for declarative transitions.
+* Standardize durations/curves via `AppAnimations` utility class.
+
+## 5. Mobile-First Layout Rules (MANDATORY)
+
+### Component Selection for Mobile
+
+* **Rule:** Prefer `showModalBottomSheet` (or `showShadSheet` with `side: ShadSheetSide.bottom`) on mobile for complex interactions, instead of `ShadPopover` or `ShadDialog`.
+* **Rationale:** Bottom sheets are more ergonomic on mobile devices, provide better gesture affordances, and handle context/z-index better than popovers in deep widget trees.
+
+**Example Pattern:**
+```dart
+// ❌ AVOID on mobile: ShadPopover for complex filters
+ShadPopover(
+  content: Column(
+    children: [
+      ShadRadioGroup<String>(...),
+      ShadSelect<String>(...),
+      // Complex form
+    ],
+  ),
+)
+
+// ✅ CORRECT on mobile: Bottom sheet for complex interactions
+showShadSheet(
+  context: context,
+  side: ShadSheetSide.bottom,  // REQUIRED for mobile
+  builder: (context) => Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      ShadRadioGroup<String>(...),
+      ShadSelect<String>(...),
+      // Complex form
+    ],
+  ),
+);
+
+// Or use standard Flutter:
+showModalBottomSheet(
+  context: context,
+  builder: (context) => FilterSheet(),
+);
+```
+
+### Explicit Generic Typing (MANDATORY)
+
+* **Rule:** MUST explicitly type the generics of Shadcn widgets to avoid runtime cast errors.
+* **Common Pitfall:** `ShadRadioGroup` without explicit typing can cause "Null is not a subtype of String" errors.
+
+**Example Pattern:**
+```dart
+// ❌ DANGEROUS: Unspecified generic type
+ShadRadioGroup(
+  options: [
+    ShadRadioOption(value: 'option1', label: Text('Option 1')),
+    ShadRadioOption(value: null, label: Text('None')),  // Can cause cast error
+  ],
+)
+
+// ✅ CORRECT: Explicitly typed generic
+ShadRadioGroup<String?>(  // REQUIRED: Explicit nullable type
+  options: [
+    ShadRadioOption<String?>(value: 'option1', label: Text('Option 1')),
+    ShadRadioOption<String?>(value: null, label: Text('None')),  // Safe
+  ],
+)
+```
+
+### Overflow Handling in Cards
+
+* **Rule:** In a `ShadCard`, any variable-length textual content MUST be wrapped in `Flexible` or `Expanded` if the card is inside a `Row` to prevent horizontal overflows.
+
+**Example Pattern:**
+```dart
+// ❌ FORBIDDEN: Text can overflow in Row
+ShadCard(
+  title: Row(
+    children: [
+      Icon(LucideIcons.medication),
+      Text('Very Long Medication Name That Will Overflow'),  // Crashes
+    ],
+  ),
+)
+
+// ✅ CORRECT: Constrain text with Flexible/Expanded
+ShadCard(
+  title: Row(
+    children: [
+      Icon(LucideIcons.medication),
+      Expanded(  // REQUIRED: Prevents overflow
+        child: Text(
+          'Very Long Medication Name That Will Overflow',
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+    ],
+  ),
+)
+```
+
+### Legacy Mobile Rules (Preserved)
+
+* **No DataTables:** Do NOT use `ShadTable` or `DataTable` for complex content on mobile. Use `ListView` containing `ShadCard` components instead to avoid horizontal overflows.
+
+* **Overlay Strategy:**
+    * Avoid putting `ShadPopover` inside complex scrolling views (`CustomScrollView`, `Slivers`).
+    * Prefer `showShadSheet` (Side.bottom) or `showModalBottomSheet` for filters and complex actions. They handle context and Z-index better than Popovers in deep trees.
+
+* **Bottom Padding:** When using a `BottomNavigationBar` or a floating `FAB/Panel`, ensure the main `ScrollView` has `padding: EdgeInsets.only(bottom: kBottomNavigationBarHeight + 20)` so content is not hidden behind the bar.

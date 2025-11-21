@@ -12,90 +12,53 @@ getAllMedicamentSummaries: SELECT * FROM medicament_summary ORDER BY nom_canoniq
 getMedicamentSummariesByGroup: SELECT * FROM medicament_summary WHERE group_id = ? ORDER BY is_princeps DESC, nom_canonique;
 getDistinctPrincipesActifsCommuns: SELECT DISTINCT principes_actifs_communs FROM medicament_summary WHERE principes_actifs_communs != '' ORDER BY principes_actifs_communs;
 
--- For _getCommonPrincipesForGroups
--- Note: Drift handles list parameters automatically with IN ? syntax
--- Using ? for list parameter - drift will expand Dart List into IN clause
-getCommonPrincipesForGroups(?):
-WITH member_counts AS (
-  SELECT gm.group_id, COUNT(DISTINCT gm.code_cip) AS member_count
-  FROM group_members gm
-  WHERE gm.group_id IN ?
-  GROUP BY gm.group_id
-),
-principes_occurrences AS (
-  SELECT
-    gm.group_id,
-    pa.principe,
-    COUNT(DISTINCT gm.code_cip) AS occurrence_count
-  FROM group_members gm
-  INNER JOIN principes_actifs pa ON pa.code_cip = gm.code_cip
-  WHERE gm.group_id IN ?
-  GROUP BY gm.group_id, pa.principe
-)
+CREATE VIEW detailed_scan_results AS
 SELECT
-  po.group_id,
-  po.principe
-FROM principes_occurrences po
-INNER JOIN member_counts mc ON mc.group_id = po.group_id
-WHERE po.occurrence_count = mc.member_count
-ORDER BY po.group_id, po.principe;
+  m.code_cip,
+  m.cis_code,
+  s.nom_specialite,
+  s.procedure_type AS specialite_procedure_type,
+  s.forme_pharmaceutique,
+  s.titulaire AS specialite_titulaire,
+  s.conditions_prescription AS specialite_conditions_prescription,
+  ms.group_id,
+  ms.is_princeps,
+  ms.nom_canonique,
+  ms.principes_actifs_communs,
+  ms.princeps_de_reference,
+  ms.princeps_brand_name,
+  ms.cluster_key,
+  ms.forme_pharmaceutique AS summary_forme_pharmaceutique,
+  ms.procedure_type AS summary_procedure_type,
+  ms.titulaire AS summary_titulaire,
+  ms.conditions_prescription AS summary_conditions_prescription
+FROM medicaments m
+INNER JOIN specialites s ON s.cis_code = m.cis_code
+INNER JOIN medicament_summary ms ON ms.cis_code = m.cis_code;
 
--- For _findRelatedPrinceps
--- Note: This query has multiple parameters including the groupId (appears twice) and list of commonPrincipes
--- Using ? for positional parameters: first ? is groupId, second ? is groupId again, third ? is commonPrincipes list, fourth ? is commonPrincipes list again
-findRelatedPrinceps(?, ?, ?, ?):
-WITH current_group_principes AS (
-  SELECT DISTINCT pa.principe
+-- Aggregation queries migrated from DataInitializationService
+getStandaloneSpecialites:
+SELECT 
+  s.cis_code,
+  s.nom_specialite,
+  s.forme_pharmaceutique,
+  s.procedure_type,
+  s.titulaire,
+  s.conditions_prescription,
+  MIN(m.code_cip) AS code_cip
+FROM specialites s
+INNER JOIN medicaments m ON s.cis_code = m.cis_code
+LEFT JOIN (
+  SELECT DISTINCT m2.cis_code AS grouped_cis
   FROM group_members gm
-  INNER JOIN principes_actifs pa ON gm.code_cip = pa.code_cip
-  WHERE gm.group_id = ?
-),
-candidate_groups AS (
-  SELECT DISTINCT gm2.group_id
-  FROM group_members gm2
-  INNER JOIN principes_actifs pa2 ON gm2.code_cip = pa2.code_cip
-  WHERE gm2.group_id != ?
-    AND gm2.type = 0
-    AND pa2.principe IN ?
-  GROUP BY gm2.group_id
-  HAVING COUNT(DISTINCT pa2.principe) = (SELECT COUNT(*) FROM current_group_principes)
-),
-groups_with_extra_principes AS (
-  SELECT cg.group_id
-  FROM candidate_groups cg
-  WHERE EXISTS (
-    SELECT 1
-    FROM group_members gm3
-    INNER JOIN principes_actifs pa3 ON gm3.code_cip = pa3.code_cip
-    WHERE gm3.group_id = cg.group_id
-      AND pa3.principe NOT IN ?
-  )
-)
-SELECT DISTINCT
-  gm.group_id,
-  gm.code_cip
-FROM group_members gm
-INNER JOIN groups_with_extra_principes gwe ON gm.group_id = gwe.group_id
-WHERE gm.type = 0;
+  INNER JOIN medicaments m2 ON gm.code_cip = m2.code_cip
+) grouped ON grouped.grouped_cis = s.cis_code
+WHERE grouped.grouped_cis IS NULL
+GROUP BY s.cis_code
+ORDER BY s.nom_specialite COLLATE NOCASE;
 
--- Base for getGenericGroupSummaries - returns all groups without filtering
-genericGroupSummariesBase:
-SELECT DISTINCT
-  gg.group_id,
-  gg.libelle
-FROM generique_groups gg;
-
--- Base query for princeps lookup in getGenericGroupSummaries and searchMedicaments
--- Using ? for list parameter - drift will expand Dart List into IN clause
-princepsByGroupIds(?):
-SELECT
-  gm.group_id,
-  s.nom_specialite as princeps_name
-FROM group_members gm
-INNER JOIN medicaments m ON gm.code_cip = m.code_cip
-INNER JOIN specialites s ON m.cis_code = s.cis_code
-WHERE gm.group_id IN ? AND gm.type = 0;
-
--- Note: FTS5 queries moved to customSelect in DatabaseService.searchMedicaments
--- because virtual tables cannot be validated by Drift's schema system
-
+getPrincipesForCips(List<String> cips):
+SELECT code_cip, principe 
+FROM principes_actifs 
+WHERE code_cip IN :cips 
+ORDER BY code_cip, principe;

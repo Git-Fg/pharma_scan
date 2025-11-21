@@ -1,67 +1,129 @@
 // lib/core/services/data_initialization_service.dart
 import 'dart:convert';
-import 'dart:developer' as developer;
 import 'dart:io';
 
 import 'package:decimal/decimal.dart';
 import 'package:drift/drift.dart';
+import 'package:drift/native.dart';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:pharma_scan/core/config/data_sources.dart';
-import 'package:pharma_scan/core/locator.dart';
-import 'package:pharma_scan/core/parser/medicament_grammar.dart';
 import 'package:pharma_scan/core/database/database.dart';
-import 'package:pharma_scan/core/services/database_service.dart';
+import 'package:pharma_scan/core/services/drift_database_service.dart';
+import 'package:pharma_scan/core/services/file_download_service.dart';
+import 'package:pharma_scan/core/services/logger_service.dart';
+import 'package:pharma_scan/core/parser/medicament_grammar.dart';
 import 'package:pharma_scan/core/utils/medicament_helpers.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sqlite3/sqlite3.dart';
+import 'package:sqlite3_flutter_libs/sqlite3_flutter_libs.dart';
+
+typedef SummaryComputationArgs = ({String dbPath, String tempPath});
 
 class DataInitializationService {
   DataInitializationService({
-    required SharedPreferences sharedPreferences,
-    DatabaseService? databaseService,
+    required DriftDatabaseService databaseService,
     String? cacheDirectory,
-  }) : _sharedPreferences = sharedPreferences,
-       dbService = databaseService ?? sl<DatabaseService>(),
-       _globalCacheDir = cacheDirectory ?? _resolveDefaultCacheDir();
+    FileDownloadService? fileDownloadService,
+  }) : _databaseService = databaseService,
+       _globalCacheDir = cacheDirectory ?? _resolveDefaultCacheDir(),
+       _fileDownloadService = fileDownloadService ?? FileDownloadService();
 
-  static const _initializationKey = 'bdpm_data_version';
   static const _currentDataVersion = '2025-01-20-rc1';
 
-  final SharedPreferences _sharedPreferences;
-  final DatabaseService dbService;
+  final DriftDatabaseService
+  _databaseService; // Changed from DatabaseService and renamed
   final String? _globalCacheDir;
+  final FileDownloadService _fileDownloadService;
 
   Future<void> initializeDatabase({bool forceRefresh = false}) async {
-    final persistedVersion = _sharedPreferences.getString(_initializationKey);
-    final hasExistingData = await dbService.hasExistingData();
+    final persistedVersion = await _databaseService.getBdpmVersion();
+    final hasExistingData = await _databaseService
+        .hasExistingData(); // Using _databaseService
+
+    LoggerService.info(
+      '[DataInit] initializeDatabase(forceRefresh: $forceRefresh, '
+      'persisted: $persistedVersion, current: $_currentDataVersion, '
+      'hasData: $hasExistingData)',
+    );
 
     if (!forceRefresh &&
         persistedVersion == _currentDataVersion &&
         hasExistingData) {
+      LoggerService.info(
+        '[DataInit] Initialization skipped: cache matches current version.',
+      );
       return;
     }
 
+    LoggerService.info(
+      '[DataInit] Initialization required (force: $forceRefresh). '
+      'Starting full refresh…',
+    );
     await _performFullRefresh();
-
-    await _sharedPreferences.setString(_initializationKey, _currentDataVersion);
   }
 
   Future<void> _performFullRefresh() async {
+    LoggerService.info(
+      '[DataInit] Starting full BDPM refresh (download + parse + aggregate).',
+    );
     final filePaths = await _downloadAllFiles();
+    await _parseAndInsertData(filePaths);
+
+    await _databaseService.updateBdpmVersion(_currentDataVersion);
+    await _markSyncAsFresh();
+  }
+
+  Future<void> applyUpdate(Map<String, File> tempFiles) async {
+    LoggerService.info('[DataInit] Applying updates from SyncService...');
+    LoggerService.info(
+      '[DataInit] Received ${tempFiles.length} files from SyncService.',
+    );
+
+    final filePaths = <String, String>{};
+    final cacheDir = _globalCacheDir;
+    final appDir = await getApplicationDocumentsDirectory();
+
+    for (final entry in tempFiles.entries) {
+      final key = entry.key;
+      final tempFile = entry.value;
+      final sourceUrl = DataSources.files[key];
+      if (sourceUrl == null) continue;
+
+      final filename = _extractFilenameFromUrl(sourceUrl);
+      final destinationPath = cacheDir != null
+          ? p.join(cacheDir, filename)
+          : p.join(appDir.path, filename);
+      final destinationFile = File(destinationPath);
+
+      if (!await destinationFile.parent.exists()) {
+        await destinationFile.parent.create(recursive: true);
+      }
+      await tempFile.copy(destinationFile.path);
+      filePaths[key] = destinationFile.path;
+    }
+
+    await _parseAndInsertData(filePaths);
+
+    await _databaseService.updateBdpmVersion(_currentDataVersion);
+    await _markSyncAsFresh();
+  }
+
+  Future<void> _parseAndInsertData(Map<String, String> filePaths) async {
+    LoggerService.info(
+      '[DataInit] Parsing BDPM files: ${filePaths.keys.join(', ')}',
+    );
     final parsedMap = await compute(_parseDataInBackground, filePaths);
     final parsedData = _ParsedDataBundle.fromMap(parsedMap);
 
-    developer.log(
-      'Parsed ${parsedData.medicaments.length} medicaments, '
+    LoggerService.info(
+      '[DataInit] Parsed ${parsedData.medicaments.length} medicaments, '
       '${parsedData.principes.length} principles, and '
       '${parsedData.groupMembers.length} group members.',
-      name: 'DataInitService',
     );
 
-    await dbService.clearDatabase();
-    await dbService.insertBatchData(
+    await _databaseService.clearDatabase();
+    await _databaseService.insertBatchData(
       specialites: parsedData.specialites,
       medicaments: parsedData.medicaments,
       principes: parsedData.principes,
@@ -69,16 +131,31 @@ class DataInitializationService {
       groupMembers: parsedData.groupMembers,
     );
 
+    LoggerService.info(
+      '[DataInit] Persisted parsed data. Aggregating summary table next.',
+    );
     // Phase 2: Aggregate data for MedicamentSummary table
     await _aggregateDataForSummary();
+  }
 
-    await _sharedPreferences.setString(_initializationKey, _currentDataVersion);
+  Future<void> _markSyncAsFresh() async {
+    // WHY: SyncService reads this timestamp to skip redundant checks right
+    // after a successful initialization run.
+    await _databaseService.updateSyncTimestamp(
+      DateTime.now().millisecondsSinceEpoch,
+    );
   }
 
   Future<Map<String, String>> _downloadAllFiles() async {
     final results = <String, String>{};
     for (final entry in DataSources.files.entries) {
+      LoggerService.info(
+        '[DataInit] Downloading ${entry.key} from ${entry.value}',
+      );
       results[entry.key] = await _getFilePath(entry.key, entry.value);
+      LoggerService.info(
+        '[DataInit] Downloaded ${entry.key} to ${results[entry.key]}',
+      );
     }
     return results;
   }
@@ -91,20 +168,15 @@ class DataInitializationService {
     if (cacheDir != null) {
       final cacheFile = File(p.join(cacheDir, filename));
       if (await cacheFile.exists()) {
-        developer.log(
-          'Using cached BDPM file $filename from $cacheDir',
-          name: 'DataInitService',
+        LoggerService.info(
+          '[DataInit] Using cached BDPM file $filename from $cacheDir',
         );
         return cacheFile.path;
       }
     }
 
     // Download and cache the file if not already cached
-    final bytes = await _fetchFileBytesWithCache(
-      storageKey: storageKey,
-      url: url,
-      filename: filename,
-    );
+    final bytes = await _fetchFileBytesWithCache(url: url, filename: filename);
 
     // Write to global cache
     if (cacheDir != null) {
@@ -146,180 +218,100 @@ class DataInitializationService {
   }
 
   Future<List<int>> _fetchFileBytesWithCache({
-    required String storageKey,
     required String url,
     required String filename,
   }) async {
     final directory = await getApplicationDocumentsDirectory();
-    final file = File('${directory.path}/$filename');
-    final remoteMetadata = await _fetchRemoteMetadata(url);
+    final cacheFile = File('${directory.path}/$filename');
 
-    final cachedBytes = await _reuseCacheIfUnchanged(
-      storageKey: storageKey,
-      file: file,
-      metadata: remoteMetadata,
+    // WHY: Use centralized FileDownloader service for consistent error handling,
+    // timeouts, and Talker logging across all file downloads.
+    return _fileDownloadService.downloadToBytesWithCacheFallback(
+      url: url,
+      cacheFile: cacheFile,
     );
-    if (cachedBytes != null) return cachedBytes;
-
-    try {
-      final response = await http.get(Uri.parse(url));
-      if (response.statusCode == 200) {
-        await file.writeAsBytes(response.bodyBytes);
-        await _persistRemoteHeaders(
-          storageKey: storageKey,
-          remoteMetadata: remoteMetadata,
-          responseHeaders: response.headers,
-        );
-        return response.bodyBytes;
-      }
-    } catch (_) {
-      // Fallback handled below
-    }
-
-    if (await file.exists()) {
-      developer.log(
-        'Falling back to cached file $filename after download failure.',
-        name: 'DataInitService',
-      );
-      return file.readAsBytes();
-    }
-
-    throw Exception('Failed to download $filename');
   }
-
-  Future<_RemoteMetadata> _fetchRemoteMetadata(String url) async {
-    try {
-      final response = await http.head(Uri.parse(url));
-      if (response.statusCode == 200) {
-        return _RemoteMetadata(
-          etag: response.headers['etag'],
-          lastModified: response.headers['last-modified'],
-        );
-      }
-    } catch (_) {
-      // Ignore HEAD failures - we'll fallback to direct download.
-    }
-    return const _RemoteMetadata();
-  }
-
-  Future<List<int>?> _reuseCacheIfUnchanged({
-    required String storageKey,
-    required File file,
-    required _RemoteMetadata metadata,
-  }) async {
-    if (!metadata.hasHeaders || !await file.exists()) {
-      return null;
-    }
-    final storedEtag = _sharedPreferences.getString(_etagKey(storageKey));
-    final storedLastModified = _sharedPreferences.getString(
-      _lastModifiedKey(storageKey),
-    );
-
-    final hasMatchingEtag =
-        metadata.etag != null && metadata.etag == storedEtag;
-    final hasMatchingLastModified =
-        metadata.lastModified != null &&
-        metadata.lastModified == storedLastModified;
-
-    if (hasMatchingEtag || hasMatchingLastModified) {
-      developer.log(
-        'Using cached file for $storageKey (no upstream changes).',
-        name: 'DataInitService',
-      );
-      return file.readAsBytes();
-    }
-
-    return null;
-  }
-
-  Future<void> _persistRemoteHeaders({
-    required String storageKey,
-    required _RemoteMetadata remoteMetadata,
-    required Map<String, String> responseHeaders,
-  }) async {
-    final etag = remoteMetadata.etag ?? responseHeaders['etag'];
-    final lastModified =
-        remoteMetadata.lastModified ?? responseHeaders['last-modified'];
-
-    if (etag != null && etag.isNotEmpty) {
-      await _sharedPreferences.setString(_etagKey(storageKey), etag);
-    }
-    if (lastModified != null && lastModified.isNotEmpty) {
-      await _sharedPreferences.setString(
-        _lastModifiedKey(storageKey),
-        lastModified,
-      );
-    }
-  }
-
-  String _etagKey(String storageKey) => 'bdpm_cache_etag_$storageKey';
-
-  String _lastModifiedKey(String storageKey) =>
-      'bdpm_cache_last_modified_$storageKey';
 
   @visibleForTesting
-  Future<void> runSummaryAggregationForTesting() => _aggregateDataForSummary();
+  Future<void> runSummaryAggregationForTesting({
+    bool useBackgroundIsolate = false,
+  }) => _aggregateDataForSummary(useBackgroundIsolate: useBackgroundIsolate);
+
+  // WHY: Get the database file path to pass to isolate
+  // The database is stored in application documents directory
+  Future<String> _getDatabasePath() async {
+    final dbFolder = await getApplicationDocumentsDirectory();
+    return p.join(dbFolder.path, 'medicaments.db');
+  }
 
   // Phase 2: Aggregate data for MedicamentSummary table
-  Future<void> _aggregateDataForSummary() async {
-    developer.log(
-      'Starting data aggregation for MedicamentSummary table.',
-      name: 'DataInitService',
+  Future<void> _aggregateDataForSummary({
+    bool useBackgroundIsolate = true,
+  }) async {
+    LoggerService.info(
+      '[DataInit] Starting data aggregation for MedicamentSummary table.',
     );
 
-    // 1. Fetch Raw Data (Main Isolate)
-    // Fetch groups with their members and specialite details
-    // WHY: We fetch as Map<String, dynamic> to be sendable to the isolate
-    final groupsQuery = await dbService.database.customSelect('''
-      SELECT 
-        gg.group_id,
-        gg.libelle,
-        gm.code_cip,
-        gm.type,
-        s.cis_code,
-        s.nom_specialite,
-        s.forme_pharmaceutique,
-        s.procedure_type,
-        s.titulaire,
-        s.conditions_prescription
-      FROM generique_groups gg
-      INNER JOIN group_members gm ON gg.group_id = gm.group_id
-      INNER JOIN medicaments m ON gm.code_cip = m.code_cip
-      INNER JOIN specialites s ON m.cis_code = s.cis_code
-      ORDER BY gg.group_id, gm.type, s.nom_specialite
-    ''').get();
+    // 1. Get database path and fetch standalone rows (Main Isolate)
+    // WHY: Standalone rows are processed in main isolate since they're a smaller dataset
+    final dbPath = await _getDatabasePath();
+    final tempPath = (await getTemporaryDirectory()).path;
 
-    final groupsData = groupsQuery.map((row) => row.data).toList();
-
-    // Get all active principles for each medication
-    // Fetch in chunks if too many variables, but for now we assume it fits or we could chunk it.
-    // Given the volume, we should probably fetch ALL principles for relevant CIPs.
-    // To avoid huge IN clauses, we can fetch all principles that are linked to ANY group member.
-    // Or better: fetch all principles where code_cip IN (SELECT code_cip FROM group_members)
-
-    final principesQuery = await dbService.database.customSelect('''
-      SELECT 
-        pa.code_cip,
-        pa.principe
-      FROM principes_actifs pa
-      INNER JOIN group_members gm ON pa.code_cip = gm.code_cip
-      ORDER BY pa.code_cip, pa.principe
-    ''').get();
-
-    final principesData = principesQuery.map((row) => row.data).toList();
-
-    final dto = _AggregationDataDTO(
-      groups: groupsData,
-      principes: principesData,
+    final standaloneRows = await _databaseService.database
+        .getStandaloneSpecialites()
+        .get();
+    LoggerService.info(
+      '[DataInit] Identified ${standaloneRows.length} standalone spécialités sans groupe.',
     );
 
-    // 2. Process in Background (Isolate)
-    final summaryRecords = await compute(_computeSummaryRecords, dto);
+    // Get principes for standalone rows only (smaller subset)
+    final standaloneCips = <String>{};
+    for (final row in standaloneRows) {
+      final codeCipValue = row.codeCip;
+      if (codeCipValue != null && codeCipValue.isNotEmpty) {
+        standaloneCips.add(codeCipValue);
+      }
+    }
+
+    final principesByCipForStandalone = <String, List<String>>{};
+    if (standaloneCips.isNotEmpty) {
+      final principesQuery = await _databaseService.database
+          .getPrincipesForCips(standaloneCips.toList())
+          .get();
+
+      for (final row in principesQuery) {
+        final codeCip = row.codeCip;
+        final principe = row.principe;
+        if (codeCip == null ||
+            codeCip.isEmpty ||
+            principe == null ||
+            principe.isEmpty) {
+          continue;
+        }
+        principesByCipForStandalone
+            .putIfAbsent(codeCip, () => <String>[])
+            .add(principe);
+      }
+    }
+
+    // 2. Process groups in Background (Isolate)
+    // WHY: Pass only the database path string (~1KB) instead of large data structures (~50-100MB)
+    final args = (dbPath: dbPath, tempPath: tempPath);
+
+    final summaryRecords = useBackgroundIsolate
+        ? await compute(_computeSummaryRecords, args)
+        : await _computeSummaryRecords(args);
+
+    final standaloneSummaries = _buildStandaloneSummaryRecords(
+      standaloneRows,
+      principesByCipForStandalone,
+    );
+    summaryRecords.addAll(standaloneSummaries);
 
     // 3. Batch Insert (Main Isolate)
-    await dbService.database.batch((batch) {
+    await _databaseService.database.batch((batch) {
       batch.insertAll(
-        dbService.database.medicamentSummary,
+        _databaseService.database.medicamentSummary,
         summaryRecords.map(
           (record) => MedicamentSummaryCompanion.insert(
             cisCode: record['cis_code'] as String,
@@ -327,7 +319,7 @@ class DataInitializationService {
             isPrinceps: record['is_princeps'] == 1,
             groupId: Value(record['group_id'] as String?),
             principesActifsCommuns:
-                record['principes_actifs_communs'] as String,
+                record['principes_actifs_communs'] as List<String>,
             princepsDeReference: record['princeps_de_reference'] as String,
             formePharmaceutique: Value(
               record['forme_pharmaceutique'] as String?,
@@ -345,40 +337,92 @@ class DataInitializationService {
       );
     });
 
-    developer.log(
-      'Aggregated ${summaryRecords.length} records into MedicamentSummary table using Drift batch.',
-      name: 'DataInitService',
+    final standaloneCount = standaloneSummaries.length;
+
+    LoggerService.db(
+      'Aggregated ${summaryRecords.length} records into MedicamentSummary table using Drift batch '
+      '(standalones: $standaloneCount).',
     );
   }
 }
 
-class _AggregationDataDTO {
-  final List<Map<String, dynamic>> groups;
-  final List<Map<String, dynamic>> principes;
+// WHY: Static function to open database in isolate
+// Must be top-level or static to be sendable to isolate
+Future<AppDatabase> _openDatabaseInIsolate(
+  String dbPath,
+  String tempPath,
+) async {
+  final file = File(dbPath);
 
-  _AggregationDataDTO({required this.groups, required this.principes});
+  if (Platform.isAndroid) {
+    await applyWorkaroundToOpenSqlite3OnOldAndroidVersions();
+  }
+
+  sqlite3.tempDirectory = tempPath;
+
+  final database = NativeDatabase(file);
+  return AppDatabase.forTesting(database);
 }
 
-List<Map<String, dynamic>> _computeSummaryRecords(_AggregationDataDTO dto) {
+Future<List<Map<String, dynamic>>> _computeSummaryRecords(
+  SummaryComputationArgs args,
+) async {
+  // WHY: Open database connection in isolate to avoid passing large data structures
+  final db = await _openDatabaseInIsolate(args.dbPath, args.tempPath);
   final medicamentParser = MedicamentParser();
 
-  // Group principles by medication
+  // Fetch groups with their members and specialite details
+  final groupsQuery = await db.customSelect('''
+    SELECT 
+      gg.group_id,
+      gg.libelle,
+      gm.code_cip,
+      gm.type,
+      s.cis_code,
+      s.nom_specialite,
+      s.forme_pharmaceutique,
+      s.procedure_type,
+      s.titulaire,
+      s.conditions_prescription
+    FROM generique_groups gg
+    INNER JOIN group_members gm ON gg.group_id = gm.group_id
+    INNER JOIN medicaments m ON gm.code_cip = m.code_cip
+    INNER JOIN specialites s ON m.cis_code = s.cis_code
+    ORDER BY gg.group_id, gm.type, s.nom_specialite
+  ''').get();
+
+  final groupsData = groupsQuery.map((row) => row.data).toList();
+
+  // Get all active principles for each medication
+  // WHY: Fetch all principles for relevant CIPs. Drift 2.24.0+ handles large sets internally.
+  final principesQuery = await db.customSelect('''
+    SELECT 
+      code_cip,
+      principe
+    FROM principes_actifs
+    ORDER BY code_cip, principe
+  ''').get();
+
   final principesByCip = <String, List<String>>{};
-  for (final row in dto.principes) {
-    final cip = row['code_cip'] as String;
-    final principe = row['principe'] as String;
-    principesByCip.putIfAbsent(cip, () => []).add(principe);
+  for (final row in principesQuery) {
+    final data = row.data;
+    final codeCipValue = data['code_cip'];
+    if (codeCipValue == null) continue;
+    final codeCip = codeCipValue.toString();
+    final principe = data['principe'] as String?;
+    if (principe == null || principe.isEmpty) continue;
+    principesByCip.putIfAbsent(codeCip, () => <String>[]).add(principe);
   }
 
   // Group medications by group and calculate common principles
-  final groupsData = <String, _GroupData>{};
-  for (final row in dto.groups) {
+  final groupsDataMap = <String, _GroupData>{};
+  for (final row in groupsData) {
     final groupId = row['group_id'] as String;
     final type = row['type'] as int;
     final codeCip = row['code_cip'] as String;
     final nomSpecialite = row['nom_specialite'] as String;
 
-    final groupData = groupsData.putIfAbsent(
+    final groupData = groupsDataMap.putIfAbsent(
       groupId,
       () => _GroupData(
         groupId: groupId,
@@ -403,13 +447,13 @@ List<Map<String, dynamic>> _computeSummaryRecords(_AggregationDataDTO dto) {
 
   // WHY: Pre-group rows by groupId to avoid O(N^2) lookups in the loop below
   final rowsByGroupId = <String, List<Map<String, dynamic>>>{};
-  for (final row in dto.groups) {
+  for (final row in groupsData) {
     final groupId = row['group_id'] as String;
     rowsByGroupId.putIfAbsent(groupId, () => []).add(row);
   }
 
   // Calculate common principles for each group (principles present in ALL medications)
-  for (final groupData in groupsData.values) {
+  for (final groupData in groupsDataMap.values) {
     // WHY: Use the pre-grouped map instead of iterating list with .where()
     final groupRows = rowsByGroupId[groupData.groupId] ?? const [];
 
@@ -432,7 +476,7 @@ List<Map<String, dynamic>> _computeSummaryRecords(_AggregationDataDTO dto) {
   }
 
   // Calculate reference princeps name for each group
-  for (final groupData in groupsData.values) {
+  for (final groupData in groupsDataMap.values) {
     groupData.princepsDeReference = findCommonPrincepsName(
       groupData.princepsNames,
     );
@@ -450,15 +494,11 @@ List<Map<String, dynamic>> _computeSummaryRecords(_AggregationDataDTO dto) {
       groupData.princepsBrandName = groupData.princepsDeReference;
     }
     groupData.sanitizedPrincipes = groupData.commonPrincipes
-        .map((principe) => sanitizeActivePrinciple(principe))
+        .map(sanitizeActivePrinciple)
         .where((principe) => principe.isNotEmpty)
         .toList();
 
-    // We need to implement _buildClusterKey and _normalizeClusterSegment inside this function or make them static/top-level
-    // Since they are private instance methods in the original class, we'll duplicate them as local helpers or make them static.
-    // For simplicity, I'll implement the logic here or use static helpers if I can.
-    // I'll add _staticBuildClusterKey helper.
-    groupData.clusterKey = _staticBuildClusterKey(
+    groupData.clusterKey = buildClusterKey(
       groupData.princepsBrandName,
       groupData.sanitizedPrincipes,
     );
@@ -466,7 +506,7 @@ List<Map<String, dynamic>> _computeSummaryRecords(_AggregationDataDTO dto) {
 
   // Prepare batch insert for MedicamentSummary table
   final summaryRecords = <Map<String, dynamic>>[];
-  for (final row in dto.groups) {
+  for (final row in groupsData) {
     final groupId = row['group_id'] as String;
     final type = row['type'] as int;
     final cisCode = row['cis_code'] as String;
@@ -476,7 +516,7 @@ List<Map<String, dynamic>> _computeSummaryRecords(_AggregationDataDTO dto) {
     final titulaire = row['titulaire'] as String?;
     final conditionsPrescription = row['conditions_prescription'] as String?;
 
-    final groupData = groupsData[groupId]!;
+    final groupData = groupsDataMap[groupId]!;
     final sanitizedPrincipes = groupData.sanitizedPrincipes;
     final princepsDeReference = groupData.princepsDeReference;
     // Pass the official form and lab as hints to the parser
@@ -486,23 +526,19 @@ List<Map<String, dynamic>> _computeSummaryRecords(_AggregationDataDTO dto) {
       officialLab: titulaire,
     );
 
-    // Sanitize active principles
-    final principesJson = jsonEncode(sanitizedPrincipes);
-
     // Create canonical name (remove dosage and form)
     final nomCanonique =
         parsedName.baseName ?? deriveGroupTitleFromName(nomSpecialite);
     final brandName = groupData.princepsBrandName ?? princepsDeReference;
     final clusterKey =
-        groupData.clusterKey ??
-        _staticBuildClusterKey(brandName, sanitizedPrincipes);
+        groupData.clusterKey ?? buildClusterKey(brandName, sanitizedPrincipes);
 
     summaryRecords.add({
       'cis_code': cisCode,
       'nom_canonique': nomCanonique,
       'is_princeps': type == 0 ? 1 : 0,
       'group_id': groupId,
-      'principes_actifs_communs': principesJson,
+      'principes_actifs_communs': sanitizedPrincipes,
       'princeps_de_reference': princepsDeReference,
       'forme_pharmaceutique': formePharmaceutique,
       'princeps_brand_name': brandName,
@@ -516,27 +552,65 @@ List<Map<String, dynamic>> _computeSummaryRecords(_AggregationDataDTO dto) {
   return summaryRecords;
 }
 
-String _staticBuildClusterKey(
-  String? brandName,
-  List<String> sanitizedPrincipes,
+List<Map<String, dynamic>> _buildStandaloneSummaryRecords(
+  List<GetStandaloneSpecialitesResult> standaloneRows,
+  Map<String, List<String>> principesByCip,
 ) {
-  final normalizedBrand = _staticNormalizeClusterSegment(
-    brandName ?? 'UNKNOWN',
-  );
-  final normalizedPrincipes =
-      sanitizedPrincipes.isEmpty
-            ? <String>['NO_PA']
-            : sanitizedPrincipes.map(_staticNormalizeClusterSegment).toList()
-        ..sort();
-  return '${normalizedBrand}__${normalizedPrincipes.join('_')}';
-}
+  if (standaloneRows.isEmpty) return const [];
+  final medicamentParser = MedicamentParser();
+  final records = <Map<String, dynamic>>[];
 
-String _staticNormalizeClusterSegment(String value) {
-  final upper = value.toUpperCase();
-  var cleaned = upper.replaceAll(RegExp(r'[^A-Z0-9]+'), '_');
-  cleaned = cleaned.replaceAll(RegExp(r'_+'), '_');
-  cleaned = cleaned.replaceAll(RegExp(r'^_+|_+$'), '').trim();
-  return cleaned.isEmpty ? 'UNK' : cleaned;
+  for (final row in standaloneRows) {
+    final cisCode = row.cisCode;
+    final codeCip = row.codeCip;
+    final nomSpecialite = row.nomSpecialite ?? '';
+
+    if (cisCode == null ||
+        codeCip == null ||
+        codeCip.isEmpty ||
+        nomSpecialite.isEmpty) {
+      continue;
+    }
+
+    final formePharmaceutique = row.formePharmaceutique;
+    final procedureType = row.procedureType;
+    final titulaire = row.titulaire;
+    final conditionsPrescription = row.conditionsPrescription;
+
+    final principes = principesByCip[codeCip] ?? const <String>[];
+    final sanitizedPrincipes = principes
+        .map(sanitizeActivePrinciple)
+        .where((principe) => principe.isNotEmpty)
+        .toList();
+    final parsedName = medicamentParser.parse(
+      nomSpecialite,
+      officialForm: formePharmaceutique,
+      officialLab: titulaire,
+    );
+    final nomCanonique =
+        parsedName.baseName ?? deriveGroupTitleFromName(nomSpecialite);
+    final brandName = nomCanonique.isNotEmpty
+        ? nomCanonique
+        : deriveGroupTitleFromName(nomSpecialite);
+    final clusterKey = buildClusterKey(brandName, sanitizedPrincipes);
+
+    records.add({
+      'cis_code': cisCode,
+      'nom_canonique': nomCanonique,
+      'is_princeps': 1,
+      'group_id': null,
+      'principes_actifs_communs': sanitizedPrincipes,
+      'princeps_de_reference': brandName,
+      'forme_pharmaceutique': formePharmaceutique,
+      'princeps_brand_name': brandName,
+      'cluster_key': clusterKey,
+      'procedure_type': procedureType,
+      'titulaire': titulaire,
+      'conditions_prescription': conditionsPrescription,
+    });
+  }
+
+  return records;
 }
 
 // Helper class for group data aggregation
@@ -593,14 +667,15 @@ Future<Map<String, dynamic>> _parseDataInBackground(
     medicamentsResult.cisToCip13,
     medicamentsResult.medicamentCips,
   );
-
-  return {
+  final payload = {
     'specialites': specialitesResult.specialites,
     'medicaments': medicamentsResult.medicaments,
     'principes': principes,
     'generiqueGroups': generiqueResult.generiqueGroups,
     'groupMembers': generiqueResult.groupMembers,
   };
+  _assertSendable(payload);
+  return payload;
 }
 
 _SpecialitesParseResult _parseSpecialites(
@@ -808,6 +883,39 @@ String? _decodeContent(List<int>? bytes) {
   }
 }
 
+void _assertSendable(Object? value) {
+  if (value == null ||
+      value is num ||
+      value is bool ||
+      value is String ||
+      value is Uint8List ||
+      value is Int32List ||
+      value is Int64List ||
+      value is Float64List) {
+    return;
+  }
+  if (value is List) {
+    for (final item in value) {
+      _assertSendable(item);
+    }
+    return;
+  }
+  if (value is Map) {
+    for (final entry in value.entries) {
+      final key = entry.key;
+      if (key is! String) {
+        throw ArgumentError(
+          'Sendable check failed: map key must be a String but was ${key.runtimeType}',
+        );
+      }
+      _assertSendable(entry.value);
+    }
+    return;
+  }
+
+  throw ArgumentError('Sendable check failed for ${value.runtimeType}: $value');
+}
+
 typedef _SpecialitesParseResult = ({
   List<Map<String, dynamic>> specialites,
   Map<String, String> namesByCis,
@@ -850,15 +958,4 @@ class _ParsedDataBundle {
   final List<Map<String, dynamic>> principes;
   final List<Map<String, dynamic>> generiqueGroups;
   final List<Map<String, dynamic>> groupMembers;
-}
-
-class _RemoteMetadata {
-  const _RemoteMetadata({this.etag, this.lastModified});
-
-  final String? etag;
-  final String? lastModified;
-
-  bool get hasHeaders =>
-      (etag != null && etag!.isNotEmpty) ||
-      (lastModified != null && lastModified!.isNotEmpty);
 }

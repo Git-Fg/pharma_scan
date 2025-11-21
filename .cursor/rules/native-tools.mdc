@@ -1,0 +1,41 @@
+---
+description: CONSTANTLY APPLIED. Prefer native tools over shell simulations while permitting pragmatic console usage.
+globs: *
+alwaysApply: true
+---
+
+# Native Tool Preference Protocol
+
+## Fundamental Guideline
+
+Lean on the native tools for file reads, edits, and searches because they provide richer context and safer writes. Console commands remain available when they substantially speed up the task or when native tools lack parity.
+
+## Recommended Defaults
+
+* ✅ Prefer `read_file` over `cat`, `less`, or `more` for reviewing source, especially when context windows, offsets, or quoting accuracy matter.
+* ✅ Use `apply_patch`/`edit_file` for modifications so changes are atomic and audited.
+* ✅ Reach for `grep`, `codebase_search`, or `glob_file_search` when you need precise or semantic matches.
+* ✅ Use `list_dir` for quick directory listings, but `ls` and `tree` are **allowed** when a visual hierarchy helps or when sharing console transcripts.
+
+## Console Allowances
+
+Shell utilities are acceptable for:
+
+1. Build/test/tooling commands (`flutter run`, `dart run build_runner ...`, `dart fix --apply`, `dart analyze`, `dart test`, custom scripts).
+2. Project scripts (`python data_validator.py`, `just`, `make`, etc.).
+3. Directory inspection commands, including `ls` and `tree`, when faster or when native output would be cumbersome.
+4. Occasional quick peeks (e.g., `cat file | head`) provided they do not replace sustained use of `read_file`/`grep` for substantive work.
+5. Simple, single-command invocations. **Avoid composed shell pipelines or chained commands (using `|`, `&&`, `||`, or `;`)** because they are harder to audit and may bypass native-tool safeguards. Break complex tasks into discrete commands instead.
+
+Constraint :
+You must NEVER use git command, except if specifically asked from the user.
+
+**Auto-Fix Discipline:** If `dart analyze` or CI surfaces warnings/errors with available quick fixes, immediately run `dart fix --apply` before re-running analysis or tests.
+
+## Rationale
+
+* **Accuracy:** Native tools prevent truncated output and automatically include metadata such as line numbers.
+* **Safety:** File edits stay atomic, preventing partial writes.
+* **Efficiency:** Purpose-built tools integrate with Cursor history and reduce context-switching.
+
+Use judgment: default to native tooling, but leverage the console whenever it clearly improves speed or clarity without sacrificing reliability.

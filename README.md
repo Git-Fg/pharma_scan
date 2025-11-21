@@ -60,7 +60,7 @@ PharmaScan is a high-performance Flutter application designed for the rapid scan
 2. **Install dependencies:**
 
     ```bash
-    flutter pub get
+    dart pub get
     ```
 
 3. **Run the application:**

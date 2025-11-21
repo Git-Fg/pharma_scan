@@ -19,8 +19,7 @@ void main() {
         'ASPIRINE gélule injectable': 'ASPIRINE',
         'MOLECULE sirop suspension': 'MOLECULE',
         'PRINCIPE crème pommade gel': 'PRINCIPE',
-        'ACTIF solution de test':
-            'ACTIF solution de test', // Exception pattern
+        'ACTIF solution de test': 'ACTIF solution de test', // Exception pattern
       };
 
       for (final entry in testCases.entries) {
@@ -36,7 +35,9 @@ void main() {
 
     test('should remove dosage units and numbers', () {
       expect(
-        sanitizeActivePrinciple('ESOMEPRAZOLE MAGNESIUM TRIHYDRATE équivalant à ESOMEPRAZOLE 40 mg'),
+        sanitizeActivePrinciple(
+          'ESOMEPRAZOLE MAGNESIUM TRIHYDRATE équivalant à ESOMEPRAZOLE 40 mg',
+        ),
         equals('ESOMEPRAZOLE MAGNESIUM TRIHYDRATE'),
       );
       expect(
@@ -72,10 +73,7 @@ void main() {
         sanitizeActivePrinciple('HEPARINE SODIQUE 4000 UI/ML'),
         contains('4000'),
       );
-      expect(
-        sanitizeActivePrinciple('HEPARINE 3350 UI/ML'),
-        contains('3350'),
-      );
+      expect(sanitizeActivePrinciple('HEPARINE 3350 UI/ML'), contains('3350'));
       // Test known numbered molecules that should be preserved
       final testCases = [
         'HEPARINE SODIQUE 4000 UI/ML',
@@ -90,11 +88,7 @@ void main() {
       for (final testCase in testCases) {
         final sanitized = sanitizeActivePrinciple(testCase);
         // Numbers should be preserved for known molecules
-        expect(
-          sanitized,
-          isNotEmpty,
-          reason: 'Should not be empty: $testCase',
-        );
+        expect(sanitized, isNotEmpty, reason: 'Should not be empty: $testCase');
         expect(
           sanitized.toLowerCase(),
           isNot(contains('ui/ml')),
@@ -139,7 +133,9 @@ void main() {
 
     test('should handle "équivalant à" patterns', () {
       expect(
-        sanitizeActivePrinciple('ESOMEPRAZOLE MAGNESIUM TRIHYDRATE équivalant à ESOMEPRAZOLE 40 mg'),
+        sanitizeActivePrinciple(
+          'ESOMEPRAZOLE MAGNESIUM TRIHYDRATE équivalant à ESOMEPRAZOLE 40 mg',
+        ),
         equals('ESOMEPRAZOLE MAGNESIUM TRIHYDRATE'),
       );
       expect(
@@ -162,11 +158,7 @@ void main() {
         contains('PARACETAMOL'),
         reason: 'Should preserve PARACETAMOL',
       );
-      expect(
-        sanitized,
-        contains('CODEINE'),
-        reason: 'Should preserve CODEINE',
-      );
+      expect(sanitized, contains('CODEINE'), reason: 'Should preserve CODEINE');
       expect(
         sanitized,
         contains('CAFFEINE'),
@@ -191,11 +183,7 @@ void main() {
 
       for (final testCase in testCases) {
         final sanitized = sanitizeActivePrinciple(testCase);
-        expect(
-          sanitized,
-          equals('MOLECULE'),
-          reason: 'Failed for: $testCase',
-        );
+        expect(sanitized, equals('MOLECULE'), reason: 'Failed for: $testCase');
         expect(
           sanitized,
           isNot(contains('mg')),
@@ -212,39 +200,54 @@ void main() {
     // Python Parity: matches Python auditor strict contamination checks
     group('Python Parity - Strict Contamination Checks', () {
       // 1. Unit patterns from Python DOSAGE_UNIT_PATTERNS
-      test('should remove dosage units with numbers (mg, g, ml, ui, %, ch, dh, gbq, mbq)', () {
-        expect(sanitizeActivePrinciple('MOLECULE 100 mg'), 'MOLECULE');
-        expect(sanitizeActivePrinciple('MOLECULE 5 g'), 'MOLECULE');
-        expect(sanitizeActivePrinciple('MOLECULE 250 ml'), 'MOLECULE');
-        expect(sanitizeActivePrinciple('MOLECULE 1000 ui'), 'MOLECULE');
-        expect(sanitizeActivePrinciple('MOLECULE 5 %'), 'MOLECULE');
-        expect(sanitizeActivePrinciple('MOLECULE 5CH'), 'MOLECULE'); // Homéopathie
-        expect(sanitizeActivePrinciple('MOLECULE 9DH'), 'MOLECULE');
-        expect(sanitizeActivePrinciple('MOLECULE 100 GBq'), 'MOLECULE');
-        expect(sanitizeActivePrinciple('MOLECULE 100 MBq'), 'MOLECULE');
-        expect(sanitizeActivePrinciple('MOLECULE 2,5 mg'), 'MOLECULE');
-        expect(sanitizeActivePrinciple('MOLECULE 0.5 g'), 'MOLECULE');
-      });
+      test(
+        'should remove dosage units with numbers (mg, g, ml, ui, %, ch, dh, gbq, mbq)',
+        () {
+          expect(sanitizeActivePrinciple('MOLECULE 100 mg'), 'MOLECULE');
+          expect(sanitizeActivePrinciple('MOLECULE 5 g'), 'MOLECULE');
+          expect(sanitizeActivePrinciple('MOLECULE 250 ml'), 'MOLECULE');
+          expect(sanitizeActivePrinciple('MOLECULE 1000 ui'), 'MOLECULE');
+          expect(sanitizeActivePrinciple('MOLECULE 5 %'), 'MOLECULE');
+          expect(
+            sanitizeActivePrinciple('MOLECULE 5CH'),
+            'MOLECULE',
+          ); // Homéopathie
+          expect(sanitizeActivePrinciple('MOLECULE 9DH'), 'MOLECULE');
+          expect(sanitizeActivePrinciple('MOLECULE 100 GBq'), 'MOLECULE');
+          expect(sanitizeActivePrinciple('MOLECULE 100 MBq'), 'MOLECULE');
+          expect(sanitizeActivePrinciple('MOLECULE 2,5 mg'), 'MOLECULE');
+          expect(sanitizeActivePrinciple('MOLECULE 0.5 g'), 'MOLECULE');
+        },
+      );
 
       // 2. Formulation keywords from Python FORMULATION_KEYWORDS
-      test('should remove formulation keywords (comprimé, gélule, solution, injectable, etc.)', () {
-        expect(sanitizeActivePrinciple('MOLECULE comprimé'), 'MOLECULE');
-        expect(sanitizeActivePrinciple('MOLECULE gélule'), 'MOLECULE');
-        expect(sanitizeActivePrinciple('MOLECULE injectable'), 'MOLECULE');
-        expect(sanitizeActivePrinciple('MOLECULE sirop'), 'MOLECULE');
-        expect(sanitizeActivePrinciple('MOLECULE suspension'), 'MOLECULE');
-        expect(sanitizeActivePrinciple('MOLECULE crème'), 'MOLECULE');
-        expect(sanitizeActivePrinciple('MOLECULE pommade'), 'MOLECULE');
-        expect(sanitizeActivePrinciple('MOLECULE gel'), 'MOLECULE');
-        expect(sanitizeActivePrinciple('MOLECULE collyre'), 'MOLECULE');
-        expect(sanitizeActivePrinciple('MOLECULE inhalation'), 'MOLECULE');
-        expect(sanitizeActivePrinciple('MOLECULE poudre'), 'MOLECULE');
-      });
+      test(
+        'should remove formulation keywords (comprimé, gélule, solution, injectable, etc.)',
+        () {
+          expect(sanitizeActivePrinciple('MOLECULE comprimé'), 'MOLECULE');
+          expect(sanitizeActivePrinciple('MOLECULE gélule'), 'MOLECULE');
+          expect(sanitizeActivePrinciple('MOLECULE injectable'), 'MOLECULE');
+          expect(sanitizeActivePrinciple('MOLECULE sirop'), 'MOLECULE');
+          expect(sanitizeActivePrinciple('MOLECULE suspension'), 'MOLECULE');
+          expect(sanitizeActivePrinciple('MOLECULE crème'), 'MOLECULE');
+          expect(sanitizeActivePrinciple('MOLECULE pommade'), 'MOLECULE');
+          expect(sanitizeActivePrinciple('MOLECULE gel'), 'MOLECULE');
+          expect(sanitizeActivePrinciple('MOLECULE collyre'), 'MOLECULE');
+          expect(sanitizeActivePrinciple('MOLECULE inhalation'), 'MOLECULE');
+          expect(sanitizeActivePrinciple('MOLECULE poudre'), 'MOLECULE');
+        },
+      );
 
       // 3. Exception: "solution de" should be preserved (Python FORMULATION_EXCEPTIONS)
       test('should preserve "solution de" as exception', () {
-        expect(sanitizeActivePrinciple('SOLUTION DE CHLORHEXIDINE'), 'SOLUTION DE CHLORHEXIDINE');
-        expect(sanitizeActivePrinciple('MOLECULE solution de lavage'), 'MOLECULE solution de lavage');
+        expect(
+          sanitizeActivePrinciple('SOLUTION DE CHLORHEXIDINE'),
+          'SOLUTION DE CHLORHEXIDINE',
+        );
+        expect(
+          sanitizeActivePrinciple('MOLECULE solution de lavage'),
+          'MOLECULE solution de lavage',
+        );
         // But standalone "solution" should be removed
         expect(sanitizeActivePrinciple('MOLECULE solution'), 'MOLECULE');
         // More comprehensive "solution de" exception cases
@@ -252,10 +255,7 @@ void main() {
           sanitizeActivePrinciple('SOLUTION DE DIGLUCONATE DE CHLORHEXIDINE'),
           'SOLUTION DE DIGLUCONATE DE CHLORHEXIDINE',
         );
-        expect(
-          sanitizeActivePrinciple('solution de test'),
-          'solution de test',
-        );
+        expect(sanitizeActivePrinciple('solution de test'), 'solution de test');
         expect(
           sanitizeActivePrinciple('MOLECULE solution de BASE'),
           'MOLECULE solution de BASE',
@@ -271,31 +271,45 @@ void main() {
       });
 
       // 4. Standalone numbers (Python NUMBER_PATTERN)
-      test('should remove standalone numbers except known numbered molecules', () {
-        // "MOLECULE 500" -> "MOLECULE" (removed)
-        expect(sanitizeActivePrinciple('PARACETAMOL 500'), 'PARACETAMOL');
-        expect(sanitizeActivePrinciple('IBUPROFENE 200'), 'IBUPROFENE');
-        expect(sanitizeActivePrinciple('MOLECULE 100'), 'MOLECULE');
-        expect(sanitizeActivePrinciple('MOLECULE 2,5'), 'MOLECULE');
-        expect(sanitizeActivePrinciple('MOLECULE 0.5'), 'MOLECULE');
-      });
+      test(
+        'should remove standalone numbers except known numbered molecules',
+        () {
+          // "MOLECULE 500" -> "MOLECULE" (removed)
+          expect(sanitizeActivePrinciple('PARACETAMOL 500'), 'PARACETAMOL');
+          expect(sanitizeActivePrinciple('IBUPROFENE 200'), 'IBUPROFENE');
+          expect(sanitizeActivePrinciple('MOLECULE 100'), 'MOLECULE');
+          expect(sanitizeActivePrinciple('MOLECULE 2,5'), 'MOLECULE');
+          expect(sanitizeActivePrinciple('MOLECULE 0.5'), 'MOLECULE');
+        },
+      );
 
       // 5. Known numbered molecules (Python KNOWN_NUMBERED_MOLECULES)
-      test('should preserve known numbered molecules (MACROGOL 4000, HEPARINE 6000, etc.)', () {
-        // "PEG 4000" or "HEPARINE 6000" should be preserved
-        expect(sanitizeActivePrinciple('MACROGOL 4000'), 'MACROGOL 4000');
-        expect(sanitizeActivePrinciple('HEPARINE 6000'), 'HEPARINE 6000');
-        expect(sanitizeActivePrinciple('HEPARINE SODIQUE 4000 UI/ML'), contains('4000'));
-        expect(sanitizeActivePrinciple('HEPARINE 3350 UI/ML'), contains('3350'));
-        // These should preserve the numbers in the molecule name
-        expect(sanitizeActivePrinciple('MOLECULE 980'), contains('980'));
-        expect(sanitizeActivePrinciple('MOLECULE 940'), contains('940'));
-      });
+      test(
+        'should preserve known numbered molecules (MACROGOL 4000, HEPARINE 6000, etc.)',
+        () {
+          // "PEG 4000" or "HEPARINE 6000" should be preserved
+          expect(sanitizeActivePrinciple('MACROGOL 4000'), 'MACROGOL 4000');
+          expect(sanitizeActivePrinciple('HEPARINE 6000'), 'HEPARINE 6000');
+          expect(
+            sanitizeActivePrinciple('HEPARINE SODIQUE 4000 UI/ML'),
+            contains('4000'),
+          );
+          expect(
+            sanitizeActivePrinciple('HEPARINE 3350 UI/ML'),
+            contains('3350'),
+          );
+          // These should preserve the numbers in the molecule name
+          expect(sanitizeActivePrinciple('MOLECULE 980'), contains('980'));
+          expect(sanitizeActivePrinciple('MOLECULE 940'), contains('940'));
+        },
+      );
 
       // 6. Combined contamination patterns
       test('should handle complex contamination patterns', () {
         expect(
-          sanitizeActivePrinciple('ESOMEPRAZOLE MAGNESIUM TRIHYDRATE équivalant à ESOMEPRAZOLE 40 mg comprimé'),
+          sanitizeActivePrinciple(
+            'ESOMEPRAZOLE MAGNESIUM TRIHYDRATE équivalant à ESOMEPRAZOLE 40 mg comprimé',
+          ),
           'ESOMEPRAZOLE MAGNESIUM TRIHYDRATE',
         );
         // Note: "pelliculé" is not in the formulation keywords list, so it may remain
@@ -310,38 +324,38 @@ void main() {
       });
 
       // 7. Edge cases with hyphens and special characters
-      test('should handle hyphenated numbers (likely part of molecule name)', () {
-        // Numbers preceded by hyphen should be preserved
-        expect(sanitizeActivePrinciple('MOLECULE-2,4'), 'MOLECULE-2,4');
-        expect(sanitizeActivePrinciple('MOLECULE-2.4'), 'MOLECULE-2.4');
-        // More specific hyphenated molecule test cases
-        expect(
-          sanitizeActivePrinciple('ALCOOL DICHLORO-2,4 BENZYLIQUE'),
-          'ALCOOL DICHLORO-2,4 BENZYLIQUE',
-        );
-        expect(
-          sanitizeActivePrinciple('MOLECULE-4000 TEST'),
-          'MOLECULE-4000 TEST',
-        );
-        expect(
-          sanitizeActivePrinciple('ACTIF-2,4-DICHLORO'),
-          'ACTIF-2,4-DICHLORO',
-        );
-        expect(
-          sanitizeActivePrinciple('PRINCIPE-6000-COMPLEX'),
-          'PRINCIPE-6000-COMPLEX',
-        );
-        expect(
-          sanitizeActivePrinciple('MOLECULE-4000'),
-          'MOLECULE-4000',
-        );
-        // Verify the hyphenated number is preserved
-        expect(
-          sanitizeActivePrinciple('MOLECULE-4000'),
-          contains('-'),
-          reason: 'Should preserve hyphen in: MOLECULE-4000',
-        );
-      });
+      test(
+        'should handle hyphenated numbers (likely part of molecule name)',
+        () {
+          // Numbers preceded by hyphen should be preserved
+          expect(sanitizeActivePrinciple('MOLECULE-2,4'), 'MOLECULE-2,4');
+          expect(sanitizeActivePrinciple('MOLECULE-2.4'), 'MOLECULE-2.4');
+          // More specific hyphenated molecule test cases
+          expect(
+            sanitizeActivePrinciple('ALCOOL DICHLORO-2,4 BENZYLIQUE'),
+            'ALCOOL DICHLORO-2,4 BENZYLIQUE',
+          );
+          expect(
+            sanitizeActivePrinciple('MOLECULE-4000 TEST'),
+            'MOLECULE-4000 TEST',
+          );
+          expect(
+            sanitizeActivePrinciple('ACTIF-2,4-DICHLORO'),
+            'ACTIF-2,4-DICHLORO',
+          );
+          expect(
+            sanitizeActivePrinciple('PRINCIPE-6000-COMPLEX'),
+            'PRINCIPE-6000-COMPLEX',
+          );
+          expect(sanitizeActivePrinciple('MOLECULE-4000'), 'MOLECULE-4000');
+          // Verify the hyphenated number is preserved
+          expect(
+            sanitizeActivePrinciple('MOLECULE-4000'),
+            contains('-'),
+            reason: 'Should preserve hyphen in: MOLECULE-4000',
+          );
+        },
+      );
 
       // 8. Multiple contamination sources in one string
       test('should remove all contamination sources in a single string', () {
@@ -351,7 +365,9 @@ void main() {
           'PARACETAMOL',
         );
         expect(
-          sanitizeActivePrinciple('IBUPROFENE 200 mg 5 g injectable suspension'),
+          sanitizeActivePrinciple(
+            'IBUPROFENE 200 mg 5 g injectable suspension',
+          ),
           'IBUPROFENE',
         );
       });
@@ -367,17 +383,21 @@ void main() {
       });
 
       // 10. Verify parenthetical content is removed before contamination checks
-      test('should remove parenthetical content before contamination checks', () {
-        expect(
-          sanitizeActivePrinciple('MOLECULE (sel de sodium) 100 mg'),
-          'MOLECULE',
-        );
-        expect(
-          sanitizeActivePrinciple('PARACETAMOL (CHLORHYDRATE DE) 500 mg comprimé'),
-          'PARACETAMOL',
-        );
-      });
+      test(
+        'should remove parenthetical content before contamination checks',
+        () {
+          expect(
+            sanitizeActivePrinciple('MOLECULE (sel de sodium) 100 mg'),
+            'MOLECULE',
+          );
+          expect(
+            sanitizeActivePrinciple(
+              'PARACETAMOL (CHLORHYDRATE DE) 500 mg comprimé',
+            ),
+            'PARACETAMOL',
+          );
+        },
+      );
     });
   });
 }
-

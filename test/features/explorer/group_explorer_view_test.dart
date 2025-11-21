@@ -1,41 +1,35 @@
 import 'package:decimal/decimal.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mockito/annotations.dart';
-import 'package:mockito/mockito.dart';
-import 'package:pharma_scan/core/locator.dart';
-import 'package:pharma_scan/core/services/database_service.dart';
+import 'package:mocktail/mocktail.dart';
+import 'package:pharma_scan/core/providers/repositories_providers.dart';
 import 'package:pharma_scan/features/explorer/models/grouped_by_product_model.dart';
 import 'package:pharma_scan/features/explorer/models/product_group_classification_model.dart';
+import 'package:pharma_scan/core/utils/strings.dart';
+import 'package:pharma_scan/features/explorer/screens/database_search_view.dart';
 import 'package:pharma_scan/features/explorer/screens/group_explorer_view.dart';
 import 'package:pharma_scan/features/scanner/models/medicament_model.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
-import 'group_explorer_view_test.mocks.dart';
+import '../../mocks.dart';
 
-@GenerateNiceMocks([MockSpec<DatabaseService>()])
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  late MockDatabaseService mockDatabaseService;
+  late MockExplorerRepository mockRepository;
 
-  setUp(() async {
-    mockDatabaseService = MockDatabaseService();
-    await sl.reset();
-    sl.registerSingleton<DatabaseService>(mockDatabaseService);
-  });
-
-  tearDown(() async {
-    await sl.reset();
+  setUp(() {
+    mockRepository = MockExplorerRepository();
   });
 
   testWidgets('expands generic accordion to reveal medicament cards', (
     WidgetTester tester,
   ) async {
-    final princeps = Medicament(
+    final princeps = const Medicament(
       nom: 'Princeps One',
       codeCip: 'CIP-PRINCEPS',
-      principesActifs: const ['Substance P'],
+      principesActifs: ['Substance P'],
       titulaire: 'Lab Princeps',
     );
 
@@ -81,17 +75,22 @@ void main() {
     );
 
     when(
-      mockDatabaseService.classifyProductGroup(any),
+      () => mockRepository.classifyProductGroup(any()),
     ).thenAnswer((_) async => classification);
 
     await tester.pumpWidget(
-      ShadTheme(
-        data: ShadThemeData(
-          brightness: Brightness.light,
-          colorScheme: const ShadZincColorScheme.light(),
-        ),
-        child: MaterialApp(
-          home: GroupExplorerView(groupId: 'group-001', onExit: () {}),
+      ProviderScope(
+        overrides: [
+          explorerRepositoryProvider.overrideWithValue(mockRepository),
+        ],
+        child: ShadTheme(
+          data: ShadThemeData(
+            brightness: Brightness.light,
+            colorScheme: const ShadZincColorScheme.light(),
+          ),
+          child: const MaterialApp(
+            home: GroupExplorerView(groupId: 'group-001'),
+          ),
         ),
       ),
     );
@@ -101,23 +100,24 @@ void main() {
     final accordionTitleFinder = find.text('Generic Product');
     expect(accordionTitleFinder, findsOneWidget);
 
-    expect(find.text('CIP-GEN-001'), findsNothing);
-    expect(find.text('CIP-GEN-002'), findsNothing);
+    // WHY: Use Strings.cip for consistency with UI, even for test data
+    expect(find.text('${Strings.cip} CIP-GEN-001'), findsNothing);
+    expect(find.text('${Strings.cip} CIP-GEN-002'), findsNothing);
 
     await tester.tap(accordionTitleFinder);
     await tester.pumpAndSettle();
 
-    expect(find.text('CIP-GEN-001'), findsOneWidget);
-    expect(find.text('CIP-GEN-002'), findsOneWidget);
+    expect(find.text('${Strings.cip} CIP-GEN-001'), findsOneWidget);
+    expect(find.text('${Strings.cip} CIP-GEN-002'), findsOneWidget);
   });
 
   testWidgets(
     'groups generics sharing canonical name and dosage across laboratories',
     (WidgetTester tester) async {
-      final princeps = Medicament(
+      final princeps = const Medicament(
         nom: 'Princeps One',
         codeCip: 'CIP-PRINCEPS',
-        principesActifs: const ['Substance P'],
+        principesActifs: ['Substance P'],
         titulaire: 'Lab Princeps',
       );
 
@@ -162,17 +162,22 @@ void main() {
       );
 
       when(
-        mockDatabaseService.classifyProductGroup(any),
+        () => mockRepository.classifyProductGroup(any()),
       ).thenAnswer((_) async => classification);
 
       await tester.pumpWidget(
-        ShadTheme(
-          data: ShadThemeData(
-            brightness: Brightness.light,
-            colorScheme: const ShadZincColorScheme.light(),
-          ),
-          child: MaterialApp(
-            home: GroupExplorerView(groupId: 'group-002', onExit: () {}),
+        ProviderScope(
+          overrides: [
+            explorerRepositoryProvider.overrideWithValue(mockRepository),
+          ],
+          child: ShadTheme(
+            data: ShadThemeData(
+              brightness: Brightness.light,
+              colorScheme: const ShadZincColorScheme.light(),
+            ),
+            child: const MaterialApp(
+              home: GroupExplorerView(groupId: 'group-002'),
+            ),
           ),
         ),
       );
@@ -185,8 +190,40 @@ void main() {
       await tester.tap(accordionTitleFinder);
       await tester.pumpAndSettle();
 
-      expect(find.text('CIP-GEN-010'), findsOneWidget);
-      expect(find.text('CIP-GEN-011'), findsOneWidget);
+      // WHY: Use Strings.cip for consistency with UI, even for test data
+      expect(find.text('${Strings.cip} CIP-GEN-010'), findsOneWidget);
+      expect(find.text('${Strings.cip} CIP-GEN-011'), findsOneWidget);
     },
   );
+
+  test('summarizeGenericsByName aggregates identical normalized names', () {
+    final generics = [
+      const Medicament(
+        nom: 'AMOXICILLINE',
+        codeCip: 'AMOX-001',
+        principesActifs: ['Substance P'],
+        titulaire: 'Lab A',
+      ),
+      const Medicament(
+        nom: 'AMOXICILLINE',
+        codeCip: 'AMOX-002',
+        principesActifs: ['Substance P'],
+        titulaire: 'Lab B',
+      ),
+      const Medicament(
+        nom: 'AMODEX',
+        codeCip: 'AMOD-001',
+        principesActifs: ['Substance P'],
+        titulaire: 'Lab C',
+      ),
+    ];
+
+    final summary = summarizeGenericsByName(generics);
+
+    expect(summary, hasLength(2));
+    expect(summary.first.key, 'AMOXICILLINE');
+    expect(summary.first.value, 2);
+    expect(summary.last.key, 'AMODEX');
+    expect(summary.last.value, 1);
+  });
 }

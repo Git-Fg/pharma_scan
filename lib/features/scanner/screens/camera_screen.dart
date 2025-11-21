@@ -1,101 +1,82 @@
 // lib/features/scanner/screens/camera_screen.dart
 import 'dart:async';
-import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart' hide ScanWindowOverlay;
 import 'package:shadcn_ui/shadcn_ui.dart';
 // Importez les modèles et services nécessaires
+import 'package:pharma_scan/core/router/app_routes.dart';
 import 'package:pharma_scan/core/utils/app_animations.dart';
-import 'package:pharma_scan/core/utils/gs1_parser.dart';
-import 'package:pharma_scan/core/locator.dart';
-import 'package:pharma_scan/core/services/database_service.dart';
+import 'package:pharma_scan/core/utils/strings.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pharma_scan/core/services/logger_service.dart';
 import 'package:pharma_scan/features/scanner/models/scan_result_model.dart';
+import 'package:pharma_scan/features/scanner/providers/scanner_provider.dart';
 import 'package:pharma_scan/features/scanner/widgets/info_bubble.dart';
 import 'package:pharma_scan/features/scanner/widgets/princeps_info_bubble.dart';
+import 'package:pharma_scan/features/scanner/widgets/standalone_info_bubble.dart';
 import 'package:pharma_scan/features/scanner/widgets/scan_window_overlay.dart';
-import 'package:pharma_scan/features/explorer/screens/group_explorer_view.dart';
+import 'package:gap/gap.dart';
+import 'package:pharma_scan/core/widgets/adaptive_bottom_panel.dart';
+import 'package:pharma_scan/core/widgets/ui_kit/pharma_primary_button.dart';
 
-class CameraScreen extends StatefulWidget {
-  final bool isVisible;
-
-  const CameraScreen({super.key, this.isVisible = true});
+class CameraScreen extends ConsumerStatefulWidget {
+  const CameraScreen({super.key});
 
   @override
-  State<CameraScreen> createState() => _CameraScreenState();
-
-  // WHY: Public method to access state for tab visibility changes
-  static void onVisibilityChanged(
-    GlobalKey<State<CameraScreen>> key,
-    bool isVisible,
-  ) {
-    final state = key.currentState;
-    if (state is _CameraScreenState) {
-      state.onVisibilityChanged(isVisible);
-    }
-  }
+  ConsumerState<CameraScreen> createState() => _CameraScreenState();
 }
 
-class _BubbleInfo {
-  _BubbleInfo({
-    required this.key,
-    required this.scanResult,
-    required this.dismissTimer,
-  });
-
-  final UniqueKey key;
-  final ScanResult scanResult;
-  final Timer dismissTimer;
-}
-
-class _CameraScreenState extends State<CameraScreen>
+class _CameraScreenState extends ConsumerState<CameraScreen>
     with WidgetsBindingObserver {
   bool _isCameraActive = false;
   bool _isTorchOn = false;
-  bool _isResolutionLocked = false;
   late MobileScannerController _scannerController;
   final ImagePicker _picker = ImagePicker();
-  final List<_BubbleInfo> _activeBubbles = [];
-  final Set<String> _scannedCodes = {}; // Pour éviter les scans en double
-  static const int _maxBubbles = 3;
-  static const Duration _bubbleLifetime = Duration(seconds: 15);
-  final DatabaseService _dbService = sl<DatabaseService>();
-  final ShadPopoverController _manualEntryPopoverController =
-      ShadPopoverController();
+  Future<void> _openManualEntrySheet() async {
+    await showShadSheet(
+      context: context,
+      side: ShadSheetSide.bottom,
+      builder: (sheetContext) => _ManualCipSheet(
+        onSubmit: (codeCip) =>
+            ref.read(scannerProvider.notifier).findMedicament(codeCip),
+      ),
+    );
+  }
 
-  MobileScannerController _createScannerController(bool lockResolution) {
+  Future<void> _openGallerySheet() async {
+    final action = await showShadSheet<_GallerySheetResult>(
+      context: context,
+      side: ShadSheetSide.bottom,
+      builder: (sheetContext) => const _GallerySheet(),
+    );
+
+    if (action == _GallerySheetResult.pick) {
+      await _pickAndScanImage();
+    }
+  }
+
+  MobileScannerController _createScannerController() {
     return MobileScannerController(
       autoStart: false,
       formats: const [BarcodeFormat.dataMatrix],
-      cameraResolution: lockResolution ? const Size(1280, 720) : null,
     );
   }
 
   @override
   void initState() {
     super.initState();
-    _scannerController = _createScannerController(_isResolutionLocked);
+    _scannerController = _createScannerController();
     WidgetsBinding.instance.addObserver(this);
   }
 
-  // WHY: Public method to notify camera screen when tab visibility changes
-  // Called from MainScreen when tab is switched
-  void onVisibilityChanged(bool isVisible) {
-    if (!isVisible && _isCameraActive) {
-      unawaited(_stopScanner(preserveCameraState: false));
-    }
-  }
-
   @override
-  void didUpdateWidget(CameraScreen oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    // WHY: Stop camera when tab becomes invisible to save resources and allow tab navigation
-    if (oldWidget.isVisible && !widget.isVisible && _isCameraActive) {
-      unawaited(_stopScanner(preserveCameraState: false));
-    }
-    // WHY: Optionally start camera when tab becomes visible again
-    // But don't auto-start - let user click the button
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    unawaited(_scannerController.dispose());
+    super.dispose();
   }
 
   Future<void> _toggleCamera() async {
@@ -112,28 +93,6 @@ class _CameraScreenState extends State<CameraScreen>
     setState(() {
       _isTorchOn = !_isTorchOn;
     });
-  }
-
-  Future<void> _toggleResolutionLock() async {
-    final newResolutionState = !_isResolutionLocked;
-    final wasActive = _isCameraActive;
-
-    if (wasActive) {
-      await _stopScanner(preserveCameraState: true);
-    }
-
-    await _scannerController.dispose();
-
-    if (!mounted) return;
-
-    setState(() {
-      _isResolutionLocked = newResolutionState;
-      _scannerController = _createScannerController(newResolutionState);
-    });
-
-    if (wasActive) {
-      await _startScannerWhenReady(force: true);
-    }
   }
 
   Future<void> _startScannerWhenReady({bool force = false}) async {
@@ -154,11 +113,10 @@ class _CameraScreenState extends State<CameraScreen>
     try {
       await _scannerController.start();
     } on MobileScannerException catch (error, stack) {
-      developer.log(
-        'Failed to start MobileScannerController',
-        name: 'CameraScreen',
-        error: error,
-        stackTrace: stack,
+      LoggerService.error(
+        '[CameraScreen] Failed to start MobileScannerController',
+        error,
+        stack,
       );
     }
   }
@@ -167,11 +125,10 @@ class _CameraScreenState extends State<CameraScreen>
     try {
       await _scannerController.stop();
     } on MobileScannerException catch (error, stack) {
-      developer.log(
-        'Failed to stop MobileScannerController',
-        name: 'CameraScreen',
-        error: error,
-        stackTrace: stack,
+      LoggerService.error(
+        '[CameraScreen] Failed to stop MobileScannerController',
+        error,
+        stack,
       );
     }
 
@@ -182,61 +139,8 @@ class _CameraScreenState extends State<CameraScreen>
     });
   }
 
-  void _processBarcodeCapture(BarcodeCapture capture) {
-    developer.log(
-      'Processing barcode capture: ${capture.barcodes.length} barcode(s) found',
-      name: 'CameraScreen',
-    );
-
-    for (final barcode in capture.barcodes) {
-      final rawValuePreview = barcode.rawValue != null
-          ? (barcode.rawValue!.length > 50
-                ? '${barcode.rawValue!.substring(0, 50)}...'
-                : barcode.rawValue!)
-          : 'null';
-      developer.log(
-        'Barcode found - Format: ${barcode.format}, RawValue: $rawValuePreview',
-        name: 'CameraScreen',
-      );
-
-      if (barcode.rawValue == null) {
-        developer.log(
-          'Barcode has null rawValue, skipping',
-          name: 'CameraScreen',
-        );
-        continue;
-      }
-
-      // 1. Parser le code GS1
-      final parsedData = Gs1Parser.parse(barcode.rawValue);
-      final codeCip = parsedData.gtin;
-
-      developer.log('Parsed GS1 data - GTIN: $codeCip', name: 'CameraScreen');
-
-      if (codeCip == null) {
-        developer.log('No GTIN extracted from barcode', name: 'CameraScreen');
-        continue;
-      }
-
-      if (_scannedCodes.contains(codeCip)) {
-        developer.log(
-          'Code CIP already scanned: $codeCip',
-          name: 'CameraScreen',
-        );
-        continue;
-      }
-
-      // 2. Interroger la base de données
-      developer.log(
-        'Searching for medicament with CIP: $codeCip',
-        name: 'CameraScreen',
-      );
-      _findMedicament(codeCip);
-    }
-  }
-
   void _onDetect(BarcodeCapture capture) {
-    _processBarcodeCapture(capture);
+    ref.read(scannerProvider.notifier).processBarcodeCapture(capture);
   }
 
   @override
@@ -260,29 +164,28 @@ class _CameraScreenState extends State<CameraScreen>
   }
 
   Future<void> _pickAndScanImage() async {
-    developer.log('Starting image pick and scan', name: 'CameraScreen');
+    LoggerService.info('[CameraScreen] Starting image pick and scan');
 
     if (!mounted) {
-      developer.log('Widget not mounted, aborting', name: 'CameraScreen');
+      LoggerService.warning('[CameraScreen] Widget not mounted, aborting');
       return;
     }
 
     try {
       final XFile? file = await _picker.pickImage(source: ImageSource.gallery);
-      developer.log(
-        'Image picker result: ${file != null ? "File selected: ${file.path}" : "No file selected"}',
-        name: 'CameraScreen',
+      LoggerService.info(
+        '[CameraScreen] Image picker result: '
+        '${file != null ? "File selected: ${file.path}" : "No file selected"}',
       );
 
       if (file == null) {
-        developer.log('No file selected by user', name: 'CameraScreen');
+        LoggerService.warning('[CameraScreen] No file selected by user');
         return;
       }
 
       if (!mounted) {
-        developer.log(
-          'Widget not mounted after file selection',
-          name: 'CameraScreen',
+        LoggerService.warning(
+          '[CameraScreen] Widget not mounted after file selection',
         );
         return;
       }
@@ -290,56 +193,52 @@ class _CameraScreenState extends State<CameraScreen>
       // WHY: Create a separate controller for static image analysis to avoid
       // conflicts with the live scanning controller. For static images, we allow
       // all formats since the user might upload different barcode types.
-      developer.log('Creating image scanner controller', name: 'CameraScreen');
+      LoggerService.debug('[CameraScreen] Creating image scanner controller');
       final MobileScannerController imageScannerController =
           MobileScannerController();
 
       try {
-        developer.log(
-          'Analyzing image at path: ${file.path}',
-          name: 'CameraScreen',
+        LoggerService.info(
+          '[CameraScreen] Analyzing image at path: ${file.path}',
         );
 
         final BarcodeCapture? capture = await imageScannerController
             .analyzeImage(file.path);
 
-        developer.log(
-          'Image analysis complete - Capture: ${capture != null ? "not null" : "null"}, Barcodes: ${capture?.barcodes.length ?? 0}',
-          name: 'CameraScreen',
+        LoggerService.info(
+          '[CameraScreen] Image analysis complete - Capture: '
+          '${capture != null ? "not null" : "null"}, '
+          'Barcodes: ${capture?.barcodes.length ?? 0}',
         );
 
         if (capture != null && capture.barcodes.isNotEmpty) {
-          developer.log(
-            'Processing ${capture.barcodes.length} barcode(s) from image',
-            name: 'CameraScreen',
+          LoggerService.info(
+            '[CameraScreen] Processing ${capture.barcodes.length} barcode(s) from image',
           );
-          _processBarcodeCapture(capture);
+          ref.read(scannerProvider.notifier).processBarcodeCapture(capture);
         } else {
-          developer.log('No barcodes detected in image', name: 'CameraScreen');
+          LoggerService.warning('[CameraScreen] No barcodes detected in image');
           if (mounted) {
             final sonner = ShadSonner.of(context);
             final toastId = DateTime.now().millisecondsSinceEpoch;
             sonner.show(
               ShadToast.destructive(
                 id: toastId,
-                title: const Text('Aucun code-barres détecté'),
-                description: const Text(
-                  'L\'image ne contient pas de code-barres valide.',
-                ),
+                title: const Text(Strings.noBarcodeDetected),
+                description: const Text(Strings.imageContainsNoValidBarcode),
                 action: ShadButton.outline(
                   onPressed: () => sonner.hide(toastId),
-                  child: const Text('Fermer'),
+                  child: const Text(Strings.close),
                 ),
               ),
             );
           }
         }
       } catch (e, stackTrace) {
-        developer.log(
-          'Error during image analysis: $e',
-          name: 'CameraScreen',
-          error: e,
-          stackTrace: stackTrace,
+        LoggerService.error(
+          '[CameraScreen] Error during image analysis',
+          e,
+          stackTrace,
         );
         if (mounted) {
           final sonner = ShadSonner.of(context);
@@ -347,30 +246,28 @@ class _CameraScreenState extends State<CameraScreen>
           sonner.show(
             ShadToast.destructive(
               id: toastId,
-              title: const Text('Erreur d\'analyse'),
+              title: const Text(Strings.analysisError),
               description: Text(
-                'Impossible d\'analyser l\'image: ${e.toString()}',
+                '${Strings.unableToAnalyzeImage} ${e.toString()}',
               ),
               action: ShadButton.outline(
                 onPressed: () => sonner.hide(toastId),
-                child: const Text('Fermer'),
+                child: const Text(Strings.close),
               ),
             ),
           );
         }
       } finally {
-        developer.log(
-          'Disposing image scanner controller',
-          name: 'CameraScreen',
+        LoggerService.debug(
+          '[CameraScreen] Disposing image scanner controller',
         );
         await imageScannerController.dispose();
       }
     } catch (e, stackTrace) {
-      developer.log(
-        'Error during image pick: $e',
-        name: 'CameraScreen',
-        error: e,
-        stackTrace: stackTrace,
+      LoggerService.error(
+        '[CameraScreen] Error during image pick',
+        e,
+        stackTrace,
       );
       if (mounted) {
         final sonner = ShadSonner.of(context);
@@ -378,13 +275,11 @@ class _CameraScreenState extends State<CameraScreen>
         sonner.show(
           ShadToast.destructive(
             id: toastId,
-            title: const Text('Erreur'),
-            description: Text(
-              'Impossible de sélectionner l\'image: ${e.toString()}',
-            ),
+            title: const Text(Strings.error),
+            description: Text('${Strings.unableToSelectImage} ${e.toString()}'),
             action: ShadButton.outline(
               onPressed: () => sonner.hide(toastId),
-              child: const Text('Fermer'),
+              child: const Text(Strings.close),
             ),
           ),
         );
@@ -392,110 +287,16 @@ class _CameraScreenState extends State<CameraScreen>
     }
   }
 
-  Future<void> _findMedicament(String codeCip) async {
-    developer.log('Querying database for CIP: $codeCip', name: 'CameraScreen');
-
-    try {
-      final scanResult = await _dbService.getScanResultByCip(codeCip);
-
-      if (scanResult != null) {
-        developer.log(
-          'Scan result received, updating bubble queue',
-          name: 'CameraScreen',
-        );
-        _addBubble(scanResult);
-        // WHY: Close manual entry popover after successful scan
-        if (_manualEntryPopoverController.isOpen) {
-          _manualEntryPopoverController.toggle();
-        }
-      } else {
-        developer.log(
-          'No medicament found in database for CIP: $codeCip',
-          name: 'CameraScreen',
-        );
-        if (mounted) {
-          ShadSonner.of(context).show(
-            ShadToast(
-              title: const Text('Médicament non trouvé'),
-              description: Text(
-                'Aucun médicament trouvé pour le code CIP: $codeCip',
-              ),
-            ),
-          );
-        }
-      }
-    } catch (e, stackTrace) {
-      developer.log(
-        'Error querying database: $e',
-        name: 'CameraScreen',
-        error: e,
-        stackTrace: stackTrace,
-      );
-    }
+  String _codeFromResult(ScanResult scanResult) {
+    return scanResult.map(
+      generic: (value) => value.medicament.codeCip,
+      princeps: (value) => value.princeps.codeCip,
+      standalone: (value) => value.medicament.codeCip,
+    );
   }
 
-  void _onManualCipChanged(String value) {
-    // WHY: Process CIP when all 13 digits are entered
-    if (value.length == 13) {
-      developer.log('Manual CIP entry complete: $value', name: 'CameraScreen');
-      _findMedicament(value);
-    }
-  }
-
-  void _addBubble(ScanResult scanResult) {
+  Widget _buildBubbleItem(ScanResult scanResult, int index) {
     final codeCip = _codeFromResult(scanResult);
-    if (_scannedCodes.contains(codeCip)) return;
-
-    _scannedCodes.add(codeCip);
-
-    // WHY: Remove oldest bubble if we exceed max capacity.
-    // New bubbles are inserted at index 0, so oldest is at the end.
-    if (_activeBubbles.length >= _maxBubbles) {
-      final oldest = _activeBubbles.removeLast();
-      oldest.dismissTimer.cancel();
-      final oldestCode = _codeFromResult(oldest.scanResult);
-      Future.delayed(const Duration(seconds: 2), () {
-        if (mounted) {
-          _scannedCodes.remove(oldestCode);
-        }
-      });
-    }
-
-    final bubbleKey = UniqueKey();
-    final timer = Timer(
-      _bubbleLifetime,
-      () => _removeBubble(bubbleKey, codeCip),
-    );
-
-    final bubbleInfo = _BubbleInfo(
-      key: bubbleKey,
-      scanResult: scanResult,
-      dismissTimer: timer,
-    );
-
-    // WHY: Insert at index 0 so newest bubble appears at the top.
-    _activeBubbles.insert(0, bubbleInfo);
-    setState(() {});
-  }
-
-  void _removeBubble(Key key, String codeCip) {
-    final index = _activeBubbles.indexWhere((bubble) => bubble.key == key);
-    if (index == -1) return;
-
-    final bubble = _activeBubbles.removeAt(index);
-    bubble.dismissTimer.cancel();
-
-    setState(() {});
-
-    Future.delayed(const Duration(seconds: 3), () {
-      if (mounted) {
-        _scannedCodes.remove(codeCip);
-      }
-    });
-  }
-
-  Widget _buildBubbleItem(_BubbleInfo bubbleInfo, int index) {
-    final codeCip = _codeFromResult(bubbleInfo.scanResult);
     final isPrimary = index == 0;
 
     return Padding(
@@ -505,152 +306,53 @@ class _CameraScreenState extends State<CameraScreen>
         top: isPrimary ? 0 : 8,
       ),
       child: Dismissible(
-        key: bubbleInfo.key,
+        key: ValueKey(codeCip),
         direction: DismissDirection.horizontal,
-        onDismissed: (_) => _removeBubble(bubbleInfo.key, codeCip),
-        child: _buildBubbleContent(bubbleInfo),
+        onDismissed: (_) =>
+            ref.read(scannerProvider.notifier).removeBubble(codeCip),
+        child: _buildBubbleContent(scanResult, codeCip),
       ),
     );
   }
 
-  Widget _buildBubbleContent(_BubbleInfo bubbleInfo) {
-    return bubbleInfo.scanResult.when(
+  Widget _buildBubbleContent(ScanResult scanResult, String codeCip) {
+    return scanResult.when(
       generic: (medicament, associatedPrinceps, groupId) {
         return InfoBubble(
-          key: ValueKey('${bubbleInfo.key}_generic'),
+          key: ValueKey('${codeCip}_generic'),
           medicament: medicament,
           associatedPrinceps: associatedPrinceps,
-          onClose: () => _removeBubble(bubbleInfo.key, medicament.codeCip),
+          onClose: () => ref
+              .read(scannerProvider.notifier)
+              .removeBubble(medicament.codeCip),
           onExplore: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => GroupExplorerView(
-                  groupId: groupId,
-                  onExit: () => Navigator.of(context).pop(),
-                ),
-              ),
-            );
+            context.go(AppRoutes.groupDetail(groupId));
           },
         );
       },
       princeps: (princeps, moleculeName, genericLabs, groupId) {
         return PrincepsInfoBubble(
-          key: ValueKey('${bubbleInfo.key}_princeps'),
+          key: ValueKey('${codeCip}_princeps'),
           princeps: princeps,
           moleculeName: moleculeName,
           genericLabs: genericLabs,
-          onClose: () => _removeBubble(bubbleInfo.key, princeps.codeCip),
+          onClose: () =>
+              ref.read(scannerProvider.notifier).removeBubble(princeps.codeCip),
           onExplore: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => GroupExplorerView(
-                  groupId: groupId,
-                  onExit: () => Navigator.of(context).pop(),
-                ),
-              ),
-            );
+            context.go(AppRoutes.groupDetail(groupId));
           },
         );
       },
+      standalone: (medicament) {
+        return StandaloneInfoBubble(
+          key: ValueKey('${codeCip}_standalone'),
+          medicament: medicament,
+          onClose: () => ref
+              .read(scannerProvider.notifier)
+              .removeBubble(medicament.codeCip),
+        );
+      },
     );
-  }
-
-  String _codeFromResult(ScanResult scanResult) {
-    return scanResult.map(
-      generic: (value) => value.medicament.codeCip,
-      princeps: (value) => value.princeps.codeCip,
-    );
-  }
-
-  Widget _buildManualCipEntry(BuildContext context) {
-    final theme = ShadTheme.of(context);
-    return SizedBox(
-      width: 360,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Saisie manuelle du CIP', style: theme.textTheme.h4),
-                ShadButton.ghost(
-                  onPressed: () => _manualEntryPopoverController.toggle(),
-                  child: const Icon(LucideIcons.x, size: 16),
-                ),
-              ],
-            ),
-          ),
-          const Divider(height: 1),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'Entrez le code CIP à 13 chiffres',
-                  style: theme.textTheme.muted,
-                ),
-                const SizedBox(height: 24),
-                ShadInputOTP(
-                  onChanged: _onManualCipChanged,
-                  maxLength: 13,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  children: const [
-                    ShadInputOTPGroup(
-                      children: [
-                        ShadInputOTPSlot(),
-                        ShadInputOTPSlot(),
-                        ShadInputOTPSlot(),
-                        ShadInputOTPSlot(),
-                      ],
-                    ),
-                    SizedBox(width: 8),
-                    ShadInputOTPGroup(
-                      children: [
-                        ShadInputOTPSlot(),
-                        ShadInputOTPSlot(),
-                        ShadInputOTPSlot(),
-                        ShadInputOTPSlot(),
-                      ],
-                    ),
-                    SizedBox(width: 8),
-                    ShadInputOTPGroup(
-                      children: [
-                        ShadInputOTPSlot(),
-                        ShadInputOTPSlot(),
-                        ShadInputOTPSlot(),
-                        ShadInputOTPSlot(),
-                        ShadInputOTPSlot(),
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Le médicament sera recherché automatiquement lorsque les 13 chiffres sont saisis.',
-                  style: theme.textTheme.small,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  @override
-  void dispose() {
-    for (final bubble in _activeBubbles) {
-      bubble.dismissTimer.cancel();
-    }
-    WidgetsBinding.instance.removeObserver(this);
-    _manualEntryPopoverController.dispose();
-    unawaited(_scannerController.dispose());
-    super.dispose();
   }
 
   @override
@@ -679,11 +381,14 @@ class _CameraScreenState extends State<CameraScreen>
                           size: 64,
                           color: theme.colorScheme.destructive,
                         ),
-                        const SizedBox(height: 16),
-                        Text('Caméra indisponible', style: theme.textTheme.h4),
-                        const SizedBox(height: 8),
+                        const Gap(16),
                         Text(
-                          'Veuillez vérifier les autorisations.',
+                          Strings.cameraUnavailable,
+                          style: theme.textTheme.h4,
+                        ),
+                        const Gap(8),
+                        Text(
+                          Strings.checkPermissionsMessage,
                           style: theme.textTheme.muted,
                         ),
                       ],
@@ -701,9 +406,9 @@ class _CameraScreenState extends State<CameraScreen>
                       size: 80,
                       color: theme.colorScheme.muted,
                     ),
-                    const SizedBox(height: 24),
+                    const Gap(24),
                     Text(
-                      'Prêt à scanner',
+                      Strings.readyToScan,
                       style: theme.textTheme.h4.copyWith(
                         color: theme.colorScheme.mutedForeground,
                       ),
@@ -716,77 +421,315 @@ class _CameraScreenState extends State<CameraScreen>
               top: MediaQuery.of(context).padding.top + 20,
               left: 16,
               right: 16,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  for (var i = 0; i < _activeBubbles.length; i++)
-                    _buildBubbleItem(_activeBubbles[i], i),
-                ],
-              ).animate(effects: AppAnimations.bubbleEnter),
+              child: Consumer(
+                builder: (context, ref, child) {
+                  final scannerState = ref.watch(scannerProvider);
+                  return Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (var i = 0; i < scannerState.bubbles.length; i++)
+                        _buildBubbleItem(scannerState.bubbles[i], i),
+                    ],
+                  ).animate(effects: AppAnimations.bubbleEnter);
+                },
+              ),
             ),
             Positioned(
-              // WHY: Position buttons above bottom navigation bar (80px height + padding)
-              bottom: 100,
-              left: 20,
-              right: 20,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (_isCameraActive)
-                    ShadButton.ghost(
-                      onPressed: _toggleResolutionLock,
-                      leading: Icon(
-                        LucideIcons.settings,
-                        size: 20,
-                        color: _isResolutionLocked
-                            ? theme.colorScheme.primary
-                            : theme.colorScheme.mutedForeground,
-                      ),
-                      child: const SizedBox.shrink(),
-                    ),
-                  Wrap(
-                    spacing: 12,
-                    alignment: WrapAlignment.center,
-                    children: [
-                      ShadButton(
-                        onPressed: _toggleCamera,
-                        leading: Icon(
-                          _isCameraActive
-                              ? LucideIcons.cameraOff
-                              : LucideIcons.camera,
-                          size: 20,
-                        ),
-                        child: Text(_isCameraActive ? 'Arrêter' : 'Scanner'),
-                      ),
-                      ShadButton.outline(
-                        onPressed: _pickAndScanImage,
-                        leading: const Icon(LucideIcons.image, size: 20),
-                        child: const Text('Galerie'),
-                      ),
-                      ShadPopover(
-                        controller: _manualEntryPopoverController,
-                        popover: (context) => _buildManualCipEntry(context),
-                        child: ShadButton.outline(
-                          leading: const Icon(LucideIcons.keyboard, size: 20),
-                          child: const Text('Saisie'),
-                        ),
-                      ),
-                      if (_isCameraActive)
-                        ShadButton.outline(
-                          onPressed: _toggleTorch,
-                          leading: Icon(
-                            LucideIcons.zap,
-                            size: 20,
-                            color: _isTorchOn
-                                ? theme.colorScheme.primary
-                                : theme.colorScheme.foreground,
+              // WHY: Position controls above bottom navigation bar with adaptive spacing
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child:
+                  AdaptiveBottomPanel(
+                        children: [
+                          PharmaPrimaryButton(
+                            label: _isCameraActive
+                                ? Strings.stopScanning
+                                : Strings.startScanning,
+                            semanticLabel: _isCameraActive
+                                ? Strings.stopScanning
+                                : Strings.startScanning,
+                            leadingIcon: _isCameraActive
+                                ? LucideIcons.cameraOff
+                                : LucideIcons.scanLine,
+                            onPressed: _toggleCamera,
                           ),
-                          child: const SizedBox.shrink(),
-                        ),
-                    ],
+                          Row(
+                            children: [
+                              Expanded(
+                                child: SizedBox(
+                                  height: 44,
+                                  child: Semantics(
+                                    button: true,
+                                    label: Strings.importBarcodeFromGallery,
+                                    child: ShadButton.outline(
+                                      onPressed: _openGallerySheet,
+                                      leading: const Icon(
+                                        LucideIcons.image,
+                                        size: 18,
+                                      ),
+                                      child: const Text(Strings.gallery),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const Gap(14),
+                              Expanded(
+                                child: SizedBox(
+                                  height: 44,
+                                  child: Semantics(
+                                    button: true,
+                                    label: Strings.manuallyEnterCipCode,
+                                    child: ShadButton.outline(
+                                      onPressed: _openManualEntrySheet,
+                                      leading: const Icon(
+                                        LucideIcons.keyboard,
+                                        size: 18,
+                                      ),
+                                      child: const Text(Strings.manualEntry),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (_isCameraActive)
+                            Semantics(
+                              button: true,
+                              label: _isTorchOn
+                                  ? Strings.turnOffTorch
+                                  : Strings.turnOnTorch,
+                              child: ShadButton.ghost(
+                                onPressed: _toggleTorch,
+                                leading: Icon(
+                                  LucideIcons.zap,
+                                  size: 22,
+                                  color: _isTorchOn
+                                      ? theme.colorScheme.primary
+                                      : theme.colorScheme.foreground,
+                                ),
+                                child: const SizedBox.shrink(),
+                              ),
+                            ),
+                        ],
+                      )
+                      .animate()
+                      .fadeIn(delay: 200.ms)
+                      .slideY(begin: 0.2, end: 0, curve: Curves.easeOutBack),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+enum _GallerySheetResult { pick }
+
+class _GallerySheet extends StatelessWidget {
+  const _GallerySheet();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = ShadTheme.of(context);
+    return ShadSheet(
+      title: const Text(Strings.importFromGallery),
+      description: const Text(Strings.pharmascanAnalyzesOnly),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          spacing: 16,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  LucideIcons.shieldCheck,
+                  color: theme.colorScheme.primary,
+                  size: 20,
+                ),
+                const Gap(12),
+                Expanded(
+                  child: Text(
+                    Strings.noPhotoStoredMessage,
+                    style: theme.textTheme.small,
                   ),
+                ),
+              ],
+            ),
+            Semantics(
+              button: true,
+              label: Strings.choosePhotoFromGallery,
+              child: ShadButton(
+                onPressed: () =>
+                    Navigator.of(context).pop(_GallerySheetResult.pick),
+                child: const Text(Strings.choosePhoto),
+              ),
+            ),
+            Semantics(
+              button: true,
+              label: Strings.cancelPhotoSelection,
+              child: ShadButton.outline(
+                onPressed: () => Navigator.of(context).maybePop(),
+                child: const Text(Strings.cancel),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ManualCipSheet extends ConsumerStatefulWidget {
+  const _ManualCipSheet({required this.onSubmit});
+
+  final Future<bool> Function(String codeCip) onSubmit;
+
+  @override
+  ConsumerState<_ManualCipSheet> createState() => _ManualCipSheetState();
+}
+
+class _ManualCipSheetState extends ConsumerState<_ManualCipSheet> {
+  final TextEditingController _controller = TextEditingController();
+  final FocusNode _focusNode = FocusNode();
+  bool _isSubmitting = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    scheduleMicrotask(_focusNode.requestFocus);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (_isSubmitting) return;
+    final code = _controller.text;
+    if (code.length != 13) {
+      setState(() {
+        _error = Strings.cipMustBe13Digits;
+      });
+      return;
+    }
+
+    setState(() {
+      _isSubmitting = true;
+      _error = null;
+    });
+
+    final success = await widget.onSubmit(code);
+    if (!mounted) return;
+
+    setState(() {
+      _isSubmitting = false;
+      if (!success) {
+        _error = Strings.noMedicamentFoundForCip;
+        // WHY: Show toast notification when medicament is not found.
+        ShadSonner.of(context).show(
+          ShadToast(
+            title: const Text(Strings.medicamentNotFound),
+            description: Text('${Strings.noMedicamentFoundForCipCode} $code'),
+          ),
+        );
+      }
+    });
+
+    if (success && mounted) {
+      Navigator.of(context).maybePop();
+    }
+  }
+
+  void _onChanged(String value) {
+    final digitsOnly = value.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digitsOnly != value) {
+      _controller.value = TextEditingValue(
+        text: digitsOnly,
+        selection: TextSelection.collapsed(offset: digitsOnly.length),
+      );
+    }
+
+    if (digitsOnly.length == 13) {
+      unawaited(_submit());
+    } else {
+      setState(() {
+        _error = null;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = ShadTheme.of(context);
+    return ShadSheet(
+      title: const Text(Strings.manualCipEntry),
+      description: const Text(Strings.manualCipDescription),
+      constraints: const BoxConstraints(maxWidth: 480),
+      actions: [
+        ShadButton.ghost(
+          onPressed: () => Navigator.of(context).maybePop(),
+          child: const Text(Strings.close),
+        ),
+      ],
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          spacing: 16,
+          children: [
+            Semantics(
+              textField: true,
+              label: Strings.cipCodeLabel,
+              hint: Strings.manualCipDescription,
+              value: _controller.text,
+              child: ShadInput(
+                controller: _controller,
+                focusNode: _focusNode,
+                keyboardType: TextInputType.number,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(13),
                 ],
-              ).animate(effects: AppAnimations.controlPanelEnter),
+                placeholder: const Text(Strings.cipPlaceholder),
+                onChanged: _onChanged,
+              ),
+            ),
+            Text(
+              Strings.searchStartsAutomatically,
+              style: theme.textTheme.small,
+            ),
+            if (_error != null)
+              Text(
+                _error!,
+                style: theme.textTheme.small.copyWith(
+                  color: theme.colorScheme.destructive,
+                ),
+              ),
+            Semantics(
+              button: true,
+              label: _isSubmitting
+                  ? Strings.searchingInProgress
+                  : Strings.searchMedicamentWithCip,
+              enabled: !_isSubmitting,
+              child: ShadButton(
+                onPressed: _isSubmitting ? null : _submit,
+                child: _isSubmitting
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text(Strings.search),
+              ),
             ),
           ],
         ),

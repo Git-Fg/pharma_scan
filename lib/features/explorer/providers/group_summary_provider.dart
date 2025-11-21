@@ -1,8 +1,7 @@
-import 'package:pharma_scan/core/locator.dart';
-import 'package:pharma_scan/core/services/database_service.dart';
+import 'package:pharma_scan/core/providers/repositories_providers.dart';
 import 'package:pharma_scan/core/utils/form_category_helper.dart';
 import 'package:pharma_scan/features/explorer/models/explorer_enums.dart';
-import 'package:pharma_scan/features/explorer/models/generic_group_summary_model.dart';
+import 'package:pharma_scan/features/explorer/models/generic_group_entity.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'group_summary_provider.g.dart';
@@ -15,13 +14,13 @@ class GroupSummaryState {
     required this.isLoadingMore,
   });
 
-  final List<GenericGroupSummary> items;
+  final List<GenericGroupEntity> items;
   final FormCategory category;
   final bool hasMore;
   final bool isLoadingMore;
 
   GroupSummaryState copyWith({
-    List<GenericGroupSummary>? items,
+    List<GenericGroupEntity>? items,
     FormCategory? category,
     bool? hasMore,
     bool? isLoadingMore,
@@ -38,8 +37,6 @@ class GroupSummaryState {
 @riverpod
 class GroupSummaryNotifier extends _$GroupSummaryNotifier {
   static const int _pageSize = 50;
-
-  DatabaseService get _databaseService => sl<DatabaseService>();
 
   int _offset = 0;
   FormCategory _selectedCategory = FormCategory.oral;
@@ -87,8 +84,9 @@ class GroupSummaryNotifier extends _$GroupSummaryNotifier {
   }
 
   Future<GroupSummaryState> _fetchSummaries({required bool reset}) async {
+    final repository = ref.watch(explorerRepositoryProvider);
     final params = FormCategoryHelper.getKeywordsForCategory(_selectedCategory);
-    final summaries = await _databaseService.getGenericGroupSummaries(
+    final summaries = await repository.getGenericGroupSummaries(
       formKeywords: params.formKeywords,
       excludeKeywords: params.excludeKeywords,
       procedureTypeKeywords: params.procedureTypeKeywords,
@@ -97,8 +95,8 @@ class GroupSummaryNotifier extends _$GroupSummaryNotifier {
     );
 
     final existing = reset
-        ? const <GenericGroupSummary>[]
-        : (state.value?.items ?? const <GenericGroupSummary>[]);
+        ? const <GenericGroupEntity>[]
+        : (state.value?.items ?? const <GenericGroupEntity>[]);
     final merged = reset ? summaries : [...existing, ...summaries];
 
     _offset = reset ? summaries.length : _offset + summaries.length;

@@ -1,14 +1,44 @@
 // lib/core/database/database.dart
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
+import 'package:pharma_scan/core/services/logger_service.dart';
 import 'package:sqlite3/sqlite3.dart';
 import 'package:sqlite3_flutter_libs/sqlite3_flutter_libs.dart';
+import 'package:pharma_scan/core/database/tables/settings.dart';
 
 part 'database.g.dart';
+
+// -- Type Converters --
+
+class StringListConverter extends TypeConverter<List<String>, String> {
+  const StringListConverter();
+
+  @override
+  List<String> fromSql(String? fromDb) {
+    if (fromDb == null || fromDb.isEmpty) return [];
+    try {
+      final decoded = jsonDecode(fromDb);
+      if (decoded is List) {
+        return decoded
+            .map((value) => (value?.toString() ?? '').trim())
+            .where((value) => value.isNotEmpty)
+            .cast<String>()
+            .toList();
+      }
+      return [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  @override
+  String toSql(List<String> value) => jsonEncode(value);
+}
 
 // -- Table Definitions --
 
@@ -80,8 +110,9 @@ class MedicamentSummary extends Table {
   BoolColumn get isPrinceps => boolean()();
   TextColumn get groupId =>
       text().nullable()(); // nullable for medications without groups
-  TextColumn get principesActifsCommuns =>
-      text()(); // JSON array of common active ingredients
+  TextColumn get principesActifsCommuns => text().map(
+    const StringListConverter(),
+  )(); // JSON array of common active ingredients
   TextColumn get princepsDeReference =>
       text()(); // reference princeps name for group
   TextColumn get formePharmaceutique => text().nullable()(); // for filtering
@@ -105,6 +136,7 @@ class MedicamentSummary extends Table {
     GeneriqueGroups,
     GroupMembers,
     MedicamentSummary,
+    AppSettings,
   ],
   include: {'queries.drift'},
 )
@@ -115,147 +147,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 8;
-
-  @override
-  MigrationStrategy get migration {
-    return MigrationStrategy(
-      onUpgrade: (m, from, to) async {
-        // WHY: Migration from v1 to v2 - remove redundant nom column from medicaments table.
-        // The specialites table is the single source of truth for medication names.
-        // Since SQLite doesn't support DROP COLUMN directly, we use a custom migration.
-        if (from < 2) {
-          // Recreate medicaments table without nom column
-          await customStatement('''
-            CREATE TABLE medicaments_new (
-              code_cip TEXT NOT NULL PRIMARY KEY,
-              cis_code TEXT NOT NULL REFERENCES specialites(cis_code)
-            )
-          ''');
-          await customStatement('''
-            INSERT INTO medicaments_new (code_cip, cis_code)
-            SELECT code_cip, cis_code FROM medicaments
-          ''');
-          await customStatement('DROP TABLE medicaments');
-          await customStatement(
-            'ALTER TABLE medicaments_new RENAME TO medicaments',
-          );
-        }
-        if (from < 3) {
-          await m.alterTable(
-            TableMigration(
-              specialites,
-              newColumns: [specialites.conditionsPrescription],
-            ),
-          );
-        }
-        if (from < 4) {
-          await customStatement('''
-            CREATE TABLE medicament_summary (
-              cis_code TEXT NOT NULL PRIMARY KEY,
-              nom_canonique TEXT NOT NULL,
-              is_princeps INTEGER NOT NULL,
-              group_id TEXT,
-              principes_actifs_communs TEXT NOT NULL,
-              princeps_de_reference TEXT NOT NULL,
-              forme_pharmaceutique TEXT,
-              princeps_brand_name TEXT NOT NULL DEFAULT '',
-              cluster_key TEXT NOT NULL DEFAULT ''
-            )
-          ''');
-        }
-        if (from < 5) {
-          await customStatement('''
-            CREATE TABLE principes_actifs_new (
-              id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-              code_cip TEXT NOT NULL REFERENCES medicaments(code_cip),
-              principe TEXT NOT NULL,
-              dosage TEXT,
-              dosage_unit TEXT
-            )
-          ''');
-          await customStatement('''
-            INSERT INTO principes_actifs_new (id, code_cip, principe, dosage, dosage_unit)
-            SELECT id, code_cip, principe, CAST(dosage AS TEXT), dosage_unit
-            FROM principes_actifs
-          ''');
-          await customStatement('DROP TABLE principes_actifs');
-          await customStatement(
-            'ALTER TABLE principes_actifs_new RENAME TO principes_actifs',
-          );
-        }
-        if (from < 6) {
-          await customStatement('''
-            ALTER TABLE medicament_summary
-            ADD COLUMN princeps_brand_name TEXT NOT NULL DEFAULT ''
-            ''');
-          await customStatement('''
-            ALTER TABLE medicament_summary
-            ADD COLUMN cluster_key TEXT NOT NULL DEFAULT ''
-            ''');
-        }
-        if (from < 7) {
-          await customStatement('''
-            ALTER TABLE medicament_summary
-            ADD COLUMN procedure_type TEXT
-            ''');
-          await customStatement('''
-            ALTER TABLE medicament_summary
-            ADD COLUMN titulaire TEXT
-            ''');
-          await customStatement('''
-            ALTER TABLE medicament_summary
-            ADD COLUMN conditions_prescription TEXT
-            ''');
-
-          // Populate new columns from specialites table
-          await customStatement('''
-            UPDATE medicament_summary
-            SET 
-              procedure_type = (SELECT procedure_type FROM specialites WHERE cis_code = medicament_summary.cis_code),
-              titulaire = (SELECT titulaire FROM specialites WHERE cis_code = medicament_summary.cis_code),
-              conditions_prescription = (SELECT conditions_prescription FROM specialites WHERE cis_code = medicament_summary.cis_code)
-          ''');
-        }
-        if (from < 8) {
-          // WHY: Add indexes on frequently queried columns for performance optimization
-          // Foreign keys and filter columns benefit significantly from indexes
-          await customStatement('''
-            CREATE INDEX IF NOT EXISTS idx_medicaments_cis_code 
-            ON medicaments(cis_code)
-          ''');
-          await customStatement('''
-            CREATE INDEX IF NOT EXISTS idx_principes_code_cip 
-            ON principes_actifs(code_cip)
-          ''');
-          await customStatement('''
-            CREATE INDEX IF NOT EXISTS idx_group_members_group_id 
-            ON group_members(group_id)
-          ''');
-          await customStatement('''
-            CREATE INDEX IF NOT EXISTS idx_group_members_code_cip 
-            ON group_members(code_cip)
-          ''');
-          await customStatement('''
-            CREATE INDEX IF NOT EXISTS idx_medicament_summary_group_id 
-            ON medicament_summary(group_id)
-          ''');
-          await customStatement('''
-            CREATE INDEX IF NOT EXISTS idx_medicament_summary_cluster_key 
-            ON medicament_summary(cluster_key)
-          ''');
-          await customStatement('''
-            CREATE INDEX IF NOT EXISTS idx_medicament_summary_forme_pharmaceutique 
-            ON medicament_summary(forme_pharmaceutique)
-          ''');
-          await customStatement('''
-            CREATE INDEX IF NOT EXISTS idx_medicament_summary_procedure_type 
-            ON medicament_summary(procedure_type)
-          ''');
-        }
-      },
-    );
-  }
+  int get schemaVersion => 1;
 }
 
 LazyDatabase _openConnection() {
@@ -274,6 +166,7 @@ LazyDatabase _openConnection() {
     final cachebase = (await getTemporaryDirectory()).path;
     sqlite3.tempDirectory = cachebase;
 
-    return NativeDatabase.createInBackground(file);
+    LoggerService.db('SQLite Database Opened at ${file.path}');
+    return NativeDatabase.createInBackground(file, logStatements: false);
   });
 }

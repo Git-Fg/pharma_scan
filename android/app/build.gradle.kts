@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "com.pharmascan.app"
-    compileSdk = 35
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -22,7 +22,7 @@ android {
     defaultConfig {
         applicationId = "com.pharmascan.app"
         minSdk = flutter.minSdkVersion
-        targetSdk = 35
+        targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
@@ -36,6 +36,8 @@ android {
 
 dependencies {
     implementation("androidx.core:core-splashscreen:1.0.1")
+    implementation("androidx.core:core-ktx:1.13.1")
+    implementation("androidx.appcompat:appcompat:1.6.1")
 }
 
 flutter {

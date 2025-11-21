@@ -28,7 +28,7 @@ class MedicamentGrammarDefinition {
     'solution à diluer pour perfusion',
     'système de diffusion vaginal',
     "pastille édulcorée à l'acésulfame potassique",
-    "pastille édulcorée à la saccharine sodique",
+    'pastille édulcorée à la saccharine sodique',
     'pastille',
     'pansement adhésif cutané',
     'suspension pour pulvérisation nasale',
@@ -77,6 +77,14 @@ class MedicamentGrammarDefinition {
     'suppositoire',
     'mousse',
   ];
+
+  // WHY: Multi-ingredient exceptions that should not be considered as multi-ingredient medications.
+  // These are single medications where the slash or plus notation is part of the medication name
+  // or represents a formulation detail, not multiple active ingredients.
+  static const Set<String> multiIngredientExceptions = {
+    'AMOXICILLINE ACIDE CLAVULANIQUE',
+    'MINIRIN',
+  };
 
   static const Set<String> knownLabSuffixes = {
     'ACCORD',
@@ -191,9 +199,7 @@ class MedicamentGrammarDefinition {
   // WHY: Generate regex pattern for dosage ratio detection
   // Used by both parser and tests to avoid duplication
   static RegExp dosageRatioPattern() {
-    final unitsPattern = dosageUnits
-        .map((unit) => RegExp.escape(unit))
-        .join('|');
+    final unitsPattern = dosageUnits.map(RegExp.escape).join('|');
     return RegExp(
       r'\d+\s*(?:' + unitsPattern + r')\s*/\s*\d+\s*(?:' + unitsPattern + r')',
       caseSensitive: false,
@@ -303,7 +309,7 @@ class MedicamentParser {
 
   // Pre-compiled Regex patterns
   static final _regexTrailingCommaSpace = RegExp(r'[,\s]+$');
-  static final _regexWhitespace = RegExp(r'\s+');
+  static final _regexWhitespace = RegExp(r'[\s\u00A0]+');
   static final _regexNonAlpha = RegExp(r'[^A-Za-z]');
 
   ParsedName parse(String? raw, {String? officialForm, String? officialLab}) {
@@ -1211,7 +1217,7 @@ class MedicamentParser {
     final normalized = candidate.replaceAll(_regexWhitespace, ' ');
 
     // Normalize "POUR CENT" to "%" for consistency
-    var normalizedForParsing = normalized.replaceAll(
+    final normalizedForParsing = normalized.replaceAll(
       RegExp(r'\s+POUR\s+CENT', caseSensitive: false),
       ' %',
     );
@@ -1367,7 +1373,7 @@ class MedicamentParser {
   }
 
   _ContextResult _extractContext(String value) {
-    var working = value.trim();
+    final working = value.trim();
     final detected = <String>[];
     final tokens = _matchAll(_contextParser, working);
 
@@ -1417,22 +1423,29 @@ class MedicamentParser {
           working.substring(match.end);
     }
 
-    // Special case: AMOXICILLINE ACIDE CLAVULANIQUE should not be considered multi-ingredient
-    // This is a single medication with a beta-lactamase inhibitor
-    if (working.toUpperCase().contains('AMOXICILLINE') &&
-        working.toUpperCase().contains('ACIDE CLAVULANIQUE')) {
-      return false;
+    // WHY: Check against configuration-based exceptions before analyzing separators.
+    // These are medications that should not be considered multi-ingredient even if they
+    // contain separators (like "/" or "+") in their names.
+    final upperWorking = working.toUpperCase();
+    for (final exception
+        in MedicamentGrammarDefinition.multiIngredientExceptions) {
+      final upperException = exception.toUpperCase();
+      // For exceptions that contain spaces (like "AMOXICILLINE ACIDE CLAVULANIQUE"),
+      // check if all words are present. For simple exceptions (like "MINIRIN"), check direct containment.
+      if (exception.contains(' ')) {
+        final words = upperException.split(' ');
+        if (words.every(upperWorking.contains)) {
+          return false;
+        }
+      } else {
+        if (upperWorking.contains(upperException)) {
+          return false;
+        }
+      }
     }
 
-    // Special case: MINIRIN with microgrammes should not be considered multi-ingredient
-    if (working.toUpperCase().contains('MINIRIN') &&
-        (working.toUpperCase().contains('microgrammes') ||
-            working.toUpperCase().contains('microgrammes/mL'))) {
-      return false;
-    }
-
-    // Special case: MINIRIN with "microgrammes/mL" pattern should not be multi-ingredient
-    // The "/" in "microgrammes/mL" is a unit separator, not a molecule separator
+    // WHY: The "/" in unit patterns (like "microgrammes/mL") is a unit separator, not a molecule separator.
+    // Remove unit patterns temporarily to check for molecule separators.
     final unitSlashPattern = RegExp(
       r'\b(microgrammes|mg|g|ml|mL|ui|UI)\s*/\s*(ml|mL|L|l)\b',
       caseSensitive: false,
@@ -1449,10 +1462,8 @@ class MedicamentParser {
           workingForCheck.substring(match.end);
     }
 
-    // Now check for molecule separators in the cleaned string
-    if (workingForCheck.toUpperCase().contains('MINIRIN')) {
-      return false;
-    }
+    // WHY: Check for molecule separators in the cleaned string (after unit pattern removal)
+    // Note: MINIRIN exceptions are already handled by configuration-based check above
 
     // Special case: Exclude medication names with numbers (e.g., "ACCUSOL 35")
     // The "35" is part of the medication name, not a separate molecule
@@ -1470,7 +1481,7 @@ class MedicamentParser {
         r'\b(mmol|meq|gbq|mbq)\s*/\s*(l|L|ml|mL)\b',
         caseSensitive: false,
       );
-      var workingWithoutUnitSlash = workingForCheck.replaceAll(
+      final workingWithoutUnitSlash = workingForCheck.replaceAll(
         unitSlashInPattern,
         ' ',
       );
@@ -1489,7 +1500,7 @@ class MedicamentParser {
       r'\b(Unités|unités|Unité|unité)\s*/\s*(ml|mL|L|l)\b',
       caseSensitive: false,
     );
-    var workingWithoutUnitSlash = workingForCheck.replaceAll(
+    final workingWithoutUnitSlash = workingForCheck.replaceAll(
       unitSlashInNamePattern,
       ' ',
     );
@@ -1516,7 +1527,7 @@ class MedicamentParser {
   }
 
   String _stripCommonSuffixes(String value, {String? originalRaw}) {
-    var working = value.trim();
+    final working = value.trim();
     if (working.isEmpty) return working;
 
     // Protect "LP" if it was in the original name - it's part of medication name

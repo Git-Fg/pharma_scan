@@ -40,6 +40,9 @@ void main() {
       );
       addTearDown(container.dispose);
 
+      // WHY: Wait for searchCandidatesProvider to complete before reading searchResults
+      await container.read(searchCandidatesProvider.future);
+
       final results = await container.read(
         searchResultsProvider('medicament').future,
       );
@@ -91,6 +94,9 @@ void main() {
         ],
       );
       addTearDown(container.dispose);
+
+      // WHY: Wait for searchCandidatesProvider to complete before reading searchResults
+      await container.read(searchCandidatesProvider.future);
 
       final results = await container.read(
         searchResultsProvider('doliprane').future,

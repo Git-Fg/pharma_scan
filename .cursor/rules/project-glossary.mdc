@@ -1,0 +1,114 @@
+---
+alwaysApply: true
+---
+# Project Glossary
+
+This document defines key terms used throughout the PharmaScan project to ensure consistent vocabulary in code, documentation, and AI-generated content.
+
+## Core Data Terms
+
+### Source of Truth
+
+* **Definition:** The primary, authoritative data store for the application.
+* **Implementation:** The local Drift database (`AppDatabase`), specifically the `medicament_summary` table (denormalized, pre-aggregated).
+* **Usage:** All read queries in Explorer/Search MUST query this table. It is populated during Phase 2 of `DataInitializationService`.
+* **Never:** Do not query staging tables (`medicaments`, `specialites`) directly in UI or business logic layers.
+
+### Canonical Name
+
+* **Definition:** A normalized, cleaned version of a medication name produced by the parser.
+* **Process:** The parser applies knowledge-injected subtraction (removes known Form and Lab from raw string), then extracts the core name component.
+* **Usage:** Used for grouping, searching, and display. The canonical name is deterministic and stable for the same raw input.
+
+### Group (Groupe générique BDPM)
+
+* **Definition:** A collection of medications that share the same active principle and are grouped by the BDPM (Base de Données Publique des Médicaments).
+* **Characteristics:**
+  * Medications within a group have the same therapeutic effect.
+  * A group contains one or more "princeps" (brand name) medications and their generic equivalents.
+  * Groups are defined in the `group_members` table with relationships stored in the database.
+* **Detection:** STRICTLY use `group_members` table relationships. Never infer groups via string matching.
+
+### Standalone (Médicament hors groupe)
+
+* **Definition:** A medication that does not belong to any generic group in the BDPM database.
+* **Characteristics:**
+  * Standalone medications have no associated group relationships.
+  * They may be unique formulations, special medications, or entries that have not been grouped.
+* **Handling:** Search logic MUST explicitly handle standalone medications by performing `LEFT JOIN` checks or union queries, as `MedicamentSummary` might be sparse.
+
+### Princeps
+
+* **Definition:** The original brand-name medication, typically the first medication developed with a specific active principle.
+* **Characteristics:**
+  * A princeps medication may appear in multiple groups (as a "chameleon" medication).
+  * Princeps status is determined by the BDPM data and stored in the `medicament_summary` table.
+  * Business rule: princeps status in ANY group wins (hardened against chameleon medications).
+
+### Generic (Générique)
+
+* **Definition:** A medication that is therapeutically equivalent to a princeps medication but sold under a different name or by a different manufacturer.
+* **Characteristics:**
+  * Generic medications share the same active principle as their princeps.
+  * They are linked through the `group_members` table relationship.
+* **Detection:** Use `group_members` table relationships only. Never infer via string matching.
+
+## UI/UX Terms
+
+### Adaptive Overlay
+
+* **Definition:** A pattern for transitioning between different UI contexts (e.g., full screen to modal, modal to sheet) that adapts to screen size and device type.
+* **Implementation:** Uses `showModalBottomSheet` or `showShadSheet` with `side: ShadSheetSide.bottom` on mobile, and may use `ShadDialog` or `ShadPopover` on larger screens.
+* **Purpose:** Provides consistent user experience across device sizes while respecting platform conventions.
+
+### Domain Entity
+
+* **Definition:** A pure Dart class (typically using `freezed`) that represents a business concept without database-specific annotations.
+* **Characteristics:**
+  * Immutable (frozen).
+  * No dependencies on Drift-generated classes.
+  * Used throughout the application layers (UI, services, business logic).
+* **Example:** `ScanResult`, `ClusterSummary`, `GenericGroupSummary`.
+
+### AppDimens
+
+* **Definition:** The centralized class containing all design tokens (spacing, radii, icon sizes).
+* **Usage:** Must be used for all generic UI layout construction (`Gap`, padding, `BorderRadius`, icon sizing) instead of hardcoded numbers.
+
+### AppConfig
+
+* **Definition:** The centralized class containing operational constants (timeouts, limits, durations).
+* **Usage:** Must be used for business logic and service configuration (network timeouts, debounce windows, pagination limits) instead of inline literals.
+
+### FileDownloadService
+
+* **Definition:** The centralized Dio-based download stack responsible for every network file transfer in PharmaScan.
+* **Characteristics:**
+  * Provided via Riverpod so services and tools reuse the same client configuration.
+  * Handles Talker logging, cache fallbacks, cancel tokens, and temp-file handling.
+* **Rule:** Never instantiate ad-hoc `http.Client` or standalone Dio instances inside features—extend or reuse this service instead.
+
+### Mapper
+
+* **Definition:** A function, extension, or class that transforms database rows (Drift-generated classes) into Domain Entities.
+* **Purpose:** Maintains separation between database layer and domain layer.
+* **Location:** Typically defined as extensions on Domain Entities or as static methods in mapper classes.
+* **Usage:** Services use mappers to convert `MedicamentRow` → `ScanResult` before exposing to UI.
+
+## Architecture Terms
+
+### Box Protocol
+
+* **Definition:** The Flutter rendering rule: "Constraints go down, Sizes go up. Parent sets position."
+* **Implication:** Infinite widgets (ListView, Column without bounds) cannot be placed directly in unbounded parents.
+* **Solution:** Use `Expanded` or `Flexible` to break infinity in Flex layouts.
+* **Prohibition:** Never use `IntrinsicHeight` or `IntrinsicWidth` in lists or frequently-rebuilt loops.
+
+### Agnostic Component
+
+* **Definition:** A reusable widget that does not make assumptions about its context (e.g., whether it's in a dialog, sheet, or full screen).
+* **Characteristics:**
+  * Does NOT contain `Scaffold`.
+  * Does NOT call `Navigator.pop()` directly.
+  * Exposes callbacks (`onClose`, `onConfirm`, `onSave`) for parent to handle navigation/actions.
+* **Purpose:** Enables widget reuse across different UI contexts.

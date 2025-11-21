@@ -1,0 +1,420 @@
+---
+description: Coding standards for Flutter, Riverpod, and Architecture.
+globs: lib/**/*.dart
+---
+
+# Flutter & Architecture Standards
+
+## 1. Architecture: Two-Layer Separation
+
+* **UI Layer:** Widgets, Local State (`setState`), ConsumerWidgets. Calls Services.
+* **Service Layer:** Logic, DB access, Parsing. *Zero dependencies on `flutter/material.dart`*.
+* **Rule:** Business logic (parsing, grouping) NEVER belongs in a Widget.
+
+## 2. State Management (Riverpod)
+
+* **Preference:** Local `StatefulWidget` is default for UI concerns (forms, camera toggles).
+* **Providers:** Use Riverpod *only* for shared/cross-layer data (e.g., `syncStatusProvider`).
+* **Definition:** Use `@riverpod` annotation. Providers must be top-level `final`.
+* **Usage:**
+  * ❌ `ref.watch(provider).value` (Unsafe)
+  * ✅ `provider.when(...)` (Handle loading/error)
+* **Persistence:** Any configuration derived from `AppSettings` must be exposed via `StreamProvider`/`build()` that returns a `Stream`. Do **not** use `FutureProvider` backed by `SharedPreferences`—Drift is the only persistence engine for preferences.
+
+## 3. Code Quality
+
+* **Immutability:** Use `freezed` for ALL data models.
+* **Comments:** Explain *Why*, not *What*.
+* **Cleanup:** Remove all `print()` statements. Use `LoggerService`.
+* **Color Precision:** `Color.withOpacity()` is deprecated and loses precision. Use `color.withValues(alpha: ...)` (or construct a new `Color.fromARGB`) to adjust transparency.
+
+### Fix Before Finalizing the task (MANDATORY)
+
+Maintain the codebase with proactive auto-correction—never wait to be asked.
+
+1. **Generate:** Write or modify Dart/Flutter code.
+2. **Analyze:** Run the analyzer or observe lint warnings in your editor.
+3. **Auto-correct:** If any fixable lint appears, immediately run:
+
+   ```bash
+   dart fix --apply && dart format .
+   ```
+
+4. **Verify:** Ensure the project still builds after fixes and formatting.
+
+**Trigger examples:** missing `const` constructors (`prefer_const_constructors`), replacing simple `Container` usage (`sized_box_for_whitespace`, `use_colored_box`), adopting `super` parameters (`use_super_parameters`), cleaning string interpolations (`unnecessary_string_interpolations`), or removing redundant `await` (`unnecessary_await_in_return`).
+
+**Manual follow-up:** When `dart fix` cannot resolve a lint (e.g., `avoid_print`, `avoid_dynamic_calls`), craft an explicit code change such as swapping `print` for `LoggerService`.
+
+## 4. Navigation
+
+* Use Nested Navigators (`Navigator` widget inside `IndexedStack`) for independent tab history.
+
+## 5. Layout & Spacing (The Gap Protocol)
+
+* **Mandate:** Use the `gap` package for spacing inside Flex widgets (`Column`, `Row`, `ListView`).
+* **Forbidden:** Do NOT use `SizedBox(height: ...)` or `SizedBox(width: ...)` for spacing between widgets.
+* **Rationale:** `Gap` is direction-agnostic (works in both Rows and Columns without refactoring) and improves code readability.
+
+```dart
+// ❌ DEPRECATED
+Column(
+  children: [
+    Text('A'),
+    SizedBox(height: 16), // Hardcoded direction
+    Text('B'),
+  ],
+)
+
+// ✅ REQUIRED
+Column(
+  children: [
+    Text('A'),
+    Gap(16), // Refactor-proof
+    Text('B'),
+  ],
+)
+```
+
+## 6. Accessibility & Overflow Resilience
+
+* **Critical Rule:** NEVER assume a fixed height for bottom panels or control areas.
+* **The "Text Scale" Factor:** Users may increase font size to 200%. A 50px button bar will crash.
+* **Required Solution:** Wrap any bottom panel (pinned controls, action buttons) in a `SingleChildScrollView` (or use the project's `AdaptiveBottomPanel`) + `SafeArea`.
+* **Constraint:** The root Column of a bottom panel must have `mainAxisSize: MainAxisSize.min`.
+
+```dart
+// ❌ FRAGILE: Crashes on small screens or large text
+Positioned(
+  bottom: 0,
+  child: Column(
+    children: [Button1(), Button2()], // Overflows pixels
+  ),
+)
+
+// ✅ ROBUST: Scrolls if needed
+Positioned(
+  bottom: 0,
+  left: 0, 
+  right: 0,
+  child: AdaptiveBottomPanel( // Or SingleChildScrollView + SafeArea
+    children: [Button1(), Button2()],
+  ),
+)
+```
+
+## 7. The Box Protocol (Constraints Rule) - MANDATORY
+
+**Fundamental Law:** "Constraints go down, Sizes go up. Parent sets position."
+
+* **Prohibition:** NEVER place an infinitely-extensible widget (`ListView`, `Column` without bounds, `GridView`) directly inside a parent with unbounded constraints (`Unbounded`).
+* **Required Solution:** Use `Expanded` or `Flexible` to break infinity in Flex layouts (`Row`, `Column`, `Flex`).
+
+**Performance Prohibition:**
+
+* NEVER use `IntrinsicHeight` or `IntrinsicWidth` in lists (`ListView`, `SliverList`) or inside frequently-rebuilt loops. These widgets force full layout passes and cause severe performance degradation.
+
+**Example Pattern:**
+
+```dart
+// ❌ FORBIDDEN: Infinite widget in unbounded parent
+Row(
+  children: [
+    Text('Label'),
+    ListView(...),  // Crashes: unbounded height
+  ],
+)
+
+// ✅ CORRECT: Constrain the infinite widget
+Row(
+  children: [
+    Text('Label'),
+    Expanded(  // Breaks infinity
+      child: ListView(...),
+    ),
+  ],
+)
+
+// ❌ FORBIDDEN: IntrinsicHeight in list
+ListView(
+  children: items.map((item) => 
+    IntrinsicHeight(child: ComplexWidget(item))  // Performance killer
+  ).toList(),
+)
+
+// ✅ CORRECT: Use explicit heights or Flexible
+ListView(
+  children: items.map((item) => 
+    SizedBox(height: 100, child: ComplexWidget(item))  // Explicit constraint
+  ).toList(),
+)
+```
+
+## 8. Adaptive Design Patterns
+
+### Abstract, Measure, Branch Rule
+
+* **Rule:** Do NOT use `LayoutBuilder` for macroscopic screen type decisions (mobile vs tablet vs desktop).
+* **Required:** Use `MediaQuery.sizeOf(context)` for size-based branching.
+* **Rationale:** `LayoutBuilder` rebuilds on every constraint change, which is expensive. `MediaQuery` is cached and stable.
+
+**Example Pattern:**
+
+```dart
+// ❌ AVOID for macroscopic decisions:
+LayoutBuilder(
+  builder: (context, constraints) {
+    if (constraints.maxWidth > 600) {
+      return DesktopLayout();
+    }
+    return MobileLayout();
+  },
+)
+
+// ✅ CORRECT: Use MediaQuery
+final screenSize = MediaQuery.sizeOf(context);
+if (screenSize.width > 600) {
+  return DesktopLayout();
+}
+return MobileLayout();
+```
+
+### Agnostic Components (Reusable Widgets)
+
+* **Rule:** Content widgets (forms, detail lists, data displays) MUST NEVER contain `Scaffold` or call `Navigator.pop()`.
+* **Pattern:** Expose callbacks (`onClose`, `onConfirm`, `onSave`) that the parent handles.
+* **Rationale:** Allows widgets to be reused in different contexts (dialogs, sheets, full screens).
+
+**Example Pattern:**
+
+```dart
+// ❌ FORBIDDEN: Widget that manages its own navigation
+class FormWidget extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Form')),
+      body: Form(...),
+      // ❌ Direct navigation - locks widget to one context
+      onPressed: () => Navigator.pop(context),
+    );
+  }
+}
+
+// ✅ CORRECT: Agnostic widget with callbacks
+class FormWidget extends StatelessWidget {
+  final VoidCallback? onClose;
+  final ValueChanged<FormData>? onSave;
+  
+  @override
+  Widget build(BuildContext context) {
+    return Form(
+      child: Column(
+        children: [
+          // Form content
+          ElevatedButton(
+            onPressed: () => onSave?.call(formData),
+            child: Text('Save'),
+          ),
+          ElevatedButton(
+            onPressed: onClose,
+            child: Text('Cancel'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Parent decides context
+showModalBottomSheet(
+  context: context,
+  builder: (_) => FormWidget(
+    onClose: () => Navigator.pop(context),
+    onSave: (data) { /* save logic */ },
+  ),
+);
+```
+
+### Modal Constraints
+
+* **Rule:** Any content destined for a modal (Dialog, BottomSheet) MUST use `MainAxisSize.min` on its root `Column`.
+* **Rule:** Modal content MUST be scrollable (`SingleChildScrollView` or `ListView` with `shrinkWrap: true`, though `shrinkWrap` should be used sparingly due to performance implications).
+
+**Example Pattern:**
+
+```dart
+// ✅ CORRECT: Modal-friendly layout
+showModalBottomSheet(
+  context: context,
+  builder: (_) => Column(
+    mainAxisSize: MainAxisSize.min,  // REQUIRED: Don't expand beyond content
+    children: [
+      Header(),
+      Flexible(
+        child: SingleChildScrollView(  // REQUIRED: Handle overflow
+          child: Content(),
+        ),
+      ),
+    ],
+  ),
+);
+```
+
+## 9. Navigation & Context Isolation
+
+* **Critical:** Dialogs and BottomSheets create a new branch in the widget tree. Access to parent Providers via `context` may be broken.
+* **Solution:** Use dependency injection via parameters or `Provider.value` pattern to pass dependencies explicitly.
+
+**Example Pattern:**
+
+```dart
+// ❌ POTENTIALLY BROKEN: Provider access through context in modal
+showDialog(
+  context: context,
+  builder: (context) => MyDialog(),  // context may not see parent providers
+);
+
+// ✅ CORRECT: Explicit dependency injection
+final data = ref.watch(dataProvider);
+showDialog(
+  context: context,
+  builder: (context) => Provider.value(
+    value: data,  // Explicitly pass dependency
+    child: MyDialog(),
+  ),
+);
+```
+
+## 10. Defensive Coding & Stability (MANDATORY)
+
+* **Async Gaps:** You MUST check `if (!mounted) return;` after *every* `await` call in a `StatefulWidget` before calling `setState` or accessing `context`.
+
+* **Database Null Safety:** When reading from raw SQL rows (`row.read<T>`), ALWAYS assume joined columns can be `null`. Use `row.read<String?>('col') ?? 'default'` instead of casting directly.
+
+* **Controller Lifecycle:** Every `Controller` (Scroll, Text, Animation, MobileScanner) initialized in `initState` MUST be disposed in `dispose()`.
+
+* **Safe Lists:** When accessing `list.first` or `list.last`, ALWAYS check `list.isNotEmpty` first, especially inside background Isolates or Parsing logic.
+
+## 11. Logging & Observability (Talker)
+
+* **Strict Ban:** NEVER use `print()`, `debugPrint()`, or `developer.log()`.
+* **Standard:** Interact with logs via `LoggerService` so Talker captures the events.
+* **Patterns:**
+  * `LoggerService.info()` for general flow events.
+  * `LoggerService.error()` inside `catch` blocks (pass the stack trace).
+  * `LoggerService.db()` for database-specific operations.
+* **Riverpod:** Do not manually log notifier state transitions; `TalkerRiverpodObserver` already captures provider events.
+* **Network:** Always route downloads through the DI-provided `FileDownloadService` (Dio + Talker). Do not instantiate raw `http.Client` or separate Dio instances in feature code.
+
+```dart
+// ❌ Forbidden
+print('Loading data...');
+
+// ✅ Correct
+LoggerService.info('Loading data...');
+
+// ❌ Forbidden
+catch (e) {
+  print(e);
+}
+
+// ✅ Correct
+catch (e, stack) {
+  LoggerService.error('Failed to load data', e, stack);
+}
+```
+
+## 12. UI Kit & Design System Strictness
+
+### Text Centralization (CRITICAL)
+
+* **FORBIDDEN:** Hardcoding user-facing strings in Widgets (e.g., `Text('Search')`, `Text('Arrêter le scan')`).
+* **REQUIRED:** Define all user-facing strings in `lib/core/utils/strings.dart` and use `Strings.search`, `Strings.stopScanning`, etc.
+* **Rationale:** Prepares the app for i18n without requiring a full i18n package, ensures consistency across the codebase, and makes string changes easier to manage.
+
+#### String Management
+
+* **Grouping:** When adding new constants to `lib/core/utils/strings.dart`, place them inside the matching semantic section (`// Explorer`, `// Details`, `// Settings`, etc.) instead of dumping everything at the bottom of the file.
+* **Helpers:** If a string contains dynamic data (counts, names, units), expose it through a helper in the `Strings` class (e.g., `Strings.groupCount(int count)`) and reuse that helper in both UI code and tests.
+
+```dart
+// ❌ FORBIDDEN: Hardcoded strings
+Text('Arrêter le scan')
+ShadButton(child: Text('Fermer'))
+
+// ✅ REQUIRED: Use Strings constants
+Text(Strings.stopScanning)
+ShadButton(child: const Text(Strings.close))
+```
+
+### Widget Reuse (Mandatory)
+
+* **Rule:** Before creating a `_DetailRow`, `_Label`, `_Badge`, or `_SearchBar` private widget, check `lib/core/widgets/ui_kit/`.
+* **Mandatory Replacements:**
+  * Use `DetailItem` for key-value pairs (never create `_DetailRow` or `_ParsedDetailRow`).
+  * Use `InfoLabel` for text with icons.
+  * Use `PharmaSearchInput` for search fields (never build manual search bars with `ShadInput`).
+  * Use `PharmaBadges` for standard badges (Princeps, Generic, Conditions).
+  * Use `SectionHeader` for section titles with optional badges.
+  * Use `StatusView` for empty, loading, and error states.
+
+```dart
+// ❌ FORBIDDEN: Duplicating UI Kit components
+class _DetailRow extends StatelessWidget {
+  // ... duplicate implementation
+}
+
+// ✅ REQUIRED: Use UI Kit components
+DetailItem(label: Strings.nameLabel, value: medicament.nom)
+PharmaSearchInput(
+  controller: _searchController,
+  placeholder: Strings.searchPlaceholder,
+  onChanged: _onSearchChanged,
+  onClear: _clearSearchField,
+)
+```
+
+### Animation Consistency
+
+* **Rule:** All list item animations MUST use `AppAnimations.listItemEnter` from `lib/core/utils/app_animations.dart`.
+* **Pattern:** Apply with consistent delay pattern: `delay: (index * 40).ms`.
+* **Rationale:** Ensures consistent timing and visual behavior across all lists in the app.
+
+```dart
+// ❌ FORBIDDEN: Inline or custom list animations
+.animate(delay: (index * 30).ms, effects: [FadeEffect(), ...])
+
+// ✅ REQUIRED: Use AppAnimations
+.animate(delay: (index * 40).ms, effects: AppAnimations.listItemEnter)
+```
+
+### Lucide Icons Source
+
+* **Rule:** Do NOT add `package:lucide_icons/lucide_icons.dart` imports.
+* **Reason:** `LucideIcons` is already exported by `shadcn_ui`, ensuring a single dependency source and avoiding redundant packages.
+* **Usage:** Rely on `shadcn_ui/shadcn_ui.dart` for icon access in all widgets.
+
+## 13. Constants & Magic Numbers
+
+### Design Tokens (`AppDimens`)
+
+* **Mandate:** Do NOT use hardcoded numbers for generic spacing or styling.
+* **Source:** Import `package:pharma_scan/core/theme/app_dimens.dart`.
+* **Usage:**
+  * ❌ `Gap(16)`, `Padding(padding: EdgeInsets.all(20))`
+  * ✅ `Gap(AppDimens.spacingMd)`, `Padding(padding: EdgeInsets.all(AppDimens.spacingLg))`
+  * ❌ `BorderRadius.circular(12)`
+  * ✅ `BorderRadius.circular(AppDimens.radiusMd)`
+
+### Operational Logic (`AppConfig`)
+
+* **Mandate:** Do NOT hardcode timeouts, debounce durations, or business logic limits (e.g., list limits, character counts).
+* **Source:** Import `package:pharma_scan/core/config/app_config.dart`.
+* **Usage:**
+  * ❌ `Duration(seconds: 15)` (for network)
+  * ✅ `AppConfig.connectTimeout`
+
+### Local Constants
+
+* **Rule:** If a number is specific to a **single widget's internal layout logic** (e.g., a specific aspect ratio, a painter coordinate, or a unique animation offset), define it as a `private static const` at the top of that widget class. Do not pollute global config with one-off pixel tweaks.

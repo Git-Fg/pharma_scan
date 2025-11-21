@@ -6,7 +6,8 @@ part 'sync_status_provider.g.dart';
 @riverpod
 class SyncStatusNotifier extends _$SyncStatusNotifier {
   @override
-  SyncProgress build() => const SyncProgress(phase: SyncPhase.idle);
+  SyncProgress build() =>
+      const SyncProgress(phase: SyncPhase.idle, code: SyncStatusCode.idle);
 
   void updateStatus(SyncProgress progress) {
     state = progress;

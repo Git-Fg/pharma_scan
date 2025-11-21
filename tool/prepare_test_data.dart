@@ -1,10 +1,17 @@
 import 'dart:io';
 
-import 'package:http/http.dart' as http;
+import 'package:dio/dio.dart';
 import 'package:path/path.dart' as p;
 import 'package:pharma_scan/core/config/data_sources.dart';
 
 Future<void> main(List<String> args) async {
+  final dio = Dio(
+    BaseOptions(
+      connectTimeout: const Duration(seconds: 15),
+      receiveTimeout: const Duration(minutes: 2),
+      headers: const {'Accept': '*/*'},
+    ),
+  );
   final force = args.contains('--force');
   final overrideDirArgument = args.firstWhere(
     (arg) => arg.startsWith('--dir='),
@@ -30,15 +37,19 @@ Future<void> main(List<String> args) async {
       continue;
     }
     stdout.writeln('↻ Downloading $filename ...');
-    final response = await http.get(Uri.parse(entry.value));
-    if (response.statusCode != 200) {
+    final response = await dio.get<List<int>>(
+      entry.value,
+      options: Options(responseType: ResponseType.bytes),
+    );
+    final bytes = response.data;
+    if (response.statusCode != 200 || bytes == null) {
       stderr.writeln(
         'Failed to download $filename (HTTP ${response.statusCode}).',
       );
       exitCode = 1;
       return;
     }
-    await file.writeAsBytes(response.bodyBytes, flush: true);
+    await file.writeAsBytes(bytes, flush: true);
   }
 
   stdout.writeln(

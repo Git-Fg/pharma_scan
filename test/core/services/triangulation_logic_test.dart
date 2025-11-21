@@ -1,27 +1,24 @@
 // test/core/services/triangulation_logic_test.dart
-import 'dart:convert';
 import 'package:decimal/decimal.dart';
 import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pharma_scan/core/database/database.dart';
-import 'package:pharma_scan/core/locator.dart';
-import 'package:pharma_scan/core/services/database_service.dart';
+import 'package:pharma_scan/core/database/mappers.dart';
+import 'package:pharma_scan/core/services/drift_database_service.dart';
 import 'package:pharma_scan/core/utils/medicament_helpers.dart';
 
 void main() {
   late AppDatabase database;
-  late DatabaseService dbService;
+  late DriftDatabaseService dbService;
 
   setUp(() {
     database = AppDatabase.forTesting(NativeDatabase.memory());
-    sl.registerSingleton<AppDatabase>(database);
-    dbService = DatabaseService();
+    dbService = DriftDatabaseService(database);
   });
 
   tearDown(() async {
     await database.close();
-    await sl.reset();
   });
 
   // Helper function to populate MedicamentSummary table for tests
@@ -70,7 +67,7 @@ void main() {
 
       // Sanitize common principles
       final sanitizedPrincipes = commonPrincipes
-          .map((p) => sanitizeActivePrinciple(p))
+          .map(sanitizeActivePrinciple)
           .where((p) => p.isNotEmpty)
           .toList();
 
@@ -112,7 +109,7 @@ void main() {
                 nomCanonique: nomCanonique,
                 isPrinceps: member.type == 0,
                 groupId: Value(groupId),
-                principesActifsCommuns: jsonEncode(sanitizedPrincipes),
+                principesActifsCommuns: sanitizedPrincipes,
                 princepsDeReference: princepsDeReference,
                 formePharmaceutique: Value(specialite.formePharmaceutique),
                 princepsBrandName: princepsDeReference,
@@ -182,7 +179,8 @@ void main() {
     await populateMedicamentSummary(database);
 
     // WHEN: We ask the service to classify the group
-    final result = await dbService.classifyProductGroup('GROUP_1');
+    final resultDto = await dbService.classifyProductGroup('GROUP_1');
+    final result = resultDto?.toDomain();
 
     // THEN: The "Broken" Generic should be grouped under the Princeps' dosage
     // It should NOT form a separate "N/A" bucket.

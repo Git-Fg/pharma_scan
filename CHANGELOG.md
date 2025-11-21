@@ -1,3 +1,19 @@
+# [2025-11-21] - Drift-AppSettings Single Source of Truth
+
+- **Singleton configuration table:** Added `AppSettings` (Drift) with enforced `id=1`, default theme/update frequency, BDPM metadata, and JSON blobs for source hashes/dates. Registered the table in `AppDatabase` and regenerated code.
+- **Database-driven preferences:** `DriftDatabaseService` now seeds and streams settings, exposes helpers (`watchSettings`, `updateTheme`, `updateSyncFrequency`, `updateSyncTimestamp`, `saveSourceHashes`, etc.), and resets metadata during `clearDatabase()`.
+- **Provider + service refactor:** `ThemeNotifier` and `AppPreferences` became stream-based Riverpod notifiers backed by Drift. `SyncService` and `DataInitializationService` no longer depend on `SharedPreferences`; sync cadence, timestamps, hashes, and BDPM versions read/write via `DriftDatabaseService`.
+- **Bootstrap simplification:** Removed `SharedPreferences` override in `main.dart`. `ProviderScope` now boots without async overrides, and Shad themes derive directly from the settings stream.
+- **Package + helper removal:** Deleted `lib/core/utils/theme_preferences.dart`, removed the `shared_preferences` dependency (and transitive platform plugins), and updated all tests/mocks to rely on Drift services instead of fake `SharedPreferences`.
+- **Documentation & rules:** Updated `AGENTS.md`, `architecture-data.mdc`, and `flutter-standards.mdc` with the Drift-only settings policy; added the new workflow to keep configuration reactive.
+
+# [2025-11-20] - Mocktail Migration & Test Hygiene
+
+- **Mocktail adoption**: Removed `mockito` from `dev_dependencies`, added `mocktail` 1.0.4, and kept `build_runner` for Drift/Freezed/Riverpod codegen. This eliminates test-time code generation for mocks and speeds up local feedback loops.
+- **Centralized mocks**: Introduced `test/mocks.dart` with shared `MockSharedPreferences`, `MockExplorerRepository`, `MockSyncService`, and other core fakes to keep tests DRY and aligned with the project’s service locator.
+- **Widget test refactor**: Updated `group_explorer_view_test.dart` and `network/live_scraping_test.dart` to import the shared mocks, switch to `when(() => ...)` syntax, and drop legacy `@GenerateNiceMocks` annotations plus generated `*.mocks.dart` files.
+- **Quality gate**: `dart test` passes after the migration, confirming no regressions.
+
 # [2025-11-18] - Smart Parsing & Data-Driven Robustness
 
 - **Knowledge-Injected Parsing Engine**: Replaced the previous heuristic parser with a deterministic "Subtraction Strategy." The parser now accepts official "Truths" (Pharmaceutical Form and Laboratory Name) directly from the BDPM database during initialization. It surgically removes these known entities from the raw medication string before using `PetitParser` grammar to extract complex dosages (ratios, multi-ingredients) and context (e.g., "SANS SUCRE", "ENFANTS"). This guarantees a 100% clean canonical name and eliminates false positives where lab names were mistaken for molecules or vice-versa.
@@ -18,15 +34,15 @@
 - **Search overhaul**: `searchMedicaments()` now returns the new `SearchResultItem` union (princeps, generic, standalone) and reads exclusively from `MedicamentSummary`. The explorer search UI renders dedicated cards for each variant with contextual princeps/generic relationships and Shadcn skeletons while loading.
 - **Documentation**: README and AGENTS now describe the aggregated table, the two-phase data pipeline, and the new requirement for tests/utilities to hydrate `MedicamentSummary` before asserting explorer/search logic.
 - **Riverpod preferences & sync refactor**: Replaced the legacy `PreferencesService` frequency cache with an `AppPreferences` AsyncNotifier, rewrote `SyncService` to accept injectable frequency/status callbacks, introduced a dedicated `syncStatusProvider` notifier, updated `MainScreen`/`SettingsScreen`, and refreshed AGENTS to describe the new, Flutter-agnostic pipeline.
-- **Declarative animations & ProviderScope coverage**: Applied `flutter_animate` fade/slide transitions to the sync banner, database search skeletons, and explorer result cards, then wrapped explorer widget tests in `ProviderScope` so Riverpod providers bootstrap correctly. `flutter pub run build_runner build --delete-conflicting-outputs`, `flutter analyze`, and `flutter test` now complete without errors.
+- **Declarative animations & ProviderScope coverage**: Applied `flutter_animate` fade/slide transitions to the sync banner, database search skeletons, and explorer result cards, then wrapped explorer widget tests in `ProviderScope` so Riverpod providers bootstrap correctly. `dart run build_runner build --delete-conflicting-outputs`, `dart fix --apply`, `dart analyze --fatal-infos --fatal-warnings`, and `dart test` now complete without errors.
 
 # [2025-11-18] - Smart Sync & Regulatory Context
 
 - **Data pipeline refactor**: `DataInitializationService` now orchestrates downloads via `_downloadAllFiles()`, parses each BDPM file inside a background isolate (`compute`) through dedicated helpers, and centralizes source URLs inside `lib/core/config/data_sources.dart`.
 - **Regulatory enrichment**: Added `conditions_prescription` to the `specialites` table (schema v3) and to the `Medicament` model, parsed from `CIS_CPD_bdpm.txt`, surfaced through `DatabaseService`, and rendered via `ShadBadge` in scanner bubbles and explorer cards.
-- **Smart synchronization**: `_fetchFileBytesWithCache()` performs HEAD requests, reuses cached files when ETag/Last-Modified headers match, and persists metadata in `SharedPreferences` for near-instant reinitialization.
+- **Smart synchronization**: `_fetchFileBytesWithCache()` always re-downloads BDPM TXT files (official mirrors never update reliable `ETag`/`Last-Modified` headers) and only falls back to the cached copy if the network transfer fails.
 - **Explorer ergonomics**: Integrated `fuzzy_bolt` re-ranking inside `searchMedicaments()`, introduced debounced (300 ms) search input, and replaced spinners with skeleton placeholders for both search and category lists.
-- **Quality gate**: Regenerated code (`build_runner`), updated `integration_test/search_filter_test.dart` lints, and ran `flutter analyze` plus `flutter test` successfully.
+- **Quality gate**: Regenerated code (`build_runner`), updated `integration_test/search_filter_test.dart` lints, and ran `dart analyze --fatal-infos --fatal-warnings` plus `dart test` successfully.
 
 # [2025-11-17] - Architectural Refactor: Migration to Drift Files
 
@@ -35,7 +51,7 @@
 - **Improved Developer Experience (DX)** by enabling native SQL syntax highlighting, auto-completion, and real-time error checking in VS Code.
 - **Enhanced maintainability** by strictly separating SQL data logic from Dart business logic.
 - **Refactored `DatabaseService`** to call type-safe, generated methods, resulting in a cleaner and more robust data access layer.
-- **Verification**: `flutter pub run build_runner build --delete-conflicting-outputs`, `flutter analyze`, and `flutter test` executed successfully.
+- **Verification**: `dart run build_runner build --delete-conflicting-outputs`, `dart fix --apply`, `dart analyze --fatal-infos --fatal-warnings`, and `dart test` executed successfully.
 
 # [2025-11-17] - FTS5 Search and Navigation Refactoring
 
@@ -68,7 +84,7 @@
 - **Force Reinitialization** : The destructive settings button calls `initializeDatabase(forceRefresh: true)` and no longer manipulates `SharedPreferences` flags, guaranteeing a true reset of BDPM data.
 - **Explorer Search** : `DatabaseSearchView` gains a contextual delete button in the search field (`LucideIcons.x` icon) that instantly clears the query and restarts the initial state.
 - **Python Audit** : `data_validator.py` tolerates legitimate numbered molecules (e.g. `ALCOOL DICHLORO-2,4 BENZYLIQUE`) and ignores "solution de ..." expressions, reducing false positives in contamination analysis.
-- **Verification** : `flutter pub run build_runner build --delete-conflicting-outputs`, `flutter analyze`, `flutter test`, `flutter test integration_test/active_principle_grouping_test.dart` and `flutter test integration_test` executed successfully.
+- **Verification** : `dart run build_runner build --delete-conflicting-outputs`, `dart fix --apply`, `dart analyze --fatal-infos --fatal-warnings`, `dart test integration_test/active_principle_grouping_test.dart`, and `dart test integration_test` executed successfully.
 
 # [2025-11-16] - Algorithmic Princeps Grouping and Critical Fix
 

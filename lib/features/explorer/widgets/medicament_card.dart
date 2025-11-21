@@ -1,6 +1,10 @@
 // lib/features/explorer/widgets/medicament_card.dart
 import 'package:flutter/material.dart';
+import 'package:gap/gap.dart';
 import 'package:pharma_scan/core/utils/dosage_utils.dart';
+import 'package:pharma_scan/core/utils/strings.dart';
+import 'package:pharma_scan/core/widgets/accessible_touch.dart';
+import 'package:pharma_scan/core/widgets/ui_kit/info_label.dart';
 import 'package:pharma_scan/features/scanner/models/medicament_model.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
@@ -29,33 +33,25 @@ class MedicamentCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(child: _buildMedicamentInfo(theme)),
-          if (trailing != null) ...[const SizedBox(width: 12), trailing!],
+          if (trailing != null) ...[const Gap(12), trailing!],
         ],
       ),
     );
 
-    Widget card = Semantics(
-      button: onTap != null,
+    return AccessibleTouch(
       label: _buildSemanticsLabel(),
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      splashColor: theme.colorScheme.primary.withValues(alpha: 0.08),
+      highlightColor: theme.colorScheme.primary.withValues(alpha: 0.04),
       child: cardContent,
-    );
-
-    if (onTap == null) return card;
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        splashColor: theme.colorScheme.primary.withValues(alpha: 0.08),
-        highlightColor: theme.colorScheme.primary.withValues(alpha: 0.04),
-        child: card,
-      ),
     );
   }
 
   Widget _buildMedicamentInfo(ShadThemeData theme) {
-    final titulaire = medicament.titulaire ?? 'Titulaire inconnu';
+    final titulaire = medicament.titulaire.isNotEmpty
+        ? medicament.titulaire
+        : Strings.unknownHolder;
     final dosageLabel = _formatDosage();
     final conditionBadge = _buildConditionBadge(theme);
 
@@ -63,55 +59,25 @@ class MedicamentCard extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(medicament.nom, style: theme.textTheme.h4),
-        if (conditionBadge != null) ...[
-          const SizedBox(height: 6),
-          conditionBadge,
-        ],
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Icon(
-              LucideIcons.building2,
-              size: 14,
-              color: theme.colorScheme.mutedForeground,
-            ),
-            const SizedBox(width: 4),
-            Expanded(
-              child: Text(
-                titulaire,
-                style: theme.textTheme.muted,
-                overflow: TextOverflow.ellipsis,
-                maxLines: 1,
-              ),
-            ),
-          ],
+        if (conditionBadge != null) ...[const Gap(6), conditionBadge],
+        const Gap(8),
+        InfoLabel(
+          text: titulaire,
+          icon: LucideIcons.building2,
+          style: theme.textTheme.muted,
         ),
-        const SizedBox(height: 6),
-        Row(
-          children: [
-            Icon(
-              LucideIcons.barcode,
-              size: 14,
-              color: theme.colorScheme.mutedForeground,
-            ),
-            const SizedBox(width: 4),
-            Expanded(
-              child: Text(medicament.codeCip, style: theme.textTheme.muted),
-            ),
-          ],
+        const Gap(4),
+        InfoLabel(
+          text: medicament.codeCip,
+          icon: LucideIcons.barcode,
+          style: theme.textTheme.muted,
         ),
         if (!hideDosage && dosageLabel != null) ...[
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              Icon(
-                LucideIcons.flaskConical,
-                size: 14,
-                color: theme.colorScheme.mutedForeground,
-              ),
-              const SizedBox(width: 4),
-              Expanded(child: Text(dosageLabel, style: theme.textTheme.muted)),
-            ],
+          const Gap(4),
+          InfoLabel(
+            text: dosageLabel,
+            icon: LucideIcons.flaskConical,
+            style: theme.textTheme.muted,
           ),
         ],
       ],
@@ -119,38 +85,31 @@ class MedicamentCard extends StatelessWidget {
   }
 
   String? _formatDosage() {
-    return formatDosageLabel(
-      dosage: medicament.dosage,
-      unit: medicament.dosageUnit,
-    );
+    return medicament.formattedDosage;
   }
 
   String _buildSemanticsLabel() {
-    final buffer = StringBuffer('Médicament ${medicament.nom}');
-    buffer.write(', CIP ${medicament.codeCip}');
-    if (medicament.titulaire != null) {
-      buffer.write(', titulaire ${medicament.titulaire}');
-    }
+    final buffer = StringBuffer('${Strings.medication} ${medicament.nom}');
+    buffer.write(', ${Strings.cip} ${medicament.codeCip}');
+    buffer.write(', ${Strings.holder} ${medicament.titulaire}');
     if (!hideDosage) {
       final dosage = _formatDosage();
       if (dosage != null) {
-        buffer.write(', dosage $dosage');
+        buffer.write(', ${Strings.dosage} $dosage');
       }
     }
     if (medicament.principesActifs.isNotEmpty) {
       buffer.write(
-        ', principes actifs ${medicament.principesActifs.take(3).join(', ')}',
+        ', ${Strings.activePrinciples} ${medicament.principesActifs.take(3).join(', ')}',
       );
     }
-    if (medicament.conditionsPrescription != null) {
-      buffer.write(', condition ${medicament.conditionsPrescription}');
-    }
+    buffer.write(', ${Strings.condition} ${medicament.conditionsPrescription}');
     return buffer.toString();
   }
 
   Widget? _buildConditionBadge(ShadThemeData theme) {
     final condition = medicament.conditionsPrescription;
-    if (condition == null || condition.isEmpty) return null;
+    if (condition.isEmpty) return null;
     return ShadBadge.outline(
       child: Text(condition, style: theme.textTheme.small),
     );

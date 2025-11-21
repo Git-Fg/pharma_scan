@@ -18,4 +18,7 @@ sealed class ScanResult with _$ScanResult {
     required List<String> genericLabs,
     required String groupId,
   }) = PrincepsScanResult;
+
+  const factory ScanResult.standalone({required Medicament medicament}) =
+      StandaloneScanResult;
 }

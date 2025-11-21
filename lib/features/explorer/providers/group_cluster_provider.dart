@@ -1,9 +1,9 @@
 // lib/features/explorer/providers/group_cluster_provider.dart
 
-import 'package:pharma_scan/core/locator.dart';
-import 'package:pharma_scan/core/services/database_service.dart';
+import 'package:pharma_scan/core/providers/repositories_providers.dart';
 import 'package:pharma_scan/features/explorer/models/cluster_summary_model.dart';
-import 'package:pharma_scan/features/explorer/models/generic_group_summary_model.dart';
+import 'package:pharma_scan/features/explorer/models/generic_group_entity.dart';
+import 'package:pharma_scan/features/explorer/providers/search_provider.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'group_cluster_provider.g.dart';
@@ -33,19 +33,17 @@ class ClusterLibraryState {
 }
 
 @riverpod
-Future<List<GenericGroupSummary>> clusterGroups(
+Future<List<GenericGroupEntity>> clusterGroups(
   Ref ref,
   String clusterKey,
 ) async {
-  final database = sl<DatabaseService>();
-  return database.getClusterGroupSummaries(clusterKey);
+  final repository = ref.watch(explorerRepositoryProvider);
+  return repository.getClusterGroupSummaries(clusterKey);
 }
 
 @riverpod
 class GroupClusterNotifier extends _$GroupClusterNotifier {
   static const _pageSize = 40;
-
-  DatabaseService get _databaseService => sl<DatabaseService>();
 
   int _offset = 0;
   bool _isFetchingMore = false;
@@ -54,6 +52,8 @@ class GroupClusterNotifier extends _$GroupClusterNotifier {
   Future<ClusterLibraryState> build() async {
     _offset = 0;
     _isFetchingMore = false;
+    // WHY: Watching filters ensures we reload clusters whenever Explorer filters change.
+    ref.watch(searchFiltersProvider);
     return _fetchClusters(reset: true);
   }
 
@@ -82,9 +82,13 @@ class GroupClusterNotifier extends _$GroupClusterNotifier {
   }
 
   Future<ClusterLibraryState> _fetchClusters({required bool reset}) async {
-    final clusters = await _databaseService.getClusterSummaries(
+    final repository = ref.read(explorerRepositoryProvider);
+    final filters = ref.read(searchFiltersProvider);
+    final clusters = await repository.getClusterSummaries(
       limit: _pageSize,
       offset: reset ? 0 : _offset,
+      procedureType: filters.procedureType,
+      formePharmaceutique: filters.formePharmaceutique,
     );
 
     final existing = reset

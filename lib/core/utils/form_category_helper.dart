@@ -194,41 +194,35 @@ class FormCategoryHelper {
     return null;
   }
 
-  static FormCategoryKeywords getKeywordsForCategory(FormCategory category) {
-    if (category == FormCategory.homeopathy) {
-      return const FormCategoryKeywords(
-        formKeywords: [],
-        excludeKeywords: [],
-        procedureTypeKeywords: ['homéo'],
-      );
-    }
-
-    if (category == FormCategory.phytotherapy) {
-      return const FormCategoryKeywords(
-        formKeywords: [],
-        excludeKeywords: [],
-        procedureTypeKeywords: ['phyto'],
-      );
-    }
-
-    if (category == FormCategory.other) {
-      final allOtherKeywords = <String>{};
-      for (final cat in FormCategory.values) {
-        if (cat != FormCategory.other &&
-            cat != FormCategory.homeopathy &&
-            cat != FormCategory.phytotherapy) {
-          allOtherKeywords.addAll(_keywords[cat] ?? []);
-        }
-      }
-      return FormCategoryKeywords(
-        formKeywords: const [],
-        excludeKeywords: allOtherKeywords.toList(),
-      );
-    }
-
-    return FormCategoryKeywords(
-      formKeywords: _keywords[category] ?? const [],
-      excludeKeywords: _exclusions[category] ?? const [],
-    );
-  }
+  static FormCategoryKeywords getKeywordsForCategory(FormCategory category) =>
+      switch (category) {
+        FormCategory.homeopathy => const FormCategoryKeywords(
+          formKeywords: [],
+          excludeKeywords: [],
+          procedureTypeKeywords: ['homéo'],
+        ),
+        FormCategory.phytotherapy => const FormCategoryKeywords(
+          formKeywords: [],
+          excludeKeywords: [],
+          procedureTypeKeywords: ['phyto'],
+        ),
+        FormCategory.other => () {
+          final excludedKeywords = <String>{};
+          for (final cat in FormCategory.values) {
+            if (cat != FormCategory.other &&
+                cat != FormCategory.homeopathy &&
+                cat != FormCategory.phytotherapy) {
+              excludedKeywords.addAll(_keywords[cat] ?? []);
+            }
+          }
+          return FormCategoryKeywords(
+            formKeywords: const [],
+            excludeKeywords: excludedKeywords.toList(),
+          );
+        }(),
+        _ => FormCategoryKeywords(
+          formKeywords: _keywords[category] ?? const [],
+          excludeKeywords: _exclusions[category] ?? const [],
+        ),
+      };
 }

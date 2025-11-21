@@ -15,4 +15,3 @@ class ClusterSummary {
   final int groupCount;
   final int memberCount;
 }
-

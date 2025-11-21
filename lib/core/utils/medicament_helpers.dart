@@ -1,5 +1,7 @@
 // lib/core/utils/medicament_helpers.dart
 
+import 'dart:convert';
+
 String findCommonPrincepsName(List<String> names) {
   if (names.isEmpty) return 'N/A';
 
@@ -36,6 +38,29 @@ String findCommonPrincepsName(List<String> names) {
 // WHY: Derive a concise display title from an already cleaned medication name by
 // trimming trailing dosage information. This keeps UI titles deterministic and
 // consistent with BDPM naming conventions.
+List<String> decodePrincipesFromJson(String? jsonString) {
+  if (jsonString == null || jsonString.isEmpty) return const <String>[];
+  try {
+    final decoded = jsonDecode(jsonString);
+    if (decoded is List) {
+      return decoded
+          .map((value) => (value?.toString() ?? '').trim())
+          .where((value) => value.isNotEmpty)
+          .cast<String>()
+          .toList();
+    }
+    return const <String>[];
+  } catch (_) {
+    return const <String>[];
+  }
+}
+
+String formatCommonPrincipes(String? rawJson) {
+  final principles = decodePrincipesFromJson(rawJson);
+  if (principles.isEmpty) return '';
+  return principles.join(', ');
+}
+
 String deriveGroupTitleFromName(String name) {
   final parts = name.split(' ');
   final stopIndex = parts.indexWhere(
@@ -51,6 +76,26 @@ String deriveGroupTitleFromName(String name) {
 
   // Fallback for names without a clear dosage number
   return name.split(',').first.trim();
+}
+
+// WHY: Cluster keys drive explorer grouping queries. Keep generation centralized so
+// ingestion (Drift aggregation) and query layers (mappers, repositories) stay in sync.
+String buildClusterKey(String? brandName, List<String> sanitizedPrincipes) {
+  final normalizedBrand = _normalizeClusterSegment(brandName ?? 'UNKNOWN');
+  final normalizedPrincipes =
+      sanitizedPrincipes.isEmpty
+            ? <String>['NO_PA']
+            : sanitizedPrincipes.map(_normalizeClusterSegment).toList()
+        ..sort();
+  return '${normalizedBrand}__${normalizedPrincipes.join('_')}';
+}
+
+String _normalizeClusterSegment(String value) {
+  final upper = value.toUpperCase();
+  var cleaned = upper.replaceAll(RegExp(r'[^A-Z0-9]+'), '_');
+  cleaned = cleaned.replaceAll(RegExp(r'_+'), '_');
+  cleaned = cleaned.replaceAll(RegExp(r'^_+|_+$'), '').trim();
+  return cleaned.isEmpty ? 'UNK' : cleaned;
 }
 
 // WHY: Sanitize active principle names by removing dosage, units, formulation keywords,

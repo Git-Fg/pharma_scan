@@ -1,22 +1,11 @@
 import 'package:decimal/decimal.dart';
+import 'package:pharma_scan/features/scanner/models/medicament_model.dart';
 
 Decimal? parseDecimalValue(String? raw) {
   if (raw == null) return null;
   final normalized = raw.trim();
   if (normalized.isEmpty) return null;
   return Decimal.tryParse(normalized);
-}
-
-String? formatDosageLabel({required Decimal? dosage, required String? unit}) {
-  final normalizedUnit = unit?.trim();
-  final hasUnit = normalizedUnit != null && normalizedUnit.isNotEmpty;
-
-  if (dosage == null && !hasUnit) return null;
-  if (dosage == null) return normalizedUnit;
-
-  final formattedValue = formatDecimal(dosage);
-  if (!hasUnit) return formattedValue;
-  return '$formattedValue $normalizedUnit';
 }
 
 String formatDecimal(Decimal value) {
@@ -29,4 +18,18 @@ String formatDecimal(Decimal value) {
     trimmed = trimmed.substring(0, trimmed.length - 1);
   }
   return trimmed;
+}
+
+extension MedicamentDosageX on Medicament {
+  String? get formattedDosage {
+    final value = dosage;
+    final unit = dosageUnit.trim();
+    final hasUnit = unit.isNotEmpty;
+
+    if (value == null && !hasUnit) return null;
+    if (value == null) return unit;
+
+    final formattedValue = formatDecimal(value);
+    return hasUnit ? '$formattedValue $unit' : formattedValue;
+  }
 }

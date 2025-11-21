@@ -1,0 +1,13 @@
+---
+description: Autonomous testing and improvement loop.
+alwaysApply: false
+---
+
+Run the app using fluttter run -d emulator-5554 in background, then wait 30 sec , then manually test everything working fine and the entire parsing logic from the app + group + cluster group is working fine and optimal (for ex : no labo , same medications correctly reunited , search optimal ...)
+
+The testing process must concerns all the capacities, UI and UX from the codebase to construct a detailed report, page per page, of each suggestions, fixes and improvements in working logic/ui/ux. Do not stop until you've tried and verified everything.
+
+For each issue / incoherence / error, implement the fix then enter into a fully autonomous loop of flutter run -> wait -> test -> fix until every thing is solved and the app is production ready.
+
+Important : Do not test capacities related to camera (from the scanner). Only test library, research, parsing, group...
+To access to the logs in real time, make sure to use talker capacities. No need to run flutter logs or any similar command.
