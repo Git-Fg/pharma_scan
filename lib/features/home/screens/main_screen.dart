@@ -1,6 +1,7 @@
 // lib/features/home/screens/main_screen.dart
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:pharma_scan/core/router/app_routes.dart';
@@ -15,50 +16,56 @@ import 'package:pharma_scan/core/services/data_initialization_service.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:gap/gap.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
+import 'package:pharma_scan/features/home/widgets/unified_activity_banner.dart';
 
-class MainScreen extends ConsumerStatefulWidget {
+class MainScreen extends HookConsumerWidget {
   const MainScreen({required this.navigationShell, super.key});
 
   final StatefulNavigationShell navigationShell;
 
   @override
-  ConsumerState<MainScreen> createState() => _MainScreenState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    // WHY: Trigger sync after first frame
+    useEffect(() {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref
+            .read(syncControllerProvider.notifier)
+            .startSync(force: false)
+            .catchError((_) => false);
+      });
+      return null;
+    }, []);
 
-class _MainScreenState extends ConsumerState<MainScreen> {
-  void _onTabChanged(int index) {
-    // "goBranch" switches the tab.
-    // "initialLocation: index == navigationShell.currentIndex" implements the
-    // standard behavior: if you tap the active tab, it pops to the root of that tab.
-    widget.navigationShell.goBranch(
-      index,
-      initialLocation: index == widget.navigationShell.currentIndex,
-    );
-  }
+    void onTabChanged(int index) {
+      // "goBranch" switches the tab.
+      // "initialLocation: index == navigationShell.currentIndex" implements the
+      // standard behavior: if you tap the active tab, it pops to the root of that tab.
+      navigationShell.goBranch(
+        index,
+        initialLocation: index == navigationShell.currentIndex,
+      );
+    }
 
-  Future<bool> _triggerSync({bool force = false}) {
-    return ref
-        .read(syncControllerProvider.notifier)
-        .startSync(force: force)
-        .catchError((_) => false);
-  }
+    Future<bool> triggerSync({bool force = false}) {
+      return ref
+          .read(syncControllerProvider.notifier)
+          .startSync(force: force)
+          .catchError((_) => false);
+    }
 
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _triggerSync();
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
     final theme = ShadTheme.of(context);
     final titles = [Strings.scanner, Strings.explorer];
     final syncProgress = ref.watch(syncControllerProvider);
     final initState = ref.watch(initializationStateProvider);
     final initStepAsync = ref.watch(initializationStepProvider);
-    final initStep = initStepAsync.value;
+    final initStep = initStepAsync.maybeWhen(
+      data: (value) => value,
+      orElse: () => null,
+    );
+    final initializationErrorMessage = ref.watch(
+      initializationErrorMessageProvider,
+    );
+    final initTimerStart = useState<DateTime?>(null);
 
     // WHY: Listen for sync status changes to show toast notifications
     // Data providers are now reactive to sync completion via lastSyncEpochStreamProvider
@@ -67,7 +74,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       if (next.phase == SyncPhase.success &&
           previous?.phase != SyncPhase.success) {
         // Show success toast notification
-        if (mounted) {
+        if (context.mounted) {
           ShadSonner.of(context).show(
             ShadToast(
               title: const Text(Strings.updateCompleted),
@@ -80,7 +87,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       } else if (next.phase == SyncPhase.error &&
           previous?.phase != SyncPhase.error) {
         // Show error toast notification only on transition to error
-        if (mounted) {
+        if (context.mounted) {
           final sonner = ShadSonner.of(context);
           final toastId = DateTime.now().millisecondsSinceEpoch;
           sonner.show(
@@ -100,18 +107,239 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       }
     });
 
+    final isInitializationErrored = initState == InitializationState.error;
+    final isInitializationActive =
+        initState == InitializationState.initializing ||
+        (initStep != null &&
+            initStep != InitializationStep.idle &&
+            initStep != InitializationStep.ready &&
+            initStep != InitializationStep.error);
+
+    useEffect(() {
+      if (isInitializationErrored || isInitializationActive) {
+        initTimerStart.value ??= DateTime.now();
+      } else {
+        initTimerStart.value = null;
+      }
+      return null;
+    }, [isInitializationErrored, isInitializationActive]);
+
+    UnifiedActivityBanner? activityBanner;
+    if (isInitializationErrored) {
+      activityBanner = UnifiedActivityBanner(
+        icon: LucideIcons.triangleAlert,
+        title: Strings.dataOperationsTitle,
+        status: Strings.initializationError,
+        secondaryStatus:
+            initializationErrorMessage ??
+            Strings.initializationErrorDescription,
+        indeterminate: true,
+        startTime: initTimerStart.value,
+        isError: true,
+        onRetry: () =>
+            ref.read(initializationStateProvider.notifier).initialize(),
+      );
+    } else if (isInitializationActive) {
+      const stages = [
+        InitializationStep.downloading,
+        InitializationStep.parsing,
+        InitializationStep.aggregating,
+        InitializationStep.cleaning,
+      ];
+      final currentStage = initStep ?? InitializationStep.downloading;
+      double? initProgress;
+      final stageIndex = stages.indexOf(currentStage);
+      if (stageIndex >= 0) {
+        initProgress = (stageIndex + 1) / stages.length;
+      } else if (currentStage == InitializationStep.ready) {
+        initProgress = 1;
+      }
+      final (status, description, icon) = switch (currentStage) {
+        InitializationStep.downloading => (
+          Strings.initializationDownloading,
+          Strings.initializationDownloadingDescription,
+          LucideIcons.download,
+        ),
+        InitializationStep.parsing => (
+          Strings.initializationParsing,
+          Strings.initializationParsingDescription,
+          LucideIcons.fileDigit,
+        ),
+        InitializationStep.aggregating => (
+          Strings.initializationAggregatingTitle,
+          Strings.initializationAggregatingDescription,
+          LucideIcons.database,
+        ),
+        InitializationStep.cleaning => (
+          Strings.initializationInProgress,
+          Strings.initializationDescription,
+          LucideIcons.loader,
+        ),
+        _ => (
+          Strings.initializationInProgress,
+          Strings.initializationDescription,
+          LucideIcons.loader,
+        ),
+      };
+      activityBanner = UnifiedActivityBanner(
+        icon: icon,
+        title: Strings.dataOperationsTitle,
+        status: status,
+        secondaryStatus: description,
+        progressValue: initProgress,
+        progressLabel: initProgress != null
+            ? Strings.dataOperationsProgressLabel(initProgress * 100, status)
+            : null,
+        indeterminate: initProgress == null,
+        startTime: initTimerStart.value,
+      );
+    } else if (syncProgress.phase != SyncPhase.idle) {
+      final presenter = SyncStatusPresenter(syncProgress);
+      IconData icon;
+      String status;
+      String? description;
+      bool indeterminate = true;
+      double? progressValue;
+      Duration? eta;
+      var isError = false;
+
+      switch (syncProgress.phase) {
+        case SyncPhase.waitingNetwork:
+          icon = LucideIcons.wifiOff;
+          status = Strings.dataOperationsWaitingNetwork;
+          description = Strings.syncWaitingNetwork;
+          break;
+        case SyncPhase.checking:
+          icon = LucideIcons.search;
+          status = Strings.dataOperationsCheckingUpdates;
+          description = Strings.syncCheckingUpdates;
+          break;
+        case SyncPhase.downloading:
+          icon = LucideIcons.download;
+          status = Strings.syncBannerDownloadingTitle;
+          description = Strings.syncDownloadingSource(
+            syncProgress.subject ?? Strings.data,
+          );
+          indeterminate = false;
+          progressValue = syncProgress.progress;
+          eta = syncProgress.estimatedRemaining;
+          break;
+        case SyncPhase.applying:
+          icon = LucideIcons.databaseZap;
+          status = Strings.syncBannerApplyingTitle;
+          description = Strings.syncApplyingUpdate;
+          break;
+        case SyncPhase.success:
+          icon = LucideIcons.circleCheck;
+          status = Strings.syncBannerSuccessTitle;
+          description =
+              presenter.successDescription ?? Strings.syncDatabaseUpdated;
+          indeterminate = false;
+          progressValue = 1;
+          break;
+        case SyncPhase.error:
+          icon = LucideIcons.triangleAlert;
+          status = Strings.syncBannerErrorTitle;
+          description = presenter.errorDescription ?? Strings.syncFailedMessage;
+          isError = true;
+          break;
+        case SyncPhase.idle:
+          icon = LucideIcons.loader;
+          status = Strings.dataOperationsIdle;
+          break;
+      }
+
+      activityBanner = UnifiedActivityBanner(
+        icon: icon,
+        title: Strings.dataOperationsTitle,
+        status: status,
+        secondaryStatus: description,
+        progressValue: progressValue,
+        progressLabel: progressValue != null
+            ? Strings.dataOperationsProgressLabel(progressValue * 100, status)
+            : null,
+        indeterminate: indeterminate,
+        startTime: syncProgress.startTime,
+        estimatedRemaining: eta,
+        isError: isError,
+        onRetry: isError ? () => triggerSync(force: true) : null,
+      );
+    }
+
+    Widget buildNavItem(
+      int index,
+      IconData icon,
+      String label,
+      ShadThemeData theme,
+    ) {
+      final isSelected = navigationShell.currentIndex == index;
+      final testId = index == 0 ? TestTags.navScanner : TestTags.navExplorer;
+      // Animate the scale of the selected item
+      return Testable(
+        id: testId,
+        child: Semantics(
+          label: label,
+          button: true,
+          excludeSemantics: true,
+          child: GestureDetector(
+            key: ValueKey(testId),
+            onTap: () => onTabChanged(index),
+            behavior: HitTestBehavior.opaque,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppDimens.spacingLg,
+                vertical: AppDimens.spacing2xs,
+              ),
+              decoration: isSelected
+                  ? BoxDecoration(
+                      color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(AppDimens.radiusLg),
+                    )
+                  : null,
+              child: ExcludeSemantics(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      icon,
+                      size: 24,
+                      color: isSelected
+                          ? theme.colorScheme.primary
+                          : theme.colorScheme.mutedForeground,
+                    ),
+                    const Gap(AppDimens.spacing2xs),
+                    Text(
+                      label,
+                      style: theme.textTheme.small.copyWith(
+                        color: isSelected
+                            ? theme.colorScheme.primary
+                            : theme.colorScheme.mutedForeground,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     return PopScope(
-      canPop: widget.navigationShell.currentIndex == 0,
+      canPop: navigationShell.currentIndex == 0,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) return;
-        if (widget.navigationShell.currentIndex != 0) {
-          _onTabChanged(0);
+        if (navigationShell.currentIndex != 0) {
+          onTabChanged(0);
         }
       },
       child: Scaffold(
         appBar: AppBar(
           title: Text(
-            titles[widget.navigationShell.currentIndex],
+            titles[navigationShell.currentIndex],
             style: theme.textTheme.h4.copyWith(
               color: theme.colorScheme.foreground,
             ),
@@ -124,11 +352,14 @@ class _MainScreenState extends ConsumerState<MainScreen> {
               child: Semantics(
                 button: true,
                 label: Strings.openSettings,
-                child: ShadButton.ghost(
+                child: IconButton(
                   key: const Key('settings_button'),
                   onPressed: () => context.push(AppRoutes.settings),
-                  leading: const Icon(LucideIcons.settings, size: 20),
-                  child: const SizedBox.shrink(),
+                  icon: Icon(
+                    LucideIcons.settings,
+                    size: 20,
+                    color: theme.colorScheme.foreground,
+                  ),
                 ),
               ),
             ),
@@ -139,33 +370,11 @@ class _MainScreenState extends ConsumerState<MainScreen> {
           bottom: false,
           child: Column(
             children: [
-              // WHY: Show initialization alert at top when actively initializing
-              // This provides a stable, visible notification that pushes content down
-              if (initStep != null &&
-                  initStep != InitializationStep.idle &&
-                  initStep != InitializationStep.ready)
-                _buildInitializationAlert(theme, initStep)
-                    .animate()
-                    .fadeIn(duration: 300.ms)
-                    .slideY(begin: -0.2, end: 0, curve: Curves.easeOut),
-              // WHY: Show sync banner when sync is actively running (not idle)
-              // This ensures the indicator is non-intrusive and only appears during updates
-              if (syncProgress.phase != SyncPhase.idle)
-                _SyncStatusBanner(
-                  progress: syncProgress,
-                  onRetry: syncProgress.phase == SyncPhase.error
-                      ? () => _triggerSync(force: true)
-                      : null,
-                ).animate(effects: AppAnimations.bannerEnter),
-              if (initState == InitializationState.error)
-                _InitializationBanner(
-                  onRetry: () => ref
-                      .read(initializationStateProvider.notifier)
-                      .initialize(),
-                ).animate(effects: AppAnimations.bannerEnter),
+              if (activityBanner != null)
+                activityBanner.animate(effects: AppAnimations.bannerEnter),
               Expanded(
                 // The navigationShell acts as the body. It contains the IndexedStack internally.
-                child: widget.navigationShell,
+                child: navigationShell,
               ),
             ],
           ),
@@ -196,8 +405,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _buildNavItem(0, LucideIcons.scan, Strings.scanner, theme),
-                _buildNavItem(1, LucideIcons.database, Strings.explorer, theme),
+                buildNavItem(0, LucideIcons.scan, Strings.scanner, theme),
+                buildNavItem(1, LucideIcons.database, Strings.explorer, theme),
               ],
             ),
           ),
@@ -205,333 +414,12 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       ),
     );
   }
-
-  Widget _buildInitializationAlert(
-    ShadThemeData theme,
-    InitializationStep step,
-  ) {
-    // Determine content based on step
-    final (icon, title, description, isDestructive) = switch (step) {
-      InitializationStep.downloading => (
-        LucideIcons.download,
-        Strings.initializationDownloading,
-        Strings.initializationDownloadingDescription,
-        false,
-      ),
-      InitializationStep.parsing => (
-        LucideIcons.fileDigit,
-        Strings.initializationParsing,
-        Strings.initializationParsingDescription,
-        false,
-      ),
-      InitializationStep.aggregating => (
-        LucideIcons.database,
-        Strings.initializationAggregatingTitle,
-        Strings.initializationAggregatingDescription,
-        false,
-      ),
-      InitializationStep.error => (
-        LucideIcons.triangleAlert,
-        Strings.initializationError,
-        Strings.initializationErrorDescription,
-        true,
-      ),
-      _ => (LucideIcons.loader, Strings.initializationInProgress, '...', false),
-    };
-
-    if (isDestructive) {
-      return Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: ShadAlert.destructive(
-          icon: Icon(icon),
-          title: Text(title),
-          description: Text(description),
-        ),
-      );
-    }
-
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: ShadAlert(
-        icon: Icon(icon, color: theme.colorScheme.primary),
-        title: Text(title),
-        description: Text(description),
-        // Add a nice primary border to distinguish it
-        decoration: ShadDecoration(
-          border: ShadBorder.all(color: theme.colorScheme.primary, width: 1),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNavItem(
-    int index,
-    IconData icon,
-    String label,
-    ShadThemeData theme,
-  ) {
-    final isSelected = widget.navigationShell.currentIndex == index;
-    final testId = index == 0 ? TestTags.navScanner : TestTags.navExplorer;
-    // Animate the scale of the selected item
-    return Testable(
-      id: testId,
-      child: Semantics(
-        label: label,
-        button: true,
-        excludeSemantics: true,
-        child: GestureDetector(
-          key: ValueKey(testId),
-          onTap: () => _onTabChanged(index),
-          behavior: HitTestBehavior.opaque,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppDimens.spacingLg,
-              vertical: AppDimens.spacing2xs,
-            ),
-            decoration: isSelected
-                ? BoxDecoration(
-                    color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(AppDimens.radiusLg),
-                  )
-                : null,
-            child: ExcludeSemantics(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    icon,
-                    size: 24,
-                    color: isSelected
-                        ? theme.colorScheme.primary
-                        : theme.colorScheme.mutedForeground,
-                  ),
-                  const Gap(AppDimens.spacing2xs),
-                  Text(
-                    label,
-                    style: theme.textTheme.small.copyWith(
-                      color: isSelected
-                          ? theme.colorScheme.primary
-                          : theme.colorScheme.mutedForeground,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _InitializationBanner extends ConsumerWidget {
-  final VoidCallback onRetry;
-
-  const _InitializationBanner({required this.onRetry});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = ShadTheme.of(context);
-    final errorMessage = ref.watch(initializationErrorMessageProvider);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppDimens.spacingMd,
-        0,
-        AppDimens.spacingMd,
-        AppDimens.spacingXs,
-      ),
-      child: ShadCard(
-        title: Row(
-          children: [
-            const Icon(Icons.warning_amber_rounded),
-            const Gap(AppDimens.spacingXs),
-            Expanded(
-              child: Text(Strings.updateError, style: theme.textTheme.h4),
-            ),
-          ],
-        ),
-        description: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(Strings.updateLimited, style: theme.textTheme.muted),
-            if (errorMessage != null)
-              Padding(
-                padding: const EdgeInsets.only(top: AppDimens.spacingXs),
-                child: Text(
-                  errorMessage,
-                  style: theme.textTheme.small,
-                  maxLines: 4,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-          ],
-        ),
-        footer: Row(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            Semantics(
-              button: true,
-              label: Strings.openSettings,
-              child: ShadButton.outline(
-                onPressed: () => context.push(AppRoutes.settings),
-                child: const Text(Strings.openSettings),
-              ),
-            ),
-            const Gap(AppDimens.spacingXs),
-            Semantics(
-              button: true,
-              label: Strings.retryUpdate,
-              child: ShadButton(
-                onPressed: onRetry,
-                child: const Text(Strings.retry),
-              ),
-            ),
-          ],
-        ),
-        child: const SizedBox.shrink(),
-      ),
-    );
-  }
-}
-
-class _SyncStatusBanner extends StatelessWidget {
-  const _SyncStatusBanner({required this.progress, this.onRetry});
-
-  final SyncProgress progress;
-  final VoidCallback? onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = ShadTheme.of(context);
-    final bannerData = SyncStatusPresenter(progress).toBannerData();
-    if (bannerData == null) return const SizedBox.shrink();
-
-    final showProgressIndicator =
-        bannerData.showProgress && bannerData.progressValue != null;
-    final hasDescription =
-        bannerData.description != null || showProgressIndicator;
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppDimens.spacingMd,
-        0,
-        AppDimens.spacingMd,
-        AppDimens.spacingXs,
-      ),
-      child: ShadCard(
-        title: Row(
-          children: [
-            Icon(bannerData.icon, color: theme.colorScheme.primary),
-            const Gap(AppDimens.spacingXs),
-            Expanded(child: Text(bannerData.title, style: theme.textTheme.h4)),
-          ],
-        ),
-        description: hasDescription
-            ? Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (bannerData.description != null)
-                    Text(bannerData.description!, style: theme.textTheme.muted),
-                  if (showProgressIndicator)
-                    Padding(
-                      padding: const EdgeInsets.only(top: AppDimens.spacingSm),
-                      child: ShadProgress(value: bannerData.progressValue!),
-                    ),
-                ],
-              )
-            : null,
-        footer: bannerData.showRetry && onRetry != null
-            ? Align(
-                alignment: Alignment.centerRight,
-                child: Semantics(
-                  button: true,
-                  label: Strings.retrySync,
-                  child: ShadButton.outline(
-                    onPressed: onRetry,
-                    child: const Text(Strings.retry),
-                  ),
-                ),
-              )
-            : null,
-        child: const SizedBox.shrink(),
-      ),
-    );
-  }
-}
-
-class SyncBannerData {
-  const SyncBannerData({
-    required this.icon,
-    required this.title,
-    this.description,
-    this.showProgress = false,
-    this.progressValue,
-    this.showRetry = false,
-  });
-
-  final IconData icon;
-  final String title;
-  final String? description;
-  final bool showProgress;
-  final double? progressValue;
-  final bool showRetry;
 }
 
 class SyncStatusPresenter {
   const SyncStatusPresenter(this.progress);
 
   final SyncProgress progress;
-
-  SyncBannerData? toBannerData() {
-    switch (progress.phase) {
-      case SyncPhase.idle:
-        return null;
-      case SyncPhase.waitingNetwork:
-        return const SyncBannerData(
-          icon: LucideIcons.wifiOff,
-          title: Strings.syncBannerWaitingNetworkTitle,
-          description: Strings.syncWaitingNetwork,
-        );
-      case SyncPhase.checking:
-        return const SyncBannerData(
-          icon: LucideIcons.search,
-          title: Strings.syncBannerCheckingTitle,
-          description: Strings.syncCheckingUpdates,
-        );
-      case SyncPhase.downloading:
-        return SyncBannerData(
-          icon: LucideIcons.download,
-          title: Strings.syncBannerDownloadingTitle,
-          description: Strings.syncDownloadingSource(
-            progress.subject ?? Strings.data,
-          ),
-          showProgress: progress.progress != null,
-          progressValue: progress.progress,
-        );
-      case SyncPhase.applying:
-        return const SyncBannerData(
-          icon: LucideIcons.databaseZap,
-          title: Strings.syncBannerApplyingTitle,
-          description: Strings.syncApplyingUpdate,
-        );
-      case SyncPhase.success:
-        return SyncBannerData(
-          icon: LucideIcons.circleCheck,
-          title: Strings.syncBannerSuccessTitle,
-          description: successDescription ?? Strings.syncDatabaseUpdated,
-        );
-      case SyncPhase.error:
-        return SyncBannerData(
-          icon: LucideIcons.triangleAlert,
-          title: Strings.syncBannerErrorTitle,
-          description: errorDescription ?? Strings.syncFailedMessage,
-          showRetry: true,
-        );
-    }
-  }
 
   String? get successDescription {
     switch (progress.code) {

@@ -141,12 +141,18 @@ class FileDownloadService {
   Future<File> downloadToTempFile({
     required String url,
     required String tempPathPrefix,
+    void Function(int received, int total)? onReceiveProgress,
   }) async {
     final tempFile = File(
       '$tempPathPrefix${DateTime.now().millisecondsSinceEpoch}.tmp',
     );
     await tempFile.parent.create(recursive: true);
-    await _dio.download(url, tempFile.path, deleteOnError: true);
+    await _dio.download(
+      url,
+      tempFile.path,
+      deleteOnError: true,
+      onReceiveProgress: onReceiveProgress,
+    );
     return tempFile;
   }
 

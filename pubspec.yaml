@@ -57,6 +57,7 @@ dependencies:
   flutter_hooks: ^0.21.3+1
   hooks_riverpod: ^3.0.3
   diacritic: ^0.1.6
+  url_launcher: ^6.3.2
 
 dev_dependencies:
   flutter_test:

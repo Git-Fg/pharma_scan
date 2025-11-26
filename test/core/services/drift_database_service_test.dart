@@ -114,36 +114,27 @@ void main() {
 
       await dataInitializationService.runSummaryAggregationForTesting();
 
-      // WHEN: We classify GROUP_A
-      final groupData = await database.libraryDao.classifyProductGroup(
-        'GROUP_A',
-      );
+      // WHEN: We fetch GROUP_A details
+      final members = await database.libraryDao.getGroupDetails('GROUP_A');
+      final related = await database.libraryDao.fetchRelatedPrinceps('GROUP_A');
 
-      // THEN: Should have member rows for princeps, generic, and related princeps
-      expect(groupData, isNotNull);
-      expect(groupData!.memberRows.length, greaterThanOrEqualTo(2));
+      // THEN: Should have member rows for princeps, generic, and no related princeps
+      expect(members.length, greaterThanOrEqualTo(2));
 
       // Verify princeps member
-      final princepsMember = groupData.memberRows.firstWhere(
-        (m) => m.groupMemberRow.type == 0,
-      );
-      expect(princepsMember.medicamentRow.codeCip, 'CIP_PRINCEPS_A');
+      final princepsMember = members.firstWhere((m) => m.isPrinceps);
+      expect(princepsMember.codeCip, 'CIP_PRINCEPS_A');
 
       // Verify generic member
-      final genericMember = groupData.memberRows.firstWhere(
-        (m) => m.groupMemberRow.type == 1,
-      );
-      expect(genericMember.medicamentRow.codeCip, 'CIP_GENERIC_A');
+      final genericMember = members.firstWhere((m) => !m.isPrinceps);
+      expect(genericMember.codeCip, 'CIP_GENERIC_A');
 
       // WHY: Related princeps must contain all common principles PLUS additional ones
-      // GROUP_B has only APIXABAN (same as GROUP_A), so it doesn't qualify as related princeps
-      // Related princeps are therapies that are enriched (have more active principles)
-      // Groups with same principles but different dosages are not considered related princeps
       expect(
-        groupData.relatedPrincepsRows,
+        related,
         isEmpty,
         reason:
-            'GROUP_B has same principles as GROUP_A (only APIXABAN), so it does not qualify as related princeps. Related princeps must have additional principles.',
+            'GROUP_B has same principles as GROUP_A (only APIXABAN), so it does not qualify as related princeps.',
       );
     });
 
@@ -192,41 +183,32 @@ void main() {
 
         await dataInitializationService.runSummaryAggregationForTesting();
 
-        // WHEN: We classify the group
-        final groupData = await database.libraryDao.classifyProductGroup(
+        // WHEN: We fetch details, expecting dosage inheritance in view
+        final members = await database.libraryDao.getGroupDetails(
           'GROUP_BROKEN',
         );
 
         // THEN: The group data should contain both princeps and generic
-        expect(groupData, isNotNull);
-        expect(groupData!.memberRows.length, 2);
+        expect(members.length, 2);
 
-        // Verify princeps member exists
-        final princepsMember = groupData.memberRows.firstWhere(
-          (m) => m.groupMemberRow.type == 0,
-        );
-        expect(princepsMember.medicamentRow.codeCip, 'CIP_P');
+        final princepsMember = members.firstWhere((m) => m.isPrinceps);
+        final genericMember = members.firstWhere((m) => !m.isPrinceps);
 
-        // Verify generic member exists
-        final genericMember = groupData.memberRows.firstWhere(
-          (m) => m.groupMemberRow.type == 1,
-        );
-        expect(genericMember.medicamentRow.codeCip, 'CIP_G');
+        expect(princepsMember.codeCip, 'CIP_P');
+        expect(genericMember.codeCip, 'CIP_G');
 
-        // Verify principes data is available for both
+        // Verify formatted dosage is available for both entries
         expect(
-          groupData.principesByCip.containsKey('CIP_P'),
-          isTrue,
-          reason: 'Princeps should have principes data',
+          princepsMember.formattedDosage,
+          isNotEmpty,
+          reason: 'Princeps should expose formatted dosage from principes',
         );
         expect(
-          groupData.principesByCip.containsKey('CIP_G'),
-          isTrue,
-          reason: 'Generic should have principes data',
+          genericMember.formattedDosage,
+          equals(princepsMember.formattedDosage),
+          reason:
+              'Generic without dosage should inherit princeps dosage through SQL view',
         );
-
-        // Test passes if we reach here - the data structure is correct
-        // The grouping logic in the UI will handle dosage inheritance
       },
     );
   });

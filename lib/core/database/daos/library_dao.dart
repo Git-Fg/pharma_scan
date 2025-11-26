@@ -1,98 +1,12 @@
 // lib/core/database/daos/library_dao.dart
 
 import 'package:drift/drift.dart';
-import 'package:pharma_scan/core/database/database.dart' as drift_db;
 import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/services/logger_service.dart';
 import 'package:pharma_scan/core/utils/medicament_helpers.dart';
 import 'package:pharma_scan/features/explorer/models/generic_group_entity.dart';
 
 part 'library_dao.g.dart';
-
-// WHY: DTO classes for product group classification data
-// These are not mappers, but data transfer objects that aggregate multiple Drift rows
-class GroupMemberData {
-  const GroupMemberData({
-    required this.medicamentRow,
-    required this.specialiteRow,
-    required this.groupMemberRow,
-    required this.summaryRow,
-  });
-
-  final drift_db.Medicament medicamentRow;
-  final drift_db.Specialite specialiteRow;
-  final drift_db.GroupMember groupMemberRow;
-  final drift_db.MedicamentSummaryData summaryRow;
-}
-
-class ProductGroupData {
-  const ProductGroupData({
-    required this.groupId,
-    required this.memberRows,
-    required this.principesByCip,
-    required this.commonPrincipes,
-    this.relatedPrincepsRows = const [],
-  });
-
-  final String groupId;
-  final List<GroupMemberData> memberRows;
-  final Map<String, List<drift_db.PrincipesActif>> principesByCip;
-  final List<String> commonPrincipes;
-  final List<GroupMemberData> relatedPrincepsRows;
-
-  // WHY: Get synthetic title for display
-  String get syntheticTitle {
-    final groupCanonicalName = memberRows.isNotEmpty
-        ? memberRows.first.summaryRow.princepsDeReference
-        : (commonPrincipes.isNotEmpty ? commonPrincipes.join(' + ') : '');
-
-    if (groupCanonicalName.isEmpty) {
-      return 'Groupe $groupId';
-    }
-
-    return groupCanonicalName;
-  }
-
-  // WHY: Get distinct formulations from member rows
-  List<String> get distinctFormulations {
-    final formsSet = <String>{};
-    for (final memberRow in memberRows) {
-      final form = memberRow.specialiteRow.formePharmaceutique?.trim();
-      if (form != null && form.isNotEmpty) {
-        formsSet.add(form);
-      }
-    }
-    final forms = formsSet.toList()..sort();
-    return forms;
-  }
-
-  // WHY: Get distinct dosage labels
-  List<String> get distinctDosages {
-    final dosageLabels = <String>{};
-    for (final memberRow in memberRows) {
-      final principesData =
-          principesByCip[memberRow.medicamentRow.codeCip] ??
-          const <drift_db.PrincipesActif>[];
-      final firstPrincipe = principesData.isNotEmpty
-          ? principesData.first
-          : null;
-
-      if (firstPrincipe != null) {
-        final dosage = firstPrincipe.dosage;
-        final unit = firstPrincipe.dosageUnit ?? '';
-        if (dosage != null || unit.isNotEmpty) {
-          final formatted = dosage != null
-              ? '$dosage${unit.isNotEmpty ? ' $unit' : ''}'
-              : unit;
-          if (formatted.isNotEmpty) {
-            dosageLabels.add(formatted);
-          }
-        }
-      }
-    }
-    return dosageLabels.toList()..sort();
-  }
-}
 
 @DriftAccessor(
   tables: [
@@ -107,167 +21,69 @@ class ProductGroupData {
 class LibraryDao extends DatabaseAccessor<AppDatabase> with _$LibraryDaoMixin {
   LibraryDao(super.db);
 
-  Future<ProductGroupData?> classifyProductGroup(String groupId) async {
-    LoggerService.db('Classifying product group $groupId');
-    // WHY: Join with MedicamentSummary to access pre-computed cleaned names (nomCanonique)
-    // from the parser. This implements Source of Truth 1 (The Parser) in the Triangulation Strategy.
-    final groupMembersQuery = select(specialites).join([
-      innerJoin(
-        medicaments,
-        medicaments.cisCode.equalsExp(specialites.cisCode),
-      ),
-      innerJoin(
-        groupMembers,
-        groupMembers.codeCip.equalsExp(medicaments.codeCip),
-      ),
-      innerJoin(
-        medicamentSummary,
-        medicamentSummary.cisCode.equalsExp(specialites.cisCode),
-      ),
-    ])..where(groupMembers.groupId.equals(groupId));
-
-    final memberRows = await groupMembersQuery.get();
-    if (memberRows.isEmpty) return null;
-
-    final memberCips = memberRows
-        .map((row) => row.readTable(medicaments).codeCip)
-        .toSet();
-    final principesByCip = await _getPrincipesActifsByCip(memberCips);
-
-    final memberDataList = <GroupMemberData>[];
-    List<String> commonPrincipes = [];
-
-    for (final row in memberRows) {
-      final medData = row.readTable(medicaments);
-      final specData = row.readTable(specialites);
-      final memberData = row.readTable(groupMembers);
-      final summaryData = row.readTable(medicamentSummary);
-
-      memberDataList.add(
-        GroupMemberData(
-          medicamentRow: medData,
-          specialiteRow: specData,
-          groupMemberRow: memberData,
-          summaryRow: summaryData,
-        ),
-      );
-
-      // WHY: Extract common principles from the first summary row we find (they are identical for the group)
-      if (commonPrincipes.isEmpty) {
-        commonPrincipes = summaryData.principesActifsCommuns;
-      }
-    }
-
-    // WHY: Find related princeps from other groups that contain ALL of the current group's
-    // active ingredients PLUS at least one additional ingredient.
-    final relatedPrincepsRows = await _findRelatedPrinceps(
-      groupId,
-      commonPrincipes,
-    );
-
-    // WHY: Get principes for related princeps as well
-    final relatedCips = relatedPrincepsRows
-        .map((row) => row.medicamentRow.codeCip)
-        .toSet();
-    final relatedPrincipesByCip = await _getPrincipesActifsByCip(relatedCips);
-    principesByCip.addAll(relatedPrincipesByCip);
-
-    return ProductGroupData(
-      groupId: groupId,
-      memberRows: memberDataList,
-      principesByCip: principesByCip,
-      commonPrincipes: commonPrincipes,
-      relatedPrincepsRows: relatedPrincepsRows,
-    );
+  Stream<List<ViewGroupDetail>> watchGroupDetails(String groupId) {
+    LoggerService.db('Watching group $groupId via view_group_details');
+    final view = attachedDatabase.viewGroupDetails;
+    final query = select(view)
+      ..where((tbl) => tbl.groupId.equals(groupId))
+      ..orderBy([
+        (tbl) =>
+            OrderingTerm(expression: tbl.isPrinceps, mode: OrderingMode.desc),
+        (tbl) => OrderingTerm.asc(tbl.nomCanonique),
+      ]);
+    return query.watch();
   }
 
-  // WHY: Find princeps from other groups that contain ALL of the current group's
-  // active ingredients PLUS at least one additional ingredient.
-  Future<List<GroupMemberData>> _findRelatedPrinceps(
-    String groupId,
-    List<String> commonPrincipes,
-  ) async {
+  Future<List<ViewGroupDetail>> getGroupDetails(String groupId) {
+    LoggerService.db('Fetching snapshot for group $groupId');
+    final view = attachedDatabase.viewGroupDetails;
+    final query = select(view)
+      ..where((tbl) => tbl.groupId.equals(groupId))
+      ..orderBy([
+        (tbl) =>
+            OrderingTerm(expression: tbl.isPrinceps, mode: OrderingMode.desc),
+        (tbl) => OrderingTerm.asc(tbl.nomCanonique),
+      ]);
+    return query.get();
+  }
+
+  Future<List<ViewGroupDetail>> fetchRelatedPrinceps(String groupId) async {
+    LoggerService.db('Fetching related princeps for $groupId');
+    final targetSummaries = await (select(
+      medicamentSummary,
+    )..where((tbl) => tbl.groupId.equals(groupId))).get();
+    if (targetSummaries.isEmpty) return [];
+
+    final commonPrincipes = targetSummaries.first.principesActifsCommuns;
     if (commonPrincipes.isEmpty) return [];
 
-    // WHY: Query the denormalized MedicamentSummary source of truth directly to
-    // avoid redundant multi-table joins when filtering candidate rows.
-    final summaryQuery = select(medicamentSummary)
-      ..where(
-        (tbl) => tbl.groupId.isNotValue(groupId) & tbl.isPrinceps.equals(true),
-      );
+    final candidateSummaries =
+        await (select(medicamentSummary)..where(
+              (tbl) =>
+                  tbl.groupId.isNotValue(groupId) & tbl.isPrinceps.equals(true),
+            ))
+            .get();
 
-    final summaryRows = await summaryQuery.get();
-    if (summaryRows.isEmpty) return [];
-
-    final candidateSummaries = <drift_db.MedicamentSummaryData>[];
-    for (final summary in summaryRows) {
+    final relatedGroupIds = <String>{};
+    for (final summary in candidateSummaries) {
       final rowPrincipes = summary.principesActifsCommuns;
-
-      // WHY: Related therapies must contain all shared principles plus at least
-      // one extra component to be considered an enriched princeps option.
       final hasAllCommon = commonPrincipes.every(rowPrincipes.contains);
       final hasAdditional = rowPrincipes.length > commonPrincipes.length;
 
-      if (hasAllCommon && hasAdditional) {
-        candidateSummaries.add(summary);
+      if (hasAllCommon && hasAdditional && summary.groupId != null) {
+        relatedGroupIds.add(summary.groupId!);
       }
     }
 
-    if (candidateSummaries.isEmpty) return [];
+    if (relatedGroupIds.isEmpty) return [];
 
-    final relatedPrincepsRows = <GroupMemberData>[];
-    final cisCodes = candidateSummaries.map((row) => row.cisCode).toList();
+    final view = attachedDatabase.viewGroupDetails;
+    final relatedQuery = select(view)
+      ..where((tbl) => tbl.groupId.isIn(relatedGroupIds.toList()))
+      ..where((tbl) => tbl.isPrinceps.equals(true))
+      ..orderBy([(tbl) => OrderingTerm.asc(tbl.princepsDeReference)]);
 
-    // WHY: Hydrate the minimal set of rows (only confirmed matches) to keep the
-    // join cost low. Drift 2.24.0+ handles large sets internally.
-    final hydratedQuery = select(specialites).join([
-      innerJoin(
-        medicaments,
-        medicaments.cisCode.equalsExp(specialites.cisCode),
-      ),
-      innerJoin(
-        groupMembers,
-        groupMembers.codeCip.equalsExp(medicaments.codeCip),
-      ),
-      innerJoin(
-        medicamentSummary,
-        medicamentSummary.cisCode.equalsExp(specialites.cisCode),
-      ),
-    ])..where(specialites.cisCode.isIn(cisCodes));
-
-    final hydratedRows = await hydratedQuery.get();
-    for (final row in hydratedRows) {
-      relatedPrincepsRows.add(
-        GroupMemberData(
-          medicamentRow: row.readTable(medicaments),
-          specialiteRow: row.readTable(specialites),
-          groupMemberRow: row.readTable(groupMembers),
-          summaryRow: row.readTable(medicamentSummary),
-        ),
-      );
-    }
-
-    return relatedPrincepsRows;
-  }
-
-  Future<Map<String, List<drift_db.PrincipesActif>>> _getPrincipesActifsByCip(
-    Set<String> codeCips,
-  ) async {
-    if (codeCips.isEmpty) return {};
-
-    final results = <String, List<drift_db.PrincipesActif>>{};
-    final cipList = codeCips.toList();
-
-    // WHY: Drift 2.24.0+ handles large sets internally, so manual chunking is no longer needed.
-    final query = select(principesActifs)
-      ..where((tbl) => tbl.codeCip.isIn(cipList));
-    final rows = await query.get();
-
-    for (final row in rows) {
-      results.putIfAbsent(row.codeCip, () => []).add(row);
-    }
-
-    return results;
+    return relatedQuery.get();
   }
 
   // WHY: Retrieves global statistics for the dashboard.
@@ -397,7 +213,8 @@ class LibraryDao extends DatabaseAccessor<AppDatabase> with _$LibraryDaoMixin {
     return rows
         .map((row) {
           final groupId = row.read(tbl.groupId)!;
-          final princepsReference = row.read(tbl.princepsDeReference)!;
+          final rawPrincepsReference = row.read(tbl.princepsDeReference)!;
+          final princepsReference = extractPrincepsLabel(rawPrincepsReference);
           final dynamic rawPrincipes = row.read(tbl.principesActifsCommuns);
           final List<String> principesActifsList;
           if (rawPrincipes is String) {

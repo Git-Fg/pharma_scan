@@ -24,6 +24,9 @@ class Strings {
   static const String exploreMedicationGroup =
       'Explorer le groupe de médicaments';
   static const String closeMedicationCard = 'Fermer cette carte de médicament';
+  static const String shortageAlert = 'Pénurie';
+  static const String ficheInfo = 'Fiche';
+  static const String rcpDocument = 'RCP';
 
   // Medication Labels
   static const String generic = 'GÉNÉRIQUE';
@@ -45,6 +48,14 @@ class Strings {
   static const String condition = 'condition';
   static const String price = 'Prix public';
   static const String refundRate = 'Taux de remboursement';
+  static const String priceShort = 'Prix';
+  static const String refundShort = 'Remb.';
+  static const String priceUnavailable = 'Prix indisponible';
+  static const String priceRangeLabel = 'Fourchette de prix';
+  static const String refundLabel = 'Remboursement';
+  static const String refundNotAvailable = 'Non remboursé';
+  static const String regulatoryFinancials = 'Réglementaire & Finances';
+  static const String equivalentTo = 'Équivalent : ';
 
   // Error Messages
   static const String unknown = 'Inconnu';
@@ -249,6 +260,23 @@ class Strings {
       'Impossible d\'appliquer la mise à jour à la base locale.';
   static const String syncErrorUnknown =
       'Une erreur inattendue est survenue lors de la synchronisation.';
+  static const String dataOperationsTitle = 'Opérations de données';
+  static const String dataOperationsElapsed = 'Temps écoulé';
+  static const String dataOperationsEta = 'Temps restant estimé';
+  static const String dataOperationsEtaPending = 'Estimation en cours…';
+  static const String dataOperationsDownloadInProgress =
+      'Téléchargement des fichiers BDPM…';
+  static const String dataOperationsParsingInProgress =
+      'Traitement des fichiers BDPM…';
+  static const String dataOperationsApplyingInProgress =
+      'Application des données locales…';
+  static const String dataOperationsWaitingNetwork =
+      'En attente d\'une connexion réseau…';
+  static const String dataOperationsCheckingUpdates =
+      'Analyse des mises à jour disponibles…';
+  static const String dataOperationsIdle = 'En attente';
+  static String dataOperationsProgressLabel(double percent, String label) =>
+      '${percent.toStringAsFixed(0)}% • $label';
 
   // Explorer
   static const String searchErrorOccurred =
@@ -301,6 +329,14 @@ class Strings {
   static const String stockShortageBadge = 'Rupture de stock';
   static const String stockTensionBadge = 'Tension d\'approvisionnement';
   static const String hospitalBadge = '🏥 Usage hospitalier';
+  static const String badgeList1 = 'Liste I';
+  static const String badgeList2 = 'Liste II';
+  static const String badgeNarcotic = 'Stupéfiant';
+  static const String badgeException = 'Exception';
+  static const String badgeDental = 'Usage dentaire';
+  static const String badgeRestricted = 'Prescription restreinte';
+  static const String badgeSurveillance = 'Surveillance';
+  static const String badgeOtc = 'Accès libre';
 
   // Badge Tooltips
   static const String badgePrincepsTooltip = 'Médicament de référence original';

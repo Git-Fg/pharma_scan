@@ -1,183 +1,272 @@
-// lib/features/explorer/models/grouped_by_product_model.dart
-import 'package:collection/collection.dart';
-import 'package:decimal/decimal.dart';
-import 'package:pharma_scan/core/database/database.dart' as drift_db;
-import 'package:pharma_scan/core/database/daos/library_dao.dart';
-import 'package:pharma_scan/core/utils/dosage_utils.dart';
+import 'package:pharma_scan/core/database/database.dart' as db;
 import 'package:pharma_scan/core/utils/medicament_helpers.dart';
 
-// WHY: Simple data class for medication items in grouped products
-// Contains only the fields needed by the UI, extracted from GroupMemberData
 class MedicationItem {
   const MedicationItem({
-    required this.nom,
     required this.codeCip,
+    required this.displayName,
     required this.titulaire,
-    required this.formePharmaceutique,
-    this.dosage,
-    this.dosageUnit,
-    this.groupId,
+    required this.isPrinceps,
+    this.formLabel,
+    this.dosageLabel,
+    this.price,
+    this.refundRate,
+    this.conditions,
+    this.isSurveillance = false,
+    this.availabilityStatus,
+    this.isHospitalOnly = false,
+    this.isDental = false,
+    this.isList1 = false,
+    this.isList2 = false,
+    this.isNarcotic = false,
+    this.isException = false,
+    this.isRestricted = false,
+    this.isOtc = false,
   });
 
-  final String nom;
   final String codeCip;
+  final String displayName;
   final String titulaire;
-  final String formePharmaceutique;
-  final Decimal? dosage;
-  final String? dosageUnit;
-  final String? groupId;
+  final bool isPrinceps;
+  final String? formLabel;
+  final String? dosageLabel;
+  final double? price;
+  final String? refundRate;
+  final String? conditions;
+  final bool isSurveillance;
+  final String? availabilityStatus;
+  final bool isHospitalOnly;
+  final bool isDental;
+  final bool isList1;
+  final bool isList2;
+  final bool isNarcotic;
+  final bool isException;
+  final bool isRestricted;
+  final bool isOtc;
 
-  String? get formattedDosage {
-    final value = dosage;
-    final unit = dosageUnit?.trim() ?? '';
-    final hasUnit = unit.isNotEmpty;
-
-    if (value == null && !hasUnit) return null;
-    if (value == null) return unit;
-
-    final formattedValue = formatDecimal(value);
-    return hasUnit ? '$formattedValue $unit' : formattedValue;
-  }
-}
-
-class GroupedByProduct {
-  const GroupedByProduct({
-    required this.productName,
-    this.dosage,
-    this.dosageUnit,
-    required this.laboratories,
-    required this.medicaments,
-  });
-
-  final String productName;
-  final Decimal? dosage;
-  final String? dosageUnit;
-  final List<String> laboratories;
-  final List<MedicationItem> medicaments;
-}
-
-// WHY: Extension to convert GroupMemberData to MedicationItem
-extension GroupMemberDataToItem on GroupMemberData {
-  MedicationItem toMedicationItem(
-    Map<String, List<drift_db.PrincipesActif>> principesByCip,
-  ) {
-    final principesData =
-        principesByCip[medicamentRow.codeCip] ??
-        const <drift_db.PrincipesActif>[];
-    final firstPrincipe = principesData.isNotEmpty ? principesData.first : null;
-
-    // WHY: Apply conditional naming logic based on medication type
-    // Princeps use CIS.Denomination (nomSpecialite) cleaned via subtraction
-    // Generics use Group Label (nomCanonique) split at " - "
-    String name;
-    if (groupMemberRow.type == 0) {
-      // Princeps: Use CIS.Denomination (nomSpecialite) cleaned via subtraction
-      name = cleanStandaloneName(
-        rawName: specialiteRow.nomSpecialite,
-        officialForm: specialiteRow.formePharmaceutique,
-        officialLab: specialiteRow.titulaire,
-      );
-    } else if (groupMemberRow.type == 1) {
-      // Generic: Split Group Label at " - " and take first part
-      name = summaryRow.nomCanonique.split(' - ').first.trim();
-    } else {
-      // Fallback for unknown types
-      name = summaryRow.nomCanonique;
-    }
-
-    // WHY: Remove dosage information from the name since dosage is displayed separately
-    name = deriveGroupTitleFromName(name);
+  factory MedicationItem.fromGroupDetail(db.ViewGroupDetail row) {
+    final titulaire = parseMainTitulaire(
+      row.summaryTitulaire ?? row.officialTitulaire,
+    );
+    final formLabel = row.formePharmaceutique?.trim();
+    final dosageLabel = row.formattedDosage?.trim();
+    final isPrinceps = row.isPrinceps;
+    final displayName = isPrinceps
+        ? extractPrincepsLabel(row.princepsDeReference)
+        : _extractGenericName(row.nomCanonique);
+    final availabilityStatus = row.availabilityStatus?.trim().isEmpty ?? true
+        ? null
+        : row.availabilityStatus!.trim();
 
     return MedicationItem(
-      nom: name,
-      codeCip: medicamentRow.codeCip,
-      titulaire: parseMainTitulaire(specialiteRow.titulaire),
-      formePharmaceutique: specialiteRow.formePharmaceutique ?? '',
-      dosage: parseDecimalValue(firstPrincipe?.dosage),
-      dosageUnit: firstPrincipe?.dosageUnit ?? '',
-      groupId: summaryRow.groupId,
+      codeCip: row.codeCip,
+      displayName: displayName,
+      titulaire: titulaire,
+      isPrinceps: isPrinceps,
+      formLabel: formLabel?.isNotEmpty == true ? formLabel : null,
+      dosageLabel: dosageLabel?.isNotEmpty == true ? dosageLabel : null,
+      price: row.prixPublic,
+      refundRate: row.tauxRemboursement?.trim().isEmpty ?? true
+          ? null
+          : row.tauxRemboursement!.trim(),
+      conditions: row.conditionsPrescription?.trim().isEmpty ?? true
+          ? null
+          : row.conditionsPrescription!.trim(),
+      isSurveillance: row.isSurveillance,
+      availabilityStatus: availabilityStatus,
+      isHospitalOnly: row.isHospitalOnly,
+      isDental: row.isDental,
+      isList1: row.isList1,
+      isList2: row.isList2,
+      isNarcotic: row.isNarcotic,
+      isException: row.isException,
+      isRestricted: row.isRestricted,
+      isOtc: row.isOtc,
     );
+  }
+
+  static String _extractGenericName(String canonicalName) {
+    final parts = canonicalName.split(' - ');
+    return parts.first.trim();
   }
 }
 
-// WHY: Helper function to group medication items by product name and dosage
-// Moved from mappers.dart to work with MedicationItem instead of Medicament
-// WHY: This function only handles grouping/bucketing logic. All name cleaning
-// and parsing is done in toMedicationItem extension, ensuring MedicationItem.nom
-// is already clean when it reaches this function.
-List<GroupedByProduct> groupMedicationsByProduct(
-  List<MedicationItem> medications, {
-  required String groupCanonicalName,
-  required Decimal? groupPrimaryDosage,
-}) {
-  if (medications.isEmpty) return [];
-
-  final buckets = <String, _ProductGroupBucket>{};
-
-  for (final medication in medications) {
-    // WHY: Use medication.nom directly - it's already cleaned by deriveGroupTitleFromName
-    // in toMedicationItem extension. Fallback to groupCanonicalName only if name is empty.
-    final nameToUse = medication.nom.isNotEmpty
-        ? medication.nom
-        : groupCanonicalName;
-
-    final dosageToUse = medication.dosage ?? groupPrimaryDosage;
-    final unitToUse = medication.dosageUnit ?? '';
-    // WHY: Normalize form for grouping key (uppercase, trimmed) - this is formatting
-    // for grouping purposes, not parsing/cleaning
-    final formToUse = medication.formePharmaceutique.toUpperCase();
-
-    final dosageKey = dosageToUse?.toString() ?? 'null';
-    final unitKey = unitToUse.toUpperCase();
-    // WHY: Include form in grouping key to ensure Form + Dosage + Molecule grouping
-    final key = '${nameToUse.toUpperCase()}|$formToUse|$dosageKey|$unitKey';
-
-    final bucket = buckets.putIfAbsent(
-      key,
-      () => _ProductGroupBucket(
-        productName: nameToUse,
-        dosage: dosageToUse,
-        dosageUnit: unitToUse,
-        formePharmaceutique: medication.formePharmaceutique,
-      ),
-    );
-
-    // WHY: Add laboratory to bucket if present (already cleaned by parseMainTitulaire)
-    if (medication.titulaire.isNotEmpty) {
-      bucket.laboratories.add(medication.titulaire);
-    }
-    bucket.medicaments.add(medication);
-  }
-
-  final groupedProducts = buckets.values.map((bucket) {
-    final laboratories = bucket.laboratories.toList()..sort();
-    final presentations = List<MedicationItem>.from(bucket.medicaments)
-      ..sort((a, b) => compareNatural(a.nom, b.nom));
-
-    return GroupedByProduct(
-      productName: bucket.productName,
-      dosage: bucket.dosage,
-      dosageUnit: bucket.dosageUnit,
-      laboratories: laboratories,
-      medicaments: presentations,
-    );
-  }).toList()..sort((a, b) => compareNatural(a.productName, b.productName));
-
-  return groupedProducts;
-}
-
-class _ProductGroupBucket {
-  _ProductGroupBucket({
-    required this.productName,
-    required this.dosage,
-    required this.dosageUnit,
-    required this.formePharmaceutique,
+class GroupHeaderMetadata {
+  const GroupHeaderMetadata({
+    required this.title,
+    required this.commonPrincipes,
+    required this.distinctDosages,
+    required this.distinctFormulations,
   });
 
-  final String productName;
-  final Decimal? dosage;
-  final String? dosageUnit;
-  final String formePharmaceutique;
-  final Set<String> laboratories = <String>{};
-  final List<MedicationItem> medicaments = [];
+  final String title;
+  final List<String> commonPrincipes;
+  final List<String> distinctDosages;
+  final List<String> distinctFormulations;
+
+  factory GroupHeaderMetadata.fromMembers(List<db.ViewGroupDetail> members) {
+    if (members.isEmpty) {
+      return const GroupHeaderMetadata(
+        title: '',
+        commonPrincipes: <String>[],
+        distinctDosages: <String>[],
+        distinctFormulations: <String>[],
+      );
+    }
+
+    final forms = <String>{};
+    final dosages = <String>{};
+
+    for (final member in members) {
+      final form = member.formePharmaceutique?.trim();
+      if (form != null && form.isNotEmpty) {
+        forms.add(form);
+      }
+      final dosage = member.formattedDosage?.trim();
+      if (dosage != null && dosage.isNotEmpty) {
+        dosages.add(dosage);
+      }
+    }
+
+    final title = members.first.princepsDeReference.isNotEmpty
+        ? extractPrincepsLabel(members.first.princepsDeReference)
+        : members.first.nomCanonique;
+
+    return GroupHeaderMetadata(
+      title: title,
+      commonPrincipes: members.first.principesActifsCommuns,
+      distinctDosages: (dosages.toList()..sort()),
+      distinctFormulations: (forms.toList()..sort()),
+    );
+  }
+}
+
+class GroupedProductsViewModel {
+  const GroupedProductsViewModel({
+    required this.metadata,
+    required this.princeps,
+    required this.generics,
+    required this.aggregatedConditions,
+    this.priceLabel,
+    this.refundLabel,
+    this.princepsCisCode,
+    this.ansmAlertUrl,
+  });
+
+  final GroupHeaderMetadata metadata;
+  final List<MedicationItem> princeps;
+  final List<MedicationItem> generics;
+  final List<String> aggregatedConditions;
+  final String? priceLabel;
+  final String? refundLabel;
+  final String? princepsCisCode;
+  final String? ansmAlertUrl;
+
+  bool get hasMembers => princeps.isNotEmpty || generics.isNotEmpty;
+}
+
+class RelatedPrincepsItem {
+  const RelatedPrincepsItem({required this.groupId, required this.medication});
+
+  final String groupId;
+  final MedicationItem medication;
+
+  factory RelatedPrincepsItem.fromGroupDetail(db.ViewGroupDetail row) {
+    return RelatedPrincepsItem(
+      groupId: row.groupId,
+      medication: MedicationItem.fromGroupDetail(row),
+    );
+  }
+}
+
+GroupedProductsViewModel buildGroupedProductsViewModel(
+  List<db.ViewGroupDetail> members,
+) {
+  final metadata = GroupHeaderMetadata.fromMembers(members);
+  final items = members.map(MedicationItem.fromGroupDetail).toList();
+  final princeps = items.where((item) => item.isPrinceps).toList();
+  final generics = items.where((item) => !item.isPrinceps).toList();
+  final aggregatedConditions = _aggregateConditions(items);
+  final priceLabel = _buildPriceLabel(items);
+  final refundLabel = _buildRefundLabel(items);
+
+  // Extract princeps CIS code from first princeps member
+  final princepsCisCode = members
+      .where((m) => m.isPrinceps)
+      .firstOrNull
+      ?.cisCode;
+
+  // Extract ANSM alert URL from any member (same at group level)
+  final ansmAlertUrl =
+      members.firstOrNull?.ansmAlertUrl?.trim().isEmpty == false
+      ? members.first.ansmAlertUrl
+      : null;
+
+  princeps.sort(_smartMedicationComparator);
+  generics.sort(_smartMedicationComparator);
+
+  return GroupedProductsViewModel(
+    metadata: metadata,
+    princeps: princeps,
+    generics: generics,
+    aggregatedConditions: aggregatedConditions,
+    priceLabel: priceLabel,
+    refundLabel: refundLabel,
+    princepsCisCode: princepsCisCode,
+    ansmAlertUrl: ansmAlertUrl,
+  );
+}
+
+String? _buildPriceLabel(List<MedicationItem> items) {
+  final prices = items.map((item) => item.price).nonNulls.toList();
+  if (prices.isEmpty) return null;
+  prices.sort();
+  final minPrice = prices.first;
+  final maxPrice = prices.last;
+  if ((maxPrice - minPrice).abs() < 0.005) {
+    return _formatPrice(minPrice);
+  }
+  return '${_formatPrice(minPrice)} – ${_formatPrice(maxPrice)}';
+}
+
+String _formatPrice(double value) {
+  final fixed = value.toStringAsFixed(2);
+  final normalized = fixed.replaceAll('.', ',');
+  return '$normalized €';
+}
+
+String? _buildRefundLabel(List<MedicationItem> items) {
+  final rates = <String>{
+    for (final refund in items.map((item) => item.refundRate))
+      if (refund != null && refund.isNotEmpty) refund,
+  };
+  if (rates.isEmpty) return null;
+  if (rates.length == 1) return rates.first;
+  return rates.join(' • ');
+}
+
+List<String> _aggregateConditions(List<MedicationItem> items) {
+  final segments = <String>{};
+  for (final condition in items.map((item) => item.conditions)) {
+    if (condition == null || condition.isEmpty) continue;
+    final splits = condition.split(RegExp('[,;\\n]'));
+    for (final raw in splits) {
+      final trimmed = raw.trim();
+      if (trimmed.isEmpty) continue;
+      segments.add(trimmed);
+    }
+  }
+  return segments.toList()..sort();
+}
+
+int _smartMedicationComparator(MedicationItem a, MedicationItem b) {
+  final aShortage = a.availabilityStatus?.isNotEmpty == true;
+  final bShortage = b.availabilityStatus?.isNotEmpty == true;
+  if (aShortage != bShortage) {
+    return aShortage ? 1 : -1;
+  }
+  if (a.isHospitalOnly != b.isHospitalOnly) {
+    return a.isHospitalOnly ? 1 : -1;
+  }
+  return a.displayName.compareTo(b.displayName);
 }

@@ -50,17 +50,15 @@ void main() {
       );
 
       // THEN: Verify that productName contains BOTH molecules
-      expect(viewModel, isNotNull, reason: 'ViewModel should not be null');
-
-      // Check generics list (the generic member we inserted)
+      final generics = viewModel.generics;
       expect(
-        viewModel!.generics,
+        generics,
         isNotEmpty,
         reason: 'Generics list should contain the inserted generic',
       );
 
-      final firstGeneric = viewModel.generics.first;
-      final productName = firstGeneric.productName.toUpperCase();
+      final firstGeneric = generics.first;
+      final productName = firstGeneric.displayName.toUpperCase();
 
       // CRITICAL: Product name must contain BOTH molecules
       expect(
@@ -95,4 +93,3 @@ void main() {
     timeout: const Timeout(Duration(minutes: 3)),
   );
 }
-

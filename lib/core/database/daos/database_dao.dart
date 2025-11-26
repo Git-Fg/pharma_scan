@@ -74,6 +74,7 @@ class DatabaseDao extends DatabaseAccessor<AppDatabase>
             codeCip: Value(row['code_cip'] as String),
             // WHY: Removed nom field - specialites table is the single source of truth for medication names.
             cisCode: Value(row['cis_code'] as String),
+            presentationLabel: Value(row['presentation_label'] as String?),
             commercialisationStatut: Value(
               row['commercialisation_statut'] as String?,
             ),
@@ -162,7 +163,7 @@ class DatabaseDao extends DatabaseAccessor<AppDatabase>
         canonical_name,
         princeps_name,
         active_principles,
-        tokenize='unicode61'
+        tokenize='trigram'
       );
     ''');
 

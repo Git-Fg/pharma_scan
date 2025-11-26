@@ -14,6 +14,12 @@ class AppColors {
 
   static const Color princepsAccent = Color(0xFF4338CA);
   static const Color genericAccent = Color(0xFF0D9488);
+  static const Color regulatoryRed = Color(0xFFB91C1C);
+  static const Color regulatoryGreen = Color(0xFF15803D);
+  static const Color regulatoryGray = Color(0xFF1F2937);
+  static const Color regulatoryAmber = Color(0xFFF59E0B);
+  static const Color regulatoryPurple = Color(0xFF7C3AED);
+  static const Color regulatoryYellow = Color(0xFFFACC15);
 
   static const Map<String, Color> semanticCustomColors = {
     princepsKey: princepsAccent,

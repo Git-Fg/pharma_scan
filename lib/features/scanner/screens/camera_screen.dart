@@ -13,7 +13,8 @@ import 'package:pharma_scan/core/utils/app_animations.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/utils/test_tags.dart';
 import 'package:pharma_scan/core/widgets/testable.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:pharma_scan/core/services/logger_service.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/product_card.dart';
 import 'package:pharma_scan/features/scanner/providers/scanner_provider.dart';
@@ -25,385 +26,97 @@ import 'package:pharma_scan/core/config/app_config.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/features/home/providers/initialization_provider.dart';
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
+import 'package:pharma_scan/core/utils/hooks/use_mobile_scanner.dart';
 
-class CameraScreen extends ConsumerStatefulWidget {
+class CameraScreen extends HookConsumerWidget {
   const CameraScreen({super.key});
 
   @override
-  ConsumerState<CameraScreen> createState() => _CameraScreenState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isCameraActive = useState(false);
+    final isTorchOn = useState(false);
+    final scannerController = useMobileScanner(autoStart: false);
+    final picker = useMemoized(ImagePicker.new);
 
-class _CameraScreenState extends ConsumerState<CameraScreen>
-    with WidgetsBindingObserver {
-  bool _isCameraActive = false;
-  bool _isTorchOn = false;
-  late MobileScannerController _scannerController;
-  final ImagePicker _picker = ImagePicker();
-  Future<void> _openManualEntrySheet() async {
-    await showShadSheet(
-      context: context,
-      side: ShadSheetSide.bottom,
-      builder: (sheetContext) => _ManualCipSheet(
-        onSubmit: (codeCip) =>
-            ref.read(scannerProvider.notifier).findMedicament(codeCip),
-      ),
-    );
-  }
+    // Lifecycle handling for the scanner is now encapsulated in useMobileScanner.
 
-  Future<void> _openGallerySheet() async {
-    final action = await showShadSheet<_GallerySheetResult>(
-      context: context,
-      side: ShadSheetSide.bottom,
-      builder: (sheetContext) => const _GallerySheet(),
-    );
-
-    if (action == _GallerySheetResult.pick) {
-      await _pickAndScanImage();
-    }
-  }
-
-  MobileScannerController _createScannerController() {
-    return MobileScannerController(
-      autoStart: false,
-      formats: const [BarcodeFormat.dataMatrix],
-    );
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _scannerController = _createScannerController();
-    WidgetsBinding.instance.addObserver(this);
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    unawaited(_scannerController.dispose());
-    super.dispose();
-  }
-
-  Future<void> _toggleCamera() async {
-    // WHY: Prevent camera from starting during initialization
-    final initStepAsync = ref.read(initializationStepProvider);
-    final initStep = initStepAsync.value;
-    if (initStep != null && initStep != InitializationStep.ready) {
-      return;
-    }
-
-    if (_isCameraActive) {
-      await _stopScanner(preserveCameraState: false);
-    } else {
-      await _startScannerWhenReady();
-    }
-  }
-
-  Future<void> _toggleTorch() async {
-    await _scannerController.toggleTorch();
-    if (!mounted) return;
-    setState(() {
-      _isTorchOn = !_isTorchOn;
-    });
-  }
-
-  Future<void> _startScannerWhenReady({bool force = false}) async {
-    if (!mounted) return;
-    if (!_isCameraActive) {
-      setState(() {
-        _isCameraActive = true;
-      });
-    } else if (!force) {
-      return;
-    }
-
-    final binding = WidgetsBinding.instance;
-    await binding.endOfFrame;
-
-    if (!mounted) return;
-
-    try {
-      await _scannerController.start();
-    } on MobileScannerException catch (error, stack) {
-      LoggerService.error(
-        '[CameraScreen] Failed to start MobileScannerController',
-        error,
-        stack,
-      );
-    }
-  }
-
-  Future<void> _stopScanner({required bool preserveCameraState}) async {
-    try {
-      await _scannerController.stop();
-    } on MobileScannerException catch (error, stack) {
-      LoggerService.error(
-        '[CameraScreen] Failed to stop MobileScannerController',
-        error,
-        stack,
+    Future<void> openManualEntrySheet() async {
+      await showShadSheet(
+        context: context,
+        side: ShadSheetSide.bottom,
+        builder: (sheetContext) => _ManualCipSheet(
+          onSubmit: (codeCip) =>
+              ref.read(scannerProvider.notifier).findMedicament(codeCip),
+        ),
       );
     }
 
-    if (!mounted || preserveCameraState) return;
-
-    setState(() {
-      _isCameraActive = false;
-    });
-  }
-
-  void _onDetect(BarcodeCapture capture) {
-    ref.read(scannerProvider.notifier).processBarcodeCapture(capture);
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    super.didChangeAppLifecycleState(state);
-    switch (state) {
-      case AppLifecycleState.resumed:
-        if (_isCameraActive) {
-          unawaited(_startScannerWhenReady(force: true));
-        }
-        break;
-      case AppLifecycleState.inactive:
-      case AppLifecycleState.paused:
-      case AppLifecycleState.detached:
-      case AppLifecycleState.hidden:
-        if (_isCameraActive) {
-          unawaited(_stopScanner(preserveCameraState: true));
-        }
-        break;
-    }
-  }
-
-  Future<void> _pickAndScanImage() async {
-    LoggerService.info('[CameraScreen] Starting image pick and scan');
-
-    if (!mounted) {
-      LoggerService.warning('[CameraScreen] Widget not mounted, aborting');
-      return;
-    }
-
-    try {
-      final XFile? file = await _picker.pickImage(source: ImageSource.gallery);
-      LoggerService.info(
-        '[CameraScreen] Image picker result: '
-        '${file != null ? "File selected: ${file.path}" : "No file selected"}',
+    Future<void> openGallerySheet() async {
+      final action = await showShadSheet<_GallerySheetResult>(
+        context: context,
+        side: ShadSheetSide.bottom,
+        builder: (sheetContext) => const _GallerySheet(),
       );
 
-      if (file == null) {
-        LoggerService.warning('[CameraScreen] No file selected by user');
+      if (action == _GallerySheetResult.pick && context.mounted) {
+        await _pickAndScanImage(ref, context, scannerController, picker);
+      }
+    }
+
+    Future<void> toggleCamera() async {
+      // WHY: Prevent camera from starting during initialization
+      final initStepAsync = ref.read(initializationStepProvider);
+      final initStep = initStepAsync.value;
+      if (initStep != null && initStep != InitializationStep.ready) {
         return;
       }
 
-      if (!mounted) {
-        LoggerService.warning(
-          '[CameraScreen] Widget not mounted after file selection',
-        );
-        return;
-      }
-
-      // WHY: Reuse the existing scanner controller for image analysis to avoid
-      // creating and disposing heavy controller instances. The controller is already
-      // initialized in initState and will be disposed in the widget's dispose method.
-      try {
-        LoggerService.info(
-          '[CameraScreen] Analyzing image at path: ${file.path}',
-        );
-
-        final BarcodeCapture? capture = await _scannerController.analyzeImage(
-          file.path,
-        );
-
-        LoggerService.info(
-          '[CameraScreen] Image analysis complete - Capture: '
-          '${capture != null ? "not null" : "null"}, '
-          'Barcodes: ${capture?.barcodes.length ?? 0}',
-        );
-
-        if (capture != null && capture.barcodes.isNotEmpty) {
-          LoggerService.info(
-            '[CameraScreen] Processing ${capture.barcodes.length} barcode(s) from image',
-          );
-          ref.read(scannerProvider.notifier).processBarcodeCapture(capture);
-        } else {
-          LoggerService.warning('[CameraScreen] No barcodes detected in image');
-          if (mounted) {
-            final sonner = ShadSonner.of(context);
-            final toastId = DateTime.now().millisecondsSinceEpoch;
-            sonner.show(
-              ShadToast.destructive(
-                id: toastId,
-                title: const Text(Strings.noBarcodeDetected),
-                description: const Text(Strings.imageContainsNoValidBarcode),
-                action: ShadButton.outline(
-                  onPressed: () => sonner.hide(toastId),
-                  child: const Text(Strings.close),
-                ),
-              ),
-            );
-          }
-        }
-      } catch (e, stackTrace) {
-        LoggerService.error(
-          '[CameraScreen] Error during image analysis',
-          e,
-          stackTrace,
-        );
-        if (mounted) {
-          final sonner = ShadSonner.of(context);
-          final toastId = DateTime.now().millisecondsSinceEpoch;
-          sonner.show(
-            ShadToast.destructive(
-              id: toastId,
-              title: const Text(Strings.analysisError),
-              description: Text(
-                '${Strings.unableToAnalyzeImage} ${e.toString()}',
-              ),
-              action: ShadButton.outline(
-                onPressed: () => sonner.hide(toastId),
-                child: const Text(Strings.close),
-              ),
-            ),
-          );
-        }
-      }
-    } catch (e, stackTrace) {
-      LoggerService.error(
-        '[CameraScreen] Error during image pick',
-        e,
-        stackTrace,
-      );
-      if (mounted) {
-        final sonner = ShadSonner.of(context);
-        final toastId = DateTime.now().millisecondsSinceEpoch;
-        sonner.show(
-          ShadToast.destructive(
-            id: toastId,
-            title: const Text(Strings.error),
-            description: Text('${Strings.unableToSelectImage} ${e.toString()}'),
-            action: ShadButton.outline(
-              onPressed: () => sonner.hide(toastId),
-              child: const Text(Strings.close),
-            ),
-          ),
-        );
-      }
-    }
-  }
-
-  Widget _buildBubbleItem(ScanBubble bubble, int index) {
-    final isPrimary = index == 0;
-
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: 12,
-        // WHY: Primary bubble (index 0) has no top padding, history bubbles are smaller.
-        top: isPrimary ? 0 : 8,
-      ),
-      child: Dismissible(
-        key: ValueKey(bubble.cip),
-        direction: DismissDirection.horizontal,
-        onDismissed: (_) =>
-            ref.read(scannerProvider.notifier).removeBubble(bubble.cip),
-        child: _buildBubbleContent(bubble),
-      ),
-    );
-  }
-
-  Widget _buildBubbleContent(ScanBubble bubble) {
-    final theme = ShadTheme.of(context);
-    final summary = bubble.summary;
-
-    // Build badges based on product type
-    final badges = <Widget>[];
-    if (summary.groupId != null) {
-      if (summary.isPrinceps) {
-        badges.add(
-          ShadTooltip(
-            builder: (context) => const Text(Strings.badgePrincepsTooltip),
-            child: ShadBadge(
-              backgroundColor: theme.colorScheme.secondary,
-              child: Text(
-                Strings.badgePrinceps,
-                style: theme.textTheme.small.copyWith(
-                  color: theme.colorScheme.secondaryForeground,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ),
+      if (isCameraActive.value) {
+        await _stopScanner(
+          context,
+          scannerController,
+          isCameraActive,
+          preserveCameraState: false,
         );
       } else {
-        badges.add(
-          ShadTooltip(
-            builder: (context) => const Text(Strings.badgeGenericTooltip),
-            child: ShadBadge(
-              backgroundColor: theme.colorScheme.primary,
-              child: Text(Strings.generic, style: theme.textTheme.small),
-            ),
-          ),
+        await _startScannerWhenReady(
+          ref,
+          context,
+          scannerController,
+          isCameraActive,
         );
       }
-    } else {
-      badges.add(
-        ShadTooltip(
-          builder: (context) => const Text(Strings.badgeStandaloneTooltip),
-          child: ShadBadge(
-            backgroundColor: theme.colorScheme.muted,
-            child: Text(
-              Strings.uniqueMedicationBadge,
-              style: theme.textTheme.small.copyWith(
-                color: theme.colorScheme.mutedForeground,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
+    }
+
+    Future<void> toggleTorch() async {
+      await scannerController.toggleTorch();
+      if (!context.mounted) return;
+      isTorchOn.value = !isTorchOn.value;
+    }
+
+    void onDetect(BarcodeCapture capture) {
+      ref.read(scannerProvider.notifier).processBarcodeCapture(capture);
+    }
+
+    Widget buildBubbleItem(ScanBubble bubble, int index) {
+      final isPrimary = index == 0;
+
+      return Padding(
+        padding: EdgeInsets.only(
+          bottom: 12,
+          // WHY: Primary bubble (index 0) has no top padding, history bubbles are smaller.
+          top: isPrimary ? 0 : 8,
+        ),
+        child: Dismissible(
+          key: ValueKey(bubble.cip),
+          direction: DismissDirection.horizontal,
+          onDismissed: (_) =>
+              ref.read(scannerProvider.notifier).removeBubble(bubble.cip),
+          child: _buildBubbleContent(context, ref, bubble),
         ),
       );
     }
 
-    // Condition badge
-    if (summary.conditionsPrescription != null &&
-        summary.conditionsPrescription!.isNotEmpty) {
-      badges.add(
-        ShadBadge.outline(
-          child: Text(
-            summary.conditionsPrescription!,
-            style: theme.textTheme.small,
-          ),
-        ),
-      );
-    }
-
-    return ProductCard(
-      key: ValueKey(
-        '${bubble.cip}_${summary.isPrinceps
-            ? 'princeps'
-            : summary.groupId != null
-            ? 'generic'
-            : 'standalone'}',
-      ),
-      summary: summary,
-      cip: bubble.cip,
-      groupLabel: summary.groupId != null ? summary.princepsBrandName : null,
-      badges: badges,
-      showActions: true,
-      showDetails: true,
-      animation: true,
-      onClose: () =>
-          ref.read(scannerProvider.notifier).removeBubble(bubble.cip),
-      onExplore: summary.groupId != null
-          ? () => context.go(AppRoutes.groupDetail(summary.groupId!))
-          : null,
-      price: bubble.price,
-      refundRate: bubble.refundRate,
-      boxStatus: bubble.boxStatus,
-      availabilityStatus: bubble.availabilityStatus,
-      isHospitalOnly: bubble.isHospitalOnly,
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
     final theme = ShadTheme.of(context);
     final initStepAsync = ref.watch(initializationStepProvider);
     final initStep = initStepAsync.value;
@@ -418,10 +131,10 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
             false, // Don't add bottom padding - let parent Scaffold handle it
         child: Stack(
           children: [
-            if (_isCameraActive && !isInitializing)
+            if (isCameraActive.value && !isInitializing)
               MobileScanner(
-                controller: _scannerController,
-                onDetect: _onDetect,
+                controller: scannerController,
+                onDetect: onDetect,
                 tapToFocus: true,
                 errorBuilder: (context, error) {
                   return Center(
@@ -477,7 +190,8 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                   ],
                 ).animate(effects: AppAnimations.fadeIn),
               ),
-            if (_isCameraActive && !isInitializing) const ScanWindowOverlay(),
+            if (isCameraActive.value && !isInitializing)
+              const ScanWindowOverlay(),
             Positioned(
               top: MediaQuery.of(context).padding.top + 20,
               left: 16,
@@ -489,7 +203,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       for (var i = 0; i < scannerState.bubbles.length; i++)
-                        _buildBubbleItem(scannerState.bubbles[i], i),
+                        buildBubbleItem(scannerState.bubbles[i], i),
                     ],
                   ).animate(effects: AppAnimations.bubbleEnter);
                 },
@@ -529,24 +243,24 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                                     ),
                                   ),
                                 ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
                                     Center(
                                       child: Testable(
-                                        id: _isCameraActive
+                                        id: isCameraActive.value
                                             ? TestTags.scanStopBtn
                                             : TestTags.scanStartBtn,
                                         child: Semantics(
                                           button: true,
-                                          label: _isCameraActive
+                                          label: isCameraActive.value
                                               ? Strings.stopScanning
                                               : Strings.startScanning,
                                           enabled: !isInitializing,
                                           child: GestureDetector(
                                             onTap: isInitializing
                                                 ? null
-                                                : _toggleCamera,
+                                                : toggleCamera,
                                             child: Container(
                                               width: 88,
                                               height: 88,
@@ -575,7 +289,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                                                 ],
                                               ),
                                               child: Icon(
-                                                _isCameraActive
+                                                isCameraActive.value
                                                     ? LucideIcons.cameraOff
                                                     : LucideIcons.scanLine,
                                                 size: AppDimens.iconXl,
@@ -588,7 +302,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                                         ),
                                       ),
                                     ),
-                            const Gap(AppDimens.spacingLg),
+                                    const Gap(AppDimens.spacingLg),
                                     Row(
                                       children: [
                                         Expanded(
@@ -601,7 +315,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                                               child: ShadButton.ghost(
                                                 onPressed: isInitializing
                                                     ? null
-                                                    : _openGallerySheet,
+                                                    : openGallerySheet,
                                                 leading: Icon(
                                                   LucideIcons.image,
                                                   size: AppDimens.iconMd,
@@ -627,7 +341,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                                               child: ShadButton.ghost(
                                                 onPressed: isInitializing
                                                     ? null
-                                                    : _openManualEntrySheet,
+                                                    : openManualEntrySheet,
                                                 leading: Icon(
                                                   LucideIcons.keyboard,
                                                   size: AppDimens.iconMd,
@@ -645,26 +359,24 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                                         const Gap(AppDimens.spacingSm),
                                         Semantics(
                                           button: true,
-                                          label: _isTorchOn
+                                          label: isTorchOn.value
                                               ? Strings.turnOffTorch
                                               : Strings.turnOnTorch,
-                                          child: SizedBox(
+                                          child: ShadButton.outline(
                                             width: 52,
                                             height: 52,
-                                            child: ShadButton.outline(
-                                              onPressed: isInitializing
-                                                  ? null
-                                                  : _toggleTorch,
-                                              leading: Icon(
-                                                LucideIcons.zap,
-                                                size: AppDimens.iconMd,
-                                                color: _isTorchOn
-                                                    ? theme.colorScheme.primary
-                                                    : theme
-                                                          .colorScheme
-                                                          .foreground,
-                                              ),
-                                              child: const SizedBox.shrink(),
+                                            padding: EdgeInsets.zero,
+                                            onPressed: isInitializing
+                                                ? null
+                                                : toggleTorch,
+                                            child: Icon(
+                                              LucideIcons.zap,
+                                              size: AppDimens.iconMd,
+                                              color: isTorchOn.value
+                                                  ? theme.colorScheme.primary
+                                                  : theme
+                                                        .colorScheme
+                                                        .foreground,
                                             ),
                                           ),
                                         ),
@@ -686,6 +398,298 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       ),
     );
   }
+}
+
+// Helper functions
+Future<void> _startScannerWhenReady(
+  WidgetRef ref,
+  BuildContext context,
+  MobileScannerController scannerController,
+  ValueNotifier<bool> isCameraActive, {
+  bool force = false,
+}) async {
+  if (!context.mounted) return;
+  if (!isCameraActive.value) {
+    isCameraActive.value = true;
+  } else if (!force) {
+    return;
+  }
+
+  final binding = WidgetsBinding.instance;
+  await binding.endOfFrame;
+
+  if (!context.mounted) return;
+
+  try {
+    await scannerController.start();
+  } on MobileScannerException catch (error, stack) {
+    LoggerService.error(
+      '[CameraScreen] Failed to start MobileScannerController',
+      error,
+      stack,
+    );
+  }
+}
+
+Future<void> _stopScanner(
+  BuildContext context,
+  MobileScannerController scannerController,
+  ValueNotifier<bool> isCameraActive, {
+  required bool preserveCameraState,
+}) async {
+  try {
+    await scannerController.stop();
+  } on MobileScannerException catch (error, stack) {
+    LoggerService.error(
+      '[CameraScreen] Failed to stop MobileScannerController',
+      error,
+      stack,
+    );
+  }
+
+  if (!context.mounted || preserveCameraState) return;
+
+  isCameraActive.value = false;
+}
+
+Future<void> _pickAndScanImage(
+  WidgetRef ref,
+  BuildContext context,
+  MobileScannerController scannerController,
+  ImagePicker picker,
+) async {
+  LoggerService.info('[CameraScreen] Starting image pick and scan');
+
+  if (!context.mounted) {
+    LoggerService.warning('[CameraScreen] Widget not mounted, aborting');
+    return;
+  }
+
+  try {
+    final XFile? file = await picker.pickImage(source: ImageSource.gallery);
+    LoggerService.info(
+      '[CameraScreen] Image picker result: '
+      '${file != null ? "File selected: ${file.path}" : "No file selected"}',
+    );
+
+    if (file == null) {
+      LoggerService.warning('[CameraScreen] No file selected by user');
+      return;
+    }
+
+    if (!context.mounted) {
+      LoggerService.warning(
+        '[CameraScreen] Widget not mounted after file selection',
+      );
+      return;
+    }
+
+    // WHY: Reuse the existing scanner controller for image analysis to avoid
+    // creating and disposing heavy controller instances.
+    try {
+      LoggerService.info(
+        '[CameraScreen] Analyzing image at path: ${file.path}',
+      );
+
+      final BarcodeCapture? capture = await scannerController.analyzeImage(
+        file.path,
+      );
+
+      LoggerService.info(
+        '[CameraScreen] Image analysis complete - Capture: '
+        '${capture != null ? "not null" : "null"}, '
+        'Barcodes: ${capture?.barcodes.length ?? 0}',
+      );
+
+      if (capture != null && capture.barcodes.isNotEmpty) {
+        LoggerService.info(
+          '[CameraScreen] Processing ${capture.barcodes.length} barcode(s) from image',
+        );
+        ref.read(scannerProvider.notifier).processBarcodeCapture(capture);
+      } else {
+        LoggerService.warning('[CameraScreen] No barcodes detected in image');
+        if (context.mounted) {
+          final sonner = ShadSonner.of(context);
+          final toastId = DateTime.now().millisecondsSinceEpoch;
+          sonner.show(
+            ShadToast.destructive(
+              id: toastId,
+              title: const Text(Strings.noBarcodeDetected),
+              description: const Text(Strings.imageContainsNoValidBarcode),
+              action: ShadButton.outline(
+                onPressed: () => sonner.hide(toastId),
+                child: const Text(Strings.close),
+              ),
+            ),
+          );
+        }
+      }
+    } catch (e, stackTrace) {
+      LoggerService.error(
+        '[CameraScreen] Error during image analysis',
+        e,
+        stackTrace,
+      );
+      if (context.mounted) {
+        final sonner = ShadSonner.of(context);
+        final toastId = DateTime.now().millisecondsSinceEpoch;
+        sonner.show(
+          ShadToast.destructive(
+            id: toastId,
+            title: const Text(Strings.analysisError),
+            description: Text(
+              '${Strings.unableToAnalyzeImage} ${e.toString()}',
+            ),
+            action: ShadButton.outline(
+              onPressed: () => sonner.hide(toastId),
+              child: const Text(Strings.close),
+            ),
+          ),
+        );
+      }
+    }
+  } catch (e, stackTrace) {
+    LoggerService.error(
+      '[CameraScreen] Error during image pick',
+      e,
+      stackTrace,
+    );
+    if (context.mounted) {
+      final sonner = ShadSonner.of(context);
+      final toastId = DateTime.now().millisecondsSinceEpoch;
+      sonner.show(
+        ShadToast.destructive(
+          id: toastId,
+          title: const Text(Strings.error),
+          description: Text('${Strings.unableToSelectImage} ${e.toString()}'),
+          action: ShadButton.outline(
+            onPressed: () => sonner.hide(toastId),
+            child: const Text(Strings.close),
+          ),
+        ),
+      );
+    }
+  }
+}
+
+Widget _buildBubbleContent(
+  BuildContext context,
+  WidgetRef ref,
+  ScanBubble bubble,
+) {
+  final theme = ShadTheme.of(context);
+  final summary = bubble.summary;
+
+  // Build badges based on product type
+  final badges = <Widget>[];
+  if (summary.groupId != null) {
+    if (summary.isPrinceps) {
+      badges.add(
+        ShadTooltip(
+          builder: (context) => const Text(Strings.badgePrincepsTooltip),
+          child: ShadBadge(
+            backgroundColor: theme.colorScheme.secondary,
+            child: Text(
+              Strings.badgePrinceps,
+              style: theme.textTheme.small.copyWith(
+                color: theme.colorScheme.secondaryForeground,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+      );
+    } else {
+      badges.add(
+        ShadTooltip(
+          builder: (context) => const Text(Strings.badgeGenericTooltip),
+          child: ShadBadge(
+            backgroundColor: theme.colorScheme.primary,
+            child: Text(Strings.generic, style: theme.textTheme.small),
+          ),
+        ),
+      );
+    }
+  } else {
+    badges.add(
+      ShadTooltip(
+        builder: (context) => const Text(Strings.badgeStandaloneTooltip),
+        child: ShadBadge(
+          backgroundColor: theme.colorScheme.muted,
+          child: Text(
+            Strings.uniqueMedicationBadge,
+            style: theme.textTheme.small.copyWith(
+              color: theme.colorScheme.mutedForeground,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Condition badge
+  if (summary.conditionsPrescription != null &&
+      summary.conditionsPrescription!.isNotEmpty) {
+    badges.add(
+      ShadBadge.outline(
+        child: Text(
+          summary.conditionsPrescription!,
+          style: theme.textTheme.small,
+        ),
+      ),
+    );
+  }
+
+  // Compact subtitle lines for scanner bubbles:
+  // Line 1: Form & Dosage (e.g., "Comprimé • 10 mg")
+  // Line 2: Titulaire (Lab) & CIP (e.g., "BIOGARAN • CIP: 34009...")
+  final compactSubtitle = <String>[];
+  final form = summary.formePharmaceutique;
+  final dosage = summary.formattedDosage?.trim();
+
+  if (form != null && form.isNotEmpty && dosage != null && dosage.isNotEmpty) {
+    compactSubtitle.add('$form • $dosage');
+  } else if (form != null && form.isNotEmpty) {
+    compactSubtitle.add(form);
+  } else if (dosage != null && dosage.isNotEmpty) {
+    compactSubtitle.add(dosage);
+  }
+
+  final titulaire = summary.titulaire;
+  final cipLine = (titulaire != null && titulaire.isNotEmpty)
+      ? '${titulaire.trim()} • ${Strings.cip} ${bubble.cip}'
+      : '${Strings.cip} ${bubble.cip}';
+  compactSubtitle.add(cipLine);
+
+  return ProductCard(
+    key: ValueKey(
+      '${bubble.cip}_${summary.isPrinceps
+          ? 'princeps'
+          : summary.groupId != null
+          ? 'generic'
+          : 'standalone'}',
+    ),
+    summary: summary,
+    cip: bubble.cip,
+    compact: true,
+    showDetails: false,
+    subtitle: compactSubtitle,
+    groupLabel: summary.groupId != null ? summary.princepsBrandName : null,
+    badges: badges,
+    showActions: true,
+    animation: true,
+    onClose: () => ref.read(scannerProvider.notifier).removeBubble(bubble.cip),
+    onExplore: summary.groupId != null
+        ? () => context.go(AppRoutes.groupDetail(summary.groupId!))
+        : null,
+    price: bubble.price,
+    refundRate: bubble.refundRate,
+    boxStatus: bubble.boxStatus,
+    availabilityStatus: bubble.availabilityStatus,
+    isHospitalOnly: bubble.isHospitalOnly,
+    exactMatchLabel: bubble.libellePresentation,
+  );
 }
 
 enum _GallerySheetResult { pick }
@@ -747,64 +751,52 @@ class _GallerySheet extends StatelessWidget {
   }
 }
 
-class _ManualCipSheet extends ConsumerStatefulWidget {
+class _ManualCipSheet extends HookConsumerWidget {
   const _ManualCipSheet({required this.onSubmit});
 
   final Future<bool> Function(String codeCip) onSubmit;
 
   @override
-  ConsumerState<_ManualCipSheet> createState() => _ManualCipSheetState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isSubmitting = useState(false);
+    final formKey = useMemoized(GlobalKey<ShadFormState>.new);
 
-class _ManualCipSheetState extends ConsumerState<_ManualCipSheet> {
-  final formKey = GlobalKey<ShadFormState>();
-  bool _isSubmitting = false;
-
-  @override
-  void initState() {
-    super.initState();
     // WHY: Request focus on the form field after the first frame
-    scheduleMicrotask(() {
-      if (formKey.currentState != null) {
-        formKey.currentState!.fields['cip']?.focusNode.requestFocus();
-      }
-    });
-  }
-
-  Future<void> _submit() async {
-    if (_isSubmitting) return;
-
-    // WHY: Validate and save form data
-    if (formKey.currentState!.saveAndValidate()) {
-      final code = formKey.currentState!.value['cip'] as String;
-
-      setState(() {
-        _isSubmitting = true;
+    useEffect(() {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        formKey.currentState?.fields['cip']?.focusNode.requestFocus();
       });
+      return null;
+    }, []);
 
-      final success = await widget.onSubmit(code);
-      if (!mounted) return;
+    Future<void> submit() async {
+      if (isSubmitting.value) return;
 
-      setState(() {
-        _isSubmitting = false;
-      });
+      // WHY: Validate and save form data
+      if (formKey.currentState!.saveAndValidate()) {
+        final code = formKey.currentState!.value['cip'] as String;
 
-      if (!success) {
-        // WHY: Show toast notification when medicament is not found.
-        ShadSonner.of(context).show(
-          ShadToast(
-            title: const Text(Strings.medicamentNotFound),
-            description: Text('${Strings.noMedicamentFoundForCipCode} $code'),
-          ),
-        );
-      } else if (mounted) {
-        Navigator.of(context).maybePop();
+        isSubmitting.value = true;
+
+        final success = await onSubmit(code);
+        if (!context.mounted) return;
+
+        isSubmitting.value = false;
+
+        if (!success) {
+          // WHY: Show toast notification when medicament is not found.
+          ShadSonner.of(context).show(
+            ShadToast(
+              title: const Text(Strings.medicamentNotFound),
+              description: Text('${Strings.noMedicamentFoundForCipCode} $code'),
+            ),
+          );
+        } else if (context.mounted) {
+          Navigator.of(context).maybePop();
+        }
       }
     }
-  }
 
-  @override
-  Widget build(BuildContext context) {
     final theme = ShadTheme.of(context);
     return ShadSheet(
       title: const Text(Strings.manualCipEntry),
@@ -843,7 +835,7 @@ class _ManualCipSheetState extends ConsumerState<_ManualCipSheet> {
                 onChanged: (value) {
                   // WHY: Auto-submit when 13 digits are entered
                   if (value.length == AppConfig.cipLength) {
-                    unawaited(_submit());
+                    unawaited(submit());
                   }
                 },
               ),
@@ -853,13 +845,13 @@ class _ManualCipSheetState extends ConsumerState<_ManualCipSheet> {
               ),
               Semantics(
                 button: true,
-                label: _isSubmitting
+                label: isSubmitting.value
                     ? Strings.searchingInProgress
                     : Strings.searchMedicamentWithCip,
-                enabled: !_isSubmitting,
+                enabled: !isSubmitting.value,
                 child: ShadButton(
-                  onPressed: _isSubmitting ? null : _submit,
-                  child: _isSubmitting
+                  onPressed: isSubmitting.value ? null : submit,
+                  child: isSubmitting.value
                       ? const SizedBox(
                           width: 16,
                           height: 16,

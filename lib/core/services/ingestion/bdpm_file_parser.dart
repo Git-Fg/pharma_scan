@@ -9,7 +9,7 @@ class BdpmFileParser {
   BdpmFileParser._(); // Private constructor to prevent instantiation
 
   // WHY: Parse BDPM specialites file and return structured data.
-  // Allows every form and filters only on authorization status + BOIRON noise.
+  // Allows every form and filters only on BOIRON noise.
   static SpecialitesParseResult parseSpecialites(
     String? content,
     Map<String, String> conditionsByCis,
@@ -29,47 +29,59 @@ class BdpmFileParser {
 
     for (final line in content.split('\n')) {
       final parts = line.split('\t');
-      if (parts.length >= 11) {
-        final cis = parts[0].trim();
-        final nom = parts[1].trim();
-        final forme = parts[2].trim();
-        final voies = parts.length > 3 ? parts[3].trim() : '';
-        final statutAdministratif = parts.length > 4 ? parts[4].trim() : '';
-        final procedure = parts[5].trim();
-        final commercialisation = parts[6].trim();
-        final titulaire = parts[10].trim();
-        final surveillanceRaw = parts.length > 11 ? parts[11].trim() : '';
-        final isSurveillance = surveillanceRaw.toLowerCase() == 'oui';
+      switch (parts) {
+        case [
+          final cisRaw,
+          final nomRaw,
+          final formeRaw,
+          final voiesRaw,
+          final statutRaw,
+          final procRaw,
+          final commRaw,
+          _,
+          _,
+          _,
+          final titulaireRaw,
+          final survRaw,
+          ...,
+        ]:
+          final cis = cisRaw.trim();
+          final nom = nomRaw.trim();
+          final forme = formeRaw.trim();
+          final voies = voiesRaw.trim();
+          final statutAdministratif = statutRaw.trim();
+          final procedure = procRaw.trim();
+          final commercialisation = commRaw.trim();
+          final titulaire = titulaireRaw.trim();
+          final surveillanceRaw = survRaw.trim();
+          final isSurveillance = surveillanceRaw.toLowerCase() == 'oui';
 
-        // WHY: BOIRON floods BDPM with homeopathic granules/doses that are not useful
-        // in PharmaScan. Skip them explicitly to keep the dataset lean while still
-        // allowing every other form to flow through.
-        if (titulaire.toUpperCase().contains('BOIRON')) {
+          // WHY: BOIRON floods BDPM with homeopathic granules/doses that are not useful
+          // in PharmaScan. Skip them explicitly to keep the dataset lean while still
+          // allowing every other form to flow through.
+          if (titulaire.toUpperCase().contains('BOIRON')) {
+            continue;
+          }
+
+          if (cis.isNotEmpty && nom.isNotEmpty && seenCis.add(cis)) {
+            final record = {
+              'cis_code': cis,
+              'nom_specialite': nom,
+              'statut_administratif': statutAdministratif,
+              'procedure_type': procedure,
+              'forme_pharmaceutique': forme,
+              'voies_administration': voies,
+              'etat_commercialisation': commercialisation,
+              'titulaire': titulaire,
+              'conditions_prescription': conditionsByCis[cis],
+              'atc_code': mitmMap[cis],
+              'is_surveillance': isSurveillance,
+            };
+            specialites.add(record);
+            namesByCis[cis] = nom;
+          }
+        default:
           continue;
-        }
-
-        final statutLower = statutAdministratif.toLowerCase();
-        if (statutLower != 'autorisation active') {
-          continue;
-        }
-
-        if (cis.isNotEmpty && nom.isNotEmpty && seenCis.add(cis)) {
-          final record = {
-            'cis_code': cis,
-            'nom_specialite': nom,
-            'statut_administratif': statutAdministratif,
-            'procedure_type': procedure,
-            'forme_pharmaceutique': forme,
-            'voies_administration': voies,
-            'etat_commercialisation': commercialisation,
-            'titulaire': titulaire,
-            'conditions_prescription': conditionsByCis[cis],
-            'atc_code': mitmMap[cis],
-            'is_surveillance': isSurveillance,
-          };
-          specialites.add(record);
-          namesByCis[cis] = nom;
-        }
       }
     }
 
@@ -97,41 +109,55 @@ class BdpmFileParser {
 
     for (final line in content.split('\n')) {
       final parts = line.split('\t');
-      if (parts.length >= 7) {
-        final cis = parts[0].trim();
-        final cip13 = parts[6].trim();
-        final correctName = namesByCis[cis];
-        final refundRateRaw = parts.length > 8 ? parts[8].trim() : null;
-        final priceRaw = parts.length > 9 ? parts[9].trim() : null;
-        final statusRaw = parts.length > 4 ? parts[4].trim() : null;
-        final agrementRaw = parts.length > 7 ? parts[7].trim() : null;
-        final status = statusRaw == null || statusRaw.isEmpty
-            ? null
-            : statusRaw;
-        final agrement = agrementRaw == null || agrementRaw.isEmpty
-            ? null
-            : agrementRaw.toLowerCase();
-        final parsedPrice = _parseDecimal(priceRaw);
+      switch (parts) {
+        case [
+          final cisRaw,
+          _,
+          final presentationLabelRaw,
+          _,
+          final statusRaw,
+          _,
+          final cip13Raw,
+          final agrementRaw,
+          final refundRateRaw,
+          final priceRaw,
+          ...,
+        ]:
+          final cis = cisRaw.trim();
+          final cip13 = cip13Raw.trim();
+          final correctName = namesByCis[cis];
+          final status = statusRaw.trim().isEmpty ? null : statusRaw.trim();
+          final agrement = agrementRaw.trim().isEmpty
+              ? null
+              : agrementRaw.trim().toLowerCase();
+          final parsedPrice = _parseDecimal(
+            priceRaw.trim().isEmpty ? null : priceRaw.trim(),
+          );
 
-        if (cis.isNotEmpty &&
-            cip13.isNotEmpty &&
-            correctName != null &&
-            seenCis.contains(cis)) {
-          cisToCip13.putIfAbsent(cis, () => []).add(cip13);
+          if (cis.isNotEmpty &&
+              cip13.isNotEmpty &&
+              correctName != null &&
+              seenCis.contains(cis)) {
+            cisToCip13.putIfAbsent(cis, () => []).add(cip13);
 
-          if (medicamentCips.add(cip13)) {
-            medicaments.add({
-              'code_cip': cip13,
-              'cis_code': cis,
-              'commercialisation_statut': status,
-              'taux_remboursement': refundRateRaw?.isEmpty ?? true
-                  ? null
-                  : refundRateRaw,
-              'prix_public': parsedPrice,
-              'agrement_collectivites': agrement,
-            });
+            if (medicamentCips.add(cip13)) {
+              medicaments.add({
+                'code_cip': cip13,
+                'cis_code': cis,
+                'presentation_label': presentationLabelRaw.trim().isEmpty
+                    ? null
+                    : presentationLabelRaw.trim(),
+                'commercialisation_statut': status,
+                'taux_remboursement': refundRateRaw.trim().isEmpty
+                    ? null
+                    : refundRateRaw.trim(),
+                'prix_public': parsedPrice,
+                'agrement_collectivites': agrement,
+              });
+            }
           }
-        }
+        default:
+          continue;
       }
     }
 
@@ -219,30 +245,39 @@ class BdpmFileParser {
 
     for (final line in content.split('\n')) {
       final parts = line.split('\t');
-      if (parts.length >= 5) {
-        final groupId = parts[0].trim();
-        final libelle = parts[1].trim();
-        final cis = parts[2].trim();
-        final type = int.tryParse(parts[3].trim());
-        final cip13s = cisToCip13[cis];
-        final isPrinceps = type == 0;
-        final isGeneric = type == 1 || type == 2 || type == 4;
+      switch (parts) {
+        case [
+          final groupIdRaw,
+          final libelleRaw,
+          final cisRaw,
+          final typeRaw,
+          ...,
+        ]:
+          final groupId = groupIdRaw.trim();
+          final libelle = libelleRaw.trim();
+          final cis = cisRaw.trim();
+          final type = int.tryParse(typeRaw.trim());
+          final cip13s = cisToCip13[cis];
+          final isPrinceps = type == 0;
+          final isGeneric = type == 1 || type == 2 || type == 4;
 
-        if (cip13s != null && (isPrinceps || isGeneric)) {
-          if (seenGroups.add(groupId)) {
-            generiqueGroups.add({'group_id': groupId, 'libelle': libelle});
-          }
+          if (cip13s != null && (isPrinceps || isGeneric)) {
+            if (seenGroups.add(groupId)) {
+              generiqueGroups.add({'group_id': groupId, 'libelle': libelle});
+            }
 
-          for (final cip13 in cip13s) {
-            if (medicamentCips.contains(cip13)) {
-              groupMembers.add({
-                'code_cip': cip13,
-                'group_id': groupId,
-                'type': isPrinceps ? 0 : 1,
-              });
+            for (final cip13 in cip13s) {
+              if (medicamentCips.contains(cip13)) {
+                groupMembers.add({
+                  'code_cip': cip13,
+                  'group_id': groupId,
+                  'type': isPrinceps ? 0 : 1,
+                });
+              }
             }
           }
-        }
+        default:
+          continue;
       }
     }
 
@@ -267,6 +302,55 @@ class BdpmFileParser {
     }
 
     return conditions;
+  }
+
+  static ({
+    bool isHospitalOnly,
+    bool isDental,
+    bool isList1,
+    bool isList2,
+    bool isNarcotic,
+    bool isException,
+    bool isRestricted,
+    bool isSurveillance,
+    bool isOtc,
+  }) parseRegulatoryFlags(String? conditionText) {
+    final normalized = _normalizeConditionText(conditionText);
+    final hasHospital = normalized.contains('HOSPITALIER') ||
+        normalized.contains('PHARMACIES A USAGE INTERIEUR') ||
+        normalized.contains('DELIVRANCE RESERVEE AUX ETS');
+    final hasDental = normalized.contains('DENTAIRE');
+    final hasList2 = normalized.contains('LISTE II');
+    final hasList1 = normalized.contains('LISTE I') && !hasList2;
+    final hasNarcotic = normalized.contains('STUPEFIANT');
+    final hasException =
+        normalized.contains('EXCEPTION') || normalized.contains('ORDONNANCE SECURISEE');
+    final hasRestricted = normalized.contains('PRESCRIPTION HOSPITALIERE') ||
+        normalized.contains('PRESCRIPTION INITIALE HOSPITALIERE') ||
+        normalized.contains('RESERVEE AUX SPECIALISTES');
+    final hasSurveillance = normalized.contains('SURVEILLANCE PARTICULIERE') ||
+        normalized.contains('CARNET DE SUIVI') ||
+        normalized.contains('GROSSESSE');
+    final hasAny =
+        hasHospital ||
+        hasDental ||
+        hasList1 ||
+        hasList2 ||
+        hasNarcotic ||
+        hasException ||
+        hasRestricted;
+    final isOtc = normalized.isEmpty ? true : !hasAny;
+    return (
+      isHospitalOnly: hasHospital,
+      isDental: hasDental,
+      isList1: hasList1,
+      isList2: hasList2,
+      isNarcotic: hasNarcotic,
+      isException: hasException,
+      isRestricted: hasRestricted,
+      isSurveillance: hasSurveillance,
+      isOtc: isOtc,
+    );
   }
 
   // WHY: Parse BDPM MITM file and return CIS-to-ATC mapping.
@@ -307,6 +391,7 @@ class BdpmFileParser {
       final statusLabel = parts[3].trim();
       final dateDebutRaw = parts.length > 4 ? parts[4].trim() : null;
       final dateFinRaw = parts.length > 5 ? parts[5].trim() : null;
+      final lienRaw = parts.length > 6 ? parts[6].trim() : '';
 
       if (statusCode != '1' && statusCode != '2') continue;
       if (statusLabel.isEmpty) continue;
@@ -321,6 +406,7 @@ class BdpmFileParser {
           'statut': statusLabel,
           'date_debut': dateDebut,
           'date_fin': dateFin,
+          'lien': lienRaw.isNotEmpty ? lienRaw : null,
         });
       }
 
@@ -367,6 +453,30 @@ DateTime? _parseBdpmDate(String? raw) {
   final year = int.tryParse(parts[2]);
   if (day == null || month == null || year == null) return null;
   return DateTime.utc(year, month, day);
+}
+
+String _normalizeConditionText(String? raw) {
+  if (raw == null) {
+    return '';
+  }
+  var text = raw.trim().toUpperCase();
+  const replacements = {
+    'É': 'E',
+    'È': 'E',
+    'Ê': 'E',
+    'Ë': 'E',
+    'À': 'A',
+    'Â': 'A',
+    'Î': 'I',
+    'Ï': 'I',
+    'Ô': 'O',
+    'Û': 'U',
+    'Ù': 'U',
+  };
+  for (final entry in replacements.entries) {
+    text = text.replaceAll(entry.key, entry.value);
+  }
+  return text;
 }
 
 typedef SpecialitesParseResult = ({

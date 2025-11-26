@@ -43,7 +43,7 @@ class DataInitializationService {
        _fileDownloadService = fileDownloadService ?? FileDownloadService();
 
   static const _currentDataVersion =
-      '2025-01-20-rc2'; // Updated to force FTS5 re-indexing with sanitized principles
+      '2025-01-20-rc3'; // Updated to force FTS5 re-indexing with trigram tokenizer and sanitized principles
   static const String dataVersion = _currentDataVersion;
 
   final AppDatabase _db;
@@ -498,6 +498,9 @@ Future<_ParseAndInsertResult> _parseAndInsertDataInBackground(
                 cisCode: Value(row['cis_code'] as String),
                 nomSpecialite: Value(row['nom_specialite'] as String),
                 procedureType: Value(row['procedure_type'] as String),
+                statutAdministratif: Value(
+                  row['statut_administratif'] as String?,
+                ),
                 formePharmaceutique: Value(
                   row['forme_pharmaceutique'] as String?,
                 ),
@@ -523,6 +526,7 @@ Future<_ParseAndInsertResult> _parseAndInsertDataInBackground(
               (row) => drift_db.MedicamentsCompanion(
                 codeCip: Value(row['code_cip'] as String),
                 cisCode: Value(row['cis_code'] as String),
+                presentationLabel: Value(row['presentation_label'] as String?),
                 commercialisationStatut: Value(
                   row['commercialisation_statut'] as String?,
                 ),
@@ -580,6 +584,7 @@ Future<_ParseAndInsertResult> _parseAndInsertDataInBackground(
                   statut: Value(row['statut'] as String),
                   dateDebut: Value(row['date_debut'] as DateTime?),
                   dateFin: Value(row['date_fin'] as DateTime?),
+                  lien: Value(row['lien'] as String?),
                 ),
               ),
               mode: InsertMode.replace,

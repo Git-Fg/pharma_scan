@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:gap/gap.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
@@ -13,180 +14,170 @@ import 'package:pharma_scan/core/providers/theme_provider.dart';
 import 'package:pharma_scan/core/router/app_routes.dart';
 import 'package:pharma_scan/features/home/providers/sync_provider.dart';
 
-class SettingsScreen extends ConsumerStatefulWidget {
+class SettingsScreen extends HookConsumerWidget {
   const SettingsScreen({super.key});
 
   @override
-  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isResetting = useState(false);
+    final isCheckingUpdates = useState(false);
 
-class _SettingsScreenState extends ConsumerState<SettingsScreen> {
-  bool _isResetting = false;
-  bool _isCheckingUpdates = false;
+    Future<void> performReset() async {
+      Navigator.of(context).pop();
+      isResetting.value = true;
 
-  void _showResetConfirmation() {
-    final theme = ShadTheme.of(context);
-    final isMobile = MediaQuery.sizeOf(context).width < 600;
+      try {
+        await ref
+            .read(dataInitializationServiceProvider)
+            .initializeDatabase(forceRefresh: true);
 
-    showAdaptiveOverlay(
-      context: context,
-      builder: (overlayContext) {
-        if (isMobile) {
-          // Mobile : ShadCard dans BottomSheet
-          return ShadCard(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(Strings.resetDatabaseTitle, style: theme.textTheme.h4),
-                const Gap(12),
-                Text(
-                  Strings.resetDatabaseDescription,
-                  style: theme.textTheme.muted,
-                ),
-                const Gap(24),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    ShadButton.outline(
-                      onPressed: () => Navigator.of(overlayContext).pop(),
-                      child: const Text(Strings.cancel),
-                    ),
-                    const Gap(8),
-                    ShadButton.destructive(
-                      onPressed: () {
-                        Navigator.of(overlayContext).pop();
-                        _performReset();
-                      },
-                      child: const Text(Strings.confirm),
-                    ),
-                  ],
-                ),
-              ],
+        if (context.mounted) {
+          ShadSonner.of(context).show(
+            const ShadToast(
+              title: Text(Strings.resetComplete),
+              description: Text(Strings.resetSuccess),
             ),
           );
-        } else {
-          // Desktop : ShadDialog
-          return ShadDialog.alert(
-            title: const Text(Strings.resetDatabaseTitle),
-            description: const Text(Strings.resetDatabaseDescription),
-            actions: [
-              ShadButton.outline(
-                onPressed: () => Navigator.of(overlayContext).pop(),
-                child: const Text(Strings.cancel),
+        }
+      } catch (_) {
+        if (context.mounted) {
+          final sonner = ShadSonner.of(context);
+          final toastId = DateTime.now().millisecondsSinceEpoch;
+          sonner.show(
+            ShadToast.destructive(
+              id: toastId,
+              title: const Text(Strings.resetError),
+              description: const Text(Strings.resetErrorDescription),
+              action: ShadButton.outline(
+                onPressed: () => sonner.hide(toastId),
+                child: const Text(Strings.close),
               ),
-              ShadButton.destructive(
-                onPressed: () {
-                  Navigator.of(overlayContext).pop();
-                  _performReset();
-                },
-                child: const Text(Strings.confirm),
-              ),
-            ],
+            ),
           );
         }
-      },
-    );
-  }
+      } finally {
+        if (context.mounted) {
+          isResetting.value = false;
+        }
+      }
+    }
 
-  Future<void> _performReset() async {
-    Navigator.of(context).pop();
-    setState(() {
-      _isResetting = true;
-    });
+    void showResetConfirmation() {
+      final theme = ShadTheme.of(context);
+      final isMobile = MediaQuery.sizeOf(context).width < 600;
 
-    try {
-      await ref
-          .read(dataInitializationServiceProvider)
-          .initializeDatabase(forceRefresh: true);
+      showAdaptiveOverlay(
+        context: context,
+        builder: (overlayContext) {
+          if (isMobile) {
+            // Mobile : ShadCard dans BottomSheet
+            return ShadCard(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(Strings.resetDatabaseTitle, style: theme.textTheme.h4),
+                  const Gap(12),
+                  Text(
+                    Strings.resetDatabaseDescription,
+                    style: theme.textTheme.muted,
+                  ),
+                  const Gap(24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      ShadButton.outline(
+                        onPressed: () => Navigator.of(overlayContext).pop(),
+                        child: const Text(Strings.cancel),
+                      ),
+                      const Gap(8),
+                      ShadButton.destructive(
+                        onPressed: () {
+                          Navigator.of(overlayContext).pop();
+                          performReset();
+                        },
+                        child: const Text(Strings.confirm),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          } else {
+            // Desktop : ShadDialog
+            return ShadDialog.alert(
+              title: const Text(Strings.resetDatabaseTitle),
+              description: const Text(Strings.resetDatabaseDescription),
+              actions: [
+                ShadButton.outline(
+                  onPressed: () => Navigator.of(overlayContext).pop(),
+                  child: const Text(Strings.cancel),
+                ),
+                ShadButton.destructive(
+                  onPressed: () {
+                    Navigator.of(overlayContext).pop();
+                    performReset();
+                  },
+                  child: const Text(Strings.confirm),
+                ),
+              ],
+            );
+          }
+        },
+      );
+    }
 
-      if (mounted) {
+    Future<void> runManualSync() async {
+      if (isCheckingUpdates.value) return;
+      isCheckingUpdates.value = true;
+
+      showAdaptiveOverlay(
+        context: context,
+        isDismissible: false,
+        builder: (overlayContext) => _SyncProgressDialog(
+          isMobile: MediaQuery.sizeOf(context).width < 600,
+        ),
+      );
+
+      try {
+        final updated = await ref
+            .read(syncControllerProvider.notifier)
+            .startSync(force: true);
+        if (!context.mounted) return;
         ShadSonner.of(context).show(
-          const ShadToast(
-            title: Text(Strings.resetComplete),
-            description: Text(Strings.resetSuccess),
+          ShadToast(
+            title: Text(updated ? Strings.bdpmSynced : Strings.noNewUpdates),
+            description: Text(
+              updated
+                  ? Strings.latestBdpmDataApplied
+                  : Strings.localDataUpToDate,
+            ),
           ),
         );
-      }
-    } catch (_) {
-      if (mounted) {
+      } catch (_) {
+        if (!context.mounted) return;
         final sonner = ShadSonner.of(context);
         final toastId = DateTime.now().millisecondsSinceEpoch;
         sonner.show(
           ShadToast.destructive(
             id: toastId,
-            title: const Text(Strings.resetError),
-            description: const Text(Strings.resetErrorDescription),
+            title: const Text(Strings.syncFailed),
+            description: const Text(Strings.unableToCheckBdpmUpdates),
             action: ShadButton.outline(
               onPressed: () => sonner.hide(toastId),
               child: const Text(Strings.close),
             ),
           ),
         );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isResetting = false;
-        });
-      }
-    }
-  }
-
-  Future<void> _runManualSync() async {
-    if (_isCheckingUpdates) return;
-    setState(() {
-      _isCheckingUpdates = true;
-    });
-
-    showAdaptiveOverlay(
-      context: context,
-      isDismissible: false,
-      builder: (overlayContext) =>
-          _SyncProgressDialog(isMobile: MediaQuery.sizeOf(context).width < 600),
-    );
-
-    try {
-      final updated = await ref
-          .read(syncControllerProvider.notifier)
-          .startSync(force: true);
-      if (!mounted) return;
-      ShadSonner.of(context).show(
-        ShadToast(
-          title: Text(updated ? Strings.bdpmSynced : Strings.noNewUpdates),
-          description: Text(
-            updated ? Strings.latestBdpmDataApplied : Strings.localDataUpToDate,
-          ),
-        ),
-      );
-    } catch (_) {
-      if (!mounted) return;
-      final sonner = ShadSonner.of(context);
-      final toastId = DateTime.now().millisecondsSinceEpoch;
-      sonner.show(
-        ShadToast.destructive(
-          id: toastId,
-          title: const Text(Strings.syncFailed),
-          description: const Text(Strings.unableToCheckBdpmUpdates),
-          action: ShadButton.outline(
-            onPressed: () => sonner.hide(toastId),
-            child: const Text(Strings.close),
-          ),
-        ),
-      );
-    } finally {
-      if (mounted) {
-        Navigator.of(context, rootNavigator: true).pop();
-        setState(() {
-          _isCheckingUpdates = false;
-        });
+      } finally {
+        if (context.mounted) {
+          Navigator.of(context, rootNavigator: true).pop();
+          isCheckingUpdates.value = false;
+        }
       }
     }
-  }
 
-  @override
-  Widget build(BuildContext context) {
     final theme = ShadTheme.of(context);
     final frequencyState = ref.watch(appPreferencesProvider);
     final updateFrequency = frequencyState.value ?? UpdateFrequency.daily;
@@ -277,15 +268,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 const Gap(16),
                 Semantics(
                   button: true,
-                  label: _isCheckingUpdates
+                  label: isCheckingUpdates.value
                       ? Strings.checkingUpdatesTitle
                       : Strings.checkUpdatesNow,
-                  enabled: !_isCheckingUpdates,
+                  enabled: !isCheckingUpdates.value,
                   child: ShadButton(
-                    onPressed: _isCheckingUpdates ? null : _runManualSync,
+                    onPressed: isCheckingUpdates.value ? null : runManualSync,
                     leading: const Icon(LucideIcons.refreshCw, size: 16),
                     child: Text(
-                      _isCheckingUpdates
+                      isCheckingUpdates.value
                           ? Strings.checkingUpdatesInProgress
                           : Strings.checkUpdatesNow,
                     ),
@@ -299,7 +290,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   hint:
                       'Cette action supprimera toutes les données locales et les re-téléchargera',
                   child: ShadButton.destructive(
-                    onPressed: _showResetConfirmation,
+                    onPressed: showResetConfirmation,
                     leading: const Icon(LucideIcons.databaseZap, size: 16),
                     child: const Text(Strings.forceReset),
                   ),
@@ -325,7 +316,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ],
             ),
           ),
-          if (_isResetting)
+          if (isResetting.value)
             ColoredBox(
               color: theme.colorScheme.background.withValues(alpha: 0.8),
               child: const Center(

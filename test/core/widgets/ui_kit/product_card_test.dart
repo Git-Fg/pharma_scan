@@ -21,6 +21,20 @@ void main() {
       conditionsPrescription: null,
       isSurveillance: false,
       formattedDosage: null,
+      atcCode: null,
+      status: null,
+      priceMin: null,
+      priceMax: null,
+      aggregatedConditions: null,
+      ansmAlertUrl: null,
+      isHospitalOnly: false,
+      isDental: false,
+      isList1: false,
+      isList2: false,
+      isNarcotic: false,
+      isException: false,
+      isRestricted: false,
+      isOtc: true,
     );
   }
 

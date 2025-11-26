@@ -30,8 +30,7 @@ class ScanDao extends DatabaseAccessor<AppDatabase> with _$ScanDaoMixin {
         medicamentAvailability,
         medicamentAvailability.codeCip.equalsExp(medicaments.codeCip),
       ),
-    ])
-      ..where(medicaments.codeCip.equals(codeCip));
+    ])..where(medicaments.codeCip.equals(codeCip));
 
     final row = await query.getSingleOrNull();
 
@@ -62,18 +61,26 @@ class ScanDao extends DatabaseAccessor<AppDatabase> with _$ScanDaoMixin {
       refundRate: medicament.tauxRemboursement,
       boxStatus: medicament.commercialisationStatut,
       availabilityStatus: availabilityRow?.statut,
-      isHospitalOnly: _isHospitalOnly(
-        medicament.agrementCollectivites,
-        medicament.prixPublic,
-      ),
+      isHospitalOnly: summary.isHospitalOnly ||
+          _isHospitalOnly(
+            medicament.agrementCollectivites,
+            medicament.prixPublic,
+            medicament.tauxRemboursement,
+          ),
+      libellePresentation: medicament.presentationLabel,
     );
   }
 
-  bool _isHospitalOnly(String? agrementCollectivites, double? price) {
+  bool _isHospitalOnly(
+    String? agrementCollectivites,
+    double? price,
+    String? refundRate,
+  ) {
     if (agrementCollectivites == null) return false;
-    final agrement = agrementCollectivites.toLowerCase();
+    final agrement = agrementCollectivites.trim().toLowerCase();
     final isAgreed = agrement == 'oui';
     final hasPrice = price != null && price > 0;
-    return isAgreed && !hasPrice;
+    final hasRefund = refundRate != null && refundRate.trim().isNotEmpty;
+    return isAgreed && !hasPrice && hasRefund;
   }
 }

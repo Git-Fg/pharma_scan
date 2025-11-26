@@ -1,9 +1,10 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
-class ScanWindowOverlay extends StatefulWidget {
+class ScanWindowOverlay extends HookWidget {
   const ScanWindowOverlay({super.key});
 
   static const double _windowSize = 240;
@@ -12,42 +13,24 @@ class ScanWindowOverlay extends StatefulWidget {
   static const double _cornerThickness = 5;
 
   @override
-  State<ScanWindowOverlay> createState() => _ScanWindowOverlayState();
-}
-
-class _ScanWindowOverlayState extends State<ScanWindowOverlay>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-  late final Animation<double> _pulse;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
+  Widget build(BuildContext context) {
+    final controller = useAnimationController(
       duration: const Duration(milliseconds: 1800),
     )..repeat(reverse: true);
-    _pulse = CurvedAnimation(parent: _controller, curve: Curves.easeInOutSine);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
+    final pulse = useMemoized(
+      () => CurvedAnimation(parent: controller, curve: Curves.easeInOutSine),
+      [controller],
+    );
     final theme = ShadTheme.of(context);
     final primary = theme.colorScheme.primary;
     final scrimColor = Colors.black.withValues(alpha: 0.65);
 
     return IgnorePointer(
       child: AnimatedBuilder(
-        animation: _pulse,
+        animation: pulse,
         builder: (context, _) {
-          final pulseOpacity = lerpDouble(0.35, 0.9, _pulse.value)!;
-          final iconOpacity = lerpDouble(0.4, 0.85, _pulse.value)!;
+          final pulseOpacity = lerpDouble(0.35, 0.9, pulse.value)!;
+          final iconOpacity = lerpDouble(0.4, 0.85, pulse.value)!;
 
           return Stack(
             fit: StackFit.expand,

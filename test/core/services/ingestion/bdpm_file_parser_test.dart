@@ -3,7 +3,7 @@ import 'package:pharma_scan/core/services/ingestion/bdpm_file_parser.dart';
 
 void main() {
   group('BdpmFileParser.parseSpecialites', () {
-    test('keeps only Autorisation active entries', () {
+    test('keeps all statuses including archived/suspended', () {
       const content = '''
 123456\tSPECIALITE ACTIVE\tComprimé\torale\tAutorisation active\tProcédure A\tCommercialisé\t01/01/2024\tstatutbdm\tEU9999\tLab Active\tNon
 654321\tSPECIALITE ARCHIVE\tComprimé\torale\tAutorisation suspendue\tProcédure B\tCommercialisé\t01/02/2024\tstatutbdm\tEU8888\tLab Old\tNon
@@ -15,12 +15,16 @@ void main() {
         const <String, String>{},
       );
 
-      expect(result.specialites, hasLength(1));
+      expect(result.specialites, hasLength(2));
       expect(result.seenCis, contains('123456'));
-      expect(result.seenCis, isNot(contains('654321')));
+      expect(result.seenCis, contains('654321'));
       expect(
         result.specialites.first['statut_administratif'],
         equals('Autorisation active'),
+      );
+      expect(
+        result.specialites.last['statut_administratif'],
+        equals('Autorisation suspendue'),
       );
     });
 
@@ -134,6 +138,7 @@ void main() {
       final entry = result.medicaments.first;
       expect(entry['agrement_collectivites'], equals('oui'));
       expect(entry['prix_public'], equals(1226.20));
+      expect(entry['presentation_label'], equals('libelle'));
     });
   });
 
@@ -176,5 +181,41 @@ void main() {
         expect(entry['date_fin'], isNull);
       }
     });
+  });
+
+  group('BdpmFileParser.parseRegulatoryFlags', () {
+    test('detects hospital and list flags with accents removed', () {
+      const raw = 'Réservé à l\'usage hospitalier - Liste I';
+      final flags = BdpmFileParser.parseRegulatoryFlags(raw);
+      expect(flags.isHospitalOnly, isTrue);
+      expect(flags.isList1, isTrue);
+      expect(flags.isList2, isFalse);
+      expect(flags.isOtc, isFalse);
+    });
+
+    test('falls back to OTC when no restriction found', () {
+      const raw = 'Sans prescription';
+      final flags = BdpmFileParser.parseRegulatoryFlags(raw);
+      expect(flags.isOtc, isTrue);
+      expect(flags.isHospitalOnly, isFalse);
+      expect(flags.isNarcotic, isFalse);
+    });
+
+    test('detects stupéfiant even without diacritics', () {
+      const raw = 'Stupefiant - Exception';
+      final flags = BdpmFileParser.parseRegulatoryFlags(raw);
+      expect(flags.isNarcotic, isTrue);
+      expect(flags.isException, isTrue);
+      expect(flags.isOtc, isFalse);
+    });
+
+  test('detects restricted and surveillance indicators', () {
+    const raw =
+        'Prescription hospitaliere reservee aux specialistes avec carnet de suivi';
+    final flags = BdpmFileParser.parseRegulatoryFlags(raw);
+    expect(flags.isRestricted, isTrue);
+    expect(flags.isSurveillance, isTrue);
+    expect(flags.isOtc, isFalse);
+  });
   });
 }

@@ -1,7 +1,8 @@
 // lib/main.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:pharma_scan/core/providers/theme_provider.dart';
 import 'package:pharma_scan/core/router/app_router.dart';
 import 'package:pharma_scan/core/services/logger_service.dart';
@@ -69,40 +70,29 @@ void main() async {
   );
 }
 
-class PharmaScanApp extends ConsumerStatefulWidget {
+class PharmaScanApp extends HookConsumerWidget {
   const PharmaScanApp({super.key});
 
   @override
-  ConsumerState<PharmaScanApp> createState() => PharmaScanAppState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final headingTextTheme = useMemoized(() {
+      final base = ShadTextTheme();
+      return base.copyWith(
+        h3: base.h3.copyWith(fontWeight: FontWeight.w700),
+        h4: base.h4.copyWith(fontWeight: FontWeight.w600),
+      );
+    });
 
-class PharmaScanAppState extends ConsumerState<PharmaScanApp> {
-  late final ShadTextTheme _headingTextTheme = _buildHeadingTextTheme();
-
-  @override
-  void initState() {
-    super.initState();
     // WHY: Start initialization immediately without waiting for first frame
     // The initialization provider already starts with success state, so this is safe
-    Future.microtask(_initializeDatabase);
-  }
-
-  Future<void> _initializeDatabase() async {
-    // WHY: Don't await - let initialization happen in background
-    // The provider already starts with success state, so app remains responsive
-    ref.read(initializationStateProvider.notifier).initialize();
-  }
-
-  ShadTextTheme _buildHeadingTextTheme() {
-    final base = ShadTextTheme();
-    return base.copyWith(
-      h3: base.h3.copyWith(fontWeight: FontWeight.w700),
-      h4: base.h4.copyWith(fontWeight: FontWeight.w600),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
+    useEffect(() {
+      Future.microtask(() {
+        // WHY: Don't await - let initialization happen in background
+        // The provider already starts with success state, so app remains responsive
+        ref.read(initializationStateProvider.notifier).initialize();
+      });
+      return null;
+    }, []);
     final goRouter = ref.watch(goRouterProvider);
     final themeAsync = ref.watch(themeProvider);
     final themeMode = themeAsync.value ?? ThemeMode.system;
@@ -119,7 +109,7 @@ class PharmaScanAppState extends ConsumerState<PharmaScanApp> {
           background: AppColors.scaffoldOffWhite,
           custom: AppColors.semanticCustomColors,
         ),
-        textTheme: _headingTextTheme,
+        textTheme: headingTextTheme,
         // WHY: Configure default button theme for consistency
         // Note: Gradient and shadow must still be applied per-button
         primaryButtonTheme: const ShadButtonTheme(),
@@ -130,7 +120,7 @@ class PharmaScanAppState extends ConsumerState<PharmaScanApp> {
           background: AppColors.scaffoldSlateDark,
           custom: AppColors.semanticCustomColors,
         ),
-        textTheme: _headingTextTheme,
+        textTheme: headingTextTheme,
         // WHY: Configure default button theme for consistency
         // Note: Gradient and shadow must still be applied per-button
         primaryButtonTheme: const ShadButtonTheme(),

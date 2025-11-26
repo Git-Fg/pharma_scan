@@ -1,4 +1,6 @@
-import 'package:pharma_scan/core/config/app_config.dart';
+import 'dart:async';
+
+import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/providers/core_providers.dart';
 import 'package:pharma_scan/core/utils/medicament_helpers.dart';
 import 'package:pharma_scan/features/explorer/models/generic_group_entity.dart';
@@ -23,41 +25,40 @@ class SearchFiltersNotifier extends _$SearchFiltersNotifier {
 }
 
 @riverpod
-Future<List<SearchResultItem>> searchResults(Ref ref, String rawQuery) async {
+Stream<List<SearchResultItem>> searchResults(Ref ref, String rawQuery) {
   final query = rawQuery.trim();
-  if (query.isEmpty) return const <SearchResultItem>[];
-
-  // WHY: Native debounce in provider - wait before executing search to avoid excessive queries
-  // This eliminates the need for Timer-based debouncing in the UI layer
-  // Note: This debounce applies per query value - if the query changes during the delay,
-  // the provider will be called again with the new value, cancelling this execution
-  await Future.delayed(AppConfig.searchDebounce);
-
-  // WHY: Check if provider is still mounted after async delay to prevent UnmountedRefException
-  if (!ref.mounted) return const <SearchResultItem>[];
+  if (query.isEmpty) {
+    return Stream<List<SearchResultItem>>.value(const <SearchResultItem>[]);
+  }
 
   final searchDao = ref.watch(searchDaoProvider);
   final filters = ref.watch(searchFiltersProvider);
-
-  // WHY: Use FTS5 search directly in SQLite - no client-side indexing needed
-  // Filters are applied in the SQL query for efficiency
-  final summaries = await searchDao.searchMedicaments(query, filters: filters);
-  if (summaries.isEmpty) return const <SearchResultItem>[];
-
-  // WHY: Batch fetch representative CIPs for all results to avoid N+1 queries
   final db = ref.read(appDatabaseProvider);
-  final cisCodes = summaries.map((s) => s.cisCode).toSet().toList();
-  final medicaments = await (db.select(
-    db.medicaments,
-  )..where((tbl) => tbl.cisCode.isIn(cisCodes))).get();
 
-  // Build map of CIS code -> first CIP (representative CIP)
-  final cisToCipMap = <String, String>{};
-  for (final med in medicaments) {
-    cisToCipMap.putIfAbsent(med.cisCode, () => med.codeCip);
-  }
+  // WHY: Watch FTS5 results reactively so UI updates whenever the underlying tables change.
+  final summariesStream = searchDao.watchMedicaments(query, filters: filters);
 
-  // WHY: Deduplicate results by groupId (for groups) or canonical name (for standalone)
+  return summariesStream.asyncMap((summaries) async {
+    if (summaries.isEmpty) return const <SearchResultItem>[];
+
+    final cisCodes = summaries.map((s) => s.cisCode).toSet().toList();
+    final medicaments = await (db.select(
+      db.medicaments,
+    )..where((tbl) => tbl.cisCode.isIn(cisCodes))).get();
+
+    final cisToCipMap = <String, String>{};
+    for (final med in medicaments) {
+      cisToCipMap.putIfAbsent(med.cisCode, () => med.codeCip);
+    }
+
+    return _mapSummariesToItems(summaries, cisToCipMap);
+  });
+}
+
+List<SearchResultItem> _mapSummariesToItems(
+  List<MedicamentSummaryData> summaries,
+  Map<String, String> cisToCipMap,
+) {
   final processedGroups = <String>{};
   final processedStandaloneNames = <String>{};
   final items = <SearchResultItem>[];
@@ -67,18 +68,13 @@ Future<List<SearchResultItem>> searchResults(Ref ref, String rawQuery) async {
     final representativeCip = cisToCipMap[summary.cisCode] ?? summary.cisCode;
 
     if (groupId != null && groupId.isNotEmpty) {
-      // This is a group result
-      if (processedGroups.contains(groupId)) {
-        continue;
-      }
+      if (processedGroups.contains(groupId)) continue;
       processedGroups.add(groupId);
 
       final commonPrinciples = summary.principesActifsCommuns
           .map(sanitizeActivePrinciple)
           .join(', ');
 
-      // WHY: Return GenericGroupEntity directly - do NOT hydrate full medication lists
-      // The UI will lazy-load medications when user taps the group card
       items.add(
         SearchResultItem.groupResult(
           group: GenericGroupEntity(
@@ -88,28 +84,25 @@ Future<List<SearchResultItem>> searchResults(Ref ref, String rawQuery) async {
           ),
         ),
       );
-    } else {
-      // This is a standalone result
-      final canonicalName = summary.nomCanonique.toUpperCase().trim();
-      if (processedStandaloneNames.contains(canonicalName)) {
-        continue;
-      }
-      processedStandaloneNames.add(canonicalName);
-
-      final commonPrinciples = summary.principesActifsCommuns
-          .map(sanitizeActivePrinciple)
-          .join(', ');
-
-      // WHY: Use MedicamentSummaryData directly - no domain model conversion needed
-      items.add(
-        SearchResultItem.standaloneResult(
-          cisCode: summary.cisCode,
-          summary: summary,
-          representativeCip: representativeCip,
-          commonPrinciples: commonPrinciples,
-        ),
-      );
+      continue;
     }
+
+    final canonicalName = summary.nomCanonique.toUpperCase().trim();
+    if (processedStandaloneNames.contains(canonicalName)) continue;
+    processedStandaloneNames.add(canonicalName);
+
+    final commonPrinciples = summary.principesActifsCommuns
+        .map(sanitizeActivePrinciple)
+        .join(', ');
+
+    items.add(
+      SearchResultItem.standaloneResult(
+        cisCode: summary.cisCode,
+        summary: summary,
+        representativeCip: representativeCip,
+        commonPrinciples: commonPrinciples,
+      ),
+    );
   }
 
   return items;

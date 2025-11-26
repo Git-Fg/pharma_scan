@@ -60,3 +60,6 @@ tool/data/
 
 # Ignore generated reports in tool/report/
 tool/report/
+
+
+docs/

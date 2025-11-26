@@ -172,30 +172,23 @@ void main() {
     // Populate MedicamentSummary table
     await populateMedicamentSummary(database);
 
-    // WHEN: We ask the service to classify the group
-    final groupData = await database.libraryDao.classifyProductGroup('GROUP_1');
+    // WHEN: We fetch group details backed by the SQL view
+    final members = await database.libraryDao.getGroupDetails('GROUP_1');
 
-    // THEN: The group data should contain the members
-    expect(groupData, isNotNull);
-    expect(groupData!.memberRows.length, greaterThanOrEqualTo(2));
-
-    // Verify the data structure is correct
-    expect(groupData.commonPrincipes, isNotEmpty);
-
-    // Verify principes data is available for all members
-    expect(groupData.principesByCip, isNotEmpty);
-
-    // Verify the broken generic member exists and has principes data
-    // WHY: CIP_G is the generic with missing dosage (the "broken" one)
+    // THEN: The group data should contain both princeps and generic
+    expect(members.length, greaterThanOrEqualTo(2));
     expect(
-      groupData.memberRows.any((m) => m.medicamentRow.codeCip == 'CIP_G'),
-      isTrue,
-      reason: 'Broken generic member should exist',
+      members.map((m) => m.principesActifsCommuns),
+      everyElement(isNotEmpty),
     );
+
+    // Verify the broken generic member exists and inherits dosage
+    final genericMember = members.firstWhere((m) => !m.isPrinceps);
+    expect(genericMember.codeCip, 'CIP_G');
     expect(
-      groupData.principesByCip.containsKey('CIP_G'),
-      isTrue,
-      reason: 'Broken generic should have principes data available',
+      genericMember.formattedDosage,
+      equals('500 mg'),
+      reason: 'Generic should inherit princeps dosage via SQL aggregation',
     );
   });
 }

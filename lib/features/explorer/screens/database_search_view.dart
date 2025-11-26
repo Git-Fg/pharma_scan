@@ -1,6 +1,7 @@
 // lib/features/explorer/screens/database_search_view.dart
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:gap/gap.dart';
 import 'package:pharma_scan/core/router/app_routes.dart';
@@ -29,76 +30,45 @@ import 'package:pharma_scan/features/explorer/providers/search_provider.dart';
 import 'package:pharma_scan/features/home/providers/initialization_provider.dart';
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
 
-class DatabaseSearchView extends ConsumerStatefulWidget {
+class DatabaseSearchView extends HookConsumerWidget {
   const DatabaseSearchView({super.key});
 
-  @override
-  ConsumerState<DatabaseSearchView> createState() => DatabaseSearchViewState();
-}
-
-class DatabaseSearchViewState extends ConsumerState<DatabaseSearchView> {
   static const double _searchHeaderHeight = 68;
-  final TextEditingController _searchController = TextEditingController();
-  late ScrollController _scrollController;
 
   @override
-  void initState() {
-    super.initState();
-    _scrollController = ScrollController();
-    _scrollController.addListener(_onScroll);
-    _searchController.addListener(_refreshSearchUi);
-  }
-
-  @override
-  void dispose() {
-    _searchController
-      ..removeListener(_refreshSearchUi)
-      ..dispose();
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  void _onScroll() {
-    if (!_scrollController.hasClients) return;
-    // WHY: Don't trigger group pagination when user is searching
-    // Search results are capped at 50 by FuzzyBolt, so pagination isn't needed
-    if (_searchController.text.trim().isNotEmpty) {
-      return;
-    }
-    if (_scrollController.position.pixels >=
-        _scrollController.position.maxScrollExtent - 200) {
-      final groupsState = ref.read(genericGroupsProvider);
-      final data = groupsState.value;
-      if (data == null || !data.hasMore || data.isLoadingMore) {
-        return;
-      }
-      ref.read(genericGroupsProvider.notifier).loadMore();
-    }
-  }
-
-  void _onSearchChanged(String query) {
-    // WHY: Provider handles debouncing - just trigger rebuild to update query
-    // The searchResultsProvider will debounce internally via Future.delayed
-    if (mounted) setState(() {});
-  }
-
-  void _clearSearchField() {
-    _searchController.clear();
-    if (mounted) setState(() {});
-  }
-
-  void _refreshSearchUi() {
-    if (!mounted) return;
-    setState(() {});
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = ShadTheme.of(context);
+    final searchController = useTextEditingController();
+    final scrollController = useScrollController();
+
+    // WHY: Set up scroll listener for pagination using useEffect
+    useEffect(() {
+      void onScroll() {
+        if (!scrollController.hasClients) return;
+        // WHY: Don't trigger group pagination when user is searching
+        // Search results are capped at 50 by FuzzyBolt, so pagination isn't needed
+        if (searchController.text.trim().isNotEmpty) {
+          return;
+        }
+        if (scrollController.position.pixels >=
+            scrollController.position.maxScrollExtent - 200) {
+          final groupsState = ref.read(genericGroupsProvider);
+          final data = groupsState.value;
+          if (data == null || !data.hasMore || data.isLoadingMore) {
+            return;
+          }
+          ref.read(genericGroupsProvider.notifier).loadMore();
+        }
+      }
+
+      scrollController.addListener(onScroll);
+      return () => scrollController.removeListener(onScroll);
+    }, [scrollController]);
+
     final filters = ref.watch(searchFiltersProvider);
     final groups = ref.watch(genericGroupsProvider);
     // WHY: Watch provider with controller text directly - debouncing handled in provider
-    final currentQuery = _searchController.text.trim();
+    final currentQuery = searchController.text.trim();
     final searchResults = ref.watch(searchResultsProvider(currentQuery));
     final databaseStats = ref.watch(databaseStatsProvider);
     final hasSearchText = currentQuery.isNotEmpty;
@@ -136,7 +106,7 @@ class DatabaseSearchViewState extends ConsumerState<DatabaseSearchView> {
                 horizontal: AppDimens.spacingMd,
               ),
               child: CustomScrollView(
-                controller: _scrollController,
+                controller: scrollController,
                 slivers: [
                   databaseStats.when(
                     data: (stats) => SliverToBoxAdapter(
@@ -156,7 +126,12 @@ class DatabaseSearchViewState extends ConsumerState<DatabaseSearchView> {
                     pinned: true,
                     delegate: _SearchBarHeaderDelegate(
                       height: _searchHeaderHeight,
-                      child: _buildSearchBarWithFilters(theme),
+                      child: _buildSearchBarWithFilters(
+                        context,
+                        theme,
+                        ref,
+                        searchController,
+                      ),
                     ),
                   ),
                   const SliverToBoxAdapter(child: Gap(AppDimens.spacingXs)),
@@ -164,6 +139,7 @@ class DatabaseSearchViewState extends ConsumerState<DatabaseSearchView> {
                     _buildGenericGroupsSliver(
                       theme,
                       groups,
+                      ref,
                       key: const ValueKey('generic_groups_sliver'),
                     )
                   else if (!isSearching)
@@ -177,14 +153,19 @@ class DatabaseSearchViewState extends ConsumerState<DatabaseSearchView> {
                       data: (items) => _buildSearchResultsSliver(
                         theme,
                         items,
+                        ref,
                         key: const ValueKey('search_results_sliver'),
                       ),
                       loading: () => _buildSkeletonSliver(
                         theme,
                         key: const ValueKey('search_loading_sliver'),
                       ),
-                      error: (error, _) =>
-                          _buildSearchErrorSliver(theme, error),
+                      error: (error, _) => _buildSearchErrorSliver(
+                        theme,
+                        error,
+                        searchController,
+                        ref,
+                      ),
                     ),
                   // Espaceur pour scroller au-dessus de la barre de filtre
                   SliverToBoxAdapter(
@@ -198,7 +179,7 @@ class DatabaseSearchViewState extends ConsumerState<DatabaseSearchView> {
                 left: 16,
                 right: 16,
                 bottom: 16,
-                child: _buildActiveFiltersBar(theme, filters),
+                child: _buildActiveFiltersBar(theme, filters, ref),
               ),
           ],
         ),
@@ -253,21 +234,19 @@ class DatabaseSearchViewState extends ConsumerState<DatabaseSearchView> {
                     ),
                   ),
                   const Gap(AppDimens.spacingSm),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          config.$2,
-                          style: theme.textTheme.small.copyWith(
-                            color: theme.colorScheme.mutedForeground,
-                            fontWeight: FontWeight.w600,
-                          ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        config.$2,
+                        style: theme.textTheme.small.copyWith(
+                          color: theme.colorScheme.mutedForeground,
+                          fontWeight: FontWeight.w600,
                         ),
-                        const Gap(AppDimens.spacing2xs),
-                        Text(config.$3, style: theme.textTheme.h4),
-                      ],
-                    ),
+                      ),
+                      const Gap(AppDimens.spacing2xs),
+                      Text(config.$3, style: theme.textTheme.h4),
+                    ],
                   ),
                 ],
               ),
@@ -280,21 +259,30 @@ class DatabaseSearchViewState extends ConsumerState<DatabaseSearchView> {
     );
   }
 
-  Widget _buildSearchBarWithFilters(ShadThemeData theme) {
+  Widget _buildSearchBarWithFilters(
+    BuildContext context,
+    ShadThemeData theme,
+    WidgetRef ref,
+    TextEditingController searchController,
+  ) {
     final filters = ref.watch(searchFiltersProvider);
     return Row(
       children: [
-        Expanded(child: _buildSearchBar(theme)),
+        Expanded(child: _buildSearchBar(theme, ref, searchController)),
         const Gap(AppDimens.spacingXs),
-        _buildFiltersButton(theme, filters),
+        _buildFiltersButton(context, theme, filters, ref),
       ],
     );
   }
 
-  Widget _buildSearchBar(ShadThemeData theme) {
+  Widget _buildSearchBar(
+    ShadThemeData theme,
+    WidgetRef ref,
+    TextEditingController searchController,
+  ) {
     // WHY: Watch the provider to see if it's actually fetching data
     // Debouncing is handled inside the provider, so we only show loading when actively fetching
-    final currentQuery = _searchController.text.trim();
+    final currentQuery = searchController.text.trim();
     final isFetching = ref.watch(searchResultsProvider(currentQuery)).isLoading;
     return Testable(
       id: TestTags.searchInput,
@@ -302,9 +290,9 @@ class DatabaseSearchViewState extends ConsumerState<DatabaseSearchView> {
         textField: true,
         label: Strings.searchLabel,
         hint: Strings.searchHint,
-        value: _searchController.text,
+        value: searchController.text,
         child: ValueListenableBuilder<TextEditingValue>(
-          valueListenable: _searchController,
+          valueListenable: searchController,
           builder: (context, value, _) {
             final hasText = value.text.isNotEmpty;
             final theme = ShadTheme.of(context);
@@ -324,9 +312,12 @@ class DatabaseSearchViewState extends ConsumerState<DatabaseSearchView> {
                     horizontal: AppDimens.spacingSm,
                   ),
                   child: ShadInput(
-                    controller: _searchController,
+                    controller: searchController,
                     placeholder: const Text(Strings.searchPlaceholder),
-                    onChanged: _onSearchChanged,
+                    onChanged: (_) {
+                      // WHY: Provider handles debouncing - just trigger rebuild
+                      // The searchResultsProvider will debounce internally via Future.delayed
+                    },
                     decoration: ShadDecoration.none,
                     leading: Icon(
                       LucideIcons.search,
@@ -356,11 +347,7 @@ class DatabaseSearchViewState extends ConsumerState<DatabaseSearchView> {
                               label: Strings.clearSearch,
                               child: ShadButton.ghost(
                                 onPressed: () {
-                                  _searchController.clear();
-                                  _onSearchChanged(
-                                    '',
-                                  ); // Notifies parent that it's empty
-                                  _clearSearchField();
+                                  searchController.clear();
                                 },
                                 width: AppDimens.iconLg,
                                 height: AppDimens.iconLg,
@@ -384,7 +371,12 @@ class DatabaseSearchViewState extends ConsumerState<DatabaseSearchView> {
     );
   }
 
-  Widget _buildFiltersButton(ShadThemeData theme, SearchFilters filters) {
+  Widget _buildFiltersButton(
+    BuildContext context,
+    ShadThemeData theme,
+    SearchFilters filters,
+    WidgetRef ref,
+  ) {
     final hasActiveFilters = filters.hasActiveFilters;
     final filterCount =
         (filters.voieAdministration != null ? 1 : 0) +
@@ -414,7 +406,7 @@ class DatabaseSearchViewState extends ConsumerState<DatabaseSearchView> {
               alignment: Alignment.center,
               children: [
                 InkWell(
-                  onTap: () => _openFiltersSheet(theme, filters),
+                  onTap: () => _openFiltersSheet(context, theme, filters, ref),
                   child: Container(
                     decoration: BoxDecoration(
                       border: Border.all(color: theme.colorScheme.border),
@@ -456,16 +448,23 @@ class DatabaseSearchViewState extends ConsumerState<DatabaseSearchView> {
   }
 
   Future<void> _openFiltersSheet(
+    BuildContext context,
     ShadThemeData theme,
     SearchFilters currentFilters,
+    WidgetRef ref,
   ) {
     return showAdaptiveOverlay(
       context: context,
-      builder: (overlayContext) => _buildFiltersPanel(theme, currentFilters),
+      builder: (overlayContext) =>
+          _buildFiltersPanel(overlayContext, theme, currentFilters, ref),
     );
   }
 
-  Widget _buildActiveFiltersBar(ShadThemeData theme, SearchFilters filters) {
+  Widget _buildActiveFiltersBar(
+    ShadThemeData theme,
+    SearchFilters filters,
+    WidgetRef ref,
+  ) {
     final chips = <Widget>[];
     if (filters.voieAdministration != null) {
       chips.add(
@@ -522,7 +521,12 @@ class DatabaseSearchViewState extends ConsumerState<DatabaseSearchView> {
     );
   }
 
-  Widget _buildFiltersPanel(ShadThemeData theme, SearchFilters currentFilters) {
+  Widget _buildFiltersPanel(
+    BuildContext context,
+    ShadThemeData theme,
+    SearchFilters currentFilters,
+    WidgetRef ref,
+  ) {
     return ShadCard(
       padding: const EdgeInsets.all(AppDimens.spacingMd),
       child: Column(
@@ -553,22 +557,24 @@ class DatabaseSearchViewState extends ConsumerState<DatabaseSearchView> {
             style: theme.textTheme.small.copyWith(fontWeight: FontWeight.w600),
           ),
           const Gap(AppDimens.spacingXs),
-          _buildPharmaceuticalFormFilter(theme, currentFilters),
+          _buildPharmaceuticalFormFilter(context, theme, currentFilters, ref),
           const Gap(AppDimens.spacingMd),
           Text(
             Strings.therapeuticClassFilter,
             style: theme.textTheme.small.copyWith(fontWeight: FontWeight.w600),
           ),
           const Gap(AppDimens.spacingXs),
-          _buildTherapeuticClassFilter(theme, currentFilters),
+          _buildTherapeuticClassFilter(context, theme, currentFilters, ref),
         ],
       ),
     );
   }
 
   Widget _buildPharmaceuticalFormFilter(
+    BuildContext context,
     ShadThemeData theme,
     SearchFilters currentFilters,
+    WidgetRef ref,
   ) {
     final routesAsync = ref.watch(administrationRoutesProvider);
 
@@ -603,6 +609,7 @@ class DatabaseSearchViewState extends ConsumerState<DatabaseSearchView> {
                 .updateFilters(
                   currentFilters.copyWith(voieAdministration: value),
                 );
+            Navigator.of(context).maybePop();
           },
         );
       },
@@ -627,8 +634,10 @@ class DatabaseSearchViewState extends ConsumerState<DatabaseSearchView> {
   }
 
   Widget _buildTherapeuticClassFilter(
+    BuildContext context,
     ShadThemeData theme,
     SearchFilters currentFilters,
+    WidgetRef ref,
   ) {
     // ATC Level 1 codes and their labels
     const atcOptions = [
@@ -675,11 +684,12 @@ class DatabaseSearchViewState extends ConsumerState<DatabaseSearchView> {
         ref
             .read(searchFiltersProvider.notifier)
             .updateFilters(currentFilters.copyWith(atcClass: value));
+        Navigator.of(context).maybePop();
       },
     );
   }
 
-  Widget _buildGroupsError(ShadThemeData theme) {
+  Widget _buildGroupsError(ShadThemeData theme, WidgetRef ref) {
     return StatusView(
       type: StatusType.error,
       title: Strings.loadingError,
@@ -698,7 +708,8 @@ class DatabaseSearchViewState extends ConsumerState<DatabaseSearchView> {
   // Sliver versions for CustomScrollView
   Widget _buildGenericGroupsSliver(
     ShadThemeData theme,
-    AsyncValue<GenericGroupsState> groups, {
+    AsyncValue<GenericGroupsState> groups,
+    WidgetRef ref, {
     Key? key,
   }) {
     Widget sliver;
@@ -707,7 +718,7 @@ class DatabaseSearchViewState extends ConsumerState<DatabaseSearchView> {
     } else {
       final data = groups.asData?.value;
       if (groups.hasError && (data == null || data.items.isEmpty)) {
-        sliver = SliverToBoxAdapter(child: _buildGroupsError(theme));
+        sliver = SliverToBoxAdapter(child: _buildGroupsError(theme, ref));
       } else if (data == null || data.items.isEmpty) {
         sliver = const SliverToBoxAdapter(
           child: StatusView(type: StatusType.empty, title: Strings.noResults),
@@ -875,7 +886,8 @@ class DatabaseSearchViewState extends ConsumerState<DatabaseSearchView> {
 
   Widget _buildSearchResultsSliver(
     ShadThemeData theme,
-    List<SearchResultItem> results, {
+    List<SearchResultItem> results,
+    WidgetRef ref, {
     Key? key,
   }) {
     if (results.isEmpty) {
@@ -1042,9 +1054,14 @@ class DatabaseSearchViewState extends ConsumerState<DatabaseSearchView> {
     return _wrapSliverWithKey(sliver, key);
   }
 
-  Widget _buildSearchErrorSliver(ShadThemeData theme, Object error) {
+  Widget _buildSearchErrorSliver(
+    ShadThemeData theme,
+    Object error,
+    TextEditingController searchController,
+    WidgetRef ref,
+  ) {
     // WHY: Use current query from controller instead of _activeQuery state
-    final currentQuery = _searchController.text.trim();
+    final currentQuery = searchController.text.trim();
     return SliverToBoxAdapter(
       child: StatusView(
         type: StatusType.error,

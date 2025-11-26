@@ -3,8 +3,8 @@
 import 'dart:convert';
 import 'package:diacritic/diacritic.dart';
 import 'package:pharma_scan/core/constants/dosage_constants.dart';
-import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/database/database.dart';
+import 'package:pharma_scan/core/utils/strings.dart';
 
 String findCommonPrincepsName(List<String> names) {
   if (names.isEmpty) return 'N/A';
@@ -74,6 +74,23 @@ String formatCommonPrincipes(String? rawJson) {
   return formatCommonPrincipesFromList(principles);
 }
 
+/// WHY: Extract a clean princeps label from BDPM group labels.
+/// - For generic group labels (format: "Generic - Brand"), we want the Brand part.
+/// - Otherwise we just trim and return the raw label.
+String extractPrincepsLabel(String rawLabel) {
+  final trimmed = rawLabel.trim();
+  if (trimmed.isEmpty) return trimmed;
+
+  // Step 1: Group Split - BDPM convention "Generic - Brand"
+  if (trimmed.contains(' - ')) {
+    final parts = trimmed.split(' - ');
+    return parts.last.trim();
+  }
+
+  // Fallback to trimmed label when there is no group separator
+  return trimmed;
+}
+
 // WHY: Derive a concise display title from an already cleaned medication name by
 // trimming trailing dosage information. Handles combination products (e.g., "A 50 + B 20")
 // by processing each segment separately before rejoining, ensuring all molecules are preserved.
@@ -82,16 +99,19 @@ String deriveGroupTitleFromName(String name) {
   if (name.contains(' + ')) {
     // Split into segments (e.g., ["ATENOLOL 50 mg", "NIFEDIPINE 20 mg"])
     final segments = name.split(' + ');
-    
+
     // Process each segment individually to remove dosage
-    final cleanedSegments = segments.map((segment) {
-      return _deriveSingleMoleculeName(segment.trim());
-    }).where((cleaned) => cleaned.isNotEmpty).toList();
-    
+    final cleanedSegments = segments
+        .map((segment) {
+          return _deriveSingleMoleculeName(segment.trim());
+        })
+        .where((cleaned) => cleaned.isNotEmpty)
+        .toList();
+
     // Rejoin with " + " separator
     return cleanedSegments.join(' + ');
   }
-  
+
   // For mono-products, use the existing logic
   return _deriveSingleMoleculeName(name);
 }
@@ -117,20 +137,21 @@ String _deriveSingleMoleculeName(String name) {
 
 // WHY: Derive a clean display title from MedicamentSummaryData based on medication type.
 // For generics in groups, splits the canonical name to remove princeps reference.
-// For princeps in groups, uses the brand name. For standalone medications, uses the already-cleaned canonical name.
+// For princeps (grouped or standalone), uses the princepsDeReference parsed via extractPrincepsLabel.
+// For standalone non-princeps (theoretical), uses the already-cleaned canonical name.
 String getDisplayTitle(MedicamentSummaryData summary) {
+  // Any princeps (grouped or standalone): use princepsDeReference via shared parser
+  if (summary.isPrinceps) {
+    return extractPrincepsLabel(summary.princepsDeReference);
+  }
+
   // Generic in group: split nomCanonique by " - " and take first part
   if (!summary.isPrinceps && summary.groupId != null) {
     final parts = summary.nomCanonique.split(' - ');
     return parts.first.trim();
   }
 
-  // Princeps in group: use princepsDeReference
-  if (summary.isPrinceps && summary.groupId != null) {
-    return summary.princepsDeReference;
-  }
-
-  // Standalone: use nomCanonique (already cleaned)
+  // Standalone non-princeps fallback: use nomCanonique (already cleaned)
   return summary.nomCanonique;
 }
 

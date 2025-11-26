@@ -13,6 +13,7 @@ class ScanResult {
     this.boxStatus,
     this.availabilityStatus,
     this.isHospitalOnly = false,
+    this.libellePresentation,
   });
 
   final MedicamentSummaryData summary;
@@ -22,4 +23,5 @@ class ScanResult {
   final String? boxStatus;
   final String? availabilityStatus;
   final bool isHospitalOnly;
+  final String? libellePresentation;
 }

@@ -77,7 +77,29 @@ class SyncController extends _$SyncController {
   }
 
   Future<bool> _performSync() async {
-    state = const SyncProgress(
+    final syncStartTime = DateTime.now();
+    SyncProgress buildState({
+      required SyncPhase phase,
+      required SyncStatusCode code,
+      double? progress,
+      String? subject,
+      SyncErrorType? errorType,
+      int? totalBytes,
+      int? receivedBytes,
+    }) {
+      return SyncProgress(
+        phase: phase,
+        code: code,
+        progress: progress,
+        subject: subject,
+        errorType: errorType,
+        startTime: syncStartTime,
+        totalBytes: totalBytes,
+        receivedBytes: receivedBytes,
+      );
+    }
+
+    state = buildState(
       phase: SyncPhase.waitingNetwork,
       code: SyncStatusCode.waitingNetwork,
     );
@@ -97,7 +119,7 @@ class SyncController extends _$SyncController {
       currentStep = _SyncStep.waitConnectivity;
       await _waitForConnectivity();
 
-      state = const SyncProgress(
+      state = buildState(
         phase: SyncPhase.checking,
         code: SyncStatusCode.checkingUpdates,
       );
@@ -137,7 +159,7 @@ class SyncController extends _$SyncController {
         LoggerService.info(
           'No updates required. Remote dates match local cache.',
         );
-        state = const SyncProgress(
+        state = buildState(
           phase: SyncPhase.success,
           code: SyncStatusCode.successAlreadyCurrent,
         );
@@ -150,14 +172,26 @@ class SyncController extends _$SyncController {
         currentSubject = entry.key;
         LoggerService.info('Downloading ${entry.key} from ${entry.value}');
 
-        state = SyncProgress(
+        state = buildState(
           phase: SyncPhase.downloading,
           code: SyncStatusCode.downloadingSource,
           subject: entry.key,
-          progress: (i + 1) / sourcesToDownload.length,
+          progress: 0,
         );
 
-        final tempFile = await _downloadFile(entry.value, entry.key);
+        final tempFile = await _downloadFile(
+          entry.value,
+          entry.key,
+          onProgress: (received, total) {
+            if (total <= 0) return;
+            state = state.copyWith(
+              progress: total > 0 ? received / total : state.progress,
+              subject: entry.key,
+              totalBytes: total,
+              receivedBytes: received,
+            );
+          },
+        );
         final hash = await _computeSha256(tempFile);
         final previousHash = sourceHashes[entry.key];
 
@@ -183,7 +217,7 @@ class SyncController extends _$SyncController {
         LoggerService.info(
           'Applying BDPM update (files changed: ${downloadedFiles.keys.join(', ')})',
         );
-        state = const SyncProgress(
+        state = buildState(
           phase: SyncPhase.applying,
           code: SyncStatusCode.applyingUpdate,
         );
@@ -192,7 +226,7 @@ class SyncController extends _$SyncController {
         await dataInit.applyUpdate(downloadedFiles);
       }
 
-      state = SyncProgress(
+      state = buildState(
         phase: SyncPhase.success,
         code: hasChanges
             ? SyncStatusCode.successUpdatesApplied
@@ -206,7 +240,7 @@ class SyncController extends _$SyncController {
           ? 'download_$currentSubject'
           : currentStep.name;
 
-      state = SyncProgress(
+      state = buildState(
         phase: SyncPhase.error,
         code: SyncStatusCode.error,
         subject: errorSubject,
@@ -324,11 +358,16 @@ class SyncController extends _$SyncController {
     }
   }
 
-  Future<File> _downloadFile(String url, String key) async {
+  Future<File> _downloadFile(
+    String url,
+    String key, {
+    void Function(int received, int total)? onProgress,
+  }) async {
     final downloader = ref.read(fileDownloadServiceProvider);
     return downloader.downloadToTempFile(
       url: url,
       tempPathPrefix: '${Directory.systemTemp.path}/pharma_sync_${key}_',
+      onReceiveProgress: onProgress,
     );
   }
 

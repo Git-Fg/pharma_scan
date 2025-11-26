@@ -53,7 +53,20 @@ INSERT OR REPLACE INTO medicament_summary (
   is_surveillance,
   voies_administration,
   formatted_dosage,
-  atc_code
+  atc_code,
+  status,
+  price_min,
+  price_max,
+  aggregated_conditions,
+  ansm_alert_url,
+  is_hospital,
+  is_dental,
+  is_list1,
+  is_list2,
+  is_narcotic,
+  is_exception,
+  is_restricted,
+  is_otc
 )
 SELECT * FROM view_aggregated_grouped;
 
@@ -75,7 +88,20 @@ INSERT OR REPLACE INTO medicament_summary (
   is_surveillance,
   voies_administration,
   formatted_dosage,
-  atc_code
+  atc_code,
+  status,
+  price_min,
+  price_max,
+  aggregated_conditions,
+  ansm_alert_url,
+  is_hospital,
+  is_dental,
+  is_list1,
+  is_list2,
+  is_narcotic,
+  is_exception,
+  is_restricted,
+  is_otc
 )
 SELECT * FROM view_aggregated_standalone;
 

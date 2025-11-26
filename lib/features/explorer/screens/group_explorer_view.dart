@@ -1,37 +1,35 @@
-// lib/features/explorer/screens/group_explorer_view.dart
-import 'package:decimal/decimal.dart';
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
+import 'package:go_router/go_router.dart';
 import 'package:pharma_scan/core/router/app_routes.dart';
+import 'package:pharma_scan/core/theme/app_colors.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
-import 'package:pharma_scan/core/utils/dosage_utils.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
-import 'package:pharma_scan/core/widgets/ui_kit/detail_item.dart';
+import 'package:pharma_scan/core/widgets/ui_kit/info_label.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/pharma_back_header.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/pharma_badges.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/section_header.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/status_view.dart';
-import 'package:pharma_scan/core/database/daos/library_dao.dart';
 import 'package:pharma_scan/features/explorer/models/grouped_by_product_model.dart';
-import 'package:pharma_scan/features/explorer/models/grouped_products_view_model.dart';
 import 'package:pharma_scan/features/explorer/providers/group_classification_provider.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class GroupExplorerView extends ConsumerWidget {
-  final String groupId;
-
   const GroupExplorerView({required this.groupId, super.key});
+
+  final String groupId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = ShadTheme.of(context);
-    final groupDataAsync = ref.watch(groupDetailViewModelProvider(groupId));
+    final detailAsync = ref.watch(groupDetailViewModelProvider(groupId));
+    final relatedAsync = ref.watch(relatedPrincepsProvider(groupId));
 
-    return groupDataAsync.when(
+    return detailAsync.when(
       data: (viewModel) {
-        if (viewModel == null) {
+        if (!viewModel.hasMembers) {
           return Scaffold(
             body: StatusView(
               type: StatusType.error,
@@ -45,11 +43,12 @@ class GroupExplorerView extends ConsumerWidget {
           );
         }
 
-        final groupData = viewModel.groupData;
-        final GroupedProductsViewModel groupedData = viewModel;
-        final princepsCount = viewModel.princepsPresentationCount;
-        final genericsCount = viewModel.genericsPresentationCount;
-        final relatedCount = viewModel.relatedPrincepsCount;
+        final princepsMembers = viewModel.princeps;
+        final genericMembers = viewModel.generics;
+        final relatedMembers =
+            relatedAsync.value ?? const <RelatedPrincepsItem>[];
+        final shouldShowRelatedSection =
+            relatedAsync.isLoading || relatedMembers.isNotEmpty;
 
         return Scaffold(
           backgroundColor: theme.colorScheme.background,
@@ -60,37 +59,38 @@ class GroupExplorerView extends ConsumerWidget {
                   child: _buildAppBarContent(
                     context,
                     theme,
-                    groupData,
-                    princepsCount,
-                    genericsCount,
-                    relatedCount,
+                    viewModel,
+                    princepsMembers.length,
+                    genericMembers.length,
+                    relatedMembers.length,
                   ),
                 ),
-                _buildSectionHeader(
+                _buildSectionAccordion(
+                  context,
                   Strings.princeps,
-                  groupedData.princeps.length,
+                  princepsMembers.length,
+                  princepsMembers,
+                  sectionType: _ProductSectionType.princeps,
                   icon: LucideIcons.star,
                 ),
-                _buildProductList(
-                  groupedData.princeps,
-                  sectionType: _ProductSectionType.princeps,
-                ),
-                _buildSectionHeader(
+                _buildSectionAccordion(
+                  context,
                   Strings.generics,
-                  groupedData.generics.length,
+                  genericMembers.length,
+                  genericMembers,
+                  sectionType: _ProductSectionType.generics,
                   icon: LucideIcons.copy,
                 ),
-                _buildProductList(
-                  groupedData.generics,
-                  sectionType: _ProductSectionType.generics,
-                ),
-                if (groupedData.relatedPrinceps.isNotEmpty) ...[
+                if (shouldShowRelatedSection) ...[
                   _buildSectionHeader(
                     Strings.relatedTherapies,
-                    groupedData.relatedPrinceps.length,
+                    relatedMembers.length,
                     icon: LucideIcons.link,
                   ),
-                  _buildTherapiesList(groupedData.relatedPrinceps),
+                  _buildRelatedList(
+                    relatedMembers,
+                    isLoading: relatedAsync.isLoading,
+                  ),
                 ],
                 const SliverToBoxAdapter(child: Gap(AppDimens.spacingXl)),
               ],
@@ -117,14 +117,15 @@ class GroupExplorerView extends ConsumerWidget {
   Widget _buildAppBarContent(
     BuildContext context,
     ShadThemeData theme,
-    ProductGroupData groupData,
+    GroupedProductsViewModel viewModel,
     int princepsCount,
     int genericsCount,
     int relatedCount,
   ) {
+    final metadata = viewModel.metadata;
     final metadataBadges = <Widget>[
-      if (groupData.distinctDosages.isNotEmpty)
-        ...groupData.distinctDosages.map(
+      if (metadata.distinctDosages.isNotEmpty)
+        ...metadata.distinctDosages.map(
           (dosage) => ShadBadge.outline(
             child: Text(
               '${Strings.dosagesLabel} $dosage',
@@ -132,8 +133,8 @@ class GroupExplorerView extends ConsumerWidget {
             ),
           ),
         ),
-      if (groupData.distinctFormulations.isNotEmpty)
-        ...groupData.distinctFormulations.map(
+      if (metadata.distinctFormulations.isNotEmpty)
+        ...metadata.distinctFormulations.map(
           (form) => ShadBadge.secondary(
             child: Text(
               Strings.formWithValue(form),
@@ -147,8 +148,8 @@ class GroupExplorerView extends ConsumerWidget {
 
     final summaryLines = <String>[
       Strings.summaryLine(princepsCount, genericsCount),
-      if (groupData.commonPrincipes.isNotEmpty)
-        '${Strings.activeIngredientsLabel} : ${groupData.commonPrincipes.join(', ')}',
+      if (metadata.commonPrincipes.isNotEmpty)
+        '${Strings.activeIngredientsLabel} : ${metadata.commonPrincipes.join(', ')}',
       if (relatedCount > 0) Strings.associatedPrincepsCount(relatedCount),
     ];
 
@@ -156,7 +157,7 @@ class GroupExplorerView extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         PharmaBackHeader(
-          title: groupData.syntheticTitle,
+          title: metadata.title,
           backLabel: Strings.backToSearch,
         ),
         Padding(
@@ -166,28 +167,20 @@ class GroupExplorerView extends ConsumerWidget {
             AppDimens.spacingMd,
             0,
           ),
-          child: ShadCard(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppDimens.spacingMd,
-              vertical: AppDimens.spacingSm,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  groupData.syntheticTitle,
-                  style: theme.textTheme.h3,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _GroupIdentityHeader(viewModel: viewModel),
+              _buildActionBar(context, theme, viewModel),
+              if (metadataBadges.isNotEmpty) ...[
+                const Gap(AppDimens.spacingSm),
+                Wrap(
+                  spacing: AppDimens.spacingXs,
+                  runSpacing: AppDimens.spacing2xs,
+                  children: metadataBadges,
                 ),
-                if (metadataBadges.isNotEmpty) ...[
-                  const Gap(AppDimens.spacingSm),
-                  Wrap(
-                    spacing: AppDimens.spacingXs,
-                    runSpacing: AppDimens.spacing2xs,
-                    children: metadataBadges,
-                  ),
-                ],
+              ],
+              if (summaryLines.isNotEmpty) ...[
                 const Gap(AppDimens.spacingSm),
                 for (final line in summaryLines)
                   Padding(
@@ -197,7 +190,7 @@ class GroupExplorerView extends ConsumerWidget {
                     child: Text(line, style: theme.textTheme.muted),
                   ),
               ],
-            ),
+            ],
           ),
         ),
       ],
@@ -210,37 +203,124 @@ class GroupExplorerView extends ConsumerWidget {
     );
   }
 
-  Widget _buildProductList(
-    List<GroupedByProduct> groupedProducts, {
-    _ProductSectionType? sectionType,
+  Widget _buildSectionAccordion(
+    BuildContext context,
+    String title,
+    int count,
+    List<MedicationItem> members, {
+    required _ProductSectionType sectionType,
+    IconData? icon,
   }) {
-    return SliverList(
-      delegate: SliverChildBuilderDelegate(
-        (context, index) => Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppDimens.spacingMd,
-            vertical: AppDimens.spacing2xs,
-          ),
-          child: _buildGroupedProductCard(
-            ShadTheme.of(context),
-            groupedProducts[index],
-            sectionType: sectionType,
-          ),
+    if (members.isEmpty) {
+      return const SliverToBoxAdapter(child: SizedBox.shrink());
+    }
+
+    final theme = ShadTheme.of(context);
+    final sectionId = '${sectionType.name}_$title';
+
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: AppDimens.spacingMd),
+        child: ShadAccordion<String>(
+          children: [
+            ShadAccordionItem(
+              value: sectionId,
+              title: Padding(
+                padding: const EdgeInsets.symmetric(vertical: AppDimens.spacingXs),
+                child: Row(
+                  children: [
+                    if (icon != null) ...[
+                      Icon(
+                        icon,
+                        size: AppDimens.iconSm,
+                        color: theme.colorScheme.mutedForeground,
+                      ),
+                      const Gap(AppDimens.spacingXs),
+                    ],
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: theme.textTheme.h4,
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
+                    ),
+                    const Gap(AppDimens.spacingXs),
+                    ShadBadge(
+                      backgroundColor: theme.colorScheme.muted,
+                      child: Text(
+                        '$count',
+                        style: theme.textTheme.small.copyWith(
+                          color: theme.colorScheme.mutedForeground,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              child: _buildMemberColumn(
+                context,
+                members,
+                sectionType: sectionType,
+              ),
+            ),
+          ],
         ),
-        childCount: groupedProducts.length,
       ),
     );
   }
 
-  // WHY: Builds a list of clickable therapy cards that navigate to their respective groups.
-  Widget _buildTherapiesList(List<GroupedByProduct> relatedTherapies) {
+  Widget _buildMemberColumn(
+    BuildContext context,
+    List<MedicationItem> members, {
+    required _ProductSectionType sectionType,
+  }) {
+    if (members.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: members
+          .map(
+            (member) => Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppDimens.spacingMd,
+                vertical: AppDimens.spacing2xs,
+              ),
+              child: _buildMemberAccordion(
+                context,
+                ShadTheme.of(context),
+                member,
+                sectionType: sectionType,
+                showNavigationIndicator: false,
+              ),
+            ),
+          )
+          .toList(),
+    );
+  }
+
+  Widget _buildRelatedList(
+    List<RelatedPrincepsItem> relatedMembers, {
+    required bool isLoading,
+  }) {
+    if (isLoading && relatedMembers.isEmpty) {
+      return const SliverToBoxAdapter(
+        child: Padding(
+          padding: EdgeInsets.all(AppDimens.spacingMd),
+          child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+        ),
+      );
+    }
+
+    if (relatedMembers.isEmpty) {
+      return const SliverToBoxAdapter(child: SizedBox.shrink());
+    }
+
     return SliverList(
       delegate: SliverChildBuilderDelegate((context, index) {
-        final therapy = relatedTherapies[index];
-        // WHY: Get groupId from the first medicament in the group.
-        final groupId = therapy.medicaments.isNotEmpty
-            ? therapy.medicaments.first.groupId
-            : null;
+        final therapy = relatedMembers[index];
 
         return Padding(
           padding: const EdgeInsets.symmetric(
@@ -249,166 +329,165 @@ class GroupExplorerView extends ConsumerWidget {
           ),
           child: Semantics(
             button: true,
-            label: Strings.associatedTherapySemantics(therapy.productName),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: groupId != null
-                    ? () {
-                        context.push(AppRoutes.groupDetail(groupId));
-                      }
-                    : null,
-                borderRadius: BorderRadius.circular(AppDimens.radiusMd),
-                splashColor: ShadTheme.of(
-                  context,
-                ).colorScheme.primary.withValues(alpha: 0.1),
-                highlightColor: ShadTheme.of(
-                  context,
-                ).colorScheme.primary.withValues(alpha: 0.05),
-                child: _buildGroupedProductCard(
-                  ShadTheme.of(context),
-                  therapy,
-                  sectionType: _ProductSectionType.related,
-                ),
-              ),
+            label: Strings.associatedTherapySemantics(
+              therapy.medication.displayName,
+            ),
+            child: _buildMemberAccordion(
+              context,
+              ShadTheme.of(context),
+              therapy.medication,
+              sectionType: _ProductSectionType.related,
+              showNavigationIndicator: true,
+              navigationGroupId: therapy.groupId,
             ),
           ),
         );
-      }, childCount: relatedTherapies.length),
+      }, childCount: relatedMembers.length),
     );
   }
 
-  Widget _buildGroupedProductCard(
+  Widget _buildMemberAccordion(
+    BuildContext context,
     ShadThemeData theme,
-    GroupedByProduct product, {
-    _ProductSectionType? sectionType,
+    MedicationItem member, {
+    required _ProductSectionType sectionType,
+    required bool showNavigationIndicator,
+    String? navigationGroupId,
   }) {
-    final dosageLabel = _formatDosage(product.dosage, product.dosageUnit);
-    final count = product.medicaments.length;
     final typeBadge = switch (sectionType) {
       _ProductSectionType.princeps => const PrincepsBadge(),
       _ProductSectionType.generics => const GenericBadge(),
-      _ => null,
+      _ProductSectionType.related => const PrincepsBadge(),
     };
+    final regulatoryBadges = _buildRegulatoryBadges(theme, member);
+    final labDisplay = member.titulaire.isEmpty
+        ? Strings.unknownHolder
+        : member.titulaire;
+    final priceText = member.price != null ? _formatEuro(member.price!) : null;
+    final hasPrice = priceText != null;
+    final refundLabel =
+        member.refundRate ?? (hasPrice ? Strings.refundNotAvailable : null);
+    final shouldShowRefund = refundLabel != null;
 
-    // WHY: Build subtitle with aggregated labs list, truncating if too long
-    final displayedLabs = product.laboratories.take(3).join(', ');
-    final remainingCount = product.laboratories.length > 3
-        ? product.laboratories.length - 3
-        : 0;
-    final subtitleText = remainingCount > 0
-        ? '${Strings.availableAt}$displayedLabs${Strings.andOthers(remainingCount)}'
-        : '${Strings.availableAt}$displayedLabs';
+    // Build collapsed header title
+    final titleText = '${member.displayName}${member.dosageLabel != null && member.dosageLabel!.isNotEmpty ? ' • ${member.dosageLabel}' : ''}';
 
-    final forms = product.medicaments
-        .map((med) => med.formePharmaceutique.trim())
-        .where((form) => form.isNotEmpty)
-        .toSet()
-        .toList();
-
-    final metadataBadges = <Widget>[
-      if (dosageLabel != null)
-        ShadBadge.outline(
-          child: Text(
-            '${Strings.dosage} $dosageLabel',
-            style: theme.textTheme.small,
-          ),
-        ),
-      ...forms.map(
-        (form) => ShadBadge.secondary(
-          child: Text(
-            form,
-            style: theme.textTheme.small.copyWith(
-              color: theme.colorScheme.secondaryForeground,
-            ),
-          ),
-        ),
-      ),
-    ];
-
-    return ShadAccordion<String>(
+    return ShadAccordion<MedicationItem>(
       children: [
-        ShadAccordionItem<String>(
-          value: product.productName,
+        ShadAccordionItem(
+          value: member,
           title: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              Transform.scale(
+                scale: 0.85,
+                child: typeBadge,
+              ),
+              const Gap(AppDimens.spacingXs),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        if (typeBadge != null) ...[
-                          typeBadge,
-                          const Gap(AppDimens.spacingXs),
-                        ],
-                        Expanded(
-                          child: Text(
-                            product.productName,
-                            style: theme.textTheme.p.copyWith(
-                              fontWeight: FontWeight.w500,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 2,
-                          ),
-                        ),
-                        const Gap(AppDimens.spacingXs),
-                        ShadBadge.secondary(
-                          child: Text(
-                            count.toString(),
-                            style: theme.textTheme.small,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const Gap(AppDimens.spacing2xs),
-                    Text(
-                      subtitleText,
-                      style: theme.textTheme.muted,
-                      overflow: TextOverflow.ellipsis,
-                      maxLines: 1,
-                    ),
-                    if (metadataBadges.isNotEmpty) ...[
-                      const Gap(AppDimens.spacing2xs),
-                      Wrap(
-                        spacing: AppDimens.spacing2xs,
-                        runSpacing: AppDimens.spacing2xs / 2,
-                        children: metadataBadges,
-                      ),
-                    ],
-                  ],
+                child: Text(
+                  titleText,
+                  style: theme.textTheme.p.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
           ),
           child: Padding(
-            padding: const EdgeInsets.only(top: AppDimens.spacingXs),
+            padding: const EdgeInsets.all(AppDimens.spacingMd),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                for (final med in product.medicaments)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: AppDimens.spacingSm),
-                    child: ShadAccordion<String>(
+                const Gap(AppDimens.spacingSm),
+                InfoLabel(
+                  text: '${Strings.cip} ${member.codeCip}',
+                  icon: LucideIcons.barcode,
+                  style: theme.textTheme.muted,
+                ),
+                const Gap(AppDimens.spacingSm),
+                InfoLabel(
+                  text: labDisplay,
+                  icon: LucideIcons.building2,
+                  style: theme.textTheme.muted,
+                ),
+                if (hasPrice || shouldShowRefund) ...[
+                  const Gap(AppDimens.spacingSm),
+                  Row(
+                    children: [
+                      if (hasPrice)
+                        Text(
+                          priceText,
+                          style: theme.textTheme.p.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      if (hasPrice && shouldShowRefund)
+                        const Gap(AppDimens.spacingXs),
+                      if (shouldShowRefund)
+                        member.refundRate != null
+                            ? ShadBadge.secondary(
+                                child: Text(
+                                  refundLabel,
+                                  style: theme.textTheme.small.copyWith(
+                                    color: theme.colorScheme.secondaryForeground,
+                                  ),
+                                ),
+                              )
+                            : ShadBadge.outline(
+                                child: Text(
+                                  refundLabel,
+                                  style: theme.textTheme.small,
+                                ),
+                              ),
+                    ],
+                  ),
+                ],
+                if (member.availabilityStatus != null) ...[
+                  const Gap(AppDimens.spacingSm),
+                  ShadBadge.destructive(
+                    child: Text(
+                      Strings.stockAlert(member.availabilityStatus!.trim()),
+                      style: theme.textTheme.small.copyWith(
+                        color: theme.colorScheme.destructiveForeground,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+                if (regulatoryBadges.isNotEmpty) ...[
+                  const Gap(AppDimens.spacingSm),
+                  Wrap(
+                    spacing: AppDimens.spacing2xs,
+                    runSpacing: AppDimens.spacing2xs / 2,
+                    children: regulatoryBadges,
+                  ),
+                ],
+                if (showNavigationIndicator && navigationGroupId != null) ...[
+                  const Gap(AppDimens.spacingMd),
+                  ShadButton.outline(
+                    width: double.infinity,
+                    onPressed: () =>
+                        context.push(AppRoutes.groupDetail(navigationGroupId)),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        ShadAccordionItem<String>(
-                          value: '${product.productName}_${med.codeCip}',
-                          title: Padding(
-                            padding: const EdgeInsets.only(
-                              bottom: AppDimens.spacingSm,
-                            ),
-                            child: _MedicamentListItem(medicament: med),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.only(
-                              bottom: AppDimens.spacingSm,
-                            ),
-                            child: _buildStructuredDetails(theme, med),
-                          ),
+                        Text(
+                          Strings.showMedicamentDetails,
+                          style: theme.textTheme.small,
+                        ),
+                        const Gap(AppDimens.spacingXs),
+                        Icon(
+                          LucideIcons.arrowRight,
+                          size: AppDimens.iconSm,
+                          color: theme.colorScheme.foreground,
                         ),
                       ],
                     ),
                   ),
+                ],
               ],
             ),
           ),
@@ -417,37 +496,351 @@ class GroupExplorerView extends ConsumerWidget {
     );
   }
 
-  String? _formatDosage(Decimal? dosage, String? unit) {
-    final normalizedUnit = unit?.trim() ?? '';
-    if (dosage == null && normalizedUnit.isEmpty) return null;
-    if (dosage == null) return normalizedUnit;
-
-    final formatted = formatDecimal(dosage);
-    return normalizedUnit.isEmpty ? formatted : '$formatted $normalizedUnit';
+  String _formatEuro(double value) {
+    final fixed = value.toStringAsFixed(2).replaceAll('.', ',');
+    return '$fixed €';
   }
 
-  Widget _buildStructuredDetails(ShadThemeData theme, MedicationItem med) {
-    final dosageLabel = med.formattedDosage;
+  List<Widget> _buildRegulatoryBadges(
+    ShadThemeData theme,
+    MedicationItem member,
+  ) {
+    final badges = <Widget>[];
+    void addBadge(Widget badge) => badges.add(badge);
+
+    if (member.isNarcotic) {
+      addBadge(
+        ShadBadge.destructive(
+          child: Text(
+            Strings.badgeNarcotic,
+            style: theme.textTheme.small.copyWith(
+              color: theme.colorScheme.destructiveForeground,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (member.isList1) {
+      addBadge(
+        ShadBadge.outline(
+          child: Text(
+            Strings.badgeList1,
+            style: theme.textTheme.small.copyWith(
+              color: AppColors.regulatoryRed,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (member.isList2) {
+      addBadge(
+        ShadBadge.outline(
+          child: Text(
+            Strings.badgeList2,
+            style: theme.textTheme.small.copyWith(
+              color: AppColors.regulatoryGreen,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (member.isException) {
+      addBadge(
+        ShadBadge.secondary(
+          backgroundColor: AppColors.regulatoryPurple,
+          child: Text(
+            Strings.badgeException,
+            style: theme.textTheme.small.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (member.isRestricted) {
+      addBadge(
+        ShadBadge.outline(
+          child: Text(
+            Strings.badgeRestricted,
+            style: theme.textTheme.small.copyWith(
+              color: AppColors.regulatoryAmber,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (member.isHospitalOnly) {
+      addBadge(
+        ShadBadge.secondary(
+          backgroundColor: AppColors.regulatoryGray,
+          child: Text(
+            Strings.hospitalBadge,
+            style: theme.textTheme.small.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (member.isDental) {
+      addBadge(
+        ShadBadge.secondary(
+          backgroundColor: theme.colorScheme.secondary,
+          child: Text(
+            Strings.badgeDental,
+            style: theme.textTheme.small.copyWith(
+              color: theme.colorScheme.secondaryForeground,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (member.isOtc) {
+      addBadge(
+        ShadBadge(
+          backgroundColor: AppColors.regulatoryGreen.withValues(alpha: 0.15),
+          child: Text(
+            Strings.badgeOtc,
+            style: theme.textTheme.small.copyWith(
+              color: AppColors.regulatoryGreen,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (member.isSurveillance) {
+      addBadge(
+        ShadBadge.secondary(
+          backgroundColor: AppColors.regulatoryYellow,
+          child: Text(
+            Strings.badgeSurveillance,
+            style: theme.textTheme.small.copyWith(
+              color: Colors.black,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return badges;
+  }
+
+  Widget _buildActionBar(
+    BuildContext context,
+    ShadThemeData theme,
+    GroupedProductsViewModel viewModel,
+  ) {
+    final cisCode = viewModel.princepsCisCode;
+    final ansmUrl = viewModel.ansmAlertUrl;
+
+    if (cisCode == null || cisCode.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final ficheUrl =
+        'https://base-donnees-publique.medicaments.gouv.fr/extrait.php?specid=$cisCode';
+    final rcpUrl =
+        'https://base-donnees-publique.medicaments.gouv.fr/affichageDoc.php?specid=$cisCode&typedoc=R';
+
+    return Padding(
+      padding: const EdgeInsets.only(top: AppDimens.spacingMd),
+      child: Row(
+        children: [
+          if (ansmUrl != null && ansmUrl.isNotEmpty) ...[
+            Expanded(
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () => _launchUrl(context, ansmUrl),
+                  borderRadius: BorderRadius.circular(AppDimens.radiusMd),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppDimens.spacingMd,
+                      vertical: AppDimens.spacingSm,
+                    ),
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        color: theme.colorScheme.destructive,
+                        width: 1,
+                      ),
+                      borderRadius: BorderRadius.circular(AppDimens.radiusMd),
+                      color: theme.colorScheme.destructive.withValues(
+                        alpha: 0.1,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          LucideIcons.triangleAlert,
+                          size: AppDimens.iconSm,
+                          color: theme.colorScheme.destructive,
+                        ),
+                        const Gap(AppDimens.spacingXs),
+                        Text(
+                          Strings.shortageAlert,
+                          style: theme.textTheme.small.copyWith(
+                            color: theme.colorScheme.destructive,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const Gap(8),
+          ],
+          Expanded(
+            child: ShadButton.secondary(
+              onPressed: () => _launchUrl(context, ficheUrl),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    LucideIcons.info,
+                    size: AppDimens.iconSm,
+                    color: theme.colorScheme.secondaryForeground,
+                  ),
+                  const Gap(AppDimens.spacingXs),
+                  Text(Strings.ficheInfo, style: theme.textTheme.small),
+                ],
+              ),
+            ),
+          ),
+          const Gap(8),
+          Expanded(
+            child: ShadButton.outline(
+              onPressed: () => _launchUrl(context, rcpUrl),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    LucideIcons.fileText,
+                    size: AppDimens.iconSm,
+                    color: theme.colorScheme.foreground,
+                  ),
+                  const Gap(AppDimens.spacingXs),
+                  Text(Strings.rcpDocument, style: theme.textTheme.small),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _launchUrl(BuildContext context, String url) async {
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Impossible d\'ouvrir l\'URL: $url')),
+        );
+      }
+    }
+  }
+}
+
+class _GroupIdentityHeader extends StatelessWidget {
+  const _GroupIdentityHeader({required this.viewModel});
+
+  final GroupedProductsViewModel viewModel;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = ShadTheme.of(context);
+    final priceLabel = viewModel.priceLabel ?? Strings.priceUnavailable;
+    final refundValue = viewModel.refundLabel ?? Strings.refundNotAvailable;
+    final hasRefundData = viewModel.refundLabel != null;
+    final conditionBadges = viewModel.aggregatedConditions
+        .map((condition) => ConditionBadge.condition(context, condition))
+        .whereType<Widget>()
+        .toList();
 
     return ShadCard(
       padding: const EdgeInsets.all(AppDimens.spacingMd),
-      backgroundColor: theme.colorScheme.secondary,
+      backgroundColor: theme.colorScheme.secondary.withValues(alpha: 0.08),
+      border: ShadBorder.all(
+        color: theme.colorScheme.secondary.withValues(alpha: 0.2),
+        width: 1.2,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          DetailItem(label: Strings.canonicalNameLabel, value: med.nom),
-          const Gap(AppDimens.spacingXs),
-          DetailItem(
-            label: Strings.structuredDosageLabel,
-            value: dosageLabel ?? Strings.notDefined,
+          Text(
+            viewModel.metadata.title,
+            style: theme.textTheme.h3.copyWith(fontWeight: FontWeight.w700),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
-          const Gap(AppDimens.spacingXs),
-          DetailItem(
-            label: Strings.officialFormulationLabel,
-            value: med.formePharmaceutique.isNotEmpty
-                ? med.formePharmaceutique
-                : Strings.nonIdentified,
+          const Gap(AppDimens.spacingSm),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Flexible(
+                child: Text(
+                  priceLabel,
+                  style: theme.textTheme.h3.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
+              ),
+              const Gap(AppDimens.spacingSm),
+              Flexible(
+                child: hasRefundData
+                    ? ShadBadge.secondary(
+                        child: Text(
+                          '${Strings.refundLabel} · $refundValue',
+                          style: theme.textTheme.small.copyWith(
+                            color: theme.colorScheme.secondaryForeground,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
+                      )
+                    : ShadBadge.outline(
+                        child: Text(
+                          refundValue,
+                          style: theme.textTheme.small,
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
+                      ),
+              ),
+            ],
           ),
+          if (conditionBadges.isNotEmpty) ...[
+            const Gap(AppDimens.spacingSm),
+            Wrap(
+              spacing: AppDimens.spacing2xs,
+              runSpacing: AppDimens.spacing2xs,
+              children: conditionBadges,
+            ),
+          ],
         ],
       ),
     );
@@ -455,50 +848,3 @@ class GroupExplorerView extends ConsumerWidget {
 }
 
 enum _ProductSectionType { princeps, generics, related }
-
-class _MedicamentListItem extends StatelessWidget {
-  const _MedicamentListItem({required this.medicament});
-
-  final MedicationItem medicament;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = ShadTheme.of(context);
-    final titulaire = medicament.titulaire.isNotEmpty
-        ? medicament.titulaire
-        : Strings.unknownHolder;
-    final dosageLabel = medicament.formattedDosage;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          medicament.nom,
-          style: theme.textTheme.p.copyWith(fontWeight: FontWeight.w600),
-          overflow: TextOverflow.ellipsis,
-          maxLines: 2,
-        ),
-        const Gap(AppDimens.spacing2xs),
-        Text(
-          '${Strings.cip} ${medicament.codeCip}',
-          style: theme.textTheme.muted,
-        ),
-        const Gap(AppDimens.spacing2xs / 2),
-        Text(
-          titulaire,
-          style: theme.textTheme.small.copyWith(
-            color: theme.textTheme.muted.color ??
-                theme.textTheme.small.color ??
-                theme.colorScheme.foreground.withValues(alpha: 0.6),
-          ),
-          overflow: TextOverflow.ellipsis,
-          maxLines: 1,
-        ),
-        if (dosageLabel != null) ...[
-          const Gap(AppDimens.spacing2xs / 2),
-          Text(dosageLabel, style: theme.textTheme.small),
-        ],
-      ],
-    );
-  }
-}

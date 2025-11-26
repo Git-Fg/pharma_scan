@@ -11,14 +11,23 @@ Simple rules for building and maintaining PharmaScan. No corporate overhead—ju
 
 ### Drift is the Domain Model
 
-Drift-generated classes (`MedicamentRow`, `SpecialiteRow`, etc.) ARE your domain models. No duplication.
+Drift-generated classes (`MedicamentRow`, `SpecialiteRow`) ARE your domain models.
 
-* ✅ **Use directly:** Import `lib/core/database/database.dart` in UI, use Drift classes directly
-* ❌ **Don't create:** Freezed "Domain Entities" that duplicate Drift tables
-* ❌ **Don't create:** Mapper functions (`.toDomain()`, `toEntity()`) for simple 1:1 mappings
-* ✅ **Exception:** Only create separate models if they aggregate multiple tables (e.g., `ScanResult`)
+* ✅ **Use directly:** Import `lib/core/database/database.dart` in UI.
+* ❌ **Don't create:** "View Models" that just regroup data (e.g., `GroupedProductViewModel`).
+* ✅ **Do create:** **SQL Views** (`views.drift`) that project exactly the columns and structure the UI needs. Let SQLite do the work.
+* ✅ **Internal DTOs:** If you need to pass data between internal services, use **Dart Records** `({String a, int b})` instead of creating classes.
 
-**Why:** For a solo dev, maintaining parallel model hierarchies adds overhead without value. Drift's type safety is enough.
+### SQL-First Logic
+
+* **Aggregation:** Use `json_group_array()` and `GROUP BY` in Drift files to aggregate data. Do not fetch all rows and loop in Dart.
+* **Search:** Use FTS5 tables joined with Summary tables. Use `bm25()` for ranking in SQL.
+
+### Reactive Streams (Default)
+
+* **Reads:** All UI data providers must return `Stream<T>` using `dao.watch...()`.
+* **Why:** Ensures the UI is always consistent with the DB (e.g., after a background sync) without manual invalidation.
+* **Writes:** Simple `Future<void>`.
 
 ### Database Safety
 
@@ -56,7 +65,9 @@ for (var i = 0; i < ids.length; i += 900) { /* ... */ }
 
 ### Provider Pattern
 
-* **All providers use `@riverpod` code generation**
+* **All providers use `@riverpod` code generation.**
+* **Streams:** Prefer `Stream<T>` for any data coming from the DB.
+* **Debounce:** For search, use `Future.delayed` inside the provider if strictly necessary, but prefer relying on the Stream's natural flow if the DB query is fast.
 * **Synchronous state:** `Notifier<T>`
 * **Asynchronous state:** `AsyncNotifier<T>`
 * **Forbidden:** `StateProvider` (deprecated)
@@ -102,6 +113,12 @@ Use `@Riverpod(keepAlive: true)` for static config (dropdown lists, enums, setti
 * **UI Layer:** Widgets, local state (`setState`), ConsumerWidgets
 * **Service Layer:** Logic, DB access, parsing (zero `flutter/material.dart` dependencies)
 * **Rule:** Business logic NEVER belongs in a Widget
+
+### Boilerplate Reduction (Hooks)
+
+* **Standard:** Use `HookConsumerWidget` for any widget needing a `Controller` (Text, Scroll, Animation) or Lifecycle listener.
+* **Forbidden:** Do not use `StatefulWidget` + `initState` + `dispose` for simple controller management.
+* **Reference:** See `.cursor/rules/flutter-hooks.mdc` (if available) or standard hooks documentation.
 
 ### Shadcn UI Components
 

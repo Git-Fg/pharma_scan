@@ -2,6 +2,58 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pharma_scan/core/utils/medicament_helpers.dart';
 
 void main() {
+  group('extractPrincepsLabel', () {
+    test('returns last segment for simple group label', () {
+      expect(
+        extractPrincepsLabel('ALLOPURINOL 100 mg - ZYLORIC'),
+        equals('ZYLORIC'),
+      );
+    });
+
+    test('uses last hyphen segment for multi-brand group labels', () {
+      const label =
+          'DOMPERIDONE 10 mg - MOTILIUM 10 mg, comprimé pelliculé - PERIDYS 10 mg, comprimé pelliculé.';
+
+      expect(
+        extractPrincepsLabel(label),
+        equals('PERIDYS 10 mg, comprimé pelliculé.'),
+      );
+    });
+
+    test('returns trimmed label when no hyphen and no comma', () {
+      expect(
+        extractPrincepsLabel('  GLUCOPHAGE 500 mg  '),
+        equals('GLUCOPHAGE 500 mg'),
+      );
+    });
+
+    test('does not split on comma when there is no hyphen', () {
+      expect(
+        extractPrincepsLabel('DOLIPRANE 1000 mg, comprimé'),
+        equals('DOLIPRANE 1000 mg, comprimé'),
+      );
+    });
+
+    test('handles odd spacing around hyphen separator', () {
+      const label =
+          'OMEPRAZOLE 20 mg   -   MOPRAL 20 mg, gélule gastro-résistante';
+
+      expect(
+        extractPrincepsLabel(label),
+        equals('MOPRAL 20 mg, gélule gastro-résistante'),
+      );
+    });
+
+    test('preserves trailing punctuation in last segment', () {
+      const label =
+          'PHLOROGLUCINOL (HYDRATE) 80 mg - SPASFON LYOC 80 mg, lyophilisat oral.';
+
+      final result = extractPrincepsLabel(label);
+      expect(result, equals('SPASFON LYOC 80 mg, lyophilisat oral.'));
+      expect(result.endsWith('.'), isTrue);
+    });
+  });
+
   group('sanitizeActivePrinciple', () {
     test('should remove formulation keywords like comprimé', () {
       expect(
@@ -435,10 +487,7 @@ void main() {
 
   group('deriveGroupTitleFromName', () {
     test('should return single molecule name for mono-product', () {
-      expect(
-        deriveGroupTitleFromName('Doliprane 1000'),
-        equals('Doliprane'),
-      );
+      expect(deriveGroupTitleFromName('Doliprane 1000'), equals('Doliprane'));
       expect(
         deriveGroupTitleFromName('PARACETAMOL 500 mg'),
         equals('PARACETAMOL'),
@@ -479,18 +528,12 @@ void main() {
         deriveGroupTitleFromName('MOLECULE, additional info'),
         equals('MOLECULE'),
       );
-      expect(
-        deriveGroupTitleFromName('SIMPLE NAME'),
-        equals('SIMPLE NAME'),
-      );
+      expect(deriveGroupTitleFromName('SIMPLE NAME'), equals('SIMPLE NAME'));
     });
 
     test('should handle edge case: combination with comma fallback', () {
       // If a segment has no numbers, fallback to comma split
-      expect(
-        deriveGroupTitleFromName('A 10 + B, info'),
-        equals('A + B'),
-      );
+      expect(deriveGroupTitleFromName('A 10 + B, info'), equals('A + B'));
     });
 
     test('should handle combination with varying dosage formats', () {
@@ -515,10 +558,7 @@ void main() {
 
     test('should handle empty segments gracefully', () {
       // Empty segments should be filtered out
-      expect(
-        deriveGroupTitleFromName('A 10 +   + B 20'),
-        equals('A + B'),
-      );
+      expect(deriveGroupTitleFromName('A 10 +   + B 20'), equals('A + B'));
     });
   });
 }

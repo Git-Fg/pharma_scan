@@ -33,6 +33,9 @@ class SyncProgress {
     this.progress,
     this.subject,
     this.errorType,
+    this.startTime,
+    this.totalBytes,
+    this.receivedBytes,
   });
 
   final SyncPhase phase;
@@ -40,11 +43,28 @@ class SyncProgress {
   final double? progress;
   final String? subject;
   final SyncErrorType? errorType;
+  final DateTime? startTime;
+  final int? totalBytes;
+  final int? receivedBytes;
 
   static const idle = SyncProgress(
     phase: SyncPhase.idle,
     code: SyncStatusCode.idle,
   );
+
+  Duration? get elapsed =>
+      startTime != null ? DateTime.now().difference(startTime!) : null;
+
+  Duration? get estimatedRemaining {
+    final elapsedDuration = elapsed;
+    if (elapsedDuration == null || progress == null || progress! <= 0) {
+      return null;
+    }
+    final totalMicros = elapsedDuration.inMicroseconds / progress!;
+    final remainingMicros = totalMicros - elapsedDuration.inMicroseconds;
+    if (remainingMicros <= 0) return Duration.zero;
+    return Duration(microseconds: remainingMicros.round());
+  }
 
   SyncProgress copyWith({
     SyncPhase? phase,
@@ -52,6 +72,9 @@ class SyncProgress {
     double? progress,
     String? subject,
     SyncErrorType? errorType,
+    DateTime? startTime,
+    int? totalBytes,
+    int? receivedBytes,
   }) {
     return SyncProgress(
       phase: phase ?? this.phase,
@@ -59,6 +82,9 @@ class SyncProgress {
       progress: progress ?? this.progress,
       subject: subject ?? this.subject,
       errorType: errorType ?? this.errorType,
+      startTime: startTime ?? this.startTime,
+      totalBytes: totalBytes ?? this.totalBytes,
+      receivedBytes: receivedBytes ?? this.receivedBytes,
     );
   }
 }

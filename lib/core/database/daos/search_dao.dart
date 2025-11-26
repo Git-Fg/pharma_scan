@@ -8,7 +8,8 @@ import 'package:pharma_scan/features/explorer/models/search_filters_model.dart';
 part 'search_dao.g.dart';
 
 // WHY: Sanitize FTS5 query string to prevent syntax errors and enable approximate matching
-// Escapes special FTS5 characters, normalizes diacritics, and enables prefix matching for molecules
+// Escapes special FTS5 characters, normalizes diacritics; with trigram tokenization,
+// approximate matching is handled by the tokenizer so no explicit wildcard suffix is needed.
 String _sanitizeFts5Query(String query, {bool enablePrefixMatching = true}) {
   // WHY: Trim and normalize whitespace
   final trimmed = query.trim();
@@ -19,7 +20,6 @@ String _sanitizeFts5Query(String query, {bool enablePrefixMatching = true}) {
   final normalized = removeDiacritics(trimmed);
 
   // WHY: Escape special FTS5 characters: ", :, AND, OR, NOT
-  // Keep * for prefix matching if enabled
   var escaped = normalized
       .replaceAll('"', ' ')
       .replaceAll(':', ' ')
@@ -32,21 +32,9 @@ String _sanitizeFts5Query(String query, {bool enablePrefixMatching = true}) {
   final terms = escaped.split(' ').where((t) => t.isNotEmpty).toList();
   if (terms.isEmpty) return '';
 
-  // WHY: For approximate molecule matching, use OR operator to search across all fields
-  // and add prefix matching (*) to the last term for partial word completion
-  // This allows "paracet" to match "paracetamol" and searches both princeps and generics
-  if (enablePrefixMatching && terms.length == 1) {
-    // Single word: use prefix matching for approximate completion
-    return '${terms.first}*';
-  } else if (enablePrefixMatching && terms.length > 1) {
-    // Multi-word: use AND for all terms, but add prefix to last term for approximate matching
-    final allButLast = terms.sublist(0, terms.length - 1);
-    final lastTerm = '${terms.last}*';
-    return '${allButLast.join(' AND ')} AND $lastTerm';
-  } else {
-    // No prefix matching: use AND for strict matching
-    return terms.join(' AND ');
-  }
+  // WHY: With trigram tokenization, fuzzy matching is handled by the tokenizer itself.
+  // Combine all terms with AND so that all words must be present, without explicit wildcards.
+  return terms.join(' AND ');
 }
 
 @DriftAccessor(tables: [MedicamentSummary, Medicaments])
@@ -115,5 +103,61 @@ class SearchDao extends DatabaseAccessor<AppDatabase> with _$SearchDaoMixin {
 
     // WHY: Map query rows to MedicamentSummaryData using the table's mapper
     return Future.wait(rows.map((row) => db.medicamentSummary.mapFromRow(row)));
+  }
+
+  Stream<List<MedicamentSummaryData>> watchMedicaments(
+    String query, {
+    SearchFilters? filters,
+  }) {
+    final sanitizedQuery = _sanitizeFts5Query(
+      query,
+      enablePrefixMatching: true,
+    );
+    if (sanitizedQuery.isEmpty) {
+      LoggerService.db('Empty search query, emitting empty stream');
+      return Stream<List<MedicamentSummaryData>>.value(
+        const <MedicamentSummaryData>[],
+      );
+    }
+
+    LoggerService.db('Watching medicament search for query: $sanitizedQuery');
+
+    final routeFilter = filters?.voieAdministration;
+    final atcFilter = filters?.atcClass;
+
+    final filterClauses = <String>[];
+    if (routeFilter != null) {
+      filterClauses.add('AND ms.voies_administration LIKE ?');
+    }
+    if (atcFilter != null) {
+      filterClauses.add('AND ms.atc_code LIKE ?');
+    }
+    final filterClause = filterClauses.join(' ');
+
+    final variables = <Variable<Object>>[Variable<String>(sanitizedQuery)];
+    if (routeFilter != null) {
+      variables.add(Variable<String>('%$routeFilter%'));
+    }
+    if (atcFilter != null) {
+      variables.add(Variable<String>('$atcFilter%'));
+    }
+
+    final statement = db.customSelect(
+      '''
+      SELECT ms.*,
+             bm25(search_index) AS rank
+      FROM medicament_summary ms
+      INNER JOIN search_index si ON ms.cis_code = si.cis_code
+      WHERE search_index MATCH ? $filterClause
+      ORDER BY rank ASC, ms.nom_canonique
+      LIMIT 50
+      ''',
+      variables: variables,
+      readsFrom: {db.medicamentSummary},
+    );
+
+    return statement.watch().asyncMap(
+      (rows) => Future.wait(rows.map(db.medicamentSummary.mapFromRow)),
+    );
   }
 }

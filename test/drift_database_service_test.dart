@@ -488,38 +488,31 @@ void main() {
 
       await dataInitializationService.runSummaryAggregationForTesting();
 
-      // WHEN: We classify the group
-      final groupData = await database.libraryDao.classifyProductGroup(
-        'GROUP_1',
-      );
+      // WHEN: We fetch group details
+      final members = await database.libraryDao.getGroupDetails('GROUP_1');
 
       // THEN: The group data should contain 2 princeps and 3 generic members
-      expect(groupData, isNotNull);
-      final princepsMembers = groupData!.memberRows
-          .where((m) => m.groupMemberRow.type == 0)
+      final princepsMembers = members
+          .where((member) => member.isPrinceps)
           .toList();
-      final genericMembers = groupData.memberRows
-          .where((m) => m.groupMemberRow.type == 1)
+      final genericMembers = members
+          .where((member) => !member.isPrinceps)
           .toList();
 
       expect(princepsMembers.length, 2);
       expect(genericMembers.length, 3);
 
       expect(
-        princepsMembers.map((p) => p.medicamentRow.codeCip),
+        princepsMembers.map((p) => p.codeCip),
         containsAll(['PRINCEPS_1_CIP', 'PRINCEPS_2_CIP']),
       );
-      // Verify all generic products are present
-      final allGenericCips = genericMembers
-          .map((m) => m.medicamentRow.codeCip)
-          .toList();
+      final allGenericCips = genericMembers.map((m) => m.codeCip).toList();
       expect(
         allGenericCips,
         containsAll(['GENERIC_1_CIP', 'GENERIC_2_CIP', 'GENERIC_4_CIP']),
       );
-      // Verify laboratories are present in specialite rows
       final allLabs = genericMembers
-          .map((m) => m.specialiteRow.titulaire ?? '')
+          .map((m) => m.summaryTitulaire ?? m.officialTitulaire ?? '')
           .where((lab) => lab.isNotEmpty)
           .toSet();
       expect(
@@ -599,30 +592,24 @@ void main() {
 
         await dataInitializationService.runSummaryAggregationForTesting();
 
-        final groupData = await database.libraryDao.classifyProductGroup(
+        final members = await database.libraryDao.getGroupDetails('GROUP_A');
+        final related = await database.libraryDao.fetchRelatedPrinceps(
           'GROUP_A',
         );
 
-        expect(groupData, isNotNull);
+        expect(members.where((m) => m.isPrinceps).length, 1);
+        expect(related.length, 1);
+        final relatedPrinceps = related.first;
+        expect(relatedPrinceps.codeCip, 'PRINCEPS_B_CIP');
         expect(
-          groupData!.memberRows.where((m) => m.groupMemberRow.type == 0).length,
-          1,
-        );
-        expect(groupData.relatedPrincepsRows.length, 1);
-        final relatedPrinceps = groupData.relatedPrincepsRows.first;
-        expect(relatedPrinceps.medicamentRow.codeCip, 'PRINCEPS_B_CIP');
-        expect(
-          groupData.principesByCip[relatedPrinceps.medicamentRow.codeCip]
-                  ?.map((p) => p.principe)
-                  .toList() ??
-              [],
-          contains('PARACETAMOL'),
+          relatedPrinceps.principesActifsCommuns,
+          containsAll(['PARACETAMOL', 'CAFFEINE']),
         );
       },
     );
   });
 
-  group('classifyProductGroup', () {
+  group('group details view', () {
     test('returns canonical classification for deterministic group', () async {
       await database.databaseDao.insertBatchData(
         specialites: [
@@ -732,39 +719,45 @@ void main() {
 
       await dataInitializationService.runSummaryAggregationForTesting();
 
-      final groupData = await database.libraryDao.classifyProductGroup(
+      final members = await database.libraryDao.getGroupDetails('GROUP_MAIN');
+      final related = await database.libraryDao.fetchRelatedPrinceps(
         'GROUP_MAIN',
       );
 
-      // WHY: The parser removes "PRINCEPS" from medication names as it's a qualifier (princeps = original medication),
-      // not part of the actual medication brand name. The baseName will be "PARA", not "PARA PRINCEPS".
-      expect(groupData, isNotNull);
-      expect(groupData!.syntheticTitle.contains('PARA'), isTrue);
-      expect(groupData.commonPrincipes, ['PARACETAMOL']);
-      expect(groupData.distinctDosages, contains('500 mg'));
-      expect(groupData.distinctFormulations, contains('Comprimé'));
+      expect(members, isNotEmpty);
 
-      final princepsMembers = groupData.memberRows
-          .where((m) => m.groupMemberRow.type == 0)
-          .toList();
-      final genericMembers = groupData.memberRows
-          .where((m) => m.groupMemberRow.type == 1)
-          .toList();
+      final title = members.first.princepsDeReference;
+      final commonPrincipes = members.first.principesActifsCommuns;
+      final distinctDosages = members
+          .map((m) => m.formattedDosage)
+          .whereType<String>()
+          .toSet();
+      final distinctForms = members
+          .map((m) => m.formePharmaceutique?.trim())
+          .whereType<String>()
+          .toSet();
+
+      expect(title.contains('PARA'), isTrue);
+      expect(commonPrincipes, ['PARACETAMOL']);
+      expect(distinctDosages, contains('500 mg'));
+      expect(distinctForms, contains('Comprimé'));
+
+      final princepsMembers = members
+          .where((m) => m.isPrinceps)
+          .toList(growable: false);
+      final genericMembers = members
+          .where((m) => !m.isPrinceps)
+          .toList(growable: false);
 
       expect(princepsMembers.length, 1);
       expect(genericMembers.length, 2);
-      expect(groupData.relatedPrincepsRows.length, 1);
-      expect(
-        groupData.relatedPrincepsRows.first.medicamentRow.codeCip,
-        'CIP_PRINCEPS_SECOND',
-      );
+      expect(related.length, 1);
+      expect(related.first.codeCip, 'CIP_PRINCEPS_SECOND');
     });
 
     test('returns null when group has no members', () async {
-      final groupData = await database.libraryDao.classifyProductGroup(
-        'MISSING',
-      );
-      expect(groupData, isNull);
+      final members = await database.libraryDao.getGroupDetails('MISSING');
+      expect(members, isEmpty);
     });
   });
 }

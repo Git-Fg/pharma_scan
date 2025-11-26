@@ -40,6 +40,7 @@ void main() {
           MedicamentsCompanion.insert(
             codeCip: '3400000000012',
             cisCode: '123456',
+            presentationLabel: const Value('Boîte de 30 gélules'),
             commercialisationStatut: const Value('Commercialisée'),
             tauxRemboursement: const Value('65%'),
             prixPublic: Value(price),
@@ -88,6 +89,7 @@ void main() {
     expect(result, isNotNull);
     expect(result!.availabilityStatus, equals('Rupture de stock'));
     expect(result.isHospitalOnly, isFalse);
+    expect(result.libellePresentation, equals('Boîte de 30 gélules'));
   });
 
   test(
@@ -100,6 +102,7 @@ void main() {
       expect(result, isNotNull);
       expect(result!.isHospitalOnly, isTrue);
       expect(result.availabilityStatus, isNull);
+      expect(result.libellePresentation, equals('Boîte de 30 gélules'));
     },
   );
 }
