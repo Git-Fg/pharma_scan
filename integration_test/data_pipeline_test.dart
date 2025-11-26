@@ -2,35 +2,105 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/providers/core_providers.dart';
-import 'package:pharma_scan/core/services/drift_database_service.dart';
 import 'test_bootstrap.dart';
-import 'package:pharma_scan/features/scanner/models/scan_result_model.dart';
-import 'package:pharma_scan/features/scanner/repositories/scanner_repository.dart';
+import 'package:pharma_scan/core/database/daos/scan_dao.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  late DriftDatabaseService dbService;
-  late ScannerRepository scannerRepository;
+  late ScanDao scanDao;
   late AppDatabase db;
 
   setUpAll(() async {
     await ensureIntegrationTestDatabase();
     final container = integrationTestContainer;
-    dbService = container.read(driftDatabaseServiceProvider);
-    scannerRepository = ScannerRepository(dbService);
     db = container.read(appDatabaseProvider);
+    scanDao = db.scanDao;
   });
 
-  group('Data Pipeline - ScanResult Type Mapping', () {
+  group('Data Pipeline - SQL Aggregation & ScanResult Type Mapping', () {
+    testWidgets(
+      'should populate MedicamentSummary table with aggregated data',
+      (WidgetTester tester) async {
+        // GIVEN: Database initialized with real data
+        // WHEN: Query MedicamentSummary table directly
+        final summaries = await (db.select(
+          db.medicamentSummary,
+        )..limit(10)).get();
+
+        // THEN: Verify MedicamentSummary contains aggregated data
+        expect(
+          summaries,
+          isNotEmpty,
+          reason: 'MedicamentSummary should be populated after initialization',
+        );
+
+        // Verify structure of summary records
+        for (final summary in summaries) {
+          expect(summary.cisCode, isNotEmpty);
+          expect(summary.nomCanonique, isNotEmpty);
+          // groupId can be null for standalone medications
+          // isPrinceps should be a boolean
+          expect(summary.isPrinceps, isA<bool>());
+        }
+      },
+      timeout: const Timeout(Duration(minutes: 3)),
+    );
+
+    testWidgets(
+      'should populate FTS5 search_index for full-text search',
+      (WidgetTester tester) async {
+        // GIVEN: Database initialized with real data
+        // WHEN: Query search_index table directly
+        final searchResults = await db
+            .customSelect('SELECT COUNT(*) as count FROM search_index')
+            .getSingle();
+
+        final count = searchResults.read<int>('count');
+
+        // THEN: Verify search_index is populated
+        expect(
+          count,
+          greaterThan(0),
+          reason: 'FTS5 search_index should be populated after initialization',
+        );
+      },
+      timeout: const Timeout(Duration(minutes: 3)),
+    );
+    testWidgets(
+      'should populate ATC codes in Specialites table',
+      (WidgetTester tester) async {
+        // GIVEN: Database initialized with real data
+        // WHEN: Query specialites with ATC codes
+        final specialitesWithAtc = await db
+            .customSelect(
+              'SELECT cis_code, atc_code FROM specialites WHERE atc_code IS NOT NULL LIMIT 10',
+            )
+            .get();
+
+        // THEN: Verify some specialites have ATC codes
+        expect(
+          specialitesWithAtc,
+          isNotEmpty,
+          reason: 'Some specialites should have ATC codes',
+        );
+
+        for (final row in specialitesWithAtc) {
+          expect(row.read<String>('cis_code'), isNotEmpty);
+          expect(row.read<String>('atc_code'), isNotEmpty);
+        }
+      },
+      timeout: const Timeout(Duration(minutes: 3)),
+    );
     testWidgets(
       'should return GenericScanResult for a generic medicament',
       (WidgetTester tester) async {
         // GIVEN: Database initialized with real data
         // WHEN: Find a generic medicament and get its scan result
+        // WHY: Use IN (1, 2, 4) to ensure test robustness regardless of specific generic type seeded
         final generiquesResult = await db
             .customSelect(
-              'SELECT gm.code_cip FROM group_members gm WHERE gm.type = 1 LIMIT 1',
+              'SELECT gm.code_cip FROM group_members gm WHERE gm.type IN (1, 2, 4) LIMIT 1',
             )
             .getSingleOrNull();
 
@@ -39,28 +109,24 @@ void main() {
         }
 
         final codeCipGenerique = generiquesResult.read<String>('code_cip');
-        final scanResult = await scannerRepository.getScanResult(
-          codeCipGenerique,
-        );
+        final result = await scanDao.getProductByCip(codeCipGenerique);
 
-        // THEN: Verify it returns GenericScanResult with correct structure
-        expect(scanResult, isA<GenericScanResult>());
-        scanResult!.when(
-          generic: (medicament, associatedPrinceps, groupId) {
-            expect(medicament.codeCip, codeCipGenerique);
-            expect(medicament.nom, isNotEmpty);
-            // Verify associated princeps list (may be empty if group has no princeps)
-            // Content verification is sufficient - type is guaranteed by model
-          },
-          princeps: (princeps, moleculeName, genericLabs, groupId) {
-            fail('Expected GenericScanResult but got PrincepsScanResult');
-          },
-          standalone: (medicament) {
-            fail('Expected GenericScanResult but got StandaloneScanResult');
-          },
+        // THEN: Verify it returns a summary with groupId (generic)
+        expect(result, isNotNull);
+        expect(result!.cip, codeCipGenerique);
+        expect(result.summary.nomCanonique, isNotEmpty);
+        expect(
+          result.summary.groupId,
+          isNotNull,
+          reason: 'Generic should have groupId',
+        );
+        expect(
+          result.summary.isPrinceps,
+          isFalse,
+          reason: 'Generic should not be princeps',
         );
       },
-      timeout: const Timeout(Duration(minutes: 5)),
+      timeout: const Timeout(Duration(minutes: 3)),
     );
 
     testWidgets(
@@ -79,27 +145,20 @@ void main() {
         }
 
         final codeCipPrinceps = princepsResult.read<String>('code_cip');
-        final princepsScanResult = await scannerRepository.getScanResult(
-          codeCipPrinceps,
-        );
+        final result = await scanDao.getProductByCip(codeCipPrinceps);
 
-        // THEN: Verify it returns PrincepsScanResult with correct structure
-        expect(princepsScanResult, isA<PrincepsScanResult>());
-        princepsScanResult!.when(
-          generic: (medicament, associatedPrinceps, groupId) {
-            fail('Expected PrincepsScanResult but got GenericScanResult');
-          },
-          princeps: (princeps, moleculeName, genericLabs, groupId) {
-            expect(princeps.codeCip, codeCipPrinceps);
-            expect(moleculeName, isNotEmpty);
-            // Content verification is sufficient - type is guaranteed by model
-          },
-          standalone: (medicament) {
-            fail('Expected PrincepsScanResult but got StandaloneScanResult');
-          },
+        // THEN: Verify it returns a summary with isPrinceps = true
+        expect(result, isNotNull);
+        expect(result!.cip, codeCipPrinceps);
+        expect(result.summary.nomCanonique, isNotEmpty);
+        expect(
+          result.summary.groupId,
+          isNotNull,
+          reason: 'Princeps should have groupId',
         );
+        expect(result.summary.isPrinceps, isTrue, reason: 'Should be princeps');
       },
-      timeout: const Timeout(Duration(minutes: 5)),
+      timeout: const Timeout(Duration(minutes: 3)),
     );
 
     testWidgets(
@@ -118,32 +177,23 @@ void main() {
         }
 
         final codeCipStandalone = nonGroupedResult.read<String>('code_cip');
-        final standaloneScanResult = await scannerRepository.getScanResult(
-          codeCipStandalone,
-        );
+        final result = await scanDao.getProductByCip(codeCipStandalone);
 
-        // THEN: Verify it returns StandaloneScanResult (standalone medicaments are now scannable)
+        // THEN: Verify it returns a summary without groupId (standalone)
         expect(
-          standaloneScanResult,
+          result,
           isNotNull,
-          reason:
-              'Standalone medicament should return StandaloneScanResult: $codeCipStandalone',
+          reason: 'Standalone medicament should be found: $codeCipStandalone',
         );
-        expect(standaloneScanResult, isA<StandaloneScanResult>());
-        standaloneScanResult!.when(
-          generic: (medicament, associatedPrinceps, groupId) {
-            fail('Expected StandaloneScanResult but got GenericScanResult');
-          },
-          princeps: (princeps, moleculeName, genericLabs, groupId) {
-            fail('Expected StandaloneScanResult but got PrincepsScanResult');
-          },
-          standalone: (medicament) {
-            expect(medicament.codeCip, codeCipStandalone);
-            expect(medicament.nom, isNotEmpty);
-          },
+        expect(result!.cip, codeCipStandalone);
+        expect(result.summary.nomCanonique, isNotEmpty);
+        expect(
+          result.summary.groupId,
+          isNull,
+          reason: 'Standalone should not have groupId',
         );
       },
-      timeout: const Timeout(Duration(minutes: 5)),
+      timeout: const Timeout(Duration(minutes: 3)),
     );
   });
 }

@@ -68,17 +68,25 @@ class AppAnimations {
 
   /// Loading skeleton animation with shimmer effect.
   /// Used for loading placeholders in lists.
-  static const List<Effect> skeletonShimmer = [
-    FadeEffect(duration: Duration(milliseconds: 180), curve: standardCurve),
-    SlideEffect(
+  ///
+  /// **Theme-Aware:** Accepts a shimmer color parameter to ensure visibility
+  /// in both light and dark themes. Pass a color derived from the theme:
+  /// - Light mode: `theme.colorScheme.foreground.withOpacity(0.1)`
+  /// - Dark mode: `theme.colorScheme.foreground.withOpacity(0.2)`
+  static List<Effect> getSkeletonShimmer(Color shimmerColor) => [
+    const FadeEffect(
+      duration: Duration(milliseconds: 180),
+      curve: standardCurve,
+    ),
+    const SlideEffect(
       begin: Offset(0, 0.04),
       end: Offset.zero,
       duration: Duration(milliseconds: 180),
       curve: Curves.easeOut,
     ),
     ShimmerEffect(
-      duration: Duration(milliseconds: 1200),
-      color: Colors.white24,
+      duration: const Duration(milliseconds: 1200),
+      color: shimmerColor,
     ),
   ];
 

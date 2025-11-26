@@ -32,6 +32,8 @@ class Strings {
   static const String noPrincepsAssociated = 'Aucun princeps associé';
   static const String princepsAssociated = 'princeps associé(s)';
   static const String genericMedication = 'Médicament générique';
+  static const String surveillanceBadge = '⚠️ SURVEILLANCE';
+  static const String surveillanceDescription = 'Surveillance renforcée';
 
   // Common Labels
   static const String unknownHolder = 'Titulaire inconnu';
@@ -41,6 +43,8 @@ class Strings {
   static const String dosage = 'dosage';
   static const String activePrinciples = 'principes actifs';
   static const String condition = 'condition';
+  static const String price = 'Prix public';
+  static const String refundRate = 'Taux de remboursement';
 
   // Error Messages
   static const String unknown = 'Inconnu';
@@ -60,10 +64,9 @@ class Strings {
   static const String resetFilters = 'Réinitialiser';
   static const String clearFilters = 'Effacer les filtres';
   static const String all = 'Tous';
-  static const String allForms = 'Toutes les formes';
+  static const String allRoutes = 'Toutes les voies';
   static const String back = 'Retour';
   static const String backToSearch = 'Retour à la recherche';
-  static const String backToClusters = 'Retour à la liste des clusters';
 
   // Error & Status Messages
   static const String updateError = 'Erreur lors de la mise à jour des données';
@@ -71,6 +74,25 @@ class Strings {
       'Certaines fonctionnalités peuvent être limitées tant que la base BDPM n\'est pas synchronisée.';
   static const String databaseInitialization =
       'Initialisation de la base de données...';
+  static const String initializationInProgress = 'Initialisation en cours';
+  static const String initializationDescription =
+      'Veuillez patienter pendant la configuration de la base.';
+  static const String initializationDownloading =
+      'Téléchargement des données de référence...';
+  static const String initializationParsing =
+      'Traitement de la base de données...';
+  static const String initializationReady =
+      'Base de données prête à l\'emploi.';
+  static const String initializationError = 'Erreur d\'initialisation.';
+  static const String initializationDownloadingDescription =
+      'Veuillez ne pas quitter l\'application.';
+  static const String initializationParsingDescription =
+      'Traitement des données massives...';
+  static const String initializationAggregatingTitle = 'Finalisation';
+  static const String initializationAggregatingDescription =
+      'Optimisation de la recherche...';
+  static const String initializationErrorDescription =
+      'Veuillez vérifier votre connexion.';
   static const String resetDatabaseTitle = 'Réinitialiser la base de données ?';
   static const String resetDatabaseDescription =
       'Cette action supprimera toutes les données locales et les re-téléchargera. Cette opération est irréversible et peut prendre plusieurs minutes.';
@@ -112,18 +134,15 @@ class Strings {
   static const String filters = 'Filtres';
   static const String allopathy = 'Allopathie';
   static const String homeopathy = 'Homéopathie / Phytothérapie';
-  static const String noFormsAvailable = 'Aucune forme disponible';
+  static const String noRoutesAvailable = 'Aucune voie disponible';
   static const String noResults = 'Aucun résultat trouvé.';
   static const String filterHint =
-      'Permet de filtrer par type de procédure et forme pharmaceutique';
+      'Permet de filtrer par type de procédure et voie d\'administration';
   static const String princeps = 'Princeps';
   static const String generics = 'Génériques';
   static const String relatedTherapies = 'Thérapies Associées';
   static const String sharedActiveIngredients = 'Principe(s) actif(s) partagés';
   static const String notDetermined = 'Non déterminé';
-  static const String cluster = 'Cluster';
-  static const String noGroupsForCluster =
-      'Aucun groupe n\'est associé à ce cluster.';
 
   // Settings
   static const String settings = 'Réglages';
@@ -234,8 +253,6 @@ class Strings {
   // Explorer
   static const String searchErrorOccurred =
       'Une erreur est survenue pendant la recherche.';
-  static const String noProductClustersToDisplay =
-      'Aucun cluster de produits à afficher.';
   static const String princepsAndGenerics = 'princeps • génériques';
   static const String dosagesLabel = 'Dosages :';
   static const String formsLabel = 'Formes :';
@@ -255,13 +272,15 @@ class Strings {
   static const String activeIngredientsLabel = 'Principe(s) actif(s)';
   static const String brandPrincepsLabel = 'Marque princeps';
   static const String procedureType = 'Type de procédure';
-  static const String pharmaceuticalFormFilter = 'Forme pharmaceutique';
+  static const String administrationRouteFilter = 'Voie d\'administration';
+  static const String therapeuticClassFilter = 'Classe Thérapeutique';
+  static const String allClasses = 'Toutes les classes';
   static const String resetAllFilters = 'Réinitialiser tous les filtres';
-  static const String errorLoadingForms =
-      'Erreur lors du chargement des formes';
+  static const String errorLoadingRoutes =
+      'Erreur lors du chargement des voies';
   static const String errorLoadingGroups = 'Impossible de charger les groupes';
   static const String retryLoadingGroups =
-      'Réessayer le chargement des groupes du cluster';
+      'Réessayer le chargement des groupes';
   static const String canonicalNameLabel = 'Nom canonique (Base)';
   static const String structuredDosageLabel = 'Dosage structuré';
   static const String officialFormulationLabel = 'Formulation officielle';
@@ -269,14 +288,27 @@ class Strings {
   static const String notDefined = 'Non défini';
 
   // Error Details
-  static const String clusterLibraryError =
-      'Impossible de récupérer la bibliothèque des clusters. Vérifiez votre connexion puis réessayez.';
-  static const String retryClusterLibrary =
-      'Réessayer le chargement de la bibliothèque des clusters';
 
   // Badge Labels
-  static const String princepsBadge = 'PRINCEPS';
+  // WHY: badgePrinceps is the canonical constant for PRINCEPS badge text.
+  // Removed redundant princepsBadge (same value) to avoid duplication.
+  static const String badgePrinceps = 'PRINCEPS';
+  static const String badgeGeneric = 'GÉNÉRIQUE';
+  static const String badgeStandalone = 'UNIQUE';
   static const String uniqueMedicationBadge = 'MÉDICAMENT UNIQUE';
+  static const String productStoppedBadge = 'Produit arrêté';
+  static const String productCommercializedBadge = 'Commercialisé';
+  static const String stockShortageBadge = 'Rupture de stock';
+  static const String stockTensionBadge = 'Tension d\'approvisionnement';
+  static const String hospitalBadge = '🏥 Usage hospitalier';
+
+  // Badge Tooltips
+  static const String badgePrincepsTooltip = 'Médicament de référence original';
+  static const String badgeGenericTooltip = 'Médicament générique';
+  static const String badgeStandaloneTooltip = 'Médicament unique';
+  static const String hospitalTooltip = 'Usage hospitalier';
+  static const String shortageTooltip = 'Tension ou Rupture';
+  static const String stoppedTooltip = 'Non commercialisé';
 
   // Medication Information
   static const String noActivePrincipleReported =
@@ -305,6 +337,8 @@ class Strings {
       '$princepsCount ${Strings.princepsLabel.toLowerCase()} • $genericsCount ${Strings.genericsLabel.toLowerCase()}';
   static String presentationSubtitle(int count, String labs) =>
       '${presentationCount(count)} • Laboratoires: $labs';
+  static const String availableAt = 'Disponible chez : ';
+  static String andOthers(int count) => ' et $count autres';
   static String searchResultSemanticsForPrinceps(String name, int generics) =>
       'Princeps $name avec $generics génériques';
   static String searchResultSemanticsForGeneric(String name, int princeps) =>
@@ -327,7 +361,7 @@ class Strings {
     final genericsText = hasGenerics
         ? 'Génériques disponibles'
         : 'Aucun générique';
-    return 'Médicament princeps: $name. Principe actif: $molecule. $genericsText';
+    return 'Princeps: $name. PA: $molecule. $genericsText';
   }
 
   static String standaloneSemantics(
@@ -345,4 +379,43 @@ class Strings {
       'Principes actifs: $value';
   static String holderWithValue(String value) => 'Titulaire: $value';
   static String formWithValue(String value) => 'Forme: $value';
+
+  // Summary List Item Helpers
+  // WHY: Centralize bullet point formatting for search result lists
+  // to ensure consistency and prepare for i18n
+  static String genericSummaryItem(String name, int count) {
+    if (count > 1) {
+      return '• $name ($count)';
+    }
+    return '• $name';
+  }
+
+  static String princepsSummaryItem(String name) => '• $name';
+
+  static String stockAlert(String status) => '⚠️ $status';
+
+  // ATC Level 1 Class Labels
+  // WHY: Map ATC Level 1 codes (single letters) to French therapeutic class labels
+  static String? getAtcLevel1Label(String? atcCode) {
+    if (atcCode == null || atcCode.isEmpty) return null;
+    final level1 = atcCode.substring(0, 1).toUpperCase();
+    return _atcLevel1Labels[level1];
+  }
+
+  static const Map<String, String> _atcLevel1Labels = {
+    'A': 'Système digestif',
+    'B': 'Sang',
+    'C': 'Système cardio-vasculaire',
+    'D': 'Dermatologie',
+    'G': 'Système génito-urinaire',
+    'H': 'Hormones',
+    'J': 'Anti-infectieux',
+    'L': 'Antinéoplasiques',
+    'M': 'Muscles et Squelette',
+    'N': 'Système nerveux',
+    'P': 'Antiparasitaires',
+    'R': 'Système respiratoire',
+    'S': 'Organes sensoriels',
+    'V': 'Divers',
+  };
 }

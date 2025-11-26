@@ -23,37 +23,36 @@ Future<void> main(List<String> args) async {
 
   final cacheDirPath = customDir.isNotEmpty
       ? customDir
-      : p.join('.dart_tool', 'bdpm_cache');
+      : p.join('tool', 'data');
   final cacheDir = Directory(cacheDirPath);
   await cacheDir.create(recursive: true);
 
-  stdout.writeln('Preparing BDPM fixtures in ${cacheDir.absolute.path}');
+  print('Preparing BDPM fixtures in ${cacheDir.absolute.path}');
 
   for (final entry in DataSources.files.entries) {
     final filename = _extractFilenameFromUrl(entry.value);
     final file = File(p.join(cacheDir.path, filename));
     if (!force && await file.exists()) {
-      stdout.writeln('✓ $filename already cached – skipping');
+      print('✓ $filename already cached – skipping');
       continue;
     }
-    stdout.writeln('↻ Downloading $filename ...');
+    print('↻ Downloading $filename ...');
     final response = await dio.get<List<int>>(
       entry.value,
       options: Options(responseType: ResponseType.bytes),
     );
     final bytes = response.data;
     if (response.statusCode != 200 || bytes == null) {
-      stderr.writeln(
-        'Failed to download $filename (HTTP ${response.statusCode}).',
-      );
+      print('Failed to download $filename (HTTP ${response.statusCode}).');
       exitCode = 1;
       return;
     }
     await file.writeAsBytes(bytes, flush: true);
   }
 
-  stdout.writeln(
-    'BDPM fixtures ready. Set PHARMA_BDPM_CACHE=${cacheDir.absolute.path} to reuse them.',
+  print(
+    'BDPM fixtures ready in ${cacheDir.absolute.path}. '
+    'Set PHARMA_BDPM_CACHE=${cacheDir.absolute.path} to override the default location.',
   );
 }
 

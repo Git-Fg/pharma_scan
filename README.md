@@ -2,6 +2,10 @@
 
 PharmaScan is a high-performance Flutter application designed for the rapid scanning and identification of pharmaceutical products (both generic and princeps) using GS1 Data Matrix codes.
 
+## Project Context
+
+This project is developed by a **single developer**. The architecture prioritizes **radical simplicity**, self-sufficiency (offline-first), and boilerplate reduction. Enterprise patterns (strict Clean Architecture, DTOs, Mappers, multiple abstraction layers) are considered anti-patterns here if they don't provide immediate value. The local database (Drift) is the single source of truth. Drift-generated classes are used directly in the UI layer without intermediate domain models or mappers, reducing cognitive overhead and maintenance burden.
+
 ## Features
 
 - **Instant Data Matrix Scanning**: Utilizes the device camera to detect and parse GS1 barcodes in real-time.
@@ -80,13 +84,10 @@ The application uses a **deterministic data model** based on official relational
   - `CIS_COMPO_bdpm.txt` - Active ingredient compositions with structured dosage information
   - `CIS_GENER_bdpm.txt` - Generic group relationships (authoritative source)
 
-- **Parsing Strategy: Knowledge Injection**:
-  We use a unique parsing strategy to ensure perfect accuracy even with inconsistent medication names:
-  - **Input:** The raw medication string (e.g., "DOLIPRANE 1000 mg, comprimé").
-  - **Injection:** We inject the *Official Form* (from column 2) and *Official Laboratory* (from column 10) into the parser as "Truths".
-  - **Subtraction:** The parser deterministically removes these known strings from the raw name.
-  - **Grammar Extraction:** What remains is parsed using a formal **PetitParser** grammar to extract complex Dosages (including ratios like "600 mg/300 mg") and Context keywords (e.g., "SANS SUCRE", "ENFANTS").
-  - **Result:** A clean, canonical name free of artifacts, with structured metadata.
+- **Parsing Strategy: Relational Determinism**:
+  Instead of heuristically cleaning chemical names (e.g., stripping "Chlorhydrate"), PharmaScan leverages the relational link between *Active Substances* (SA) and *Therapeutic Fractions* (FT) provided in the BDPM structure. This guarantees scientifically accurate naming and dosages (Base vs Salt) without regex guesswork. The parser prefers FT (base molecule) over SA (salt form) when linked in `CIS_COMPO`, naturally producing clean names (e.g., "Metformine" instead of "Chlorhydrate de Metformine").
+
+- **Data Quality**: The ingestion pipeline enforces **Strict Lifecycle Filtering** by rejecting any medication where `Statut administratif de l'AMM` is not `"Autorisation active"`. This ensures zero database pollution from revoked or archived medications.
 
 - **Database Schema**: Type-safe relational database using drift ORM with explicit generic group relationships:
   - Schema defined in Dart (`lib/core/database/database.dart`) with automatic code generation.
@@ -105,12 +106,7 @@ This project adheres to a strict set of development principles focused on simpli
 
 The current version of PharmaScan is focused on rapid identification and generic/princeps equivalence. The following features are under consideration for future development, aiming to enrich the application with critical professional data. Each requires a thorough preliminary analysis of the official BDPM data files to ensure a robust and reliable implementation.
 
-### 1. Regulatory Information (Prescription Status)
-
-- **Feature Goal**: Display the specific prescription and dispensing conditions for each medication directly within the app's detail view (e.g., "Sur Ordonnance - Liste I", "Vente Libre", "Stupéfiant").
-- **Core Modification**: This enhancement involves integrating the `CIS_CPD_bdpm.txt` file into the data pipeline.
-
-### 2. Real-Time Availability Status (Stock Shortages)
+### 1. Real-Time Availability Status (Stock Shortages)
 
 - **Feature Goal**: Provide near real-time information on medication availability.
 - **Core Modification**: Requires integrating the `CIS_CIP_Dispo_Spec.txt` file and potentially a more frequent sync mechanism.

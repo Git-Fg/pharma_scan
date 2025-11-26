@@ -5,16 +5,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pharma_scan/core/providers/theme_provider.dart';
 import 'package:pharma_scan/core/router/app_router.dart';
 import 'package:pharma_scan/core/services/logger_service.dart';
+import 'package:pharma_scan/core/theme/app_colors.dart';
+import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/features/home/providers/initialization_provider.dart';
-import 'package:pharma_scan/features/home/screens/loading_screen.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:talker_riverpod_logger/talker_riverpod_logger.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  LoggerService().init();
-  LoggerService.info('🚀 App Starting...');
+  // WHY: Initialize logger in background to avoid blocking app startup
+  Future.microtask(() {
+    LoggerService().init();
+    LoggerService.info('🚀 App Starting...');
+  });
 
   // Configure global animation defaults for consistency
   Animate.defaultDuration = 300.ms;
@@ -37,6 +41,17 @@ void main() async {
 
   runApp(
     ProviderScope(
+      // WHY: Configure automatic retries for network operations with exponential backoff.
+      // Riverpod 3.0's built-in retry mechanism handles transient network failures
+      // automatically, reducing the need for custom retry logic in providers.
+      retry: (retryCount, error) {
+        // Limit retries to prevent infinite loops
+        if (retryCount >= 5) return null;
+
+        // Exponential backoff: 200ms, 400ms, 800ms, 1600ms, 3200ms
+        // This reduces server load and handles transient network issues gracefully
+        return Duration(milliseconds: 200 * (1 << retryCount));
+      },
       observers: [
         TalkerRiverpodObserver(
           talker: LoggerService().talker,
@@ -62,76 +77,63 @@ class PharmaScanApp extends ConsumerStatefulWidget {
 }
 
 class PharmaScanAppState extends ConsumerState<PharmaScanApp> {
+  late final ShadTextTheme _headingTextTheme = _buildHeadingTextTheme();
+
   @override
   void initState() {
     super.initState();
-    // WHY: Defer provider mutations until after the first frame to avoid
-    // touching Riverpod state during the initial build phase.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _initializeDatabase();
-    });
+    // WHY: Start initialization immediately without waiting for first frame
+    // The initialization provider already starts with success state, so this is safe
+    Future.microtask(_initializeDatabase);
   }
 
   Future<void> _initializeDatabase() async {
-    await ref.read(initializationStateProvider.notifier).initialize();
+    // WHY: Don't await - let initialization happen in background
+    // The provider already starts with success state, so app remains responsive
+    ref.read(initializationStateProvider.notifier).initialize();
+  }
+
+  ShadTextTheme _buildHeadingTextTheme() {
+    final base = ShadTextTheme();
+    return base.copyWith(
+      h3: base.h3.copyWith(fontWeight: FontWeight.w700),
+      h4: base.h4.copyWith(fontWeight: FontWeight.w600),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final goRouter = ref.watch(goRouterProvider);
-    final initState = ref.watch(initializationStateProvider);
     final themeAsync = ref.watch(themeProvider);
     final themeMode = themeAsync.value ?? ThemeMode.system;
 
-    // Show loading screen during initialization
-    if (initState == InitializationState.initializing) {
-      return ShadApp(
-        title: 'PharmaScan',
-        debugShowCheckedModeBanner: false,
-        themeMode: themeMode,
-        theme: ShadThemeData(
-          brightness: Brightness.light,
-          colorScheme: const ShadZincColorScheme.light(),
-        ),
-        darkTheme: ShadThemeData(
-          brightness: Brightness.dark,
-          colorScheme: const ShadSlateColorScheme.dark(),
-        ),
-        builder: (context, child) {
-          final brightness = Theme.of(context).brightness;
-          SystemChrome.setSystemUIOverlayStyle(
-            SystemUiOverlayStyle(
-              statusBarColor: Colors.transparent,
-              statusBarIconBrightness: brightness == Brightness.dark
-                  ? Brightness.light
-                  : Brightness.dark,
-              statusBarBrightness: brightness == Brightness.dark
-                  ? Brightness.dark
-                  : Brightness.light,
-              systemNavigationBarColor: Colors.transparent,
-              systemNavigationBarIconBrightness: brightness == Brightness.dark
-                  ? Brightness.light
-                  : Brightness.dark,
-              systemNavigationBarDividerColor: Colors.transparent,
-            ),
-          );
-          return ShadSonner(child: child!);
-        },
-        home: const LoadingScreen(),
-      );
-    }
-
+    // WHY: Always show the router - initialization happens in background
+    // with reactive feedback via toasts and placeholders
     return ShadApp.router(
-      title: 'PharmaScan',
+      title: Strings.appName,
       debugShowCheckedModeBanner: false,
       themeMode: themeMode,
       theme: ShadThemeData(
         brightness: Brightness.light,
-        colorScheme: const ShadZincColorScheme.light(),
+        colorScheme: const ShadZincColorScheme.light(
+          background: AppColors.scaffoldOffWhite,
+          custom: AppColors.semanticCustomColors,
+        ),
+        textTheme: _headingTextTheme,
+        // WHY: Configure default button theme for consistency
+        // Note: Gradient and shadow must still be applied per-button
+        primaryButtonTheme: const ShadButtonTheme(),
       ),
       darkTheme: ShadThemeData(
         brightness: Brightness.dark,
-        colorScheme: const ShadSlateColorScheme.dark(),
+        colorScheme: const ShadSlateColorScheme.dark(
+          background: AppColors.scaffoldSlateDark,
+          custom: AppColors.semanticCustomColors,
+        ),
+        textTheme: _headingTextTheme,
+        // WHY: Configure default button theme for consistency
+        // Note: Gradient and shadow must still be applied per-button
+        primaryButtonTheme: const ShadButtonTheme(),
       ),
       builder: (context, child) {
         // WHY: Update SystemUI overlay style based on theme brightness
@@ -153,7 +155,7 @@ class PharmaScanAppState extends ConsumerState<PharmaScanApp> {
             systemNavigationBarDividerColor: Colors.transparent,
           ),
         );
-        return ShadSonner(child: child!);
+        return ShadSonner(alignment: Alignment.topCenter, child: child!);
       },
       routerConfig: goRouter,
     );

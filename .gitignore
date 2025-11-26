@@ -55,11 +55,8 @@ android/.gradle
 android/.kotlin
 android/build/
 
-# Ignore all contents of the data_validation directory...
-data_validation/*
+# Ignore BDPM raw data files in tool/data/
+tool/data/
 
-# ...but keep the final report.
-!data_validation/rapport_final.txt
-!data_validation/classification_report.txt
-!data_validation/*.py
-!data_validation/*.csv
+# Ignore generated reports in tool/report/
+tool/report/

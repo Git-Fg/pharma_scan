@@ -1,10 +1,5 @@
 import 'database.dart';
-
--- Simple count queries for consistency
-countTotalMedicaments: SELECT COUNT(*) as count FROM medicaments;
-countTotalGeneriques: SELECT COUNT(*) as count FROM group_members WHERE type = 1;
-countDistinctPrincipes: SELECT COUNT(DISTINCT principe) as count FROM principes_actifs;
-countTotalGroups: SELECT COUNT(*) as count FROM generique_groups;
+import 'views.drift';
 
 -- Queries for MedicamentSummary table
 getMedicamentSummaryByCis: SELECT * FROM medicament_summary WHERE cis_code = ?;
@@ -27,7 +22,6 @@ SELECT
   ms.principes_actifs_communs,
   ms.princeps_de_reference,
   ms.princeps_brand_name,
-  ms.cluster_key,
   ms.forme_pharmaceutique AS summary_forme_pharmaceutique,
   ms.procedure_type AS summary_procedure_type,
   ms.titulaire AS summary_titulaire,
@@ -36,29 +30,53 @@ FROM medicaments m
 INNER JOIN specialites s ON s.cis_code = m.cis_code
 INNER JOIN medicament_summary ms ON ms.cis_code = m.cis_code;
 
--- Aggregation queries migrated from DataInitializationService
-getStandaloneSpecialites:
-SELECT 
-  s.cis_code,
-  s.nom_specialite,
-  s.forme_pharmaceutique,
-  s.procedure_type,
-  s.titulaire,
-  s.conditions_prescription,
-  MIN(m.code_cip) AS code_cip
-FROM specialites s
-INNER JOIN medicaments m ON s.cis_code = m.cis_code
-LEFT JOIN (
-  SELECT DISTINCT m2.cis_code AS grouped_cis
-  FROM group_members gm
-  INNER JOIN medicaments m2 ON gm.code_cip = m2.code_cip
-) grouped ON grouped.grouped_cis = s.cis_code
-WHERE grouped.grouped_cis IS NULL
-GROUP BY s.cis_code
-ORDER BY s.nom_specialite COLLATE NOCASE;
+-- Aggregation queries for populating medicament_summary table
+-- These queries are validated at compile time against the schema
+-- WHY: Delete all existing summaries before inserting new aggregated data
+deleteMedicamentSummaries: DELETE FROM medicament_summary;
 
-getPrincipesForCips(List<String> cips):
-SELECT code_cip, principe 
-FROM principes_actifs 
-WHERE code_cip IN :cips 
-ORDER BY code_cip, principe;
+-- WHY: Insert grouped medications from view_aggregated_grouped view
+-- The view contains all the aggregation logic with CTEs for compile-time validation
+insertGroupedMedicamentSummaries:
+INSERT OR REPLACE INTO medicament_summary (
+  cis_code,
+  nom_canonique,
+  is_princeps,
+  group_id,
+  principes_actifs_communs,
+  princeps_de_reference,
+  forme_pharmaceutique,
+  princeps_brand_name,
+  procedure_type,
+  titulaire,
+  conditions_prescription,
+  is_surveillance,
+  voies_administration,
+  formatted_dosage,
+  atc_code
+)
+SELECT * FROM view_aggregated_grouped;
+
+-- WHY: Insert standalone medications from view_aggregated_standalone view
+-- The view contains all the aggregation logic with CTEs for compile-time validation
+insertStandaloneMedicamentSummaries:
+INSERT OR REPLACE INTO medicament_summary (
+  cis_code,
+  nom_canonique,
+  is_princeps,
+  group_id,
+  principes_actifs_communs,
+  princeps_de_reference,
+  forme_pharmaceutique,
+  princeps_brand_name,
+  procedure_type,
+  titulaire,
+  conditions_prescription,
+  is_surveillance,
+  voies_administration,
+  formatted_dosage,
+  atc_code
+)
+SELECT * FROM view_aggregated_standalone;
+
+getMedicamentSummaryCount: SELECT COUNT(*) AS count FROM medicament_summary;

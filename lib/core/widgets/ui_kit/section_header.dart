@@ -39,7 +39,14 @@ class SectionHeader extends StatelessWidget {
             ),
             const Gap(AppDimens.spacingXs),
           ],
-          Text(title, style: theme.textTheme.h4),
+          Expanded(
+            child: Text(
+              title,
+              style: theme.textTheme.h4,
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+            ),
+          ),
           if (badgeCount != null) ...[
             const Gap(AppDimens.spacingXs),
             ShadBadge(

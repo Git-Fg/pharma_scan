@@ -8,15 +8,16 @@ part 'preferences_provider.g.dart';
 class AppPreferences extends _$AppPreferences {
   @override
   Stream<UpdateFrequency> build() {
-    final db = ref.watch(driftDatabaseServiceProvider);
-    return db.watchSettings().map(
+    final db = ref.watch(appDatabaseProvider);
+    return db.settingsDao.watchSettings().map(
       (settings) => UpdateFrequency.fromStorage(settings.updateFrequency),
     );
   }
 
   Future<void> setUpdateFrequency(UpdateFrequency newFrequency) async {
     await ref
-        .read(driftDatabaseServiceProvider)
+        .read(appDatabaseProvider)
+        .settingsDao
         .updateSyncFrequency(newFrequency.storageValue);
   }
 }

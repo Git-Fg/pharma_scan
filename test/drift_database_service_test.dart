@@ -5,34 +5,26 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:pharma_scan/core/database/database.dart';
-import 'package:pharma_scan/core/database/mappers.dart';
-import 'package:pharma_scan/core/services/drift_database_service.dart';
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
-import 'package:pharma_scan/features/explorer/repositories/explorer_repository.dart';
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
+import 'test_utils.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   late AppDatabase database;
-  late DriftDatabaseService dbService;
   late DataInitializationService dataInitializationService;
   late Directory documentsDir;
 
   setUp(() async {
     documentsDir = await Directory.systemTemp.createTemp('pharma_scan_test_');
-    PathProviderPlatform.instance = _FakePathProviderPlatform(
-      documentsDir.path,
-    );
+    PathProviderPlatform.instance = FakePathProviderPlatform(documentsDir.path);
 
     // For each test, create a fresh in-memory database
     final dbFile = File(p.join(documentsDir.path, 'medicaments.db'));
     database = AppDatabase.forTesting(NativeDatabase(dbFile));
 
-    dbService = DriftDatabaseService(database);
-    dataInitializationService = DataInitializationService(
-      databaseService: dbService,
-    );
+    dataInitializationService = DataInitializationService(database: database);
   });
 
   tearDown(() async {
@@ -45,7 +37,7 @@ void main() {
 
   group('DriftDatabaseService with Drift', () {
     test('getGenericGroupSummaries returns deterministic principles', () async {
-      await dbService.insertBatchData(
+      await database.databaseDao.insertBatchData(
         specialites: [
           {
             'cis_code': 'CIS_PRINCEPS',
@@ -86,7 +78,7 @@ void main() {
       // Populate MedicamentSummary table
       await dataInitializationService.runSummaryAggregationForTesting();
 
-      final summaries = await dbService.getGenericGroupSummaries(
+      final summaries = await database.libraryDao.getGenericGroupSummaries(
         limit: 10,
         offset: 0,
       );
@@ -98,7 +90,7 @@ void main() {
     test(
       'getGenericGroupSummaries skips groups without shared principles',
       () async {
-        await dbService.insertBatchData(
+        await database.databaseDao.insertBatchData(
           specialites: [
             {
               'cis_code': 'CIS_P',
@@ -130,7 +122,7 @@ void main() {
           ],
         );
 
-        final summaries = await dbService.getGenericGroupSummaries(
+        final summaries = await database.libraryDao.getGenericGroupSummaries(
           limit: 10,
           offset: 0,
         );
@@ -146,7 +138,7 @@ void main() {
 
     test('should return correct database statistics', () async {
       // GIVEN: A database with medicaments, principes, and groups
-      await dbService.insertBatchData(
+      await database.databaseDao.insertBatchData(
         specialites: [
           {
             'cis_code': 'CIS_PRINCEPS_1',
@@ -208,7 +200,7 @@ void main() {
       );
 
       // WHEN: We get database stats
-      final stats = await dbService.getDatabaseStats();
+      final stats = await database.libraryDao.getDatabaseStats();
 
       // THEN: Statistics are correct
       expect(stats['total_princeps'], 2); // 4 total - 2 generics = 2 princeps
@@ -217,80 +209,82 @@ void main() {
       expect(stats['avg_gen_per_principe'], 1.0); // 2 generics / 2 principles
     });
 
-    test(
-      'getAllSearchCandidates returns canonical princeps and generics',
-      () async {
-        await dbService.insertBatchData(
-          specialites: [
-            {
-              'cis_code': 'CIS_P',
-              'nom_specialite': 'DOLIPRANE 500mg',
-              'procedure_type': 'Autorisation',
-              'forme_pharmaceutique': 'Comprimé',
-              'titulaire': 'LABO P',
-            },
-            {
-              'cis_code': 'CIS_G',
-              'nom_specialite': 'DOLIPRANE GENERIQUE',
-              'procedure_type': 'Autorisation',
-              'forme_pharmaceutique': 'Gélule',
-              'titulaire': 'LABO G',
-            },
-          ],
-          medicaments: [
-            {
-              'code_cip': 'CIP_P',
-              'nom': 'DOLIPRANE 500mg',
-              'cis_code': 'CIS_P',
-            },
-            {
-              'code_cip': 'CIP_G',
-              'nom': 'DOLIPRANE GENERIQUE',
-              'cis_code': 'CIS_G',
-            },
-          ],
-          principes: [
-            {'code_cip': 'CIP_P', 'principe': 'PARACETAMOL'},
-            {'code_cip': 'CIP_G', 'principe': 'PARACETAMOL'},
-          ],
-          generiqueGroups: [
-            {'group_id': 'GROUP_1', 'libelle': 'Doliprane'},
-          ],
-          groupMembers: [
-            {'code_cip': 'CIP_P', 'group_id': 'GROUP_1', 'type': 0},
-            {'code_cip': 'CIP_G', 'group_id': 'GROUP_1', 'type': 1},
-          ],
-        );
+    test('searchMedicaments returns canonical princeps and generics', () async {
+      await database.databaseDao.insertBatchData(
+        specialites: [
+          {
+            'cis_code': 'CIS_P',
+            'nom_specialite': 'ELIQUIS 5 mg, comprimé',
+            'procedure_type': 'Autorisation',
+            'forme_pharmaceutique': 'Comprimé',
+            'titulaire': 'BRISTOL-MYERS SQUIBB',
+          },
+          {
+            'cis_code': 'CIS_G',
+            'nom_specialite': 'APIXABAN ZYDUS 5 mg, comprimé',
+            'procedure_type': 'Autorisation',
+            'forme_pharmaceutique': 'Comprimé',
+            'titulaire': 'ZYDUS FRANCE',
+          },
+        ],
+        medicaments: [
+          {'code_cip': 'CIP_P', 'nom': 'ELIQUIS 5 mg', 'cis_code': 'CIS_P'},
+          {
+            'code_cip': 'CIP_G',
+            'nom': 'APIXABAN ZYDUS 5 mg',
+            'cis_code': 'CIS_G',
+          },
+        ],
+        principes: [
+          {
+            'code_cip': 'CIP_P',
+            'principe': 'APIXABAN',
+            'dosage': '5',
+            'dosage_unit': 'mg',
+          },
+          {
+            'code_cip': 'CIP_G',
+            'principe': 'APIXABAN',
+            'dosage': '5',
+            'dosage_unit': 'mg',
+          },
+        ],
+        generiqueGroups: [
+          {'group_id': 'GROUP_1', 'libelle': 'APIXABAN 5 mg'},
+        ],
+        groupMembers: [
+          {'code_cip': 'CIP_P', 'group_id': 'GROUP_1', 'type': 0},
+          {'code_cip': 'CIP_G', 'group_id': 'GROUP_1', 'type': 1},
+        ],
+      );
 
-        await dataInitializationService.runSummaryAggregationForTesting();
+      await dataInitializationService.runSummaryAggregationForTesting();
 
-        final repository = ExplorerRepository(dbService);
-        final candidates = await repository.getAllSearchCandidates();
-        expect(candidates.length, 2);
+      final searchDao = database.searchDao;
+      final candidates = await searchDao.searchMedicaments('APIXABAN');
+      expect(candidates.length, 2);
 
-        final princeps = candidates.firstWhere(
-          (candidate) => candidate.isPrinceps,
-        );
-        final generic = candidates.firstWhere(
-          (candidate) => !candidate.isPrinceps,
-        );
+      final princeps = candidates.firstWhere(
+        (candidate) => candidate.isPrinceps,
+      );
+      final generic = candidates.firstWhere(
+        (candidate) => !candidate.isPrinceps,
+      );
 
-        expect(princeps.groupId, 'GROUP_1');
-        expect(princeps.commonPrinciples, contains('PARACETAMOL'));
-        expect(princeps.medicament.nom, 'DOLIPRANE 500mg');
-        expect(princeps.medicament.titulaire, 'LABO P');
-        expect(princeps.medicament.formePharmaceutique, 'Comprimé');
+      expect(princeps.groupId, 'GROUP_1');
+      expect(princeps.principesActifsCommuns, contains('APIXABAN'));
+      // WHY: For grouped items, nomCanonique uses generique_groups.libelle directly
+      // as per aggregation logic in DataInitializationService._computeAndInsertSummaryRecords
+      expect(princeps.nomCanonique, 'APIXABAN 5 mg');
 
-        expect(generic.groupId, 'GROUP_1');
-        expect(generic.medicament.codeCip, 'CIP_G');
-        expect(generic.nomCanonique, contains('DOLIPRANE'));
-        expect(generic.commonPrinciples, contains('PARACETAMOL'));
-        expect(generic.medicament.formePharmaceutique, 'Gélule');
-      },
-    );
+      expect(generic.groupId, 'GROUP_1');
+      // WHY: For grouped items, nomCanonique uses generique_groups.libelle directly
+      expect(generic.nomCanonique, 'APIXABAN 5 mg');
+      expect(generic.principesActifsCommuns, contains('APIXABAN'));
+    });
 
-    test('getAllSearchCandidates preserves procedure type metadata', () async {
-      await dbService.insertBatchData(
+    test('searchMedicaments preserves procedure type metadata', () async {
+      await database.databaseDao.insertBatchData(
         specialites: [
           {
             'cis_code': 'CIS_CONV',
@@ -315,7 +309,20 @@ void main() {
             'cis_code': 'CIS_HOMEO',
           },
         ],
-        principes: [],
+        principes: [
+          {
+            'code_cip': 'CIP_CONV',
+            'principe': 'PRINCIPE_A',
+            'dosage': '1',
+            'dosage_unit': 'mg',
+          },
+          {
+            'code_cip': 'CIP_HOMEO',
+            'principe': 'PRINCIPE_B',
+            'dosage': '1',
+            'dosage_unit': 'mg',
+          },
+        ],
         generiqueGroups: [
           {'group_id': 'GROUP_CONV', 'libelle': 'Conventional Group'},
           {'group_id': 'GROUP_HOMEO', 'libelle': 'Homeopathic Group'},
@@ -328,14 +335,13 @@ void main() {
 
       await dataInitializationService.runSummaryAggregationForTesting();
 
-      final result = await dbService.getAllSearchCandidates();
+      final result = await database.searchDao.searchMedicaments('GROUP');
       expect(result.length, 2);
 
       // Get specialite data to check procedure type
-      final homeoSpec = dbService.database.select(
-        dbService.database.specialites,
-      )..where((tbl) => tbl.cisCode.equals('CIS_HOMEO'));
-      final convSpec = dbService.database.select(dbService.database.specialites)
+      final homeoSpec = database.select(database.specialites)
+        ..where((tbl) => tbl.cisCode.equals('CIS_HOMEO'));
+      final convSpec = database.select(database.specialites)
         ..where((tbl) => tbl.cisCode.equals('CIS_CONV'));
       final homeoSpecData = await homeoSpec.getSingleOrNull();
       final convSpecData = await convSpec.getSingleOrNull();
@@ -344,8 +350,8 @@ void main() {
       expect(convSpecData?.procedureType, 'Autorisation');
     });
 
-    test('getAllSearchCandidates sorts by canonical name', () async {
-      await dbService.insertBatchData(
+    test('searchMedicaments sorts by canonical name', () async {
+      await database.databaseDao.insertBatchData(
         specialites: [
           {
             'cis_code': 'CIS_B',
@@ -362,7 +368,20 @@ void main() {
           {'code_cip': 'CIP_B', 'nom': 'BETA MEDIC', 'cis_code': 'CIS_B'},
           {'code_cip': 'CIP_A', 'nom': 'ALPHA MEDIC', 'cis_code': 'CIS_A'},
         ],
-        principes: [],
+        principes: [
+          {
+            'code_cip': 'CIP_B',
+            'principe': 'ACTIVE_B',
+            'dosage': '1',
+            'dosage_unit': 'mg',
+          },
+          {
+            'code_cip': 'CIP_A',
+            'principe': 'ACTIVE_A',
+            'dosage': '1',
+            'dosage_unit': 'mg',
+          },
+        ],
         generiqueGroups: [
           {'group_id': 'GROUP_B', 'libelle': 'Group B'},
           {'group_id': 'GROUP_A', 'libelle': 'Group A'},
@@ -375,7 +394,7 @@ void main() {
 
       await dataInitializationService.runSummaryAggregationForTesting();
 
-      final result = await dbService.getAllSearchCandidates();
+      final result = await database.searchDao.searchMedicaments('Group');
       expect(result.length, 2);
       final names = result.map((s) => s.nomCanonique).toList();
       final sortedNames = [...names]..sort((a, b) => a.compareTo(b));
@@ -384,7 +403,7 @@ void main() {
 
     test('should classify groups with varied generic types', () async {
       // GIVEN: A group with 2 princeps and 3 generics grouped by laboratory
-      await dbService.insertBatchData(
+      await database.databaseDao.insertBatchData(
         specialites: [
           {
             'cis_code': 'CIS_PRINCEPS_1',
@@ -470,35 +489,41 @@ void main() {
       await dataInitializationService.runSummaryAggregationForTesting();
 
       // WHEN: We classify the group
-      final classificationDto = await dbService.classifyProductGroup('GROUP_1');
-      final classification = classificationDto?.toDomain();
+      final groupData = await database.libraryDao.classifyProductGroup(
+        'GROUP_1',
+      );
 
-      // THEN: The classification should contain 2 princeps and 3 generic buckets
+      // THEN: The group data should contain 2 princeps and 3 generic members
+      expect(groupData, isNotNull);
+      final princepsMembers = groupData!.memberRows
+          .where((m) => m.groupMemberRow.type == 0)
+          .toList();
+      final genericMembers = groupData.memberRows
+          .where((m) => m.groupMemberRow.type == 1)
+          .toList();
+
+      expect(princepsMembers.length, 2);
+      expect(genericMembers.length, 3);
+
       expect(
-        classification!.princeps.expand((bucket) => bucket.medicaments).length,
-        2,
-      );
-      expect(
-        classification.generics.expand((bucket) => bucket.medicaments).length,
-        3,
-      );
-      expect(
-        classification.princeps
-            .expand((bucket) => bucket.medicaments)
-            .map((p) => p.codeCip),
+        princepsMembers.map((p) => p.medicamentRow.codeCip),
         containsAll(['PRINCEPS_1_CIP', 'PRINCEPS_2_CIP']),
       );
-      // Verify all generic products are present across all groups
-      final allGenericCips = classification.generics
-          .expand((bucket) => bucket.medicaments.map((m) => m.codeCip))
+      // Verify all generic products are present
+      final allGenericCips = genericMembers
+          .map((m) => m.medicamentRow.codeCip)
           .toList();
       expect(
         allGenericCips,
         containsAll(['GENERIC_1_CIP', 'GENERIC_2_CIP', 'GENERIC_4_CIP']),
       );
-      // Verify grouping by laboratory
+      // Verify laboratories are present in specialite rows
+      final allLabs = genericMembers
+          .map((m) => m.specialiteRow.titulaire ?? '')
+          .where((lab) => lab.isNotEmpty)
+          .toSet();
       expect(
-        classification.generics.expand((bucket) => bucket.laboratories).toSet(),
+        allLabs,
         containsAll(['LABORATORY_A', 'LABORATORY_B', 'LABORATORY_C']),
       );
     });
@@ -506,7 +531,7 @@ void main() {
     test(
       'classifyProductGroup should surface related princeps sharing active principles',
       () async {
-        await dbService.insertBatchData(
+        await database.databaseDao.insertBatchData(
           specialites: [
             {
               'cis_code': 'CIS_PRINCEPS_A',
@@ -574,17 +599,23 @@ void main() {
 
         await dataInitializationService.runSummaryAggregationForTesting();
 
-        final classificationDto = await dbService.classifyProductGroup(
+        final groupData = await database.libraryDao.classifyProductGroup(
           'GROUP_A',
         );
-        final classification = classificationDto?.toDomain();
 
-        expect(classification!.princeps.length, 1);
-        expect(classification.relatedPrinceps.length, 1);
-        final relatedBucket = classification.relatedPrinceps.first;
-        expect(relatedBucket.medicaments.first.codeCip, 'PRINCEPS_B_CIP');
+        expect(groupData, isNotNull);
         expect(
-          relatedBucket.medicaments.first.principesActifs,
+          groupData!.memberRows.where((m) => m.groupMemberRow.type == 0).length,
+          1,
+        );
+        expect(groupData.relatedPrincepsRows.length, 1);
+        final relatedPrinceps = groupData.relatedPrincepsRows.first;
+        expect(relatedPrinceps.medicamentRow.codeCip, 'PRINCEPS_B_CIP');
+        expect(
+          groupData.principesByCip[relatedPrinceps.medicamentRow.codeCip]
+                  ?.map((p) => p.principe)
+                  .toList() ??
+              [],
           contains('PARACETAMOL'),
         );
       },
@@ -593,7 +624,7 @@ void main() {
 
   group('classifyProductGroup', () {
     test('returns canonical classification for deterministic group', () async {
-      await dbService.insertBatchData(
+      await database.databaseDao.insertBatchData(
         specialites: [
           {
             'cis_code': 'CIS_PRINCEPS_MAIN',
@@ -701,52 +732,39 @@ void main() {
 
       await dataInitializationService.runSummaryAggregationForTesting();
 
-      final classificationDto = await dbService.classifyProductGroup(
+      final groupData = await database.libraryDao.classifyProductGroup(
         'GROUP_MAIN',
       );
-      final classification = classificationDto?.toDomain();
 
       // WHY: The parser removes "PRINCEPS" from medication names as it's a qualifier (princeps = original medication),
       // not part of the actual medication brand name. The baseName will be "PARA", not "PARA PRINCEPS".
-      expect(classification!.syntheticTitle.contains('PARA'), isTrue);
-      expect(classification.commonActiveIngredients, ['PARACETAMOL']);
-      expect(classification.distinctDosages, contains('500 mg'));
-      expect(classification.distinctFormulations, contains('Comprimé'));
-      expect(classification.princeps.length, 1);
-      expect(classification.princeps.first.medicaments.length, 1);
-      // WHY: The two generics ("PARA GENERIC 500 mg comprimé" and "PARA GENERIC 500 mg, comprimé pelliculé")
-      // may be grouped separately if they have different formulations, so we check that generics exist
-      expect(classification.generics.length, greaterThanOrEqualTo(1));
-      final totalGenericMedicaments = classification.generics.fold<int>(
-        0,
-        (sum, group) => sum + group.medicaments.length,
-      );
-      expect(totalGenericMedicaments, 2);
-      expect(classification.relatedPrinceps.length, 1);
+      expect(groupData, isNotNull);
+      expect(groupData!.syntheticTitle.contains('PARA'), isTrue);
+      expect(groupData.commonPrincipes, ['PARACETAMOL']);
+      expect(groupData.distinctDosages, contains('500 mg'));
+      expect(groupData.distinctFormulations, contains('Comprimé'));
+
+      final princepsMembers = groupData.memberRows
+          .where((m) => m.groupMemberRow.type == 0)
+          .toList();
+      final genericMembers = groupData.memberRows
+          .where((m) => m.groupMemberRow.type == 1)
+          .toList();
+
+      expect(princepsMembers.length, 1);
+      expect(genericMembers.length, 2);
+      expect(groupData.relatedPrincepsRows.length, 1);
       expect(
-        classification.relatedPrinceps.first.medicaments.first.codeCip,
+        groupData.relatedPrincepsRows.first.medicamentRow.codeCip,
         'CIP_PRINCEPS_SECOND',
       );
     });
 
     test('returns null when group has no members', () async {
-      final classificationDto = await dbService.classifyProductGroup('MISSING');
-      final classification = classificationDto?.toDomain();
-      expect(classification, isNull);
+      final groupData = await database.libraryDao.classifyProductGroup(
+        'MISSING',
+      );
+      expect(groupData, isNull);
     });
   });
-}
-
-class _FakePathProviderPlatform extends PathProviderPlatform {
-  _FakePathProviderPlatform(this._documentsPath);
-  @override
-  Future<String?> getApplicationDocumentsPath() async => _documentsPath;
-
-  @override
-  Future<String?> getTemporaryPath() async {
-    final tempDir = await Directory.systemTemp.createTemp('pharma_scan_tmp_');
-    return tempDir.path;
-  }
-
-  final String _documentsPath;
 }

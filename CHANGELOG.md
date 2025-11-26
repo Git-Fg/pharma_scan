@@ -1,20 +1,42 @@
-# [2025-11-21] - Drift-AppSettings Single Source of Truth
+# Changelog
+
+## [Unreleased] - Architecture "Relational Determinism"
+
+### Data Pipeline Refactor
+
+- **Relational Composition Logic (FT > SA):** Implemented smart resolution of active ingredients. The parser now prefers the "Therapeutic Fraction" (Base) over the "Active Substance" (Salt) when linked in `CIS_COMPO`. This naturally cleans names (e.g., "Metformine" instead of "Chlorhydrate de Metformine") without fragile Regex.
+
+- **Strict AMM Filtering:** The ingestion pipeline now strictly enforces `Statut administrative == "Autorisation active"`. Revoked or archived medications are rejected at the gate, significantly reducing database noise.
+
+- **Robust Dosage Parsing:** Added pre-processing to handle French decimal formatting (`,`) and safe rejection of non-quantifiable dosages (e.g., homeopathic ranges).
+
+- **Enhanced Standalone Normalization:** Name cleaning for standalone medications now uses diacritic-agnostic normalization before subtraction, improving match rates for Lab and Form removal.
+
+## [2025-01-20] - Native Columns Data Pipeline Refactor
+
+- **Ingestion filtering (homeopathy purge)**: Added early filtering in `_parseSpecialites` to skip entries with procedure types containing "homéopathique", "homeopathique", "traditionnel à base de plantes", or "phyto". Excluded CIS codes never enter `seenCis`, automatically cascading the filter to all downstream parsing functions (`_parseMedicaments`, `_parseCompositions`, `_parseGeneriques`).
+- **Dosage source of truth (CIS_COMPO)**: Eliminated heuristic dosage extraction from medication names. Modified `principesQuery` to fetch `dosage` and `dosageUnit` directly from `principes_actifs` table. Built `dosagesByCip` map that concatenates multiple dosages with " + " (e.g., "500 mg + 65 mg"). Dosage data now comes exclusively from BDPM column 4, not regex parsing.
+- **Grouping source of truth (CIS_GENER)**: For grouped items, use `generique_groups.libelle` directly as `nomCanonique` and `princepsBrandName` without re-parsing. For standalone items, construct `nomCanonique` from `principe` + `dosage` (e.g., "PARACETAMOL 1000 mg"). Removed all parser-based extraction for canonical names.
+- **Parser deprecation**: Removed `MedicamentParser` instantiation and all `medicamentParser.parse()` calls from the aggregation phase (`_computeAndInsertSummaryRecords`, `_buildStandaloneSummaryRecords`). Parser is no longer used for data extraction (dosage, canonical names) - only native BDPM columns are trusted.
+- **Strategy**: "Filter Early, Trust Structure" - all data now comes from structured BDPM columns instead of heuristic parsing, significantly improving accuracy and reducing database size by excluding homeopathy entries.
+
+## [2025-11-21] - Drift-AppSettings Single Source of Truth
 
 - **Singleton configuration table:** Added `AppSettings` (Drift) with enforced `id=1`, default theme/update frequency, BDPM metadata, and JSON blobs for source hashes/dates. Registered the table in `AppDatabase` and regenerated code.
 - **Database-driven preferences:** `DriftDatabaseService` now seeds and streams settings, exposes helpers (`watchSettings`, `updateTheme`, `updateSyncFrequency`, `updateSyncTimestamp`, `saveSourceHashes`, etc.), and resets metadata during `clearDatabase()`.
 - **Provider + service refactor:** `ThemeNotifier` and `AppPreferences` became stream-based Riverpod notifiers backed by Drift. `SyncService` and `DataInitializationService` no longer depend on `SharedPreferences`; sync cadence, timestamps, hashes, and BDPM versions read/write via `DriftDatabaseService`.
 - **Bootstrap simplification:** Removed `SharedPreferences` override in `main.dart`. `ProviderScope` now boots without async overrides, and Shad themes derive directly from the settings stream.
 - **Package + helper removal:** Deleted `lib/core/utils/theme_preferences.dart`, removed the `shared_preferences` dependency (and transitive platform plugins), and updated all tests/mocks to rely on Drift services instead of fake `SharedPreferences`.
-- **Documentation & rules:** Updated `AGENTS.md`, `architecture-data.mdc`, and `flutter-standards.mdc` with the Drift-only settings policy; added the new workflow to keep configuration reactive.
+- **Documentation & rules:** Updated `AGENTS.md` and `.cursor/rules/solo-dev-guide.mdc` with the Drift-only settings policy; added the new workflow to keep configuration reactive.
 
-# [2025-11-20] - Mocktail Migration & Test Hygiene
+## [2025-11-20] - Mocktail Migration & Test Hygiene
 
 - **Mocktail adoption**: Removed `mockito` from `dev_dependencies`, added `mocktail` 1.0.4, and kept `build_runner` for Drift/Freezed/Riverpod codegen. This eliminates test-time code generation for mocks and speeds up local feedback loops.
 - **Centralized mocks**: Introduced `test/mocks.dart` with shared `MockSharedPreferences`, `MockExplorerRepository`, `MockSyncService`, and other core fakes to keep tests DRY and aligned with the project’s service locator.
 - **Widget test refactor**: Updated `group_explorer_view_test.dart` and `network/live_scraping_test.dart` to import the shared mocks, switch to `when(() => ...)` syntax, and drop legacy `@GenerateNiceMocks` annotations plus generated `*.mocks.dart` files.
 - **Quality gate**: `dart test` passes after the migration, confirming no regressions.
 
-# [2025-11-18] - Smart Parsing & Data-Driven Robustness
+## [2025-11-18] - Smart Parsing & Data-Driven Robustness
 
 - **Knowledge-Injected Parsing Engine**: Replaced the previous heuristic parser with a deterministic "Subtraction Strategy." The parser now accepts official "Truths" (Pharmaceutical Form and Laboratory Name) directly from the BDPM database during initialization. It surgically removes these known entities from the raw medication string before using `PetitParser` grammar to extract complex dosages (ratios, multi-ingredients) and context (e.g., "SANS SUCRE", "ENFANTS"). This guarantees a 100% clean canonical name and eliminates false positives where lab names were mistaken for molecules or vice-versa.
 - **Data-Driven Validation Suite**: Introduced `data_driven_parser_test.dart` backed by a Python-generated dataset (`smart_parsing_challenges.csv`) containing 100 real-world edge cases (including complex biologicals and homeopathy). This test suite enforces strict quality gates: zero units allowed in base names, mandatory context extraction, and perfect formulation detection.
@@ -23,9 +45,9 @@
 - **Reactive Data Architecture**: Fixed a critical disconnect where UI providers (`searchCandidates`, `groupCluster`) were not listening to the sync service. The application now hot-reloads its data instantly upon successful background sync without requiring a restart.
 - **UX Polish**: Disbaled misleading ripple effects on standalone search results and improved accessibility labels for complex dosage forms.
 
-# [2025-11-18] - Aggregated Library Experience
+## [2025-11-18] - Aggregated Library Experience
 
-- **FuzzyBolt explorer search**: Removed the FTS5 virtual table and rewired search to Riverpod providers backed by `fuzzy_bolt`. `DatabaseService` now exposes `getAllSearchCandidates()` with canonical data hydrated from `medicament_summary`, while the UI consumes `searchResultsProvider(query)` for debounced, isolate-aware fuzzy ranking.
+- **FTS5-only explorer search**: Retired the legacy `getAllSearchCandidates()` isolate workflow and the fuzzy-bolt re-ranking path. All explorer queries now go straight through `searchMedicaments()` (SQLite FTS5) and `searchResultsProvider(query)`, keeping memory usage low and ranking deterministic.
 - **Procedure-aware filtering**: `SearchCandidate` carries `procedureType`, allowing the provider to exclude homéopathie/phyto entries by default without touching the database layer. This keeps conventional searches fast and deterministic.
 - **Test & integration refresh**: Replaced the old `searchMedicaments` unit/integration suites with coverage for candidate hydration and the fuzzy providers, updated widget tests to drop the deprecated FTS rebuild hook, and documented the new flow here.
 - **Decimal-consistent dosages**: Migrated `principes_actifs.dosage` to `TEXT`, parse BDPM values with `Decimal.tryParse`, regenerate the Drift/Freezed models (`Medicament`, `GroupedByProduct`, `DatabaseService`), refresh UI formatting, and align unit/integration tests so explorer/scanner flows no longer lose precision.
@@ -36,7 +58,7 @@
 - **Riverpod preferences & sync refactor**: Replaced the legacy `PreferencesService` frequency cache with an `AppPreferences` AsyncNotifier, rewrote `SyncService` to accept injectable frequency/status callbacks, introduced a dedicated `syncStatusProvider` notifier, updated `MainScreen`/`SettingsScreen`, and refreshed AGENTS to describe the new, Flutter-agnostic pipeline.
 - **Declarative animations & ProviderScope coverage**: Applied `flutter_animate` fade/slide transitions to the sync banner, database search skeletons, and explorer result cards, then wrapped explorer widget tests in `ProviderScope` so Riverpod providers bootstrap correctly. `dart run build_runner build --delete-conflicting-outputs`, `dart fix --apply`, `dart analyze --fatal-infos --fatal-warnings`, and `dart test` now complete without errors.
 
-# [2025-11-18] - Smart Sync & Regulatory Context
+## [2025-11-18] - Smart Sync & Regulatory Context
 
 - **Data pipeline refactor**: `DataInitializationService` now orchestrates downloads via `_downloadAllFiles()`, parses each BDPM file inside a background isolate (`compute`) through dedicated helpers, and centralizes source URLs inside `lib/core/config/data_sources.dart`.
 - **Regulatory enrichment**: Added `conditions_prescription` to the `specialites` table (schema v3) and to the `Medicament` model, parsed from `CIS_CPD_bdpm.txt`, surfaced through `DatabaseService`, and rendered via `ShadBadge` in scanner bubbles and explorer cards.
@@ -44,7 +66,7 @@
 - **Explorer ergonomics**: Integrated `fuzzy_bolt` re-ranking inside `searchMedicaments()`, introduced debounced (300 ms) search input, and replaced spinners with skeleton placeholders for both search and category lists.
 - **Quality gate**: Regenerated code (`build_runner`), updated `integration_test/search_filter_test.dart` lints, and ran `dart analyze --fatal-infos --fatal-warnings` plus `dart test` successfully.
 
-# [2025-11-17] - Architectural Refactor: Migration to Drift Files
+## [2025-11-17] - Architectural Refactor: Migration to Drift Files
 
 - **Migrated all complex queries** from `customSelect` with raw SQL strings to named queries in `.drift` files.
 - **Achieved full compile-time validation of SQL**, ensuring all queries are syntactically correct and consistent with the database schema before the app is run. This eliminates an entire class of potential runtime errors.
@@ -53,7 +75,7 @@
 - **Refactored `DatabaseService`** to call type-safe, generated methods, resulting in a cleaner and more robust data access layer.
 - **Verification**: `dart run build_runner build --delete-conflicting-outputs`, `dart fix --apply`, `dart analyze --fatal-infos --fatal-warnings`, and `dart test` executed successfully.
 
-# [2025-11-17] - FTS5 Search and Navigation Refactoring
+## [2025-11-17] - FTS5 Search and Navigation Refactoring
 
 - **Full-Text Search (FTS5)** : Implementation of an FTS5 index for medication search with creation of a `medicament_fts_view` view and a virtual `medicament_fts` table indexing specialty names, CIP codes, and active ingredients. The `searchMedicaments()` method now uses FTS5 `MATCH` queries and returns `GenericGroupSummary` instead of individual `Medicament` objects.
 - **Refactored Navigation Architecture** : Replacement of the `IndexedStack` + `PopScope` architecture with nested `Navigator` widgets in `MainScreen`. Each tab (Scanner and Explorer) now has its own independent navigation stack, enabling correct handling of the system back button.
@@ -62,7 +84,7 @@
 - **Enhanced Explorer Search** : `DatabaseSearchView` now displays group summaries (`GenericGroupSummary`) instead of individual medications, with direct navigation to `GroupExplorerView` via `Navigator.push()`.
 - **Test Updates** : Adaptation of unit and integration tests to reflect the new return types (`GenericGroupSummary`) and the new navigation architecture.
 
-# [2025-11-17] - Deterministic Active Ingredient Validation
+## [2025-11-17] - Deterministic Active Ingredient Validation
 
 - **`DatabaseService` Refactoring** : `getGenericGroupSummaries()` and `classifyProductGroup()` now rely exclusively on a Drift join (`principes_actifs` ↔ `group_members`) to calculate active ingredients actually shared by all members of a group. Groups without intersection are automatically filtered to eliminate the last heuristic logic from official labels.
 - **New Internal API `_getCommonPrincipesForGroups()`** : Paginated CTEs + batch processing (<900 SQLite variables) to efficiently retrieve common principles, reused by multiple methods.
@@ -86,7 +108,7 @@
 - **Python Audit** : `data_validator.py` tolerates legitimate numbered molecules (e.g. `ALCOOL DICHLORO-2,4 BENZYLIQUE`) and ignores "solution de ..." expressions, reducing false positives in contamination analysis.
 - **Verification** : `dart run build_runner build --delete-conflicting-outputs`, `dart fix --apply`, `dart analyze --fatal-infos --fatal-warnings`, `dart test integration_test/active_principle_grouping_test.dart`, and `dart test integration_test` executed successfully.
 
-# [2025-11-16] - Algorithmic Princeps Grouping and Critical Fix
+## [2025-11-16] - Algorithmic Princeps Grouping and Critical Fix
 
 Implementation of algorithmic princeps grouping by common prefix and correction of a critical SQL bug that prevented results from displaying in the explorer.
 
@@ -122,7 +144,7 @@ Implementation of algorithmic princeps grouping by common prefix and correction 
   - Simplified and more intuitive user interface
   - Performance verified with scrolling and pagination
 
-# [2025-11-16] - Complete Overhaul: Enriched Data and Deterministic Logic
+## [2025-11-16] - Complete Overhaul: Enriched Data and Deterministic Logic
 
 Complete elimination of all regex-based extraction logic in favor of structured parsing of official BDPM TXT files, enrichment of the data model, and replacement of the last heuristic logic with a database-based deterministic method.
 
@@ -145,7 +167,7 @@ Complete elimination of all regex-based extraction logic in favor of structured 
   - No heuristic approximation: 100% of data is deterministic and based on the source of truth
   - Display of common active ingredients in the generic groups explorer without truncation or potential error
 
-# [2025-11-16] - Relevance Filter and Major Improvements
+## [2025-11-16] - Relevance Filter and Major Improvements
 
 Complete implementation of the relevance filter to exclude non-medication products (homeopathy, phytotherapy), improvement of active ingredient search, correction of generic detection (types 2 and 4), and complete validation of BDPM TXT file parsing logic.
 

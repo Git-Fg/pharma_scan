@@ -27,7 +27,7 @@ linter:
     - unnecessary_this
     - unnecessary_late
     - use_super_parameters
-    - prefer_final_locals
+    # - prefer_final_locals  # Disabled for solo dev - reduces noise
     - prefer_if_null_operators
     - prefer_conditional_assignment
     - unnecessary_lambdas
@@ -46,6 +46,7 @@ analyzer:
   exclude:
     - "**/*.g.dart"
     - "**/*.freezed.dart"
+    - "tool/**"  # Exclude tool scripts from analysis (allow print statements)
   errors:
     avoid_print: error
     unused_import: warning

@@ -6,17 +6,15 @@ part 'search_filters_model.freezed.dart';
 @freezed
 abstract class SearchFilters with _$SearchFilters {
   const factory SearchFilters({
-    @Default(null)
+    @Default('orale')
+    String? voieAdministration, // null = toutes, sinon une voie spécifique
     String?
-    procedureType, // null = tous, "Autorisation" = Allopathie, "Enregistrement" = Homéopathie/Phytothérapie
-    @Default(null)
-    String? formePharmaceutique, // null = toutes, sinon une forme spécifique
+    atcClass, // null = toutes, sinon une classe ATC Level 1 (A, B, C, etc.)
   }) = _SearchFilters;
 
   const SearchFilters._();
 
-  bool get hasActiveFilters =>
-      procedureType != null || formePharmaceutique != null;
+  bool get hasActiveFilters => voieAdministration != null || atcClass != null;
 
   SearchFilters copyWithCleared() => const SearchFilters();
 }

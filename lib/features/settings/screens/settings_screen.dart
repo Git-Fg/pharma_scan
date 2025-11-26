@@ -11,7 +11,7 @@ import 'package:pharma_scan/core/models/update_frequency.dart';
 import 'package:pharma_scan/core/providers/preferences_provider.dart';
 import 'package:pharma_scan/core/providers/theme_provider.dart';
 import 'package:pharma_scan/core/router/app_routes.dart';
-import 'package:pharma_scan/features/home/providers/sync_status_provider.dart';
+import 'package:pharma_scan/features/home/providers/sync_provider.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -149,13 +149,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     try {
       final updated = await ref
-          .read(syncServiceProvider)
-          .checkForUpdates(
-            resolveFrequency: () => ref.read(appPreferencesProvider.future),
-            reportStatus: (progress) =>
-                ref.read(syncStatusProvider.notifier).updateStatus(progress),
-            force: true,
-          );
+          .read(syncControllerProvider.notifier)
+          .startSync(force: true);
       if (!mounted) return;
       ShadSonner.of(context).show(
         ShadToast(

@@ -14,6 +14,19 @@ class FormCategoryKeywords {
 }
 
 class FormCategoryHelper {
+  // WHY: ATC code mapping for O(1) categorization lookup
+  // Maps ATC code prefixes to FormCategory for fast, deterministic categorization
+  // NOTE: J01 (anti-infectives) can be oral or injectable, so this is a best-effort mapping.
+  // The regex fallback will handle edge cases where form string indicates injectable.
+  static const Map<String, FormCategory> _atcMap = {
+    'S01': FormCategory.ophthalmic,
+    'S02': FormCategory.nasalOrl,
+    'R01': FormCategory.nasalOrl,
+    'D': FormCategory.externalUse,
+    'G01': FormCategory.gynecological,
+    'J01': FormCategory.oral,
+  };
+
   static final Map<FormCategory, List<String>> _keywords = {
     FormCategory.oral: [
       'comprimé',
@@ -61,6 +74,9 @@ class FormCategoryHelper {
       'poudre et solvant',
       'générateur radiopharmaceutique',
       'précurseur radiopharmaceutique',
+      'trousse',
+      'générateur',
+      'précurseur',
       'solution pour dialyse',
       'solution pour hémofiltration',
       'solution pour instillation',
@@ -92,6 +108,7 @@ class FormCategoryHelper {
       'patch',
       'patchs',
       'emplâtre',
+      'vernis',
       'compresse',
       'bâton pour application',
       'mousse pour application',
@@ -101,6 +118,7 @@ class FormCategoryHelper {
       'shampooing',
       'solution filmogène pour application',
       'dispositif pour application',
+      'dispositif',
       'solution pour application',
       'solution moussant',
       'solution pour lavage',
@@ -133,6 +151,8 @@ class FormCategoryHelper {
       'solution pour pulvérisation',
     ],
     FormCategory.other: [],
+    FormCategory.homeopathy: ['homéopathique', 'homeopathique'],
+    FormCategory.phytotherapy: ['plante', 'plantes', 'tisane'],
   };
 
   static final Map<FormCategory, List<String>> _exclusions = {
@@ -154,12 +174,42 @@ class FormCategoryHelper {
     FormCategory.syrup,
     FormCategory.drinkableDrops,
     FormCategory.oral,
+    FormCategory.homeopathy,
+    FormCategory.phytotherapy,
   ];
 
   // WHY: Determines the FormCategory for a given pharmaceutical form string
-  // using priority-based matching. This makes categorization deterministic
-  // and handles ambiguous forms correctly.
-  static FormCategory? getCategoryForForm(String? formPharmaceutique) {
+  // using ATC-first logic (O(1) lookup) with regex fallback. This makes categorization
+  // deterministic and handles ambiguous forms correctly.
+  //
+  // USAGE: When categorizing a medication from MedicamentSummary, pass the atcCode:
+  //   FormCategoryHelper.getCategoryForForm(
+  //     summaryRow.formePharmaceutique,
+  //     atcCode: summaryRow.atcCode,
+  //   )
+  // This enables O(1) ATC-based categorization when available, falling back to regex
+  // for items without ATC codes.
+  static FormCategory? getCategoryForForm(
+    String? formPharmaceutique, {
+    String? atcCode,
+  }) {
+    // ATC-first logic: Use ATC code as primary determinant if available
+    if (atcCode != null && atcCode.isNotEmpty) {
+      // Check 3-character prefix (e.g., 'S01')
+      if (atcCode.length >= 3) {
+        final prefix = atcCode.substring(0, 3);
+        if (_atcMap.containsKey(prefix)) {
+          return _atcMap[prefix];
+        }
+      }
+      // Check 1-character prefix (e.g., 'D')
+      final letter = atcCode.substring(0, 1);
+      if (_atcMap.containsKey(letter)) {
+        return _atcMap[letter];
+      }
+    }
+
+    // Fallback to regex-based logic if ATC lookup fails or atcCode is null
     if (formPharmaceutique == null || formPharmaceutique.isEmpty) {
       return null;
     }
@@ -196,22 +246,10 @@ class FormCategoryHelper {
 
   static FormCategoryKeywords getKeywordsForCategory(FormCategory category) =>
       switch (category) {
-        FormCategory.homeopathy => const FormCategoryKeywords(
-          formKeywords: [],
-          excludeKeywords: [],
-          procedureTypeKeywords: ['homéo'],
-        ),
-        FormCategory.phytotherapy => const FormCategoryKeywords(
-          formKeywords: [],
-          excludeKeywords: [],
-          procedureTypeKeywords: ['phyto'],
-        ),
         FormCategory.other => () {
           final excludedKeywords = <String>{};
           for (final cat in FormCategory.values) {
-            if (cat != FormCategory.other &&
-                cat != FormCategory.homeopathy &&
-                cat != FormCategory.phytotherapy) {
+            if (cat != FormCategory.other) {
               excludedKeywords.addAll(_keywords[cat] ?? []);
             }
           }
@@ -220,6 +258,14 @@ class FormCategoryHelper {
             excludeKeywords: excludedKeywords.toList(),
           );
         }(),
+        FormCategory.homeopathy => FormCategoryKeywords(
+          formKeywords: _keywords[FormCategory.homeopathy] ?? const [],
+          excludeKeywords: _exclusions[FormCategory.homeopathy] ?? const [],
+        ),
+        FormCategory.phytotherapy => FormCategoryKeywords(
+          formKeywords: _keywords[FormCategory.phytotherapy] ?? const [],
+          excludeKeywords: _exclusions[FormCategory.phytotherapy] ?? const [],
+        ),
         _ => FormCategoryKeywords(
           formKeywords: _keywords[category] ?? const [],
           excludeKeywords: _exclusions[category] ?? const [],

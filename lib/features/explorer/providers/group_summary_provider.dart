@@ -1,4 +1,4 @@
-import 'package:pharma_scan/core/providers/repositories_providers.dart';
+import 'package:pharma_scan/core/providers/core_providers.dart';
 import 'package:pharma_scan/core/utils/form_category_helper.dart';
 import 'package:pharma_scan/features/explorer/models/explorer_enums.dart';
 import 'package:pharma_scan/features/explorer/models/generic_group_entity.dart';
@@ -44,6 +44,10 @@ class GroupSummaryNotifier extends _$GroupSummaryNotifier {
 
   @override
   Future<GroupSummaryState> build() async {
+    // WHY: Watch sync timestamp to automatically re-fetch when sync completes
+    // The provider will automatically re-execute when the stream emits a new value
+    ref.watch(lastSyncEpochStreamProvider);
+
     _offset = 0;
     _selectedCategory = FormCategory.oral;
     return _fetchSummaries(reset: true);
@@ -84,9 +88,9 @@ class GroupSummaryNotifier extends _$GroupSummaryNotifier {
   }
 
   Future<GroupSummaryState> _fetchSummaries({required bool reset}) async {
-    final repository = ref.watch(explorerRepositoryProvider);
+    final libraryDao = ref.watch(libraryDaoProvider);
     final params = FormCategoryHelper.getKeywordsForCategory(_selectedCategory);
-    final summaries = await repository.getGenericGroupSummaries(
+    final summaries = await libraryDao.getGenericGroupSummaries(
       formKeywords: params.formKeywords,
       excludeKeywords: params.excludeKeywords,
       procedureTypeKeywords: params.procedureTypeKeywords,

@@ -18,7 +18,14 @@ This document defines key terms used throughout the PharmaScan project to ensure
 
 * **Definition:** A normalized, cleaned version of a medication name produced by the parser.
 * **Process:** The parser applies knowledge-injected subtraction (removes known Form and Lab from raw string), then extracts the core name component.
+* **Standalone Medications:** The normalization process for standalone medications now involves **pre-normalization** (lowercase + trim + diacritic removal) of both the raw string and the official reference columns (Form/Lab) before subtraction.
 * **Usage:** Used for grouping, searching, and display. The canonical name is deterministic and stable for the same raw input.
+
+### Fraction Thérapeutique (FT)
+
+* **Definition:** The chemical "Base" of a medication, often linked to a salt (Substance Active).
+* **Usage:** When present in `CIS_COMPO`, it **overrides** the Substance Active for display purposes.
+* **Example:** Used to display "Metformine" (FT) instead of "Metformine Chlorhydrate" (SA).
 
 ### Group (Groupe générique BDPM)
 

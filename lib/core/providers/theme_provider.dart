@@ -44,13 +44,13 @@ extension ThemeSettingMapper on ThemeSetting {
 class ThemeNotifier extends _$ThemeNotifier {
   @override
   Stream<ThemeMode> build() {
-    final db = ref.watch(driftDatabaseServiceProvider);
-    return db.watchSettings().map((settings) {
+    final db = ref.watch(appDatabaseProvider);
+    return db.settingsDao.watchSettings().map((settings) {
       return themeSettingFromStorage(settings.themeMode).asThemeMode;
     });
   }
 
   Future<void> setTheme(ThemeSetting setting) async {
-    await ref.read(driftDatabaseServiceProvider).updateTheme(setting.name);
+    await ref.read(appDatabaseProvider).settingsDao.updateTheme(setting.name);
   }
 }

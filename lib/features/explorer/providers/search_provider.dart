@@ -1,24 +1,12 @@
-import 'package:fuzzy_bolt/fuzzy_bolt.dart' as fuzzy hide SearchCandidate;
-import 'package:pharma_scan/features/explorer/models/search_candidate_model.dart';
+import 'package:pharma_scan/core/config/app_config.dart';
+import 'package:pharma_scan/core/providers/core_providers.dart';
+import 'package:pharma_scan/core/utils/medicament_helpers.dart';
+import 'package:pharma_scan/features/explorer/models/generic_group_entity.dart';
 import 'package:pharma_scan/features/explorer/models/search_filters_model.dart';
 import 'package:pharma_scan/features/explorer/models/search_result_item_model.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:pharma_scan/core/providers/repositories_providers.dart';
 
 part 'search_provider.g.dart';
-
-@riverpod
-Future<List<SearchCandidate>> searchCandidates(Ref ref) async {
-  final repository = ref.watch(explorerRepositoryProvider);
-  return repository.getAllSearchCandidates();
-}
-
-@riverpod
-List<SearchCandidate> filteredSearchCandidates(Ref ref) {
-  final candidates = ref.watch(searchCandidatesProvider).value ?? [];
-  final filters = ref.watch(searchFiltersProvider);
-  return _applyFilters(candidates, filters);
-}
 
 @riverpod
 class SearchFiltersNotifier extends _$SearchFiltersNotifier {
@@ -39,109 +27,85 @@ Future<List<SearchResultItem>> searchResults(Ref ref, String rawQuery) async {
   final query = rawQuery.trim();
   if (query.isEmpty) return const <SearchResultItem>[];
 
-  // WHY: Use filteredSearchCandidatesProvider to avoid re-filtering on every query change.
-  // Filtering only runs when filters change, not when the query changes.
-  final filteredCandidates = ref.watch(filteredSearchCandidatesProvider);
-  if (filteredCandidates.isEmpty) return const <SearchResultItem>[];
+  // WHY: Native debounce in provider - wait before executing search to avoid excessive queries
+  // This eliminates the need for Timer-based debouncing in the UI layer
+  // Note: This debounce applies per query value - if the query changes during the delay,
+  // the provider will be called again with the new value, cancelling this execution
+  await Future.delayed(AppConfig.searchDebounce);
 
-  final membersByGroup = <String, List<SearchCandidate>>{};
-  for (final candidate in filteredCandidates) {
-    final groupId = candidate.groupId;
-    if (groupId == null) continue;
-    membersByGroup
-        .putIfAbsent(groupId, () => <SearchCandidate>[])
-        .add(candidate);
+  // WHY: Check if provider is still mounted after async delay to prevent UnmountedRefException
+  if (!ref.mounted) return const <SearchResultItem>[];
+
+  final searchDao = ref.watch(searchDaoProvider);
+  final filters = ref.watch(searchFiltersProvider);
+
+  // WHY: Use FTS5 search directly in SQLite - no client-side indexing needed
+  // Filters are applied in the SQL query for efficiency
+  final summaries = await searchDao.searchMedicaments(query, filters: filters);
+  if (summaries.isEmpty) return const <SearchResultItem>[];
+
+  // WHY: Batch fetch representative CIPs for all results to avoid N+1 queries
+  final db = ref.read(appDatabaseProvider);
+  final cisCodes = summaries.map((s) => s.cisCode).toSet().toList();
+  final medicaments = await (db.select(
+    db.medicaments,
+  )..where((tbl) => tbl.cisCode.isIn(cisCodes))).get();
+
+  // Build map of CIS code -> first CIP (representative CIP)
+  final cisToCipMap = <String, String>{};
+  for (final med in medicaments) {
+    cisToCipMap.putIfAbsent(med.cisCode, () => med.codeCip);
   }
 
-  final payloads = List<_FuzzySearchItem>.generate(filteredCandidates.length, (
-    index,
-  ) {
-    final candidate = filteredCandidates[index];
-    return _FuzzySearchItem(
-      index: index,
-      canonicalName: candidate.nomCanonique,
-      displayName: candidate.medicament.nom,
-      codeCip: candidate.medicament.codeCip,
-      princepsReference: candidate.princepsDeReference,
-      principles: candidate.commonPrinciples.join(' '),
-    );
-  });
-
-  final scoredResults =
-      await fuzzy.FuzzyBolt.searchWithScores<_FuzzySearchItem>(
-        payloads,
-        query,
-        selectors: [
-          (item) => item.canonicalName,
-          (item) => item.displayName,
-          (item) => item.codeCip,
-          (item) => item.princepsReference,
-          (item) => item.principles,
-        ],
-        strictThreshold: 0.7,
-        typeThreshold: 0.5,
-        isolateThreshold: 500,
-        maxResults: 50,
-        enableStemming: false,
-        enableCleaning: false,
-      );
-
+  // WHY: Deduplicate results by groupId (for groups) or canonical name (for standalone)
   final processedGroups = <String>{};
   final processedStandaloneNames = <String>{};
   final items = <SearchResultItem>[];
 
-  for (final result in scoredResults) {
-    final candidate = filteredCandidates[result.item.index];
-    final commonPrinciples = candidate.commonPrinciples.join(', ');
-    final groupId = candidate.groupId;
+  for (final summary in summaries) {
+    final groupId = summary.groupId;
+    final representativeCip = cisToCipMap[summary.cisCode] ?? summary.cisCode;
 
-    if (groupId == null) {
-      // WHY: Deduplicate standalone results by medicament name to avoid
-      // showing multiple identical results for the same medication.
-      final medicamentName = candidate.medicament.nom.toUpperCase().trim();
-      if (processedStandaloneNames.contains(medicamentName)) {
+    if (groupId != null && groupId.isNotEmpty) {
+      // This is a group result
+      if (processedGroups.contains(groupId)) {
         continue;
       }
-      processedStandaloneNames.add(medicamentName);
+      processedGroups.add(groupId);
+
+      final commonPrinciples = summary.principesActifsCommuns
+          .map(sanitizeActivePrinciple)
+          .join(', ');
+
+      // WHY: Return GenericGroupEntity directly - do NOT hydrate full medication lists
+      // The UI will lazy-load medications when user taps the group card
+      items.add(
+        SearchResultItem.groupResult(
+          group: GenericGroupEntity(
+            groupId: groupId,
+            commonPrincipes: commonPrinciples,
+            princepsReferenceName: summary.princepsDeReference,
+          ),
+        ),
+      );
+    } else {
+      // This is a standalone result
+      final canonicalName = summary.nomCanonique.toUpperCase().trim();
+      if (processedStandaloneNames.contains(canonicalName)) {
+        continue;
+      }
+      processedStandaloneNames.add(canonicalName);
+
+      final commonPrinciples = summary.principesActifsCommuns
+          .map(sanitizeActivePrinciple)
+          .join(', ');
+
+      // WHY: Use MedicamentSummaryData directly - no domain model conversion needed
       items.add(
         SearchResultItem.standaloneResult(
-          medicament: candidate.medicament,
-          commonPrinciples: commonPrinciples,
-        ),
-      );
-      continue;
-    }
-
-    if (processedGroups.contains(groupId)) {
-      continue;
-    }
-    processedGroups.add(groupId);
-
-    final groupMembers = membersByGroup[groupId] ?? const <SearchCandidate>[];
-    final princeps = groupMembers
-        .where((member) => member.isPrinceps)
-        .map((member) => member.medicament)
-        .toList();
-    final generics = groupMembers
-        .where((member) => !member.isPrinceps)
-        .map((member) => member.medicament)
-        .toList();
-
-    if (princeps.isNotEmpty) {
-      items.add(
-        SearchResultItem.princepsResult(
-          princeps: princeps.first,
-          generics: generics,
-          groupId: groupId,
-          commonPrinciples: commonPrinciples,
-        ),
-      );
-    } else if (generics.isNotEmpty) {
-      items.add(
-        SearchResultItem.genericResult(
-          generic: generics.first,
-          princeps: princeps,
-          groupId: groupId,
+          cisCode: summary.cisCode,
+          summary: summary,
+          representativeCip: representativeCip,
           commonPrinciples: commonPrinciples,
         ),
       );
@@ -150,84 +114,3 @@ Future<List<SearchResultItem>> searchResults(Ref ref, String rawQuery) async {
 
   return items;
 }
-
-class _FuzzySearchItem {
-  const _FuzzySearchItem({
-    required this.index,
-    required this.canonicalName,
-    required this.displayName,
-    required this.codeCip,
-    required this.princepsReference,
-    required this.principles,
-  });
-
-  final int index;
-  final String canonicalName;
-  final String displayName;
-  final String codeCip;
-  final String princepsReference;
-  final String principles;
-}
-
-List<SearchCandidate> _applyFilters(
-  List<SearchCandidate> candidates,
-  SearchFilters filters,
-) {
-  return candidates.where((candidate) {
-    final normalizedProcedure = (candidate.procedureType ?? '')
-        .toLowerCase()
-        .trim();
-
-    // Filter by procedure type selection
-    if (filters.procedureType == 'Autorisation') {
-      if (!_isAutorisationProcedure(normalizedProcedure)) {
-        return false;
-      }
-    } else if (filters.procedureType == 'Enregistrement') {
-      if (!_isAlternativeProcedure(normalizedProcedure)) {
-        return false;
-      }
-    } else if (_isAlternativeProcedure(normalizedProcedure)) {
-      // Default relevance filter excludes homeopathy / phytotherapy entries.
-      return false;
-    }
-
-    // Filter by pharmaceutical form
-    if (filters.formePharmaceutique != null) {
-      if (candidate.medicament.formePharmaceutique !=
-          filters.formePharmaceutique) {
-        return false;
-      }
-    }
-
-    return true;
-  }).toList();
-}
-
-bool _isAutorisationProcedure(String procedureType) {
-  if (procedureType.isEmpty) return true;
-  return procedureType.contains('autorisation');
-}
-
-bool _isAlternativeProcedure(String procedureType) {
-  if (procedureType.isEmpty) return false;
-  return _containsAny(procedureType, _alternativeProcedureTokens);
-}
-
-bool _containsAny(String haystack, List<String> keywords) {
-  for (final keyword in keywords) {
-    if (haystack.contains(keyword)) {
-      return true;
-    }
-  }
-  return false;
-}
-
-const List<String> _alternativeProcedureTokens = [
-  'homéo',
-  'homeo',
-  'homéopath',
-  'homeopath',
-  'phyto',
-  'phytothé',
-];

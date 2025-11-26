@@ -2,15 +2,10 @@
 import 'package:flutter/material.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
-/// Breakpoint pour déterminer si on est sur mobile ou desktop.
-/// En dessous de cette largeur, on utilise une BottomSheet.
-/// Au-dessus, on utilise un Dialog.
-const double _mobileBreakpoint = 600.0;
-
 /// Affiche un overlay adaptatif qui s'adapte automatiquement à la largeur d'écran.
 ///
-/// - **Mobile (< 600px)** : Affiche une [ModalBottomSheet] avec drag handle et coins arrondis.
-/// - **Desktop/Tablette (>= 600px)** : Affiche un [Dialog] centré avec une largeur maximale de 500px.
+/// - **Mobile (< sm breakpoint)** : Affiche une [ModalBottomSheet] avec drag handle et coins arrondis.
+/// - **Desktop/Tablette (>= sm breakpoint)** : Affiche un [Dialog] centré avec une largeur maximale de 500px.
 ///
 /// Le contenu fourni par [builder] doit être compatible avec les deux modes d'affichage.
 /// Il est recommandé d'utiliser [ShadCard] pour le contenu principal.
@@ -27,9 +22,15 @@ Future<T?> showAdaptiveOverlay<T>({
   bool isDismissible = true,
   String? title,
 }) {
+  final theme = ShadTheme.of(context);
   final screenWidth = MediaQuery.sizeOf(context).width;
+  // WHY: Use theme breakpoint value for responsive layout
+  // Default sm breakpoint is 640, but we use the theme's configured value
+  final breakpointValue = theme.breakpoints.sm is int
+      ? theme.breakpoints.sm as int
+      : 640; // Fallback to default if not a number
 
-  if (screenWidth < _mobileBreakpoint) {
+  if (screenWidth < breakpointValue) {
     // Mobile : BottomSheet
     return showModalBottomSheet<T>(
       context: context,

@@ -9,7 +9,6 @@ import 'package:pharma_scan/features/home/screens/main_screen.dart';
 import 'package:pharma_scan/features/scanner/screens/camera_screen.dart';
 import 'package:pharma_scan/features/explorer/screens/database_screen.dart';
 import 'package:pharma_scan/features/explorer/screens/group_explorer_view.dart';
-import 'package:pharma_scan/features/explorer/screens/cluster_detail_view.dart';
 import 'package:pharma_scan/features/settings/screens/settings_screen.dart';
 
 part 'app_router.g.dart';
@@ -60,27 +59,6 @@ GoRouter goRouter(Ref ref) {
                     builder: (context, state) {
                       final groupId = state.pathParameters[AppRoutes.pidGroup]!;
                       return GroupExplorerView(groupId: groupId);
-                    },
-                  ),
-                  // Cluster detail view
-                  GoRoute(
-                    path: AppRoutes.clusterDetailPath,
-                    builder: (context, state) {
-                      final clusterKey =
-                          state.pathParameters[AppRoutes.pidCluster]!;
-                      final princepsBrandName =
-                          state.uri.queryParameters['princepsBrandName'] ?? '';
-                      final activeIngredientsParam =
-                          state.uri.queryParameters['activeIngredients'] ?? '';
-                      final activeIngredients = activeIngredientsParam.isEmpty
-                          ? <String>[]
-                          : activeIngredientsParam.split(',').toList();
-
-                      return ClusterDetailView(
-                        clusterKey: clusterKey,
-                        princepsBrandName: princepsBrandName,
-                        activeIngredients: activeIngredients,
-                      );
                     },
                   ),
                 ],

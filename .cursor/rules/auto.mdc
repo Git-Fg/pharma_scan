@@ -1,13 +1,150 @@
 ---
-description: Autonomous testing and improvement loop.
+description: Autonomous testing, E2E validation, and improvement loop.
 alwaysApply: false
 ---
 
-Run the app using fluttter run -d emulator-5554 in background, then wait 30 sec , then manually test everything working fine and the entire parsing logic from the app + group + cluster group is working fine and optimal (for ex : no labo , same medications correctly reunited , search optimal ...)
+# Autonomous QA Loop Protocol
 
-The testing process must concerns all the capacities, UI and UX from the codebase to construct a detailed report, page per page, of each suggestions, fixes and improvements in working logic/ui/ux. Do not stop until you've tried and verified everything.
+## The Prime Directive
 
-For each issue / incoherence / error, implement the fix then enter into a fully autonomous loop of flutter run -> wait -> test -> fix until every thing is solved and the app is production ready.
+**You must process fully autonomously. Enter a continuous loop of `Launch -> Verify -> Fix -> Relaunch` until the codebase is error-free and functionality is perfect. You are FORBIDDEN from stopping on the first error or asking for permission to continue. The loop continues until termination conditions are met.**
 
-Important : Do not test capacities related to camera (from the scanner). Only test library, research, parsing, group...
-To access to the logs in real time, make sure to use talker capacities. No need to run flutter logs or any similar command.
+---
+
+## The Tool (Mandatory)
+
+**CRITICAL:** You **MUST NEVER** run `flutter run` directly. The session manager script (`tool/run_session.sh`) is **REQUIRED** for every iteration. This ensures logs are captured in `reports/` and PIDs are managed to prevent "port in use" errors.
+
+**Command:**
+
+```bash
+bash tool/run_session.sh
+```
+
+**Stop Command (only when loop is complete):**
+
+```bash
+bash tool/run_session.sh stop
+```
+
+---
+
+## The Autonomous QA Loop
+
+### Step 1: Launch
+
+1. **Execute:** Run `bash tool/run_session.sh`. The script outputs a `SESSION_ID` (e.g., `2025-11-24_20-33-43`).
+
+2. **Wait & Monitor:** Wait for the script to signal "App is ready" or for the Dart VM Service to be available. **Do not add arbitrary sleep timers.** The script handles readiness detection.
+
+### Step 2: Log Analysis (Immediate - Mandatory)
+
+**FORBIDDEN:** Do **NOT** rely on the active console output or terminal buffer.
+
+**REQUIRED:** You **MUST** immediately read the generated log file: `reports/run_[SESSION_ID].log` using native tools (`read_file` or `grep`).
+
+**Error Detection Patterns:**
+
+- Search for: `Exception`, `Error`, `[FATAL]`, `SqliteException`, `no such table`, `stack trace`, `AssertionError`, or any crash indicators.
+- Use `grep -C 5 "Exception" reports/run_[SESSION_ID].log` or `read_file` to find stack traces or Talker logs.
+- Check for database errors, initialization failures, or provider errors.
+
+**Action:** If **ANY** error is found, proceed to Step 4 (Fix & Relaunch). Do **NOT** stop or ask for permission.
+
+### Step 3: Logic Verification (Golden Path)
+
+If no specific task is provided, you **MUST** verify the default "Golden Path" testing scope:
+
+#### 3.1 Search Functionality
+
+- **Test:** Search for a common medication (e.g., "Doliprane", "Paracétamol", "Ibuprofène").
+- **Verify:**
+  - Results appear correctly.
+  - Search is responsive (no lag).
+  - Results match expected medications.
+  - No crashes or exceptions in logs.
+
+#### 3.2 Group Explorer
+
+- **Test:** Navigate to a medication group.
+- **Verify:**
+  - Princeps/Generics split is displayed correctly.
+  - Group relationships are accurate.
+  - Navigation works without errors.
+  - No database query errors in logs.
+
+#### 3.3 Details View
+
+- **Test:** Open medication details.
+- **Verify:**
+  - Dosages are displayed correctly.
+  - Forms (pharmaceutical forms) are accurate.
+  - Active principles are shown.
+  - All metadata is present and correct.
+
+#### 3.4 Additional Verification (If Time Permits)
+
+- Scanner functionality (if available in emulator).
+- Library/Bookmarks.
+- Settings persistence.
+
+**Action:** If **ANY** incoherence, missing data, or UI issue is found, proceed to Step 4 (Fix & Relaunch). Do **NOT** stop or ask for permission.
+
+### Step 4: Fix & Relaunch
+
+**CRITICAL:** If **ANY** error or incoherence is found in Steps 2 or 3:
+
+1. **Fix:** Apply the necessary code changes to resolve the issue.
+
+2. **Relaunch IMMEDIATELY:** Run `bash tool/run_session.sh` again (it auto-kills the previous instance). **Do NOT ask for permission.**
+
+3. **Loop:** Return to Step 1 and repeat the entire cycle.
+
+**Prohibition:** You are **FORBIDDEN** from:
+
+- Stopping after the first error.
+- Asking for permission to continue.
+- Reporting errors without fixing them.
+- Skipping verification steps.
+
+---
+
+## Termination Conditions
+
+You may **ONLY** stop the loop when **ALL** of the following are true:
+
+1. **Clean Logs:** The `reports/run_[SESSION_ID].log` file contains no errors, exceptions, or fatal messages.
+
+2. **UI Logic Verified:** All Golden Path tests (Search, Explorer, Details) pass without issues.
+
+3. **No Regressions:** Previously working functionality remains intact.
+
+4. **Production Ready:** The application is stable and ready for use.
+
+**If any condition is not met, continue the loop.**
+
+---
+
+## Constraints & Notes
+
+- **Camera/Scanner:** Do not test physical camera capacities (Scanner) in the emulator unless using a simulated camera scene. Focus on Library, Research, Parsing, and Group logic.
+
+- **Logs as Source of Truth:** The `reports/` log files are the **ONLY** authoritative source for error detection. Console output is unreliable and must be ignored.
+
+- **Autonomy:** You must process fully autonomously. The loop continues until perfection is achieved, not until the first success.
+
+- **Session Management:** The script handles process cleanup. Simply run `bash tool/run_session.sh` again to restart. Use `bash tool/run_session.sh stop` only when the loop is complete.
+
+---
+
+## Example Loop Flow
+
+```text
+1. Launch: bash tool/run_session.sh → SESSION_ID=2025-11-24_20-33-43
+2. Log Analysis: read_file reports/run_2025-11-24_20-33-43.log → Found SqliteException
+3. Fix: Update DatabaseDao.populateFts5Index() with defensive CREATE TABLE
+4. Relaunch: bash tool/run_session.sh → SESSION_ID=2025-11-24_20-35-12
+5. Log Analysis: read_file reports/run_2025-11-24_20-35-12.log → Clean ✓
+6. Logic Verification: Test Search → Works ✓, Test Explorer → Works ✓
+7. Termination: All conditions met → Stop loop
+```

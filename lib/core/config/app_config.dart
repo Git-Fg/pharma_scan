@@ -4,9 +4,9 @@ class AppConfig {
   AppConfig._();
 
   // Network & Timeouts
-  static const Duration connectTimeout = Duration(seconds: 15);
-  static const Duration receiveTimeout = Duration(seconds: 30);
-  static const Duration downloadReceiveTimeout = Duration(minutes: 2);
+  static const Duration connectTimeout = Duration(seconds: 10);
+  static const Duration receiveTimeout = Duration(seconds: 20);
+  static const Duration downloadReceiveTimeout = Duration(seconds: 90);
 
   // UX & Input
   static const Duration searchDebounce = Duration(milliseconds: 300);

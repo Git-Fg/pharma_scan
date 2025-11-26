@@ -20,8 +20,8 @@ Future<void> ensureIntegrationTestDatabase() async {
   final container = await _ensureContainer();
   if (_databaseSeeded) return;
 
-  final dbService = container.read(driftDatabaseServiceProvider);
-  await dbService.clearDatabase();
+  final db = container.read(appDatabaseProvider);
+  await db.databaseDao.clearDatabase();
   await container.read(dataInitializationServiceProvider).initializeDatabase();
   _databaseSeeded = true;
 }

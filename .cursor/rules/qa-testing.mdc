@@ -13,7 +13,7 @@ You are responsible for the build health. Run this sequence (stop immediately if
 dart run build_runner build --delete-conflicting-outputs
 dart fix --apply
 dart analyze --fatal-infos --fatal-warnings
-dart test
+flutter test
 ```
 
 Whenever the analyzer surfaces auto-fixable warnings or errors, rerun `dart fix --apply` before launching another analysis or test pass.
@@ -28,7 +28,7 @@ Whenever the analyzer surfaces auto-fixable warnings or errors, rerun `dart fix 
 
 ## 3. Test Data
 
-* Use `tool/prepare_test_data.dart` to cache BDPM TXT files.
+* Use `tool/prepare_test_data.dart` to cache BDPM TXT files in `tool/data/` (shared cache directory, ignored by Git).
 * Use `AppDatabase.forTesting(NativeDatabase.memory())` for isolation.
 * **Mandatory:** Before asserting Explorer logic, you must run `populateMedicamentSummary()` helper in tests to hydrate the aggregated table.
 
@@ -119,7 +119,65 @@ testWidgets('Widget displays data correctly', (tester) async {
 });
 ```
 
-## 6. String Literals in Tests (Strict Ban)
+## 6. The Robot Testing Pattern (Optional/Recommended)
+
+* **When to Use:** Robot classes are **recommended** for complex, multi-step user flows that are reused across multiple tests. They help keep complex tests readable and maintainable.
+* **When NOT to Use:** For simple unit/widget tests with straightforward interactions, **direct finders and actions are perfectly fine**. Don't over-engineer simple tests.
+* **Solution (for complex flows):** Encapsulate finder/gesture logic inside Robot classes stored in `test/robots/`.
+  * Constructor signature: `class ExplorerRobot { ExplorerRobot(this.tester); final WidgetTester tester; }`
+  * Expose semantic actions: `Future<void> searchFor(String term)`, `void expectResultCount(int count)`.
+* **Usage (complex flows):** Tests read like user stories: `final robot = ExplorerRobot(tester); await robot.searchFor('Doliprane'); robot.expectResultCount(3);`.
+* **Direct Testing (simple tests):** For simple tests, **explicitly authorized** to use `await tester.tap(find.byKey(...))`, `find.text(...)`, `find.byType(...)`, etc. directly in test bodies. Keep it simple.
+
+**Example - Simple Test (Direct Approach):**
+```dart
+// ✅ PERFECTLY FINE: Direct finders for simple tests
+testWidgets('displays medication name', (tester) async {
+  await tester.pumpWidget(MyWidget(medication: testMedication));
+  expect(find.text('Doliprane'), findsOneWidget);
+  await tester.tap(find.byKey(Key('details-button')));
+  await tester.pumpAndSettle();
+  expect(find.text('Details'), findsOneWidget);
+});
+```
+
+**Example - Complex Flow (Robot Pattern):**
+```dart
+// ✅ RECOMMENDED: Robot for complex, reusable flows
+testWidgets('full search and filter flow', (tester) async {
+  final robot = ExplorerRobot(tester);
+  await robot.searchFor('Doliprane');
+  await robot.openFilterSheet();
+  await robot.selectFilter('Generic');
+  robot.expectResultCount(5);
+});
+```
+
+## 7. Mocking Strategy (Mocktail Only)
+
+* **Library:** Use `mocktail` everywhere. Do NOT reintroduce `mockito` or generated stubs.
+* **Shared Setup:** Place reusable mock classes and `registerFallbackValue` helpers inside `test/mocks.dart`.
+* **Pattern:**
+
+```dart
+class MockDatabaseService extends Mock implements DriftDatabaseService {}
+
+void main() {
+  late MockDatabaseService database;
+
+  setUp(() {
+    database = MockDatabaseService();
+    registerFallbackValue(const MedicamentSummary());
+  });
+
+  test('returns empty list', () async {
+    when(() => database.fetchSomething()).thenAnswer((_) async => []);
+    // ...
+  });
+}
+```
+
+## 8. String Literals in Tests (Strict Ban)
 
 * **Rule:** NEVER use string literals (e.g., `'Search'`, `'Error'`, `'Fermer'`) in `find.text()`, `find.byTooltip()`, or `find.bySemanticsLabel()` calls.
 * **Requirement:** You MUST import `package:pharma_scan/core/utils/strings.dart` and use the `Strings.*` constants.

@@ -1,12 +1,15 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 class ScanWindowOverlay extends StatefulWidget {
   const ScanWindowOverlay({super.key});
 
-  static const double _windowSize = 220;
-  static const double _borderRadius = 14;
-  static const double _cornerLength = 22;
+  static const double _windowSize = 240;
+  static const double _borderRadius = 18;
+  static const double _cornerLength = 26;
+  static const double _cornerThickness = 5;
 
   @override
   State<ScanWindowOverlay> createState() => _ScanWindowOverlayState();
@@ -15,18 +18,16 @@ class ScanWindowOverlay extends StatefulWidget {
 class _ScanWindowOverlayState extends State<ScanWindowOverlay>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
-  late final Animation<double> _breathingAnimation;
+  late final Animation<double> _pulse;
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2000),
+      duration: const Duration(milliseconds: 1800),
     )..repeat(reverse: true);
-    _breathingAnimation = Tween<double>(begin: 1, end: 1.05).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOutSine),
-    );
+    _pulse = CurvedAnimation(parent: _controller, curve: Curves.easeInOutSine);
   }
 
   @override
@@ -38,88 +39,162 @@ class _ScanWindowOverlayState extends State<ScanWindowOverlay>
   @override
   Widget build(BuildContext context) {
     final theme = ShadTheme.of(context);
-    final borderColor = theme.colorScheme.primary.withValues(alpha: 0.85);
+    final primary = theme.colorScheme.primary;
+    final scrimColor = Colors.black.withValues(alpha: 0.65);
 
     return IgnorePointer(
-      child: Center(
-        child: AnimatedBuilder(
-          animation: _breathingAnimation,
-          builder: (context, child) {
-            final scale = _breathingAnimation.value;
-            return CustomPaint(
-              size: Size.square(ScanWindowOverlay._windowSize * scale),
-              painter: _ScanWindowPainter(
-                borderColor: borderColor,
-                cornerLength: ScanWindowOverlay._cornerLength,
-                borderRadius: ScanWindowOverlay._borderRadius,
+      child: AnimatedBuilder(
+        animation: _pulse,
+        builder: (context, _) {
+          final pulseOpacity = lerpDouble(0.35, 0.9, _pulse.value)!;
+          final iconOpacity = lerpDouble(0.4, 0.85, _pulse.value)!;
+
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              CustomPaint(
+                painter: _ScanScrimPainter(
+                  scrimColor: scrimColor,
+                  windowSize: ScanWindowOverlay._windowSize,
+                  borderRadius: ScanWindowOverlay._borderRadius,
+                ),
               ),
-            );
-          },
-        ),
+              Center(
+                child: CustomPaint(
+                  size: const Size.square(ScanWindowOverlay._windowSize),
+                  painter: _ScanCornerPainter(
+                    color: primary.withValues(alpha: pulseOpacity),
+                    cornerLength: ScanWindowOverlay._cornerLength,
+                    cornerThickness: ScanWindowOverlay._cornerThickness,
+                    borderRadius: ScanWindowOverlay._borderRadius,
+                  ),
+                ),
+              ),
+              Center(
+                child: Opacity(
+                  opacity: iconOpacity,
+                  child: Container(
+                    width: 64,
+                    height: 64,
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.background.withValues(
+                        alpha: 0.15,
+                      ),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      LucideIcons.scanLine,
+                      color: primary.withValues(alpha: 0.9),
+                      size: 28,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
 }
 
-class _ScanWindowPainter extends CustomPainter {
-  const _ScanWindowPainter({
-    required this.borderColor,
-    required this.cornerLength,
+class _ScanScrimPainter extends CustomPainter {
+  const _ScanScrimPainter({
+    required this.scrimColor,
+    required this.windowSize,
     required this.borderRadius,
   });
 
-  final Color borderColor;
+  final Color scrimColor;
+  final double windowSize;
+  final double borderRadius;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final layerRect = Offset.zero & size;
+    final cutoutRect = Rect.fromCenter(
+      center: layerRect.center,
+      width: windowSize,
+      height: windowSize,
+    );
+
+    final paint = Paint()..color = scrimColor;
+
+    canvas.saveLayer(layerRect, Paint());
+    canvas.drawRect(layerRect, paint);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(cutoutRect, Radius.circular(borderRadius)),
+      Paint()..blendMode = BlendMode.clear,
+    );
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _ScanScrimPainter oldDelegate) {
+    return oldDelegate.scrimColor != scrimColor ||
+        oldDelegate.windowSize != windowSize ||
+        oldDelegate.borderRadius != borderRadius;
+  }
+}
+
+class _ScanCornerPainter extends CustomPainter {
+  const _ScanCornerPainter({
+    required this.color,
+    required this.cornerLength,
+    required this.cornerThickness,
+    required this.borderRadius,
+  });
+
+  final Color color;
   final double cornerLength;
+  final double cornerThickness;
   final double borderRadius;
 
   @override
   void paint(Canvas canvas, Size size) {
     final cornerPaint = Paint()
-      ..color = borderColor
-      ..strokeWidth = 4
+      ..color = color
+      ..strokeWidth = cornerThickness
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
 
-    final path = Path();
     final width = size.width;
     final height = size.height;
-
-    // Top-left corner
-    path.moveTo(0, cornerLength);
-    path.lineTo(0, 0);
-    path.lineTo(cornerLength, 0);
-    // Top-right corner
-    path.moveTo(width - cornerLength, 0);
-    path.lineTo(width, 0);
-    path.lineTo(width, cornerLength);
-    // Bottom-right corner
-    path.moveTo(width, height - cornerLength);
-    path.lineTo(width, height);
-    path.lineTo(width - cornerLength, height);
-    // Bottom-left corner
-    path.moveTo(cornerLength, height);
-    path.lineTo(0, height);
-    path.lineTo(0, height - cornerLength);
+    final path = Path()
+      ..moveTo(0, cornerLength)
+      ..lineTo(0, 0)
+      ..lineTo(cornerLength, 0)
+      ..moveTo(width - cornerLength, 0)
+      ..lineTo(width, 0)
+      ..lineTo(width, cornerLength)
+      ..moveTo(width, height - cornerLength)
+      ..lineTo(width, height)
+      ..lineTo(width - cornerLength, height)
+      ..moveTo(cornerLength, height)
+      ..lineTo(0, height)
+      ..lineTo(0, height - cornerLength);
 
     canvas.drawPath(path, cornerPaint);
 
     final guidePaint = Paint()
-      ..color = borderColor.withValues(alpha: 0.18)
-      ..strokeWidth = 1.2
+      ..color = color.withValues(alpha: 0.18)
+      ..strokeWidth = 1.5
       ..style = PaintingStyle.stroke;
 
-    final rect = Offset.zero & size;
-    final roundedRect = RRect.fromRectAndRadius(
-      rect,
-      Radius.circular(borderRadius),
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Offset.zero & size,
+        Radius.circular(borderRadius),
+      ),
+      guidePaint,
     );
-    canvas.drawRRect(roundedRect, guidePaint);
   }
 
   @override
-  bool shouldRepaint(covariant _ScanWindowPainter oldDelegate) {
-    return oldDelegate.borderColor != borderColor ||
+  bool shouldRepaint(covariant _ScanCornerPainter oldDelegate) {
+    return oldDelegate.color != color ||
         oldDelegate.cornerLength != cornerLength ||
+        oldDelegate.cornerThickness != cornerThickness ||
         oldDelegate.borderRadius != borderRadius;
   }
 }

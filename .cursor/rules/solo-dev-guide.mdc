@@ -1,0 +1,197 @@
+---
+description: Solo developer guide for Flutter, Riverpod, Drift, and UI patterns. Keep it simple.
+globs: lib/**/*.dart, test/**/*.dart
+---
+
+# Solo Developer Guide
+
+Simple rules for building and maintaining PharmaScan. No corporate overhead—just practical patterns that work.
+
+## Data Layer & Architecture
+
+### Drift is the Domain Model
+
+Drift-generated classes (`MedicamentRow`, `SpecialiteRow`, etc.) ARE your domain models. No duplication.
+
+* ✅ **Use directly:** Import `lib/core/database/database.dart` in UI, use Drift classes directly
+* ❌ **Don't create:** Freezed "Domain Entities" that duplicate Drift tables
+* ❌ **Don't create:** Mapper functions (`.toDomain()`, `toEntity()`) for simple 1:1 mappings
+* ✅ **Exception:** Only create separate models if they aggregate multiple tables (e.g., `ScanResult`)
+
+**Why:** For a solo dev, maintaining parallel model hierarchies adds overhead without value. Drift's type safety is enough.
+
+### Database Safety
+
+* Always use `watchSingleOrNull()` instead of `watchSingle()` to avoid crashes on concurrent deletions
+* Use Drift's Expression API for dynamic queries—never string interpolation
+* Since Drift 2.24.0+, `.isIn()` handles large sets automatically—no manual chunking needed
+
+```dart
+// ✅ CORRECT: Direct usage, Drift handles large sets
+final query = db.select(db.table)..where((t) => t.id.isIn(ids));
+final rows = await query.get();
+
+// ❌ FORBIDDEN: Manual chunking boilerplate
+for (var i = 0; i < ids.length; i += 900) { /* ... */ }
+```
+
+### Group-First Architecture
+
+* **Grouped medications:** Use `generique_groups.libelle` directly from `CIS_GENER` relationships
+* **Standalone medications:** Use subtraction (rawName - officialForm - officialLab)
+* **Dosage source:** Always from `principes_actifs` table, never from parsing names
+
+### Trust the Relation, Not the String
+
+* ❌ **Forbidden:** Writing Regex to clean chemical names (removing salts, hydrates, etc.).
+* ✅ **Required:** Use the `CIS_COMPO` relationship (SA -> FT) to get the clean name provided by the database creators.
+* **Why:** The database structure contains the truth; parsing is a last resort.
+
+### Source of Truth
+
+* `MedicamentSummary` table is pre-aggregated—all Explorer/Search queries read from here
+* All settings/preferences go in Drift `AppSettings` table—no `SharedPreferences`
+
+## State Management (Riverpod)
+
+### Provider Pattern
+
+* **All providers use `@riverpod` code generation**
+* **Synchronous state:** `Notifier<T>`
+* **Asynchronous state:** `AsyncNotifier<T>`
+* **Forbidden:** `StateProvider` (deprecated)
+
+### AsyncValue Handling
+
+When a provider returns `Future<T>`, `ref.watch(provider)` returns `AsyncValue<T>`, NOT `T`.
+
+```dart
+// ✅ CORRECT: Handle AsyncValue
+final dataAsync = ref.watch(myProvider);
+return dataAsync.when(
+  data: (data) => ListView(...),
+  loading: () => CircularProgressIndicator(),
+  error: (err, stack) => ErrorWidget(err),
+);
+
+// ❌ FORBIDDEN: Direct access
+final data = ref.watch(myProvider).value!; // Crashes if loading/error
+```
+
+### Pragmatism for Solo Dev
+
+For simple cached config reads, a simple `Future<T>` with null check is fine. Don't over-engineer every operation.
+
+```dart
+// ✅ ACCEPTABLE: Simple Future for cached config
+@riverpod
+Future<String> theme(Ref ref) async {
+  final settings = await ref.read(databaseServiceProvider).getSettings();
+  return settings.theme;
+}
+```
+
+### KeepAlive for Static Data
+
+Use `@Riverpod(keepAlive: true)` for static config (dropdown lists, enums, settings) to prevent unnecessary re-queries.
+
+## UI Patterns
+
+### Two-Layer Separation
+
+* **UI Layer:** Widgets, local state (`setState`), ConsumerWidgets
+* **Service Layer:** Logic, DB access, parsing (zero `flutter/material.dart` dependencies)
+* **Rule:** Business logic NEVER belongs in a Widget
+
+### Shadcn UI Components
+
+* **Use directly:** `ShadCard`, `ShadInput`, `ShadButton`, etc.
+* **Configure globally:** Set default styles in `main.dart` via `ShadThemeData`
+* **Don't create:** Wrapper widgets that only add default padding/styling
+* **Exception:** Keep business-specific composites (e.g., `PharmaBackHeader`, `PrincepsBadge`)
+
+### Layout & Spacing
+
+* **Use `gap` package** for spacing in Flex widgets (`Column`, `Row`, `ListView`)
+* **Don't use** `SizedBox(height: ...)` for spacing
+* **Use `AppDimens`** for all spacing, radius, and icon sizes—no magic numbers
+
+```dart
+// ✅ REQUIRED
+Column(
+  children: [
+    Text('A'),
+    Gap(AppDimens.spacingMd),
+    Text('B'),
+  ],
+)
+```
+
+### Constraints Rule (Box Protocol)
+
+"Constraints go down, Sizes go up. Parent sets position."
+
+* Never place infinite widgets (`ListView`, unbounded `Column`) in unbounded parents
+* Use `Expanded` or `Flexible` to break infinity
+* Never use `IntrinsicHeight`/`IntrinsicWidth` in lists—performance killer
+
+### Accessibility & Overflow
+
+* Never assume fixed height for bottom panels
+* Wrap bottom panels in `SingleChildScrollView` + `SafeArea`
+* Root `Column` must have `mainAxisSize: MainAxisSize.min`
+
+### Agnostic Components
+
+Content widgets (forms, detail lists) must NEVER contain `Scaffold` or call `Navigator.pop()`. Expose callbacks (`onClose`, `onConfirm`) instead.
+
+## Code Quality
+
+### Widget Classes (Not Functions)
+
+* ❌ **Forbidden:** Functions returning Widgets (`Widget _buildBadge()`)
+* ✅ **Required:** Dedicated `StatelessWidget` classes
+
+### String Management
+
+* **FORBIDDEN:** Hardcoded strings in `Text()` widgets
+* **REQUIRED:** All user-facing strings in `lib/core/utils/strings.dart`
+* Use `Strings.*` constants everywhere
+
+### Constants
+
+* **Design tokens:** Use `AppDimens` for spacing, radius, icon sizes
+* **Operational:** Use `AppConfig` for timeouts, debounce durations, limits
+* **Local:** If specific to one widget, use `private static const` in that class
+
+### Logging
+
+* **Never use:** `print()`, `debugPrint()`, `developer.log()`
+* **Always use:** `LoggerService` (Talker integration)
+
+### Defensive Coding
+
+* Check `if (!mounted) return;` after every `await` in `StatefulWidget`
+* Dispose all controllers in `dispose()`
+* Check `list.isNotEmpty` before `list.first` or `list.last`
+* Use enums/sealed classes for state—never string literals for control flow
+
+## UI Kit Reuse
+
+Before creating a widget, check `lib/core/widgets/ui_kit/`:
+
+* `DetailItem` for key-value pairs
+* `InfoLabel` for text with icons
+* Badge widgets: `PrincepsBadge`, `GenericBadge`, `StandaloneBadge`, `ConditionBadge`
+* `PharmaBackHeader`, `PharmaSheetLayout`, and other domain composites
+* `SectionHeader` for section titles
+* `StatusView` for empty/loading/error states
+
+## Navigation
+
+* Use `MediaQuery.sizeOf(context)` for screen size decisions (not `LayoutBuilder`)
+* Dialogs/BottomSheets create new widget tree—pass dependencies explicitly via `Provider.value`
+
+## Testing
+
+See `.cursor/rules/qa-testing.mdc` for testing patterns. Robot pattern is optional—use direct finders for simple tests.

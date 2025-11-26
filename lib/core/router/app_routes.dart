@@ -10,24 +10,10 @@ class AppRoutes {
 
   // Path parameter identifiers
   static const pidGroup = 'groupId';
-  static const pidCluster = 'clusterKey';
 
   // Relative paths for GoRouter configuration
   static const groupDetailPath = 'group/:$pidGroup';
-  static const clusterDetailPath = 'cluster/:$pidCluster';
 
   // Computed navigation targets
   static String groupDetail(String groupId) => '$explorer/group/$groupId';
-
-  static String clusterDetail(
-    String clusterKey, {
-    required String brandName,
-    required List<String> activeIngredients,
-  }) {
-    final encodedBrand = Uri.encodeComponent(brandName);
-    final encodedIngredients = Uri.encodeComponent(activeIngredients.join(','));
-    return '$explorer/cluster/$clusterKey'
-        '?princepsBrandName=$encodedBrand'
-        '&activeIngredients=$encodedIngredients';
-  }
 }

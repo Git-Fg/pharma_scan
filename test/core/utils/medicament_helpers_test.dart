@@ -197,9 +197,9 @@ void main() {
       }
     });
 
-    // Python Parity: matches Python auditor strict contamination checks
-    group('Python Parity - Strict Contamination Checks', () {
-      // 1. Unit patterns from Python DOSAGE_UNIT_PATTERNS
+    // Dart Auditor Parity: matches Dart auditor strict contamination checks
+    group('Dart Auditor Parity - Strict Contamination Checks', () {
+      // 1. Unit patterns using simple inline regex (mg, g, ml, ui, %, etc.)
       test(
         'should remove dosage units with numbers (mg, g, ml, ui, %, ch, dh, gbq, mbq)',
         () {
@@ -220,7 +220,7 @@ void main() {
         },
       );
 
-      // 2. Formulation keywords from Python FORMULATION_KEYWORDS
+      // 2. Formulation keywords using simple inline patterns (comprimé, gélule, solution, etc.)
       test(
         'should remove formulation keywords (comprimé, gélule, solution, injectable, etc.)',
         () {
@@ -238,7 +238,7 @@ void main() {
         },
       );
 
-      // 3. Exception: "solution de" should be preserved (Python FORMULATION_EXCEPTIONS)
+      // 3. Exception: "solution de" should be preserved (handled in sanitizeActivePrinciple)
       test('should preserve "solution de" as exception', () {
         expect(
           sanitizeActivePrinciple('SOLUTION DE CHLORHEXIDINE'),
@@ -251,6 +251,7 @@ void main() {
         // But standalone "solution" should be removed
         expect(sanitizeActivePrinciple('MOLECULE solution'), 'MOLECULE');
         // More comprehensive "solution de" exception cases
+        // Note: "de" between other words (not after "solution") is removed for cleaner grouping
         expect(
           sanitizeActivePrinciple('SOLUTION DE DIGLUCONATE DE CHLORHEXIDINE'),
           'SOLUTION DE DIGLUCONATE DE CHLORHEXIDINE',
@@ -270,7 +271,7 @@ void main() {
         );
       });
 
-      // 4. Standalone numbers (Python NUMBER_PATTERN)
+      // 4. Standalone numbers (regex pattern in sanitizeActivePrinciple)
       test(
         'should remove standalone numbers except known numbered molecules',
         () {
@@ -283,7 +284,7 @@ void main() {
         },
       );
 
-      // 5. Known numbered molecules (Python KNOWN_NUMBERED_MOLECULES)
+      // 5. Known numbered molecules (DosageConstants.knownNumberedMolecules)
       test(
         'should preserve known numbered molecules (MACROGOL 4000, HEPARINE 6000, etc.)',
         () {
@@ -397,6 +398,126 @@ void main() {
             'PARACETAMOL',
           );
         },
+      );
+    });
+  });
+
+  group('cleanStandaloneName', () {
+    test('normalizes casing and accents before subtracting form and lab', () {
+      final cleaned = cleanStandaloneName(
+        rawName: 'Doliprane 1000 mg, COMPRIMÉ',
+        officialForm: 'Comprimé',
+        officialLab: 'Sanofi',
+      );
+
+      expect(cleaned, equals('Doliprane 1000 mg'));
+    });
+
+    test('removes preposition-heavy forms without trailing commas', () {
+      final cleaned = cleanStandaloneName(
+        rawName: 'EFFERALGAN 500 mg poudre pour solution buvable',
+        officialForm: 'poudre pour solution buvable en sachet',
+      );
+
+      expect(cleaned, equals('EFFERALGAN 500 mg'));
+    });
+
+    test('removes labs despite diacritic differences and trims separators', () {
+      final cleaned = cleanStandaloneName(
+        rawName: 'TEST MED, suspension, Laboratoires Böehringer',
+        officialForm: 'suspension',
+        officialLab: 'Laboratoires Boehringer',
+      );
+
+      expect(cleaned, equals('TEST MED'));
+    });
+  });
+
+  group('deriveGroupTitleFromName', () {
+    test('should return single molecule name for mono-product', () {
+      expect(
+        deriveGroupTitleFromName('Doliprane 1000'),
+        equals('Doliprane'),
+      );
+      expect(
+        deriveGroupTitleFromName('PARACETAMOL 500 mg'),
+        equals('PARACETAMOL'),
+      );
+      expect(
+        deriveGroupTitleFromName('IBUPROFENE 200 mg comprimé'),
+        equals('IBUPROFENE'),
+      );
+    });
+
+    test('should preserve both molecules in combination product', () {
+      expect(
+        deriveGroupTitleFromName('ATENOLOL 50 mg + NIFEDIPINE 20 mg'),
+        equals('ATENOLOL + NIFEDIPINE'),
+      );
+      expect(
+        deriveGroupTitleFromName('MOLECULE A 10 mg + MOLECULE B 20 mg'),
+        equals('MOLECULE A + MOLECULE B'),
+      );
+    });
+
+    test('should handle combination with multiple molecules', () {
+      expect(
+        deriveGroupTitleFromName('A 10 + B 20 + C 30'),
+        equals('A + B + C'),
+      );
+      expect(
+        deriveGroupTitleFromName(
+          'PARACETAMOL 500 mg + CODEINE 30 mg + CAFFEINE 50 mg',
+        ),
+        equals('PARACETAMOL + CODEINE + CAFFEINE'),
+      );
+    });
+
+    test('should handle edge case: name without numbers', () {
+      // Fallback behavior: split by comma and take first part
+      expect(
+        deriveGroupTitleFromName('MOLECULE, additional info'),
+        equals('MOLECULE'),
+      );
+      expect(
+        deriveGroupTitleFromName('SIMPLE NAME'),
+        equals('SIMPLE NAME'),
+      );
+    });
+
+    test('should handle edge case: combination with comma fallback', () {
+      // If a segment has no numbers, fallback to comma split
+      expect(
+        deriveGroupTitleFromName('A 10 + B, info'),
+        equals('A + B'),
+      );
+    });
+
+    test('should handle combination with varying dosage formats', () {
+      expect(
+        deriveGroupTitleFromName('A 10,5 mg + B 20.5 mg'),
+        equals('A + B'),
+      );
+      // Note: Numbers in molecule names (like "MOLECULE 1") are treated as dosages
+      // and removed, which is the expected behavior for BDPM data
+      expect(
+        deriveGroupTitleFromName('MOLECULE 1 100 mg + MOLECULE 2 200 mg'),
+        equals('MOLECULE + MOLECULE'),
+      );
+    });
+
+    test('should trim whitespace in combination products', () {
+      expect(
+        deriveGroupTitleFromName('  ATENOLOL 50 mg  +  NIFEDIPINE 20 mg  '),
+        equals('ATENOLOL + NIFEDIPINE'),
+      );
+    });
+
+    test('should handle empty segments gracefully', () {
+      // Empty segments should be filtered out
+      expect(
+        deriveGroupTitleFromName('A 10 +   + B 20'),
+        equals('A + B'),
       );
     });
   });

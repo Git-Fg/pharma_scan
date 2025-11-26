@@ -1,0 +1,180 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:pharma_scan/core/services/ingestion/bdpm_file_parser.dart';
+
+void main() {
+  group('BdpmFileParser.parseSpecialites', () {
+    test('keeps only Autorisation active entries', () {
+      const content = '''
+123456\tSPECIALITE ACTIVE\tComprimé\torale\tAutorisation active\tProcédure A\tCommercialisé\t01/01/2024\tstatutbdm\tEU9999\tLab Active\tNon
+654321\tSPECIALITE ARCHIVE\tComprimé\torale\tAutorisation suspendue\tProcédure B\tCommercialisé\t01/02/2024\tstatutbdm\tEU8888\tLab Old\tNon
+''';
+
+      final result = BdpmFileParser.parseSpecialites(
+        content,
+        const <String, String>{},
+        const <String, String>{},
+      );
+
+      expect(result.specialites, hasLength(1));
+      expect(result.seenCis, contains('123456'));
+      expect(result.seenCis, isNot(contains('654321')));
+      expect(
+        result.specialites.first['statut_administratif'],
+        equals('Autorisation active'),
+      );
+    });
+
+    test('should exclude products from BOIRON laboratory', () {
+      const content = '''
+123456\tSPECIALITE BOIRON\tComprimé\torale\tAutorisation active\tProcédure A\tCommercialisé\t01/01/2024\tstatutbdm\tEU9999\tLABORATOIRES BOIRON\tNon
+''';
+
+      final result = BdpmFileParser.parseSpecialites(
+        content,
+        const <String, String>{},
+        const <String, String>{},
+      );
+
+      expect(result.specialites, isEmpty);
+      expect(result.seenCis, isEmpty);
+    });
+
+    test('should include previously excluded forms such as Gaz', () {
+      const content = '''
+123456\tGAZ MEDICINAL\tGaz médicinal\tinhalation\tAutorisation active\tProcédure Gaz\tCommercialisé\t01/01/2024\tstatutbdm\tEU7777\tAIR LIQUIDE\tNon
+''';
+
+      final result = BdpmFileParser.parseSpecialites(
+        content,
+        const <String, String>{},
+        const <String, String>{},
+      );
+
+      expect(result.specialites, hasLength(1));
+      expect(result.seenCis, contains('123456'));
+      expect(
+        result.specialites.first['forme_pharmaceutique'],
+        equals('Gaz médicinal'),
+      );
+    });
+
+    test('accepts homéopathique procedure when titulaire not BOIRON', () {
+      const content = '''
+123456\tSPECIALITE HOMEOPATHIQUE\tComprimé\torale\tAutorisation active\tProcédure homéopathique\tCommercialisé\t01/01/2024\tstatutbdm\tEU9999\tLab Homeo\tNon
+''';
+
+      final result = BdpmFileParser.parseSpecialites(
+        content,
+        const <String, String>{},
+        const <String, String>{},
+      );
+
+      expect(result.specialites, hasLength(1));
+      expect(result.seenCis, contains('123456'));
+      expect(result.specialites.first['titulaire'], equals('Lab Homeo'));
+    });
+  });
+
+  group('BdpmFileParser.parseCompositions', () {
+    test('uses FT rows to resolve principle name and dosage', () {
+      const content = '''
+123456\tfield1\tfield2\tMetformine chlorhydrate\t500 mg\tfield5\tSA\tL1
+123456\tfield1\tfield2\tMetformine\t500 mg base\tfield5\tFT\tL1
+''';
+      final cisToCip13 = {
+        '123456': ['987654321'],
+      };
+
+      final result = BdpmFileParser.parseCompositions(content, cisToCip13);
+
+      expect(result, hasLength(1));
+      final entry = result.first;
+      expect(entry['principe'], equals('Metformine'));
+      expect(entry['dosage'], equals('500'));
+      expect(entry['dosage_unit'], equals('mg base'));
+    });
+
+    test('falls back to SA data when FT row missing', () {
+      const content = '''
+123456\tfield1\tfield2\tMetformine chlorhydrate\t850 mg\tfield5\tSA\tL2
+''';
+      final cisToCip13 = {
+        '123456': ['111111111'],
+      };
+
+      final result = BdpmFileParser.parseCompositions(content, cisToCip13);
+
+      expect(result, hasLength(1));
+      final entry = result.first;
+      expect(entry['principe'], equals('Metformine chlorhydrate'));
+      expect(entry['dosage'], equals('850'));
+      expect(entry['dosage_unit'], equals('mg'));
+    });
+  });
+
+  group('BdpmFileParser.parseMedicaments', () {
+    test('captures agrement collectivites in lowercase', () {
+      const content = '''
+123456\tcode7\tlibelle\tstatut admin\tDéclaration de commercialisation\t19/09/2011\t3400949497706\tOui\t65%\t1 226,20
+''';
+      final specialitesResult = (
+        specialites: <Map<String, dynamic>>[
+          {'cis_code': '123456'},
+        ],
+        namesByCis: {'123456': 'TEST'},
+        seenCis: {'123456'},
+      );
+
+      final result = BdpmFileParser.parseMedicaments(
+        content,
+        specialitesResult,
+      );
+
+      expect(result.medicaments, hasLength(1));
+      final entry = result.medicaments.first;
+      expect(entry['agrement_collectivites'], equals('oui'));
+      expect(entry['prix_public'], equals(1226.20));
+    });
+  });
+
+  group('BdpmFileParser.parseAvailability', () {
+    test('retains rupture/tension rows and parses dates', () {
+      const content = '''
+123456\t3400933333333\t1\tRupture de stock\t12/02/2024\t15/02/2024
+123456\t3400944444444\t3\tArrêt\t01/01/2024
+123456\t\t1\tRupture sans CIP\t01/02/2024
+''';
+
+      final result = BdpmFileParser.parseAvailability(content, const {});
+
+      expect(result, hasLength(1));
+      final entry = result.first;
+      expect(entry['code_cip'], equals('3400933333333'));
+      expect(entry['statut'], equals('Rupture de stock'));
+      expect(entry['date_debut'], equals(DateTime.utc(2024, 2, 12)));
+      expect(entry['date_fin'], equals(DateTime.utc(2024, 2, 15)));
+    });
+
+    test('expands CIS-level shortages to every CIP', () {
+      const content = '''
+123456\t\t2\tTension nationale\t05/03/2024\t
+''';
+      final cisToCip13 = {
+        '123456': ['3400911111111', '3400922222222'],
+      };
+
+      final result = BdpmFileParser.parseAvailability(content, cisToCip13);
+
+      expect(result, hasLength(2));
+      expect(
+        result.map((entry) => entry['code_cip']),
+        containsAll(['3400911111111', '3400922222222']),
+      );
+      for (final entry in result) {
+        expect(entry['statut'], equals('Tension nationale'));
+        expect(entry['date_debut'], equals(DateTime.utc(2024, 3, 5)));
+        expect(entry['date_fin'], isNull);
+      }
+    });
+  });
+}

@@ -59,11 +59,14 @@ class PharmaBackHeader extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      title,
-                      style: theme.textTheme.h4,
-                      overflow: TextOverflow.ellipsis,
-                      maxLines: 2,
+                    Semantics(
+                      header: true,
+                      child: Text(
+                        title,
+                        style: theme.textTheme.h4,
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 2,
+                      ),
                     ),
                     if (description != null) ...[
                       const Gap(_descriptionSpacing),

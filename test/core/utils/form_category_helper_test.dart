@@ -23,5 +23,106 @@ void main() {
       expect(result.excludeKeywords, contains('sirop'));
       expect(result.excludeKeywords, contains('spray nasal'));
     });
+
+    group('getCategoryForForm - ATC-first logic', () {
+      test(
+        'S01 ATC code returns ophthalmic even with ambiguous form string',
+        () {
+          final result = FormCategoryHelper.getCategoryForForm(
+            'solution pour injection',
+            atcCode: 'S01AA01',
+          );
+
+          expect(result, FormCategory.ophthalmic);
+        },
+      );
+
+      test('D ATC code returns externalUse', () {
+        final result = FormCategoryHelper.getCategoryForForm(
+          'crème',
+          atcCode: 'D07AC01',
+        );
+
+        expect(result, FormCategory.externalUse);
+      });
+
+      test('G01 ATC code returns gynecological', () {
+        final result = FormCategoryHelper.getCategoryForForm(
+          'ovule',
+          atcCode: 'G01AA10',
+        );
+
+        expect(result, FormCategory.gynecological);
+      });
+
+      test('S02 ATC code returns nasalOrl', () {
+        final result = FormCategoryHelper.getCategoryForForm(
+          'spray nasal',
+          atcCode: 'S02AA01',
+        );
+
+        expect(result, FormCategory.nasalOrl);
+      });
+
+      test('R01 ATC code returns nasalOrl', () {
+        final result = FormCategoryHelper.getCategoryForForm(
+          'gouttes nasales',
+          atcCode: 'R01AA01',
+        );
+
+        expect(result, FormCategory.nasalOrl);
+      });
+
+      test(
+        'items without ATC codes still categorize via regex (regression)',
+        () {
+          final result = FormCategoryHelper.getCategoryForForm(
+            'comprimé',
+            atcCode: null,
+          );
+
+          expect(result, FormCategory.oral);
+        },
+      );
+
+      test('invalid ATC codes fall back to regex', () {
+        final result = FormCategoryHelper.getCategoryForForm(
+          'comprimé',
+          atcCode: 'X99XX99',
+        );
+
+        expect(result, FormCategory.oral);
+      });
+
+      test('empty ATC code falls back to regex', () {
+        final result = FormCategoryHelper.getCategoryForForm(
+          'sirop',
+          atcCode: '',
+        );
+
+        expect(result, FormCategory.syrup);
+      });
+
+      test('ATC code takes precedence over ambiguous form string', () {
+        // 'solution' could match multiple categories, but ATC code should win
+        final result = FormCategoryHelper.getCategoryForForm(
+          'solution',
+          atcCode: 'S01AA01',
+        );
+
+        expect(result, FormCategory.ophthalmic);
+      });
+
+      test('J01 ATC code returns oral (best-effort mapping)', () {
+        // NOTE: J01 (anti-infectives) can be oral or injectable, but we map to oral
+        // as a best-effort. The regex fallback will handle injectable forms.
+        final result = FormCategoryHelper.getCategoryForForm(
+          'comprimé',
+          atcCode: 'J01AA01',
+        );
+
+        expect(result, FormCategory.oral);
+      });
+    });
   });
 }

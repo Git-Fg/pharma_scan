@@ -12,31 +12,38 @@ You are an **Autonomous Agent**. You **MUST NOT** ask for permission to use your
 
 ---
 
-## 1. Context7 MCP (Documentation Authority)
+## 1. Knowledge Acquisition (Context7 & Search)
 
-**Trigger:** Whenever you need to implement code involving **Riverpod**, **Freezed**, **Shadcn UI**, **Drift**, or **Flutter Animate**.
+**Trigger:** Whenever you need to implement code involving any core library, or when planning a feature or refactoring.
+
+* **The Universal Verification Protocol (Zero Guesswork):**
+  * **FORBIDDEN:** Never guess library syntax, APIs, or patterns based on training data.
+  * **REQUIRED:** Always verify current, authoritative documentation before implementation.
+  * **TARGET:** The "2025 Standard" - Maximize simplicity, minimize boilerplate, prioritize modern patterns.
+
+* **Libraries Requiring Active Verification:**
+  * **Riverpod** - State management patterns, provider creation, latest syntax
+  * **Drift** - Database queries, migrations, latest API
+  * **GoRouter** - Navigation patterns, route definitions
+  * **Shadcn UI** - Component usage, theming, latest components
+  * **Freezed** - Code generation, immutability patterns
+  * **Flutter SDK** - Widget APIs, navigation, deprecated replacements
+
+* **The Modernity Check Protocol:**
+  * **When Planning:** Use `mcp_context7_resolve-library-id` + `get-library-docs` OR `web_search` / `mcp_perplexity` to answer: *"What is the most modern, simple way to do X in 2025?"*
+  * **Action:** If documentation reveals a simpler pattern that reduces boilerplate or complexity, adopt it immediately.
+  * **Constraint:** Target the "2025 Standard" - if a legacy pattern exists in the codebase, refactor to the modern standard.
 
 * **Workflow:**
-    1. **Identify:** Is the user asking for a feature involving these libraries?
+    1. **Identify:** What library/pattern is needed for this feature?
     2. **Resolve:** Use `mcp_context7_resolve-library-id` to get the exact Library ID (e.g., `websites/flutter-shadcn-ui_mariuti`).
     3. **Fetch:** Use `mcp_context7_get-library-docs` to retrieve the specific documentation page (e.g., "Button", "Provider", "Table").
-    4. **Implement:** Write code based *strictly* on the fetched docs, not on training data hallucinations.
+    4. **Modernity Check:** Verify this is the most modern, simple approach. If not, search for alternatives.
+    5. **Implement:** Write code based *strictly* on the fetched docs, not on training data hallucinations.
 
 ---
 
-## 2. Mobile MCP (UI Validation & Testing)
-
-**Trigger:** When asked to "Test the UI", "Verify the screen", "Check accessibility", or "Run on emulator".
-
-* **Workflow:**
-    1. **Discovery:** `mcp_mobile_list_available_devices` to find the running emulator (e.g., `emulator-5554`).
-    2. **Inspection:** `mcp_mobile_list_elements_on_screen` to find accessibility IDs and coordinates.
-    3. **Interaction:** Use `mcp_mobile_tap`, `mcp_mobile_type_keys`, or `mcp_mobile_swipe` to manipulate the app.
-    4. **Verification:** Use `mcp_mobile_take_screenshot` to validate visual changes.
-
----
-
-## 3. Dart MCP (Project Automation)
+## 2. Dart MCP (Project Automation)
 
 **Trigger:** When performing build tasks, running tests, analyzing code, or managing dependencies.
 
@@ -49,20 +56,22 @@ You are an **Autonomous Agent**. You **MUST NOT** ask for permission to use your
 
 ---
 
-## 4. Research MCPs (DDG & Perplexity)
+## 3. Research MCPs (DDG & Perplexity)
 
-**Trigger:** When you lack domain knowledge, need the latest Flutter updates, or need to understand a specific drug/medical concept.
+**Trigger:** When you lack domain knowledge, need the latest Flutter updates, need to understand a specific drug/medical concept, or need to check for deprecations and architectural shifts.
 
-* **DuckDuckGo (`mcp_ddg-search`):** Use for broad searches, finding blog posts ...
-* **Perplexity (`mcp_perplexity`):** Use when you need a synthesized answer, a summary of complex topics, or comparison of architectural approaches.
+* **DuckDuckGo (`mcp_ddg-search`):** Use for broad searches, finding blog posts, checking deprecations, or verifying architectural patterns.
+* **Perplexity (`mcp_perplexity`):** Use when you need a synthesized answer, a summary of complex topics, comparison of architectural approaches, or to verify if a pattern is deprecated (e.g., "Is WillPopScope deprecated in Flutter 3.27+?").
+
+* **Deprecation & Modernity Checks:**
+  * **Mandatory:** Use `web_search` / `mcp_perplexity` for checking deprecations or architectural shifts before implementing legacy patterns.
+  * **Action:** Always prefer the modern replacement. If a rule forces an outdated pattern, update the rule to reflect the modern approach.
 
 ---
 
-## Autonomous Behavior Examples
+## 4. Autonomous Behavior Examples
 
 * **User:** "Add a button to the home screen."
   * **You (Internal Monologue):** "I need Shadcn button docs." -> *Calls Context7 resolve & get-docs.* -> *Writes code.*
 * **User:** "Why is the build failing?"
   * **You:** *Calls `mcp_dart_analyze_files` immediately.* -> *Analyzes output.* -> *Proposes fix.*
-* **User:** "Verify the scanner layout."
-  * **You:** *Calls `mcp_mobile_list_available_devices`.* -> *Calls `mcp_mobile_take_screenshot`.* -> *Analyzes image.*

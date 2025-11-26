@@ -2,22 +2,24 @@
 import 'dart:async';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:pharma_scan/core/config/app_config.dart';
-import 'package:pharma_scan/core/providers/repositories_providers.dart';
+import 'package:pharma_scan/core/models/scan_result.dart';
+import 'package:pharma_scan/core/providers/core_providers.dart';
 import 'package:pharma_scan/core/services/logger_service.dart';
 import 'package:pharma_scan/core/utils/gs1_parser.dart';
-import 'package:pharma_scan/features/scanner/models/scan_result_model.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'scanner_provider.g.dart';
 
+typedef ScanBubble = ScanResult;
+
 class ScannerState {
   const ScannerState({required this.bubbles, required this.scannedCodes});
 
-  final List<ScanResult> bubbles;
+  final List<ScanBubble> bubbles;
   final Set<String> scannedCodes;
 
   ScannerState copyWith({
-    List<ScanResult>? bubbles,
+    List<ScanBubble>? bubbles,
     Set<String>? scannedCodes,
   }) {
     return ScannerState(
@@ -63,7 +65,8 @@ class ScannerNotifier extends _$ScannerNotifier {
       }
 
       // 1. Parser le code GS1
-      final parsedData = Gs1Parser.parse(barcode.rawValue);
+      // WHY: rawValue is guaranteed non-null after the null check above
+      final parsedData = Gs1Parser.parse(barcode.rawValue!);
       final codeCip = parsedData.gtin;
 
       if (codeCip == null) {
@@ -94,8 +97,8 @@ class ScannerNotifier extends _$ScannerNotifier {
         LoggerService.db(
           '[ScannerNotifier] Searching for medicament with CIP: $codeCip',
         );
+        findMedicament(codeCip);
       }
-      findMedicament(codeCip);
     }
   }
 
@@ -103,18 +106,38 @@ class ScannerNotifier extends _$ScannerNotifier {
     LoggerService.db('[ScannerNotifier] Querying database for CIP: $codeCip');
 
     try {
-      final repository = ref.read(scannerRepositoryProvider);
-      final scanResult = await repository.getScanResult(codeCip);
+      final scanDao = ref.read(scanDaoProvider);
+      final result = await scanDao.getProductByCip(codeCip);
 
-      if (scanResult != null) {
-        LoggerService.info(
-          '[ScannerNotifier] Scan result received, updating bubble queue',
-        );
-        addBubble(scanResult);
+      if (result != null) {
+        // WHY: Log appropriate message based on product type
+        if (result.summary.groupId != null) {
+          if (result.summary.isPrinceps) {
+            LoggerService.info(
+              '[ScannerNotifier] Princeps medication found: ${result.summary.nomCanonique} '
+              '(Princeps de ce groupe)',
+            );
+          } else {
+            final reference = result.summary.princepsDeReference.isNotEmpty
+                ? result.summary.princepsDeReference
+                : 'groupe ${result.summary.groupId}';
+            LoggerService.info(
+              '[ScannerNotifier] Generic medication found: ${result.summary.nomCanonique} '
+              '(Générique de $reference)',
+            );
+          }
+        } else {
+          LoggerService.info(
+            '[ScannerNotifier] Standalone medication found: ${result.summary.nomCanonique} '
+            '(Médicament Unique)',
+          );
+        }
+
+        addBubble(result);
         return true;
       } else {
         LoggerService.warning(
-          '[ScannerNotifier] No medicament found in database for CIP: $codeCip',
+          '[ScannerNotifier] No product found in database for CIP: $codeCip',
         );
         return false;
       }
@@ -128,18 +151,18 @@ class ScannerNotifier extends _$ScannerNotifier {
     }
   }
 
-  void addBubble(ScanResult scanResult) {
-    final codeCip = _codeFromResult(scanResult);
+  void addBubble(ScanBubble bubble) {
+    final codeCip = bubble.cip;
     if (state.scannedCodes.contains(codeCip)) return;
 
     final updatedCodes = Set<String>.from(state.scannedCodes)..add(codeCip);
 
     // WHY: Remove oldest bubble if we exceed max capacity.
     // New bubbles are inserted at index 0, so oldest is at the end.
-    final updatedBubbles = List<ScanResult>.from(state.bubbles);
+    final updatedBubbles = List<ScanBubble>.from(state.bubbles);
     if (updatedBubbles.length >= _maxBubbles) {
       final oldest = updatedBubbles.removeLast();
-      final oldestCode = _codeFromResult(oldest);
+      final oldestCode = oldest.cip;
       _dismissTimers[oldestCode]?.cancel();
       _dismissTimers.remove(oldestCode);
 
@@ -158,18 +181,16 @@ class ScannerNotifier extends _$ScannerNotifier {
     _dismissTimers[codeCip] = timer;
 
     // WHY: Insert at index 0 so newest bubble appears at the top.
-    updatedBubbles.insert(0, scanResult);
+    updatedBubbles.insert(0, bubble);
 
     state = state.copyWith(bubbles: updatedBubbles, scannedCodes: updatedCodes);
   }
 
   void removeBubble(String codeCip) {
-    final index = state.bubbles.indexWhere(
-      (bubble) => _codeFromResult(bubble) == codeCip,
-    );
+    final index = state.bubbles.indexWhere((bubble) => bubble.cip == codeCip);
     if (index == -1) return;
 
-    final updatedBubbles = List<ScanResult>.from(state.bubbles);
+    final updatedBubbles = List<ScanBubble>.from(state.bubbles);
     updatedBubbles.removeAt(index);
 
     _dismissTimers[codeCip]?.cancel();
@@ -194,13 +215,5 @@ class ScannerNotifier extends _$ScannerNotifier {
     _cleanupTimer?.cancel();
 
     state = const ScannerState(bubbles: [], scannedCodes: {});
-  }
-
-  String _codeFromResult(ScanResult scanResult) {
-    return scanResult.map(
-      generic: (value) => value.medicament.codeCip,
-      princeps: (value) => value.princeps.codeCip,
-      standalone: (value) => value.medicament.codeCip,
-    );
   }
 }

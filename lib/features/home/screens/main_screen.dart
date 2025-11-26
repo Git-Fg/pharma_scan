@@ -3,17 +3,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:pharma_scan/core/providers/core_providers.dart';
-import 'package:pharma_scan/core/providers/preferences_provider.dart';
 import 'package:pharma_scan/core/router/app_routes.dart';
 import 'package:pharma_scan/core/utils/app_animations.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
-import 'package:pharma_scan/features/home/providers/sync_status_provider.dart';
+import 'package:pharma_scan/core/utils/test_tags.dart';
+import 'package:pharma_scan/core/widgets/testable.dart';
+import 'package:pharma_scan/features/home/providers/sync_provider.dart';
+import 'package:pharma_scan/features/home/models/sync_state.dart';
 import 'package:pharma_scan/features/home/providers/initialization_provider.dart';
-import 'package:pharma_scan/core/services/sync_service.dart';
-import 'package:pharma_scan/features/explorer/providers/group_cluster_provider.dart';
-import 'package:pharma_scan/features/explorer/providers/group_summary_provider.dart';
-import 'package:pharma_scan/features/explorer/providers/search_provider.dart';
+import 'package:pharma_scan/core/services/data_initialization_service.dart';
+import 'package:pharma_scan/core/theme/app_dimens.dart';
+import 'package:gap/gap.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 class MainScreen extends ConsumerStatefulWidget {
@@ -38,13 +38,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
   Future<bool> _triggerSync({bool force = false}) {
     return ref
-        .read(syncServiceProvider)
-        .checkForUpdates(
-          resolveFrequency: () => ref.read(appPreferencesProvider.future),
-          reportStatus: (progress) =>
-              ref.read(syncStatusProvider.notifier).updateStatus(progress),
-          force: force,
-        )
+        .read(syncControllerProvider.notifier)
+        .startSync(force: force)
         .catchError((_) => false);
   }
 
@@ -60,20 +55,17 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   Widget build(BuildContext context) {
     final theme = ShadTheme.of(context);
     final titles = [Strings.scanner, Strings.explorer];
-    final syncProgress = ref.watch(syncStatusProvider);
+    final syncProgress = ref.watch(syncControllerProvider);
     final initState = ref.watch(initializationStateProvider);
+    final initStepAsync = ref.watch(initializationStepProvider);
+    final initStep = initStepAsync.value;
 
-    // WHY: Listen for sync success to invalidate data providers
-    // When sync completes successfully, Explorer and Search screens need fresh data
-    ref.listen(syncStatusProvider, (previous, next) {
+    // WHY: Listen for sync status changes to show toast notifications
+    // Data providers are now reactive to sync completion via lastSyncEpochStreamProvider
+    ref.listen(syncControllerProvider, (previous, next) {
       final presenter = SyncStatusPresenter(next);
       if (next.phase == SyncPhase.success &&
           previous?.phase != SyncPhase.success) {
-        // Invalidate caches to force reload of fresh database content
-        ref.invalidate(searchCandidatesProvider);
-        ref.invalidate(groupClusterProvider);
-        ref.invalidate(groupSummaryProvider);
-
         // Show success toast notification
         if (mounted) {
           ShadSonner.of(context).show(
@@ -127,22 +119,37 @@ class _MainScreenState extends ConsumerState<MainScreen> {
           backgroundColor: theme.colorScheme.background,
           elevation: 0,
           actions: [
-            Semantics(
-              button: true,
-              label: Strings.openSettings,
-              child: ShadButton.ghost(
-                onPressed: () => context.push(AppRoutes.settings),
-                leading: const Icon(LucideIcons.settings, size: 20),
-                child: const SizedBox.shrink(),
+            Testable(
+              id: TestTags.navSettings,
+              child: Semantics(
+                button: true,
+                label: Strings.openSettings,
+                child: ShadButton.ghost(
+                  key: const Key('settings_button'),
+                  onPressed: () => context.push(AppRoutes.settings),
+                  leading: const Icon(LucideIcons.settings, size: 20),
+                  child: const SizedBox.shrink(),
+                ),
               ),
             ),
-            const SizedBox(width: 8),
+            const Gap(AppDimens.spacingXs),
           ],
         ),
         body: SafeArea(
           bottom: false,
           child: Column(
             children: [
+              // WHY: Show initialization alert at top when actively initializing
+              // This provides a stable, visible notification that pushes content down
+              if (initStep != null &&
+                  initStep != InitializationStep.idle &&
+                  initStep != InitializationStep.ready)
+                _buildInitializationAlert(theme, initStep)
+                    .animate()
+                    .fadeIn(duration: 300.ms)
+                    .slideY(begin: -0.2, end: 0, curve: Curves.easeOut),
+              // WHY: Show sync banner when sync is actively running (not idle)
+              // This ensures the indicator is non-intrusive and only appears during updates
               if (syncProgress.phase != SyncPhase.idle)
                 _SyncStatusBanner(
                   progress: syncProgress,
@@ -171,17 +178,21 @@ class _MainScreenState extends ConsumerState<MainScreen> {
           top: false,
           child: Container(
             decoration: BoxDecoration(
-              color: theme.colorScheme.background,
+              color: theme.colorScheme.card,
               border: Border(top: BorderSide(color: theme.colorScheme.border)),
               boxShadow: [
                 BoxShadow(
-                  color: theme.colorScheme.foreground.withValues(alpha: 0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, -5),
+                  color: theme.colorScheme.foreground.withValues(alpha: 0.08),
+                  blurRadius: 18,
+                  spreadRadius: 1,
+                  offset: const Offset(0, -2),
                 ),
               ],
             ),
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+            padding: const EdgeInsets.symmetric(
+              vertical: AppDimens.spacingSm,
+              horizontal: AppDimens.spacingXl,
+            ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -195,6 +206,64 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     );
   }
 
+  Widget _buildInitializationAlert(
+    ShadThemeData theme,
+    InitializationStep step,
+  ) {
+    // Determine content based on step
+    final (icon, title, description, isDestructive) = switch (step) {
+      InitializationStep.downloading => (
+        LucideIcons.download,
+        Strings.initializationDownloading,
+        Strings.initializationDownloadingDescription,
+        false,
+      ),
+      InitializationStep.parsing => (
+        LucideIcons.fileDigit,
+        Strings.initializationParsing,
+        Strings.initializationParsingDescription,
+        false,
+      ),
+      InitializationStep.aggregating => (
+        LucideIcons.database,
+        Strings.initializationAggregatingTitle,
+        Strings.initializationAggregatingDescription,
+        false,
+      ),
+      InitializationStep.error => (
+        LucideIcons.triangleAlert,
+        Strings.initializationError,
+        Strings.initializationErrorDescription,
+        true,
+      ),
+      _ => (LucideIcons.loader, Strings.initializationInProgress, '...', false),
+    };
+
+    if (isDestructive) {
+      return Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: ShadAlert.destructive(
+          icon: Icon(icon),
+          title: Text(title),
+          description: Text(description),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: ShadAlert(
+        icon: Icon(icon, color: theme.colorScheme.primary),
+        title: Text(title),
+        description: Text(description),
+        // Add a nice primary border to distinguish it
+        decoration: ShadDecoration(
+          border: ShadBorder.all(color: theme.colorScheme.primary, width: 1),
+        ),
+      ),
+    );
+  }
+
   Widget _buildNavItem(
     int index,
     IconData icon,
@@ -202,41 +271,56 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     ShadThemeData theme,
   ) {
     final isSelected = widget.navigationShell.currentIndex == index;
+    final testId = index == 0 ? TestTags.navScanner : TestTags.navExplorer;
     // Animate the scale of the selected item
-    return GestureDetector(
-      onTap: () => _onTabChanged(index),
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
-        decoration: isSelected
-            ? BoxDecoration(
-                color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(16),
-              )
-            : null,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 24,
-              color: isSelected
-                  ? theme.colorScheme.primary
-                  : theme.colorScheme.mutedForeground,
+    return Testable(
+      id: testId,
+      child: Semantics(
+        label: label,
+        button: true,
+        excludeSemantics: true,
+        child: GestureDetector(
+          key: ValueKey(testId),
+          onTap: () => _onTabChanged(index),
+          behavior: HitTestBehavior.opaque,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppDimens.spacingLg,
+              vertical: AppDimens.spacing2xs,
             ),
-            const SizedBox(height: 6),
-            Text(
-              label,
-              style: theme.textTheme.small.copyWith(
-                color: isSelected
-                    ? theme.colorScheme.primary
-                    : theme.colorScheme.mutedForeground,
-                fontWeight: FontWeight.bold,
-                fontSize: 12,
+            decoration: isSelected
+                ? BoxDecoration(
+                    color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(AppDimens.radiusLg),
+                  )
+                : null,
+            child: ExcludeSemantics(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    icon,
+                    size: 24,
+                    color: isSelected
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.mutedForeground,
+                  ),
+                  const Gap(AppDimens.spacing2xs),
+                  Text(
+                    label,
+                    style: theme.textTheme.small.copyWith(
+                      color: isSelected
+                          ? theme.colorScheme.primary
+                          : theme.colorScheme.mutedForeground,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
               ),
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -253,12 +337,17 @@ class _InitializationBanner extends ConsumerWidget {
     final theme = ShadTheme.of(context);
     final errorMessage = ref.watch(initializationErrorMessageProvider);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      padding: const EdgeInsets.fromLTRB(
+        AppDimens.spacingMd,
+        0,
+        AppDimens.spacingMd,
+        AppDimens.spacingXs,
+      ),
       child: ShadCard(
         title: Row(
           children: [
             const Icon(Icons.warning_amber_rounded),
-            const SizedBox(width: 8),
+            const Gap(AppDimens.spacingXs),
             Expanded(
               child: Text(Strings.updateError, style: theme.textTheme.h4),
             ),
@@ -270,8 +359,13 @@ class _InitializationBanner extends ConsumerWidget {
             Text(Strings.updateLimited, style: theme.textTheme.muted),
             if (errorMessage != null)
               Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(errorMessage, style: theme.textTheme.small),
+                padding: const EdgeInsets.only(top: AppDimens.spacingXs),
+                child: Text(
+                  errorMessage,
+                  style: theme.textTheme.small,
+                  maxLines: 4,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
           ],
         ),
@@ -286,7 +380,7 @@ class _InitializationBanner extends ConsumerWidget {
                 child: const Text(Strings.openSettings),
               ),
             ),
-            const SizedBox(width: 8),
+            const Gap(AppDimens.spacingXs),
             Semantics(
               button: true,
               label: Strings.retryUpdate,
@@ -321,12 +415,17 @@ class _SyncStatusBanner extends StatelessWidget {
         bannerData.description != null || showProgressIndicator;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      padding: const EdgeInsets.fromLTRB(
+        AppDimens.spacingMd,
+        0,
+        AppDimens.spacingMd,
+        AppDimens.spacingXs,
+      ),
       child: ShadCard(
         title: Row(
           children: [
             Icon(bannerData.icon, color: theme.colorScheme.primary),
-            const SizedBox(width: 8),
+            const Gap(AppDimens.spacingXs),
             Expanded(child: Text(bannerData.title, style: theme.textTheme.h4)),
           ],
         ),
@@ -338,7 +437,7 @@ class _SyncStatusBanner extends StatelessWidget {
                     Text(bannerData.description!, style: theme.textTheme.muted),
                   if (showProgressIndicator)
                     Padding(
-                      padding: const EdgeInsets.only(top: 12),
+                      padding: const EdgeInsets.only(top: AppDimens.spacingSm),
                       child: ShadProgress(value: bannerData.progressValue!),
                     ),
                 ],

@@ -32,6 +32,13 @@ globs: lib/features/**/screens/*.dart, lib/features/**/widgets/*.dart, lib/main.
 * **Filtering:** Use `ShadPopover` containing `ShadRadioGroup` (for <5 options) or `ShadSelect` (for dynamic lists).
 * **Icons:** Use `LucideIcons`.
 
+### Direct Shadcn Usage (MANDATORY)
+
+* **Source:** Use `shadcn_ui` components directly. No wrapper layer.
+* **Rule:** If default styling is needed (e.g., consistent card padding), configure it globally in `ShadThemeData` in `main.dart`.
+* **Exception:** Only create custom widgets if they encapsulate business logic (e.g., `PharmaBackHeader` for navigation, domain-specific badges like `PrincepsBadge`).
+* **Process:** Before creating a styled wrapper, check if the styling can be moved to `ShadThemeData`. If yes, configure globally instead of creating a wrapper.
+
 ### Header Consistency
 
 * **Rule:** Full-screen detail pages (`ClusterDetailView`, `GroupExplorerView`, etc.) MUST use `PharmaBackHeader` from `lib/core/widgets/ui_kit/pharma_back_header.dart` for their navigation row instead of ad-hoc `Row`/`Button` combos.

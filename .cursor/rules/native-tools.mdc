@@ -21,11 +21,12 @@ Lean on the native tools for file reads, edits, and searches because they provid
 
 Shell utilities are acceptable for:
 
-1. Build/test/tooling commands (`flutter run`, `dart run build_runner ...`, `dart fix --apply`, `dart analyze`, `dart test`, custom scripts).
-2. Project scripts (`python data_validator.py`, `just`, `make`, etc.).
-3. Directory inspection commands, including `ls` and `tree`, when faster or when native output would be cumbersome.
-4. Occasional quick peeks (e.g., `cat file | head`) provided they do not replace sustained use of `read_file`/`grep` for substantive work.
-5. Simple, single-command invocations. **Avoid composed shell pipelines or chained commands (using `|`, `&&`, `||`, or `;`)** because they are harder to audit and may bypass native-tool safeguards. Break complex tasks into discrete commands instead.
+1. Build/test/tooling commands (`dart run build_runner ...`, `dart fix --apply`, `dart analyze`, `flutter test`, custom scripts).
+2. **App Lifecycle:** `bash tool/run_session.sh` and `bash tool/run_session.sh stop` are the **ONLY** permitted ways to run the Flutter app for testing.
+3. Project scripts (`dart run tool/audit_data.dart`, `dart run tool/generate_test_data.dart`, `just`, `make`, etc.).
+4. Directory inspection commands, including `ls` and `tree`, when faster or when native output would be cumbersome.
+5. Occasional quick peeks (e.g., `cat file | head`) provided they do not replace sustained use of `read_file`/`grep` for substantive work.
+6. Simple, single-command invocations. **Avoid composed shell pipelines or chained commands (using `|`, `&&`, `||`, or `;`)** because they are harder to audit and may bypass native-tool safeguards. Break complex tasks into discrete commands instead.
 
 Constraint :
 You must NEVER use git command, except if specifically asked from the user.

@@ -1,24 +1,36 @@
 import 'dart:developer' as developer;
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pharma_scan/core/services/sync_service.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pharma_scan/core/database/database.dart';
+import 'package:pharma_scan/core/providers/core_providers.dart';
+import 'package:pharma_scan/features/home/providers/sync_provider.dart';
+import 'package:mocktail/mocktail.dart';
 
 import '../mocks.dart';
 
+class MockAppDatabase extends Mock implements AppDatabase {}
+
 void main() {
   group('Live Network Scraping Tests', () {
-    late SyncService syncService;
-    late MockDriftDatabaseService mockDb;
+    late ProviderContainer container;
+    late MockAppDatabase mockDb;
     late MockDataInitializationService mockInitService;
 
     setUp(() {
-      mockDb = MockDriftDatabaseService();
+      mockDb = MockAppDatabase();
       mockInitService = MockDataInitializationService();
 
-      syncService = SyncService(
-        databaseService: mockDb,
-        dataInitializationService: mockInitService,
+      container = ProviderContainer(
+        overrides: [
+          appDatabaseProvider.overrideWithValue(mockDb),
+          dataInitializationServiceProvider.overrideWithValue(mockInitService),
+        ],
       );
+    });
+
+    tearDown(() {
+      container.dispose();
     });
 
     test('Should successfully scrape dates from live BDPM website', () async {
@@ -27,7 +39,8 @@ void main() {
         name: 'LiveScrapingTest',
       );
 
-      final dates = await syncService.fetchRemoteDates();
+      final controller = container.read(syncControllerProvider.notifier);
+      final dates = await controller.fetchRemoteDates();
 
       developer.log(
         'Found dates for ${dates.length} files:\n${dates.entries.map((e) => '  - ${e.key}: ${e.value.toIso8601String().split('T').first}').join('\n')}',
