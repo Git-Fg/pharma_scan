@@ -448,7 +448,7 @@ class ProductCard extends StatelessWidget {
           const Gap(AppDimens.spacingXs),
           Expanded(
             child: Text(
-              '${Strings.equivalentTo}${summary.princepsDeReference}',
+              '${Strings.equivalentTo}${extractPrincepsLabel(summary.princepsDeReference)}',
               style: compact
                   ? theme.textTheme.small.copyWith(
                       fontWeight: FontWeight.w600,

@@ -64,6 +64,15 @@ You have access to specialized rule files. You must load and adhere to them base
 5.  **No Boilerplate:** Use `flutter_hooks` for controllers. Use Dart Records for internal DTOs.
 </constraints>
 
+<data_layer>
+**CRITICAL DEPENDENCY:** Search functionality relies on SQLite FTS5 `trigram` tokenizer.
+
+- **Implementation:** `lib/core/database/daos/database_dao.dart:166` creates FTS5 index with `tokenize='trigram'`
+- **Dependency:** `sqlite3_flutter_libs` MUST be kept up to date to ensure trigram tokenizer support
+- **Impact:** Without trigram support, search queries will fail at runtime
+- **Verification:** Before updating `sqlite3_flutter_libs`, verify the new version supports FTS5 trigram tokenizer
+</data_layer>
+
 <final_instruction>
 Think step-by-step. If you encounter an error, diagnose using **abductive reasoning** (look for root causes, not just symptoms) before applying a fix. Make sure to always proceed autonomously and never stop before everything is implemented, tested and without error/warnings.
 </final_instruction>

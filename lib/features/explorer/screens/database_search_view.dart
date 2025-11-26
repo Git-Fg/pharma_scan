@@ -1,4 +1,6 @@
 // lib/features/explorer/screens/database_search_view.dart
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -40,6 +42,8 @@ class DatabaseSearchView extends HookConsumerWidget {
     final theme = ShadTheme.of(context);
     final searchController = useTextEditingController();
     final scrollController = useScrollController();
+    final debouncedQuery = useState('');
+    final debounceTimer = useRef<Timer?>(null);
 
     // WHY: Set up scroll listener for pagination using useEffect
     useEffect(() {
@@ -65,10 +69,30 @@ class DatabaseSearchView extends HookConsumerWidget {
       return () => scrollController.removeListener(onScroll);
     }, [scrollController]);
 
+    // WHY: Debounce search input so database queries are not fired on every keystroke.
+    // debouncedQuery is the single source of truth for searchResultsProvider.
+    useEffect(() {
+      void listener() {
+        debounceTimer.value?.cancel();
+        debounceTimer.value = Timer(
+          const Duration(milliseconds: 300),
+          () {
+            debouncedQuery.value = searchController.text.trim();
+          },
+        );
+      }
+
+      searchController.addListener(listener);
+      return () {
+        debounceTimer.value?.cancel();
+        searchController.removeListener(listener);
+      };
+    }, [searchController]);
+
     final filters = ref.watch(searchFiltersProvider);
     final groups = ref.watch(genericGroupsProvider);
-    // WHY: Watch provider with controller text directly - debouncing handled in provider
-    final currentQuery = searchController.text.trim();
+    // WHY: Watch provider with debounced query to avoid rebuilds on every keystroke
+    final currentQuery = debouncedQuery.value;
     final searchResults = ref.watch(searchResultsProvider(currentQuery));
     final databaseStats = ref.watch(databaseStatsProvider);
     final hasSearchText = currentQuery.isNotEmpty;
@@ -131,6 +155,7 @@ class DatabaseSearchView extends HookConsumerWidget {
                         theme,
                         ref,
                         searchController,
+                        debouncedQuery,
                       ),
                     ),
                   ),
@@ -163,7 +188,7 @@ class DatabaseSearchView extends HookConsumerWidget {
                       error: (error, _) => _buildSearchErrorSliver(
                         theme,
                         error,
-                        searchController,
+                        currentQuery,
                         ref,
                       ),
                     ),
@@ -264,11 +289,19 @@ class DatabaseSearchView extends HookConsumerWidget {
     ShadThemeData theme,
     WidgetRef ref,
     TextEditingController searchController,
+    ValueNotifier<String> debouncedQuery,
   ) {
     final filters = ref.watch(searchFiltersProvider);
     return Row(
       children: [
-        Expanded(child: _buildSearchBar(theme, ref, searchController)),
+        Expanded(
+          child: _buildSearchBar(
+            theme,
+            ref,
+            searchController,
+            debouncedQuery,
+          ),
+        ),
         const Gap(AppDimens.spacingXs),
         _buildFiltersButton(context, theme, filters, ref),
       ],
@@ -279,10 +312,11 @@ class DatabaseSearchView extends HookConsumerWidget {
     ShadThemeData theme,
     WidgetRef ref,
     TextEditingController searchController,
+    ValueNotifier<String> debouncedQuery,
   ) {
     // WHY: Watch the provider to see if it's actually fetching data
-    // Debouncing is handled inside the provider, so we only show loading when actively fetching
-    final currentQuery = searchController.text.trim();
+    // Debouncing is handled via debouncedQuery, so we only show loading when actively fetching
+    final currentQuery = debouncedQuery.value;
     final isFetching = ref.watch(searchResultsProvider(currentQuery)).isLoading;
     return Testable(
       id: TestTags.searchInput,
@@ -1057,11 +1091,9 @@ class DatabaseSearchView extends HookConsumerWidget {
   Widget _buildSearchErrorSliver(
     ShadThemeData theme,
     Object error,
-    TextEditingController searchController,
+    String currentQuery,
     WidgetRef ref,
   ) {
-    // WHY: Use current query from controller instead of _activeQuery state
-    final currentQuery = searchController.text.trim();
     return SliverToBoxAdapter(
       child: StatusView(
         type: StatusType.error,
