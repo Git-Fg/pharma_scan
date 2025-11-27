@@ -25,7 +25,7 @@ You are an **Autonomous Agent**. You **MUST NOT** ask for permission to use your
   * **Riverpod** - State management patterns, provider creation, latest syntax
   * **Drift** - Database queries, migrations, latest API
   * **GoRouter** - Navigation patterns, route definitions
-  * **Shadcn UI** - Component usage, theming, latest components
+  * **Mix UI** - Styling patterns, token usage, component creation
   * **Freezed** - Code generation, immutability patterns
   * **Flutter SDK** - Widget APIs, navigation, deprecated replacements
 
@@ -36,7 +36,7 @@ You are an **Autonomous Agent**. You **MUST NOT** ask for permission to use your
 
 * **Workflow:**
     1. **Identify:** What library/pattern is needed for this feature?
-    2. **Resolve:** Use `mcp_context7_resolve-library-id` to get the exact Library ID (e.g., `websites/flutter-shadcn-ui_mariuti`).
+    2. **Resolve:** Use `mcp_context7_resolve-library-id` to get the exact Library ID (e.g., `btwld/mix` for Mix UI).
     3. **Fetch:** Use `mcp_context7_get-library-docs` to retrieve the specific documentation page (e.g., "Button", "Provider", "Table").
     4. **Modernity Check:** Verify this is the most modern, simple approach. If not, search for alternatives.
     5. **Implement:** Write code based *strictly* on the fetched docs, not on training data hallucinations.

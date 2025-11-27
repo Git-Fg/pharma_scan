@@ -9,10 +9,15 @@ void main() {
 654321\tSPECIALITE ARCHIVE\tComprimé\torale\tAutorisation suspendue\tProcédure B\tCommercialisé\t01/02/2024\tstatutbdm\tEU8888\tLab Old\tNon
 ''';
 
-      final result = BdpmFileParser.parseSpecialites(
+      final resultEither = BdpmFileParser.parseSpecialites(
         content,
         const <String, String>{},
         const <String, String>{},
+      );
+
+      final result = resultEither.fold(
+        (error) => fail('Expected success but got error: $error'),
+        (value) => value,
       );
 
       expect(result.specialites, hasLength(2));
@@ -33,10 +38,15 @@ void main() {
 123456\tSPECIALITE BOIRON\tComprimé\torale\tAutorisation active\tProcédure A\tCommercialisé\t01/01/2024\tstatutbdm\tEU9999\tLABORATOIRES BOIRON\tNon
 ''';
 
-      final result = BdpmFileParser.parseSpecialites(
+      final resultEither = BdpmFileParser.parseSpecialites(
         content,
         const <String, String>{},
         const <String, String>{},
+      );
+
+      final result = resultEither.fold(
+        (error) => fail('Expected success but got error: $error'),
+        (value) => value,
       );
 
       expect(result.specialites, isEmpty);
@@ -48,10 +58,15 @@ void main() {
 123456\tGAZ MEDICINAL\tGaz médicinal\tinhalation\tAutorisation active\tProcédure Gaz\tCommercialisé\t01/01/2024\tstatutbdm\tEU7777\tAIR LIQUIDE\tNon
 ''';
 
-      final result = BdpmFileParser.parseSpecialites(
+      final resultEither = BdpmFileParser.parseSpecialites(
         content,
         const <String, String>{},
         const <String, String>{},
+      );
+
+      final result = resultEither.fold(
+        (error) => fail('Expected success but got error: $error'),
+        (value) => value,
       );
 
       expect(result.specialites, hasLength(1));
@@ -67,10 +82,15 @@ void main() {
 123456\tSPECIALITE HOMEOPATHIQUE\tComprimé\torale\tAutorisation active\tProcédure homéopathique\tCommercialisé\t01/01/2024\tstatutbdm\tEU9999\tLab Homeo\tNon
 ''';
 
-      final result = BdpmFileParser.parseSpecialites(
+      final resultEither = BdpmFileParser.parseSpecialites(
         content,
         const <String, String>{},
         const <String, String>{},
+      );
+
+      final result = resultEither.fold(
+        (error) => fail('Expected success but got error: $error'),
+        (value) => value,
       );
 
       expect(result.specialites, hasLength(1));
@@ -89,7 +109,15 @@ void main() {
         '123456': ['987654321'],
       };
 
-      final result = BdpmFileParser.parseCompositions(content, cisToCip13);
+      final resultEither = BdpmFileParser.parseCompositions(
+        content,
+        cisToCip13,
+      );
+
+      final result = resultEither.fold(
+        (error) => fail('Expected success but got error: $error'),
+        (value) => value,
+      );
 
       expect(result, hasLength(1));
       final entry = result.first;
@@ -106,7 +134,15 @@ void main() {
         '123456': ['111111111'],
       };
 
-      final result = BdpmFileParser.parseCompositions(content, cisToCip13);
+      final resultEither = BdpmFileParser.parseCompositions(
+        content,
+        cisToCip13,
+      );
+
+      final result = resultEither.fold(
+        (error) => fail('Expected success but got error: $error'),
+        (value) => value,
+      );
 
       expect(result, hasLength(1));
       final entry = result.first;
@@ -129,9 +165,14 @@ void main() {
         seenCis: {'123456'},
       );
 
-      final result = BdpmFileParser.parseMedicaments(
+      final resultEither = BdpmFileParser.parseMedicaments(
         content,
         specialitesResult,
+      );
+
+      final result = resultEither.fold(
+        (error) => fail('Expected success but got error: $error'),
+        (value) => value,
       );
 
       expect(result.medicaments, hasLength(1));
@@ -150,7 +191,12 @@ void main() {
 123456\t\t1\tRupture sans CIP\t01/02/2024
 ''';
 
-      final result = BdpmFileParser.parseAvailability(content, const {});
+      final resultEither = BdpmFileParser.parseAvailability(content, const {});
+
+      final result = resultEither.fold(
+        (error) => fail('Expected success but got error: $error'),
+        (value) => value,
+      );
 
       expect(result, hasLength(1));
       final entry = result.first;
@@ -168,7 +214,15 @@ void main() {
         '123456': ['3400911111111', '3400922222222'],
       };
 
-      final result = BdpmFileParser.parseAvailability(content, cisToCip13);
+      final resultEither = BdpmFileParser.parseAvailability(
+        content,
+        cisToCip13,
+      );
+
+      final result = resultEither.fold(
+        (error) => fail('Expected success but got error: $error'),
+        (value) => value,
+      );
 
       expect(result, hasLength(2));
       expect(
@@ -209,13 +263,13 @@ void main() {
       expect(flags.isOtc, isFalse);
     });
 
-  test('detects restricted and surveillance indicators', () {
-    const raw =
-        'Prescription hospitaliere reservee aux specialistes avec carnet de suivi';
-    final flags = BdpmFileParser.parseRegulatoryFlags(raw);
-    expect(flags.isRestricted, isTrue);
-    expect(flags.isSurveillance, isTrue);
-    expect(flags.isOtc, isFalse);
-  });
+    test('detects restricted and surveillance indicators', () {
+      const raw =
+          'Prescription hospitaliere reservee aux specialistes avec carnet de suivi';
+      final flags = BdpmFileParser.parseRegulatoryFlags(raw);
+      expect(flags.isRestricted, isTrue);
+      expect(flags.isSurveillance, isTrue);
+      expect(flags.isOtc, isFalse);
+    });
   });
 }

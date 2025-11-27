@@ -1,5 +1,6 @@
 // lib/core/widgets/ui_kit/product_card.dart
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:gap/gap.dart';
 import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/utils/app_animations.dart';
@@ -9,7 +10,7 @@ import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/utils/medicament_helpers.dart';
 import 'package:pharma_scan/core/widgets/accessible_touch.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/info_label.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
+import 'package:forui/forui.dart';
 
 /// WHY: Universal ProductCard that handles all product display states.
 /// Replaces MedicamentCard, InfoBubble variants, and StandaloneSearchResult.
@@ -62,118 +63,124 @@ class ProductCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = ShadTheme.of(context);
     final displayTitle = title ?? getDisplayTitle(summary);
     final displaySubtitle = subtitle ?? _buildDefaultSubtitle();
-    final availabilityAlert = _buildAvailabilityAlert(theme);
-    final statusIcons = _buildStatusIcons(theme);
-    final exactMatchBanner = _buildExactMatchBanner(theme);
-    final regulatoryBadges = _buildRegulatoryBadges(theme);
+    final availabilityAlert = _buildAvailabilityAlert(context);
+    final statusIcons = _buildStatusIcons(context);
+    final exactMatchBanner = _buildExactMatchBanner(context);
+    final regulatoryBadges = _buildRegulatoryBadges(context);
     final computedBadges = [...badges];
     final shouldHighlightPrinceps =
         summary.groupId != null &&
         !summary.isPrinceps &&
         summary.princepsDeReference.isNotEmpty;
     final princepsReference = shouldHighlightPrinceps
-        ? _buildPrincepsReference(theme)
+        ? _buildPrincepsReference(context)
         : null;
 
-    final card = ShadCard(
-      padding: EdgeInsets.all(
-        compact ? AppDimens.spacingSm : AppDimens.spacingMd,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (exactMatchBanner != null) ...[
-            exactMatchBanner,
-            Gap(compact ? AppDimens.spacing2xs : AppDimens.spacingSm),
-          ],
-          if (availabilityAlert != null) ...[
-            availabilityAlert,
-            Gap(compact ? AppDimens.spacing2xs : AppDimens.spacingSm),
-          ],
-          // Title row with badges and status icons
-          Row(
-            children: [
-              if (computedBadges.isNotEmpty) ...[
-                ...computedBadges.map(
-                  (badge) => Padding(
-                    padding: const EdgeInsets.only(right: AppDimens.spacingXs),
-                    child: badge,
+    final card = FCard.raw(
+      child: Padding(
+        padding: EdgeInsets.all(
+          compact ? AppDimens.spacingSm : AppDimens.spacingMd,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (exactMatchBanner != null) ...[
+              exactMatchBanner,
+              Gap(compact ? AppDimens.spacing2xs : AppDimens.spacingSm),
+            ],
+            if (availabilityAlert != null) ...[
+              availabilityAlert,
+              Gap(compact ? AppDimens.spacing2xs : AppDimens.spacingSm),
+            ],
+            // Title row with badges and status icons
+            Row(
+              children: [
+                if (computedBadges.isNotEmpty) ...[
+                  ...computedBadges.map(
+                    (badge) => Padding(
+                      padding: const EdgeInsets.only(
+                        right: AppDimens.spacingXs,
+                      ),
+                      child: badge,
+                    ),
+                  ),
+                  const Gap(AppDimens.spacingXs),
+                ],
+                Expanded(
+                  child: Text(
+                    displayTitle,
+                    style: context.theme.typography.xl2, // h4 equivalent
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 2,
                   ),
                 ),
-                const Gap(AppDimens.spacingXs),
+                if (statusIcons is! SizedBox) ...[
+                  const Gap(AppDimens.spacingXs),
+                  statusIcons,
+                ],
+                if (trailing != null) ...[
+                  const Gap(AppDimens.spacingXs),
+                  trailing!,
+                ],
               ],
-              Expanded(
-                child: Text(
-                  displayTitle,
-                  style: theme.textTheme.h4,
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 2,
-                ),
-              ),
-              if (statusIcons is! SizedBox) ...[
-                const Gap(AppDimens.spacingXs),
-                statusIcons,
-              ],
-              if (trailing != null) ...[
-                const Gap(AppDimens.spacingXs),
-                trailing!,
-              ],
+            ),
+            if (princepsReference != null) ...[
+              Gap(compact ? AppDimens.spacing2xs : AppDimens.spacingXs),
+              princepsReference,
             ],
-          ),
-          if (princepsReference != null) ...[
-            Gap(compact ? AppDimens.spacing2xs : AppDimens.spacingXs),
-            princepsReference,
-          ],
-          // Subtitle
-          if (displaySubtitle.isNotEmpty) ...[
-            Gap(compact ? AppDimens.spacing2xs : AppDimens.spacingXs),
-            ...displaySubtitle.map(
-              (line) => Padding(
-                padding: EdgeInsets.only(
-                  bottom: compact
-                      ? AppDimens.spacing2xs
-                      : AppDimens.spacingXs / 2,
-                ),
-                child: Text(
-                  line,
-                  style: theme.textTheme.muted,
-                  overflow: TextOverflow.ellipsis,
+            // Subtitle
+            if (displaySubtitle.isNotEmpty) ...[
+              Gap(compact ? AppDimens.spacing2xs : AppDimens.spacingXs),
+              ...displaySubtitle.map(
+                (line) => Padding(
+                  padding: EdgeInsets.only(
+                    bottom: compact
+                        ? AppDimens.spacing2xs
+                        : AppDimens.spacingXs / 2,
+                  ),
+                  child: Text(
+                    line,
+                    style: context.theme.typography.sm.copyWith(
+                      color: context.theme.colors.mutedForeground,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ),
-            ),
+            ],
+            if (regulatoryBadges.isNotEmpty) ...[
+              Gap(compact ? AppDimens.spacing2xs : AppDimens.spacingXs),
+              Wrap(
+                spacing: AppDimens.spacing2xs,
+                runSpacing: AppDimens.spacing2xs / 2,
+                children: regulatoryBadges,
+              ),
+            ],
+            // Details section
+            if (showDetails) ...[
+              Gap(compact ? AppDimens.spacing2xs : AppDimens.spacingSm),
+              ..._buildDetails(context),
+            ],
+            // Actions
+            if (showActions) ...[
+              Gap(compact ? AppDimens.spacing2xs : AppDimens.spacingMd),
+              _buildActions(context),
+            ],
           ],
-          if (regulatoryBadges.isNotEmpty) ...[
-            Gap(compact ? AppDimens.spacing2xs : AppDimens.spacingXs),
-            Wrap(
-              spacing: AppDimens.spacing2xs,
-              runSpacing: AppDimens.spacing2xs / 2,
-              children: regulatoryBadges,
-            ),
-          ],
-          // Details section
-          if (showDetails) ...[
-            Gap(compact ? AppDimens.spacing2xs : AppDimens.spacingSm),
-            ..._buildDetails(theme),
-          ],
-          // Actions
-          if (showActions) ...[
-            Gap(compact ? AppDimens.spacing2xs : AppDimens.spacingMd),
-            _buildActions(theme),
-          ],
-        ],
+        ),
       ),
     );
 
+    final primaryColor = context.theme.colors.primary;
     final wrappedCard = onTap != null
         ? AccessibleTouch(
             label: _buildSemanticsLabel(),
             onTap: onTap,
             borderRadius: BorderRadius.circular(AppDimens.radiusMd),
-            splashColor: theme.colorScheme.primary.withValues(alpha: 0.08),
-            highlightColor: theme.colorScheme.primary.withValues(alpha: 0.04),
+            splashColor: primaryColor.withValues(alpha: 0.08),
+            highlightColor: primaryColor.withValues(alpha: 0.04),
             child: card,
           )
         : card;
@@ -183,15 +190,18 @@ class ProductCard extends StatelessWidget {
         : wrappedCard;
   }
 
-  List<Widget> _buildDetails(ShadThemeData theme) {
+  List<Widget> _buildDetails(BuildContext context) {
+    final mutedStyle = context.theme.typography.sm.copyWith(
+      color: context.theme.colors.mutedForeground,
+    );
     final widgets = <Widget>[];
 
     if (summary.titulaire != null && summary.titulaire!.isNotEmpty) {
       widgets.add(
         InfoLabel(
           text: summary.titulaire!,
-          icon: LucideIcons.building2,
-          style: theme.textTheme.muted,
+          icon: FIcons.building2,
+          style: mutedStyle,
         ),
       );
       widgets.add(const Gap(AppDimens.spacingXs));
@@ -200,8 +210,8 @@ class ProductCard extends StatelessWidget {
     widgets.add(
       InfoLabel(
         text: '${Strings.cip} $cip',
-        icon: LucideIcons.barcode,
-        style: theme.textTheme.muted,
+        icon: FIcons.barcode,
+        style: mutedStyle,
       ),
     );
 
@@ -213,8 +223,8 @@ class ProductCard extends StatelessWidget {
       widgets.add(
         InfoLabel(
           text: summary.principesActifsCommuns.join(', '),
-          icon: LucideIcons.flaskConical,
-          style: theme.textTheme.muted,
+          icon: FIcons.flaskConical,
+          style: mutedStyle,
         ),
       );
     }
@@ -222,15 +232,7 @@ class ProductCard extends StatelessWidget {
     return widgets;
   }
 
-  Widget _buildActions(ShadThemeData theme) {
-    final buttonHeight = compact ? 32.0 : null;
-    final horizontalPadding = compact
-        ? AppDimens.spacingSm
-        : AppDimens.spacingMd;
-    final verticalPadding = compact
-        ? AppDimens.spacing2xs
-        : AppDimens.spacingXs;
-
+  Widget _buildActions(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
@@ -238,14 +240,10 @@ class ProductCard extends StatelessWidget {
           Semantics(
             button: true,
             label: Strings.exploreMedicationGroup,
-            child: ShadButton.outline(
-              onPressed: onExplore,
-              height: buttonHeight,
-              padding: EdgeInsets.symmetric(
-                horizontal: horizontalPadding,
-                vertical: verticalPadding,
-              ),
-              leading: const Icon(LucideIcons.search, size: 16),
+            child: FButton(
+              style: FButtonStyle.outline(),
+              onPress: onExplore,
+              prefix: const Icon(FIcons.search, size: 16),
               child: const Text(Strings.exploreGroup),
             ),
           ),
@@ -255,13 +253,9 @@ class ProductCard extends StatelessWidget {
           Semantics(
             button: true,
             label: Strings.closeMedicationCard,
-            child: ShadButton.ghost(
-              onPressed: onClose,
-              height: buttonHeight,
-              padding: EdgeInsets.symmetric(
-                horizontal: horizontalPadding,
-                vertical: verticalPadding,
-              ),
+            child: FButton(
+              style: FButtonStyle.ghost(),
+              onPress: onClose,
               child: const Text(Strings.close),
             ),
           ),
@@ -326,36 +320,32 @@ class ProductCard extends StatelessWidget {
     return buffer.toString();
   }
 
-  Widget? _buildAvailabilityAlert(ShadThemeData theme) {
+  Widget? _buildAvailabilityAlert(BuildContext context) {
     if (availabilityStatus == null || availabilityStatus!.isEmpty) {
       return null;
     }
-    return ShadAlert.destructive(
+    return FAlert(
+      style: FAlertStyle.destructive(),
       title: Text(
         Strings.stockAlert(availabilityStatus!.trim()),
-        style: theme.textTheme.small.copyWith(
-          color: theme.colorScheme.destructiveForeground,
-          fontWeight: FontWeight.bold,
-        ),
+        style: context.theme.typography.sm,
       ),
     );
   }
 
   // WHY: Build status icons with tooltips instead of text badges to save vertical space
   // Icons are more compact and provide the same information via tooltips
-  Widget _buildStatusIcons(ShadThemeData theme) {
+  Widget _buildStatusIcons(BuildContext context) {
+    final primaryColor = context.theme.colors.primary;
+    final destructiveColor = context.theme.colors.destructive;
     final icons = <Widget>[];
 
     // Hospital icon
     if (isHospitalOnly) {
       icons.add(
-        ShadTooltip(
-          builder: (context) => const Text(Strings.hospitalTooltip),
-          child: Icon(
-            LucideIcons.building2,
-            size: 16,
-            color: theme.colorScheme.primary,
-          ),
+        Tooltip(
+          message: Strings.hospitalTooltip,
+          child: Icon(FIcons.building2, size: 16, color: primaryColor),
         ),
       );
     }
@@ -363,13 +353,9 @@ class ProductCard extends StatelessWidget {
     // Shortage/Tension icon
     if (availabilityStatus != null && availabilityStatus!.isNotEmpty) {
       icons.add(
-        ShadTooltip(
-          builder: (context) => Text(availabilityStatus!),
-          child: Icon(
-            LucideIcons.triangleAlert,
-            size: 16,
-            color: theme.colorScheme.destructive,
-          ),
+        Tooltip(
+          message: availabilityStatus!,
+          child: Icon(FIcons.triangleAlert, size: 16, color: destructiveColor),
         ),
       );
     }
@@ -381,13 +367,9 @@ class ProductCard extends StatelessWidget {
           normalized.contains('arret') || normalized.contains('abroge');
       if (isStopped) {
         icons.add(
-          ShadTooltip(
-            builder: (context) => const Text(Strings.stoppedTooltip),
-            child: Icon(
-              LucideIcons.ban,
-              size: 16,
-              color: theme.colorScheme.destructive,
-            ),
+          Tooltip(
+            message: Strings.stoppedTooltip,
+            child: Icon(FIcons.ban, size: 16, color: destructiveColor),
           ),
         );
       }
@@ -428,36 +410,35 @@ class ProductCard extends StatelessWidget {
         .replaceAll('�', 'e');
   }
 
-  Widget _buildPrincepsReference(ShadThemeData theme) {
+  Widget _buildPrincepsReference(BuildContext context) {
+    final mutedColor = context.theme.colors.muted;
+    final princepsColor = context.theme.colors.secondaryForeground;
+    final radiusSm = 8.0; // Standard small radius
     return Container(
       padding: EdgeInsets.all(
         compact ? AppDimens.spacingXs : AppDimens.spacingSm,
       ),
       decoration: BoxDecoration(
-        color: theme.colorScheme.muted,
-        borderRadius: BorderRadius.circular(AppDimens.radiusSm),
+        color: mutedColor,
+        borderRadius: BorderRadius.circular(radiusSm),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.max,
         children: [
           Icon(
-            LucideIcons.arrowRightLeft,
+            FIcons.arrowRightLeft,
             size: AppDimens.iconSm,
-            color: theme.colorScheme.princeps,
+            color: princepsColor,
           ),
           const Gap(AppDimens.spacingXs),
           Expanded(
             child: Text(
               '${Strings.equivalentTo}${extractPrincepsLabel(summary.princepsDeReference)}',
-              style: compact
-                  ? theme.textTheme.small.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: theme.colorScheme.princeps,
-                    )
-                  : theme.textTheme.p.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: theme.colorScheme.princeps,
-                    ),
+              style:
+                  (compact
+                          ? context.theme.typography.sm
+                          : context.theme.typography.base)
+                      .copyWith(color: princepsColor),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -466,34 +447,36 @@ class ProductCard extends StatelessWidget {
     );
   }
 
-  Widget? _buildExactMatchBanner(ShadThemeData theme) {
+  Widget? _buildExactMatchBanner(BuildContext context) {
     if (exactMatchLabel == null || exactMatchLabel!.isEmpty) {
       return null;
     }
+    final mutedColor = context.theme.colors.muted;
+    final mutedForeground = context.theme.colors.mutedForeground;
+    final radiusSm = 8.0; // Standard small radius
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: AppDimens.spacingSm,
         vertical: AppDimens.spacingXs,
       ),
       decoration: BoxDecoration(
-        color: theme.colorScheme.muted,
-        borderRadius: BorderRadius.circular(AppDimens.radiusSm),
+        color: mutedColor,
+        borderRadius: BorderRadius.circular(radiusSm),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.max,
         children: [
           Icon(
-            LucideIcons.scanBarcode,
+            FIcons.scanBarcode,
             size: AppDimens.iconSm,
-            color: theme.colorScheme.mutedForeground,
+            color: mutedForeground,
           ),
           const Gap(AppDimens.spacingXs),
           Expanded(
             child: Text(
               exactMatchLabel!,
-              style: theme.textTheme.small.copyWith(
-                fontWeight: FontWeight.w600,
-                color: theme.colorScheme.mutedForeground,
+              style: context.theme.typography.sm.copyWith(
+                color: mutedForeground,
               ),
               overflow: TextOverflow.ellipsis,
               maxLines: 2,
@@ -504,19 +487,17 @@ class ProductCard extends StatelessWidget {
     );
   }
 
-  List<Widget> _buildRegulatoryBadges(ShadThemeData theme) {
+  List<Widget> _buildRegulatoryBadges(BuildContext context) {
     final badges = <Widget>[];
     void addBadge(Widget badge) => badges.add(badge);
 
     if (summary.isNarcotic) {
       addBadge(
-        ShadBadge.destructive(
+        FBadge(
+          style: FBadgeStyle.destructive(),
           child: Text(
             Strings.badgeNarcotic,
-            style: theme.textTheme.small.copyWith(
-              color: theme.colorScheme.destructiveForeground,
-              fontWeight: FontWeight.w700,
-            ),
+            style: context.theme.typography.sm,
           ),
         ),
       );
@@ -524,12 +505,16 @@ class ProductCard extends StatelessWidget {
 
     if (summary.isList1) {
       addBadge(
-        ShadBadge.outline(
+        Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: AppColors.regulatoryRed),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           child: Text(
             Strings.badgeList1,
-            style: theme.textTheme.small.copyWith(
+            style: context.theme.typography.sm.copyWith(
               color: AppColors.regulatoryRed,
-              fontWeight: FontWeight.w600,
             ),
           ),
         ),
@@ -538,12 +523,16 @@ class ProductCard extends StatelessWidget {
 
     if (summary.isList2) {
       addBadge(
-        ShadBadge.outline(
+        Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: AppColors.regulatoryGreen),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           child: Text(
             Strings.badgeList2,
-            style: theme.textTheme.small.copyWith(
+            style: context.theme.typography.sm.copyWith(
               color: AppColors.regulatoryGreen,
-              fontWeight: FontWeight.w600,
             ),
           ),
         ),
@@ -552,14 +541,15 @@ class ProductCard extends StatelessWidget {
 
     if (summary.isException) {
       addBadge(
-        ShadBadge.secondary(
-          backgroundColor: AppColors.regulatoryPurple,
+        Container(
+          decoration: BoxDecoration(
+            color: AppColors.regulatoryPurple,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           child: Text(
             Strings.badgeException,
-            style: theme.textTheme.small.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
-            ),
+            style: context.theme.typography.sm.copyWith(color: Colors.white),
           ),
         ),
       );
@@ -567,12 +557,16 @@ class ProductCard extends StatelessWidget {
 
     if (summary.isRestricted) {
       addBadge(
-        ShadBadge.outline(
+        Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: AppColors.regulatoryAmber),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           child: Text(
             Strings.badgeRestricted,
-            style: theme.textTheme.small.copyWith(
+            style: context.theme.typography.sm.copyWith(
               color: AppColors.regulatoryAmber,
-              fontWeight: FontWeight.w600,
             ),
           ),
         ),
@@ -581,28 +575,34 @@ class ProductCard extends StatelessWidget {
 
     if (summary.isHospitalOnly) {
       addBadge(
-        ShadBadge.secondary(
-          backgroundColor: AppColors.regulatoryGray,
+        Container(
+          decoration: BoxDecoration(
+            color: AppColors.regulatoryGray,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           child: Text(
             Strings.hospitalBadge,
-            style: theme.textTheme.small.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
-            ),
+            style: context.theme.typography.sm.copyWith(color: Colors.white),
           ),
         ),
       );
     }
 
     if (summary.isDental) {
+      final secondaryColor = context.theme.colors.secondary;
+      final secondaryForeground = context.theme.colors.secondaryForeground;
       addBadge(
-        ShadBadge.secondary(
-          backgroundColor: theme.colorScheme.secondary,
+        Container(
+          decoration: BoxDecoration(
+            color: secondaryColor,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           child: Text(
             Strings.badgeDental,
-            style: theme.textTheme.small.copyWith(
-              color: theme.colorScheme.secondaryForeground,
-              fontWeight: FontWeight.w600,
+            style: context.theme.typography.sm.copyWith(
+              color: secondaryForeground,
             ),
           ),
         ),
@@ -611,14 +611,15 @@ class ProductCard extends StatelessWidget {
 
     if (summary.isSurveillance) {
       addBadge(
-        ShadBadge.secondary(
-          backgroundColor: AppColors.regulatoryYellow,
+        Container(
+          decoration: BoxDecoration(
+            color: AppColors.regulatoryYellow,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           child: Text(
             Strings.badgeSurveillance,
-            style: theme.textTheme.small.copyWith(
-              color: Colors.black,
-              fontWeight: FontWeight.w600,
-            ),
+            style: context.theme.typography.sm.copyWith(color: Colors.black),
           ),
         ),
       );
@@ -626,13 +627,16 @@ class ProductCard extends StatelessWidget {
 
     if (summary.isOtc) {
       addBadge(
-        ShadBadge(
-          backgroundColor: AppColors.regulatoryGreen.withValues(alpha: 0.15),
+        Container(
+          decoration: BoxDecoration(
+            color: AppColors.regulatoryGreen.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           child: Text(
             Strings.badgeOtc,
-            style: theme.textTheme.small.copyWith(
+            style: context.theme.typography.sm.copyWith(
               color: AppColors.regulatoryGreen,
-              fontWeight: FontWeight.w600,
             ),
           ),
         ),

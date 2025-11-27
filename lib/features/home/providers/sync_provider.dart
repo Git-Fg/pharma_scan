@@ -260,7 +260,7 @@ class SyncController extends _$SyncController {
       final clock = ref.read(clockProvider);
       final db = ref.read(appDatabaseProvider);
       await db.settingsDao.updateSyncTimestamp(clock().millisecondsSinceEpoch);
-      _scheduleReset();
+      unawaited(_scheduleReset());
     }
   }
 

@@ -20,7 +20,7 @@ class AppAnimations {
 
   /// Standard card entrance animation.
   /// Used for general card widgets entering the screen.
-  static const List<Effect> cardEnter = [
+  static const List<Effect<void>> cardEnter = [
     FadeEffect(duration: standardDuration, curve: standardCurve),
     SlideEffect(
       begin: Offset(0, -0.1),
@@ -32,7 +32,7 @@ class AppAnimations {
 
   /// Info bubble entrance animation.
   /// Used for scan result info bubbles (generic and princeps).
-  static const List<Effect> bubbleEnter = [
+  static const List<Effect<void>> bubbleEnter = [
     FadeEffect(duration: standardDuration, curve: standardCurve),
     SlideEffect(
       begin: Offset(0, -0.2),
@@ -44,7 +44,7 @@ class AppAnimations {
 
   /// Banner/snackbar entrance animation.
   /// Used for status banners and notification cards.
-  static const List<Effect> bannerEnter = [
+  static const List<Effect<void>> bannerEnter = [
     FadeEffect(duration: Duration(milliseconds: 250), curve: standardCurve),
     SlideEffect(
       begin: Offset(0, -0.1),
@@ -56,7 +56,7 @@ class AppAnimations {
 
   /// List item entrance animation (for use with staggered lists).
   /// Apply this effect to individual list items with an interval.
-  static const List<Effect> listItemEnter = [
+  static const List<Effect<void>> listItemEnter = [
     FadeEffect(duration: fastDuration, curve: standardCurve),
     SlideEffect(
       begin: Offset(0, 0.05),
@@ -73,7 +73,7 @@ class AppAnimations {
   /// in both light and dark themes. Pass a color derived from the theme:
   /// - Light mode: `theme.colorScheme.foreground.withOpacity(0.1)`
   /// - Dark mode: `theme.colorScheme.foreground.withOpacity(0.2)`
-  static List<Effect> getSkeletonShimmer(Color shimmerColor) => [
+  static List<Effect<void>> getSkeletonShimmer(Color shimmerColor) => [
     const FadeEffect(
       duration: Duration(milliseconds: 180),
       curve: standardCurve,
@@ -91,13 +91,13 @@ class AppAnimations {
   ];
 
   /// Simple fade-in animation for subtle entrances.
-  static const List<Effect> fadeIn = [
+  static const List<Effect<void>> fadeIn = [
     FadeEffect(duration: slowDuration, curve: standardCurve),
   ];
 
   /// Button/control panel entrance animation.
   /// Used for control panels that slide up from bottom.
-  static const List<Effect> controlPanelEnter = [
+  static const List<Effect<void>> controlPanelEnter = [
     FadeEffect(duration: mediumDuration, curve: standardCurve),
     SlideEffect(
       begin: Offset(0, 0.5),

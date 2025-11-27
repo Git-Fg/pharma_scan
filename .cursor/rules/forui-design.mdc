@@ -1,0 +1,745 @@
+---
+description: Standards for UI development using Forui directly. Best practices 2025.
+globs: lib/**/*.dart
+alwaysApply: false
+---
+
+# Forui Design System (Direct Integration - 2025 Best Practices)
+
+**Context:** You use the `forui` library directly. **Do NOT create generic wrapper widgets** (e.g., `AppButton`, `BaseCard`). Follow the 2025 standard patterns for optimal performance and maintainability.
+
+## 1. Core Directives
+
+* **Direct Imports:** Import `package:forui/forui.dart` in feature files.
+* **No Wrappers:** Use `FButton`, `FCard`, `FScaffold` directly in your widget trees.
+* **Theme Access:** Use `context.theme` to access colors, typography, and styles.
+* **Material Compatibility:** Use `toApproximateMaterialTheme()` for Material widgets integration.
+
+## 2. Application Setup (main.dart)
+
+**CRITICAL:** Follow this exact pattern for root application setup:
+
+```dart
+import 'package:forui/forui.dart';
+import 'package:pharma_scan/theme/theme.dart'; // Generated theme
+
+class PharmaScanApp extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final foruiTheme = greenLight; // or greenDark for dark mode
+    
+    return MaterialApp.router(
+      // Material theme for Material widgets compatibility
+      theme: foruiTheme.toApproximateMaterialTheme(),
+      darkTheme: greenDark.toApproximateMaterialTheme(), // if dark mode supported
+      
+      // Forui localizations (REQUIRED)
+      supportedLocales: FLocalizations.supportedLocales,
+      localizationsDelegates: const [...FLocalizations.localizationsDelegates],
+      
+      // FAnimatedTheme MUST be in builder, not directly in MaterialApp
+      builder: (context, child) => FAnimatedTheme(
+        data: foruiTheme,
+        child: child!,
+      ),
+      
+      routerConfig: goRouter,
+    );
+  }
+}
+```
+
+**Key Points:**
+
+* `FAnimatedTheme` must be in the `builder` callback, not as a direct child
+* Always include `FLocalizations` for proper widget localization
+* Use `toApproximateMaterialTheme()` for Material widget compatibility
+* Theme is animated by default (smooth transitions)
+
+## 3. Scaffold Pattern
+
+**Use `FScaffold` instead of Material `Scaffold`:**
+
+```dart
+FScaffold(
+  header: FHeader(
+    title: const Text('Page Title'),
+    suffixes: [
+      FHeaderAction(
+        icon: const Icon(FIcons.settings),
+        onPress: () {},
+      ),
+    ],
+  ),
+  child: YourContent(),
+  footer: FBottomNavigationBar(
+    index: currentIndex,
+    onChange: (index) => onTabChanged(index),
+    children: [
+      FBottomNavigationBarItem(
+        icon: const Icon(FIcons.house),
+        label: const Text('Home'),
+      ),
+      // ... more items
+    ],
+  ),
+)
+```
+
+**Nested Navigation:**
+
+```dart
+FScaffold(
+  header: FHeader.nested(
+    title: const Text('Detail View'),
+    prefixes: [
+      FHeaderAction.back(onPress: () => context.pop()),
+    ],
+    suffixes: [
+      FHeaderAction(
+        icon: const Icon(FIcons.info),
+        onPress: () {},
+      ),
+    ],
+  ),
+  child: YourContent(),
+)
+```
+
+**Important:** `FScaffold` automatically provides `FToaster` context for `showFToast`.
+
+## 4. Toast Notifications
+
+**Pattern:** Use `showFToast` (automatically works with `FScaffold`):
+
+```dart
+// ✅ Success Toast
+showFToast(
+  context: context,
+  title: const Text('Success'),
+  description: const Text('Operation completed'),
+  icon: const Icon(FIcons.check),
+);
+
+// ✅ Error Toast
+showFToast(
+  context: context,
+  title: const Text('Error'),
+  description: const Text('Operation failed'),
+  icon: const Icon(FIcons.triangleAlert),
+);
+
+// ✅ Toast with custom suffix button
+showFToast(
+  context: context,
+  title: const Text('Download Complete'),
+  description: const Text('Your file has been downloaded.'),
+  suffixBuilder: (context, entry) => FButton.icon(
+    onPress: () => entry.dismiss(),
+    child: const Icon(FIcons.x),
+  ),
+);
+```
+
+**Key Points:**
+
+* `showFToast` requires `FScaffold` context (provided automatically)
+* Use `FIcons` for icons (from `forui_assets`)
+* `suffixBuilder` receives `(context, entry)` - use `entry.dismiss()` to close
+
+## 5. Dialog Pattern
+
+**Pattern:** Use `showFDialog` with `FDialog` widget:
+
+```dart
+showFDialog(
+  context: context,
+  builder: (context, style, animation) => FDialog(
+    style: style,
+    animation: animation,
+    title: const Text('Confirm Action'),
+    body: const Text('This action cannot be undone.'),
+    actions: [
+      FButton(
+        style: FButtonStyle.outline(),
+        onPress: () => Navigator.of(context).pop(),
+        child: const Text('Cancel'),
+      ),
+      FButton(
+        style: FButtonStyle.destructive(),
+        onPress: () {
+          // Perform action
+          Navigator.of(context).pop();
+        },
+        child: const Text('Confirm'),
+      ),
+    ],
+  ),
+);
+```
+
+**Key Points:**
+
+* Builder receives `(context, style, animation)` - pass `style` and `animation` to `FDialog`
+* `actions` is required (use empty list `[]` if no actions)
+* Use `Navigator.of(context).pop()` to close
+
+## 6. Sheet Pattern (Mobile/Desktop Adaptive)
+
+**Pattern:** Use `showFSheet` for bottom sheets (mobile) or side sheets (desktop):
+
+```dart
+// Mobile: Bottom Sheet
+showFSheet(
+  context: context,
+  side: FLayout.btt, // Bottom to Top
+  barrierDismissible: true,
+  draggable: true,
+  builder: (context) => Padding(
+    padding: const EdgeInsets.all(16),
+    child: YourContent(),
+  ),
+);
+
+// Desktop: Side Sheet
+showFSheet(
+  context: context,
+  side: FLayout.ltr, // Left to Right
+  builder: (context) => YourContent(),
+);
+```
+
+**Key Points:**
+
+* `FLayout.btt` for mobile bottom sheets
+* `FLayout.ltr` or `FLayout.rtl` for desktop side sheets
+* `draggable: true` enables swipe-to-dismiss on mobile
+
+## 7. Controller Pattern (Hooks)
+
+**Mandate:** Always use `forui_hooks` for component controllers.
+
+```dart
+import 'package:forui_hooks/forui_hooks.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
+
+// ✅ Accordion Controller
+class MyWidget extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    final controller = useFAccordionController();
+    return FAccordion(
+      controller: controller,
+      children: [
+        FAccordionItem(
+          title: const Text('Section 1'),
+          child: const Text('Content'),
+        ),
+      ],
+    );
+  }
+}
+
+// ✅ Select Group Controller (Radio)
+class SettingsWidget extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    final controller = useFSelectGroupController.radio();
+    return FSelectGroup(
+      controller: controller,
+      children: [
+        FRadio.grouped(
+          value: 'option1',
+          label: const Text('Option 1'),
+        ),
+      ],
+    );
+  }
+}
+
+// ✅ Select Controller (Dropdown)
+class MySelectWidget extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    final controller = useFSelectController<String>();
+    return FSelect(
+      controller: controller,
+      items: {
+        'Option 1': 'value1',
+        'Option 2': 'value2',
+      },
+      // ... other properties
+    );
+  }
+}
+```
+
+**Available Hooks:**
+
+* `useFAccordionController()` - For `FAccordion`
+* `useFSelectGroupController.radio()` - For `FSelectGroup` with radio buttons
+* `useFSelectController<T>()` - For `FSelect` dropdowns
+* `useFPopoverController()` - For `FPopover`
+* `useFTabController()` - For `FTabs`
+* `useFPaginationController()` - For `FPagination`
+
+## 8. Text Replacement Pattern
+
+Replace `BaseText` with standard Flutter `Text` widget using theme typography:
+
+```dart
+// ❌ Old (Wrapper)
+BaseText('Title', variant: TextVariant.h1)
+
+// ✅ New (Direct)
+Text('Title', style: context.theme.typography.h1)
+
+// For muted text:
+Text('Description', style: context.theme.typography.sm.copyWith(
+  color: context.theme.colors.mutedForeground,
+))
+```
+
+**Typography Mapping:**
+
+* `h1` → `context.theme.typography.h1`
+* `h2` → `context.theme.typography.h2`
+* `h3` → `context.theme.typography.h3`
+* `h4` → `context.theme.typography.h4` or `xl2`
+* `body` → `context.theme.typography.base` or `p`
+* `small` → `context.theme.typography.sm`
+* `muted` → `context.theme.typography.sm.copyWith(color: context.theme.colors.mutedForeground)`
+
+## 9. Button Replacement Pattern
+
+```dart
+// ❌ Old (Wrapper)
+BaseButton(
+  label: 'Click',
+  variant: ButtonVariant.outline,
+  onPressed: () {},
+)
+
+// ✅ New (Direct)
+FButton(
+  style: FButtonStyle.outline(),
+  onPress: () {},
+  child: const Text('Click'),
+)
+
+// With icon
+FButton.icon(
+  style: FButtonStyle.ghost(),
+  onPress: () {},
+  child: const Icon(FIcons.settings),
+)
+```
+
+**Variant Mapping:**
+
+* `primary` → Default `FButton(...)` or `FButtonStyle.primary()`
+* `secondary` → `style: FButtonStyle.secondary()`
+* `outline` → `style: FButtonStyle.outline()`
+* `ghost` → `style: FButtonStyle.ghost()`
+* `destructive` → `style: FButtonStyle.destructive()`
+
+## 10. Card Replacement Pattern
+
+```dart
+// ❌ Old (Wrapper)
+BaseCard(
+  padding: EdgeInsets.all(16),
+  child: ...,
+)
+
+// ✅ New (Direct) - For generic containers
+FCard.raw(
+  child: Padding(
+    padding: const EdgeInsets.all(16),
+    child: ...,
+  ),
+)
+
+// ✅ New (Direct) - For cards with title/subtitle
+FCard(
+  title: const Text('Title'),
+  subtitle: const Text('Subtitle'),
+  child: ...,
+)
+
+// ✅ Custom styling
+final customStyle = context.theme.cardStyle.copyWith(
+  decoration: BoxDecoration(
+    color: context.theme.colors.secondary.withValues(alpha: 0.08),
+    border: Border.all(
+      color: context.theme.colors.secondary.withValues(alpha: 0.2),
+      width: 1.2,
+    ),
+  ),
+);
+FCard.raw(
+  style: customStyle,
+  child: ...,
+)
+```
+
+## 11. Badge Replacement Pattern
+
+```dart
+// ❌ Old (Wrapper)
+BaseBadge(
+  label: 'Status',
+  variant: BadgeVariant.outline,
+)
+
+// ✅ New (Direct)
+FBadge(
+  style: FBadgeStyle.outline(),
+  child: const Text('Status'),
+)
+
+// Custom colored badge
+FBadge(
+  style: FBadgeStyle.primary().copyWith(
+    color: context.theme.colors.primary,
+    labelTextStyle: (state) => context.theme.typography.sm.copyWith(
+      color: context.theme.colors.primaryForeground,
+    ),
+  ),
+  child: const Text('Custom'),
+)
+```
+
+**Badge Styles:**
+
+* `FBadgeStyle.primary()` - Default filled badge
+* `FBadgeStyle.secondary()` - Secondary color
+* `FBadgeStyle.outline()` - Outlined badge
+* `FBadgeStyle.destructive()` - Error/destructive badge
+
+## 12. Input Field Pattern
+
+```dart
+// ✅ Standard Text Field
+FTextField(
+  label: const Text('Email'),
+  hint: 'Enter your email',
+  controller: emailController,
+  keyboardType: TextInputType.emailAddress,
+  prefixBuilder: (context, style, states) => const Icon(FIcons.mail),
+  suffixBuilder: (context, style, states) => const Icon(FIcons.x),
+)
+
+// ✅ Form Field (with validation)
+FTextFormField(
+  controller: passwordController,
+  label: const Text('Password'),
+  hint: 'Enter password',
+  validator: (value) => value?.isEmpty ?? true ? 'Required' : null,
+  autovalidateMode: AutovalidateMode.onUserInteraction,
+)
+
+// ✅ Email Field (convenience constructor)
+FTextFormField.email(
+  controller: emailController,
+  hint: 'john@doe.com',
+  validator: (value) => value?.contains('@') ?? false ? null : 'Invalid email',
+)
+
+// ✅ Password Field (convenience constructor)
+FTextFormField.password(
+  controller: passwordController,
+  obscureTextController: ValueNotifier(false), // For show/hide toggle
+)
+```
+
+**Key Points:**
+
+* Use `FTextField` for non-form inputs
+* Use `FTextFormField` inside `Form` widgets
+* `prefixBuilder` and `suffixBuilder` receive `(context, style, states)`
+* Convenience constructors: `.email()`, `.password()`, `.multiline()`
+
+## 13. Select/Dropdown Pattern
+
+```dart
+// ✅ Select with Controller (HookWidget)
+class MySelectWidget extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    final controller = useFSelectController<String>();
+    return FSelect(
+      controller: controller,
+      items: {
+        'Option 1': 'value1',
+        'Option 2': 'value2',
+      },
+      hint: 'Choose an option',
+      onChange: (value) => print('Selected: $value'),
+    );
+  }
+}
+
+// ✅ Select.rich for custom item rendering
+FSelect.rich(
+  controller: controller,
+  items: {
+    'Option 1': 'value1',
+    'Option 2': 'value2',
+  },
+  format: (value) => Text(value.toUpperCase()),
+)
+```
+
+## 14. Alert Pattern
+
+```dart
+// ✅ Destructive Alert
+FAlert(
+  style: FAlertStyle.destructive(),
+  icon: const Icon(FIcons.triangleAlert),
+  title: const Text('Error'),
+  subtitle: const Text('Something went wrong.'),
+)
+
+// ✅ Default Alert
+FAlert(
+  title: const Text('Information'),
+  subtitle: const Text('This is important information.'),
+)
+```
+
+## 15. Progress Indicator Pattern
+
+```dart
+// ✅ Indeterminate Progress
+SizedBox(
+  height: 4.0,
+  child: LinearProgressIndicator(
+    backgroundColor: context.theme.colors.muted,
+    valueColor: AlwaysStoppedAnimation<Color>(
+      context.theme.colors.primary,
+    ),
+    minHeight: 4.0,
+  ),
+)
+
+// ✅ Determinate Progress
+SizedBox(
+  height: 4.0,
+  child: LinearProgressIndicator(
+    value: 0.5, // 0.0 to 1.0
+    backgroundColor: context.theme.colors.muted,
+    valueColor: AlwaysStoppedAnimation<Color>(
+      context.theme.colors.primary,
+    ),
+    minHeight: 4.0,
+  ),
+)
+```
+
+## 16. Tooltip Pattern
+
+```dart
+// ✅ Use Material Tooltip (Forui doesn't have native tooltip)
+Tooltip(
+  message: 'Tooltip text',
+  child: Icon(FIcons.info),
+)
+```
+
+## 17. Responsive Layout
+
+```dart
+final width = MediaQuery.sizeOf(context).width;
+final bp = context.theme.breakpoints;
+
+if (width < bp.sm) {
+  return MobileView();
+} else if (width < bp.md) {
+  return TabletView();
+} else {
+  return DesktopView();
+}
+```
+
+**Breakpoints:**
+
+* `bp.sm` - Small (typically 640px)
+* `bp.md` - Medium (typically 768px)
+* `bp.lg` - Large (typically 1024px)
+* `bp.xl` - Extra Large (typically 1280px)
+
+## 18. Customization Workflow
+
+If a component requires heavy customization:
+
+1. **Do NOT** subclass `FButton`, `FCard`, etc.
+2. **Do** use `dart run forui style create [component]` to generate a local style file.
+3. **Do** apply that style via the `style:` parameter.
+4. **Do** use `copyWith()` for minor tweaks.
+
+```dart
+// Generate style: dart run forui style create button
+// Then use:
+FButton(
+  style: customButtonStyle(
+    colors: context.theme.colors,
+    typography: context.theme.typography,
+    style: context.theme.style,
+  ),
+  child: const Text('Custom Button'),
+)
+```
+
+## 19. Style Object Call Function
+
+All Forui styles implement the `call` function, allowing direct passing:
+
+```dart
+// Long-form
+FButton(
+  style: (style) => FButtonStyle(...),
+)
+
+// Short-form (preferred)
+FButton(
+  style: FButtonStyle(...),
+)
+```
+
+## 20. Icon Usage
+
+**Always use `FIcons` from `forui_assets`:**
+
+```dart
+import 'package:forui_assets/forui_assets.dart';
+
+Icon(FIcons.settings)
+Icon(FIcons.check)
+Icon(FIcons.triangleAlert)
+Icon(FIcons.x)
+```
+
+**Do NOT use `LucideIcons` or other icon libraries.**
+
+## 21. Form Integration
+
+```dart
+class MyForm extends StatefulWidget {
+  @override
+  State<MyForm> createState() => _MyFormState();
+}
+
+class _MyFormState extends State<MyForm> {
+  final _formKey = GlobalKey<FormState>();
+  final _emailController = TextEditingController();
+  
+  @override
+  Widget build(BuildContext context) {
+    return Form(
+      key: _formKey,
+      autovalidateMode: AutovalidateMode.onUserInteraction,
+      child: Column(
+        children: [
+          FTextFormField(
+            controller: _emailController,
+            label: const Text('Email'),
+            validator: (value) => value?.isEmpty ?? true ? 'Required' : null,
+          ),
+          FButton(
+            onPress: () {
+              if (_formKey.currentState!.validate()) {
+                // Form is valid
+              }
+            },
+            child: const Text('Submit'),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  @override
+  void dispose() {
+    _emailController.dispose();
+    super.dispose();
+  }
+}
+```
+
+## 22. Testing Pattern
+
+**Test helpers must use `FAnimatedTheme`:**
+
+```dart
+import 'package:forui/forui.dart';
+import 'package:pharma_scan/theme/theme.dart';
+
+extension PumpApp on WidgetTester {
+  Future<void> pumpApp(Widget widget) async {
+    await pumpWidget(
+      ProviderScope(
+        child: MaterialApp.router(
+          routerConfig: GoRouter(
+            initialLocation: '/',
+            routes: [
+              GoRoute(
+                path: '/',
+                builder: (context, state) => FAnimatedTheme(
+                  data: greenLight,
+                  child: Scaffold(body: widget),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+```
+
+## 23. Common Anti-Patterns to Avoid
+
+**❌ DON'T:**
+
+* Create wrapper widgets (`AppButton`, `BaseCard`, etc.)
+* Use `MixScope` or `Mix` styling
+* Use `LucideIcons` directly
+* Use `AppTokens` for colors/typography
+* Put `FAnimatedTheme` directly in MaterialApp (must be in builder)
+* Use Material `Scaffold` when `FScaffold` is available
+* Use `StatefulWidget` for controllers (use hooks instead)
+
+**✅ DO:**
+
+* Use Forui components directly
+* Use `context.theme` for all styling
+* Use `FIcons` from `forui_assets`
+* Use `FAnimatedTheme` in MaterialApp builder
+* Use `FScaffold` for main layouts
+* Use `forui_hooks` for all controllers
+* Use `HookWidget` or `HookConsumerWidget` for stateful UI
+
+## 24. Migration Checklist
+
+When migrating from Mix/Shadcn to Forui:
+
+* [ ] Replace `MixScope` with `FAnimatedTheme` in `main.dart`
+* [ ] Replace `Scaffold` with `FScaffold` in main screens
+* [ ] Replace `BaseButton` with `FButton`
+* [ ] Replace `BaseCard` with `FCard` or `FCard.raw`
+* [ ] Replace `BaseText` with `Text` + `context.theme.typography`
+* [ ] Replace `BaseBadge` with `FBadge`
+* [ ] Replace `BaseInput` with `FTextField` or `FTextFormField`
+* [ ] Replace `BaseDialog` with `FDialog` + `showFDialog`
+* [ ] Replace `BaseToast` with `showFToast`
+* [ ] Replace `BaseAccordion` with `FAccordion` + `useFAccordionController`
+* [ ] Replace `BaseSelect` with `FSelect` + `useFSelectController`
+* [ ] Replace `BaseRadioGroup` with `FSelectGroup` + `useFSelectGroupController`
+* [ ] Replace `LucideIcons` with `FIcons`
+* [ ] Replace `AppTokens` with `context.theme.colors` / `context.theme.typography`
+* [ ] Remove `mix` and `lucide_icons_flutter` dependencies
+* [ ] Delete all `Base*` wrapper files
+* [ ] Update test helpers to use `FAnimatedTheme`

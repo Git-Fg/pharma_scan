@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
+import 'package:forui/forui.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
 
 class PharmaSheetLayout extends StatelessWidget {
   const PharmaSheetLayout({
@@ -22,8 +22,6 @@ class PharmaSheetLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = ShadTheme.of(context);
-
     return Padding(
       padding: padding,
       child: Column(
@@ -39,10 +37,18 @@ class PharmaSheetLayout extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title, style: theme.textTheme.h4),
+                    Text(
+                      title,
+                      style: context.theme.typography.xl2, // h4 equivalent
+                    ),
                     if (description != null) ...[
                       const Gap(AppDimens.spacing2xs),
-                      Text(description!, style: theme.textTheme.muted),
+                      Text(
+                        description!,
+                        style: context.theme.typography.sm.copyWith(
+                          color: context.theme.colors.mutedForeground,
+                        ),
+                      ),
                     ],
                   ],
                 ),
@@ -52,9 +58,10 @@ class PharmaSheetLayout extends StatelessWidget {
                 Semantics(
                   button: true,
                   label: Strings.close,
-                  child: ShadButton.ghost(
-                    onPressed: onClose,
-                    child: const Icon(LucideIcons.x, size: AppDimens.iconMd),
+                  child: FButton.icon(
+                    style: FButtonStyle.ghost(),
+                    onPress: onClose,
+                    child: const Icon(FIcons.x, size: AppDimens.iconMd),
                   ),
                 ),
               ],

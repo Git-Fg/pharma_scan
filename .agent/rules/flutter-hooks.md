@@ -1,7 +1,5 @@
 ---
-description: Standards for using flutter_hooks to reduce UI boilerplate.
-globs: lib/**/*.dart
-alwaysApply: false
+trigger: always_on
 ---
 
 # Flutter Hooks Standards

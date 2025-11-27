@@ -44,6 +44,42 @@ final rows = await query.get();
 for (var i = 0; i < ids.length; i += 900) { /* ... */ }
 ```
 
+### Drift Managers Mandate
+
+* **Rule:** For batch inserts (multiple rows), ALWAYS use Drift's `batch()` API or table-specific batch insert methods. NEVER use loops with individual `INSERT` statements via `customStatement()`.
+* **Rationale:** Drift Managers provide transaction safety, better performance, and automatic error handling.
+* **Anti-Pattern:** The current FTS5 index population in `lib/core/database/daos/database_dao.dart:186-206` uses a loop with individual `customStatement()` calls—this should be refactored to use Drift's batch API.
+
+```dart
+// ✅ CORRECT: Use Drift batch API
+await db.batch((batch) {
+  batch.insertAll(db.table, rows);
+});
+
+// ❌ FORBIDDEN: Loop with individual inserts
+for (final row in rows) {
+  await customStatement('INSERT INTO table ...');
+}
+```
+
+### FTS5 Native Tokenization
+
+* **Rule:** FTS5 indexes MUST use native tokenizers (`tokenize='trigram'`, `tokenize='porter'`, etc.) for text processing. NEVER perform Dart-side string sanitization before inserting into FTS5 tables.
+* **Rationale:** Native tokenizers handle normalization, stemming, and approximate matching at the SQLite level. Dart sanitization is redundant and can break tokenization.
+* **Current Implementation:** `lib/core/database/daos/database_dao.dart:166` correctly uses `tokenize='trigram'`, but lines 187-190 still perform Dart sanitization—this should be removed in favor of pure SQL tokenization.
+
+```dart
+// ✅ CORRECT: Let FTS5 tokenizer handle normalization
+CREATE VIRTUAL TABLE search_index USING fts5(
+  content,
+  tokenize='trigram'
+);
+
+// ❌ FORBIDDEN: Dart-side sanitization before FTS5 insert
+final sanitized = sanitizeString(raw); // Don't do this
+await insertIntoFts5(sanitized);
+```
+
 ### Group-First Architecture
 
 * **Grouped medications:** Use `generique_groups.libelle` directly from `CIS_GENER` relationships
@@ -55,6 +91,28 @@ for (var i = 0; i < ids.length; i += 900) { /* ... */ }
 * ❌ **Forbidden:** Writing Regex to clean chemical names (removing salts, hydrates, etc.).
 * ✅ **Required:** Use the `CIS_COMPO` relationship (SA -> FT) to get the clean name provided by the database creators.
 * **Why:** The database structure contains the truth; parsing is a last resort.
+
+### Railway Oriented Programming
+
+* **Rule:** For ETL pipelines, data transformations, and error-prone operations, use fpdart's `Either<Failure, Success>` or `TaskEither` for Railway Oriented Programming.
+* **Rationale:** Functional error handling provides type-safe error propagation, composable transformations, and eliminates exception-based control flow.
+* **Pattern:** Transform operations return `Either<ParseError, ParsedData>` instead of throwing exceptions. Chain operations with `flatMap`/`bind`.
+
+```dart
+// ✅ CORRECT: Functional error handling
+Either<ParseError, ParsedData> parseFile(String content) {
+  return parseHeader(content)
+      .flatMap((header) => parseBody(header, content))
+      .flatMap((body) => validateData(body));
+}
+
+// ❌ FORBIDDEN: Exception-based control flow
+ParsedData parseFile(String content) {
+  final header = parseHeader(content); // throws ParseError
+  final body = parseBody(header, content); // throws ParseError
+  return validateData(body); // throws ValidationError
+}
+```
 
 ### Source of Truth
 
@@ -117,13 +175,14 @@ Use `@Riverpod(keepAlive: true)` for static config (dropdown lists, enums, setti
 ### Boilerplate Reduction (Hooks)
 
 * **Standard:** Use `HookConsumerWidget` for any widget needing a `Controller` (Text, Scroll, Animation) or Lifecycle listener.
-* **Forbidden:** Do not use `StatefulWidget` + `initState` + `dispose` for simple controller management.
+* **FORBIDDEN:** `StatefulWidget` is explicitly prohibited. All widgets requiring controllers, lifecycle listeners, or local state MUST use `HookConsumerWidget`.
+* **Exception:** None. If a widget needs state, it needs hooks.
 * **Reference:** See `.cursor/rules/flutter-hooks.mdc` (if available) or standard hooks documentation.
 
-### Shadcn UI Components
+### Mix UI Components
 
-* **Use directly:** `ShadCard`, `ShadInput`, `ShadButton`, etc.
-* **Configure globally:** Set default styles in `main.dart` via `ShadThemeData`
+* **Use directly:** `BaseCard`, `BaseInput`, `BaseButton`, `BaseText`, `BaseBadge`, etc. from `lib/core/widgets/mix/`
+* **Configure globally:** Use `AppTokens` for all styling values (colors, spacing, radii, text styles)
 * **Don't create:** Wrapper widgets that only add default padding/styling
 * **Exception:** Keep business-specific composites (e.g., `PharmaBackHeader`, `PrincepsBadge`)
 

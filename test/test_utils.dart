@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 
+export 'helpers/pump_app.dart';
+
 /// Fake PathProvider platform implementation for testing.
 /// Provides a controlled documents path and temporary path for test isolation.
 class FakePathProviderPlatform extends PathProviderPlatform {

@@ -137,12 +137,8 @@ void main() {
         if (backButton.evaluate().isNotEmpty) {
           await tester.tap(backButton.first);
         } else {
-          // Fallback: Use system back or find back icon
-          await tester.binding.defaultBinaryMessenger.handlePlatformMessage(
-            'flutter/navigation',
-            null,
-            (data) {},
-          );
+          // Fallback: Use GoRouter pop method
+          container.read(goRouterProvider).pop();
         }
         await tester.pumpAndSettle();
 

@@ -4,12 +4,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:gap/gap.dart';
-import 'package:pharma_scan/core/router/app_routes.dart';
+import 'package:pharma_scan/core/router/routes.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/utils/adaptive_overlay.dart';
-import 'package:pharma_scan/core/utils/app_animations.dart';
 import 'package:pharma_scan/core/utils/medicament_helpers.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/utils/test_tags.dart';
@@ -23,8 +21,8 @@ import 'package:pharma_scan/core/widgets/ui_kit/status_view.dart';
 import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/features/explorer/models/search_filters_model.dart';
 import 'package:pharma_scan/features/explorer/models/search_result_item_model.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/product_card.dart';
+import 'package:forui/forui.dart';
 import 'package:pharma_scan/features/explorer/providers/database_stats_provider.dart';
 import 'package:pharma_scan/features/explorer/providers/generic_groups_provider.dart';
 import 'package:pharma_scan/features/explorer/providers/pharmaceutical_forms_provider.dart';
@@ -39,7 +37,6 @@ class DatabaseSearchView extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = ShadTheme.of(context);
     final searchController = useTextEditingController();
     final scrollController = useScrollController();
     final debouncedQuery = useState('');
@@ -74,12 +71,9 @@ class DatabaseSearchView extends HookConsumerWidget {
     useEffect(() {
       void listener() {
         debounceTimer.value?.cancel();
-        debounceTimer.value = Timer(
-          const Duration(milliseconds: 300),
-          () {
-            debouncedQuery.value = searchController.text.trim();
-          },
-        );
+        debounceTimer.value = Timer(const Duration(milliseconds: 300), () {
+          debouncedQuery.value = searchController.text.trim();
+        });
       }
 
       searchController.addListener(listener);
@@ -107,12 +101,11 @@ class DatabaseSearchView extends HookConsumerWidget {
     if (initStep != null &&
         initStep != InitializationStep.ready &&
         initStep != InitializationStep.error) {
-      return Scaffold(
-        backgroundColor: theme.colorScheme.background,
-        body: const SafeArea(
+      return const FScaffold(
+        child: SafeArea(
           child: StatusView(
             type: StatusType.loading,
-            icon: LucideIcons.loader,
+            icon: FIcons.loader,
             title: Strings.initializationInProgress,
             description: Strings.initializationDescription,
           ),
@@ -120,9 +113,8 @@ class DatabaseSearchView extends HookConsumerWidget {
       );
     }
 
-    return Scaffold(
-      backgroundColor: theme.colorScheme.background,
-      body: SafeArea(
+    return FScaffold(
+      child: SafeArea(
         child: Stack(
           children: [
             Padding(
@@ -136,7 +128,7 @@ class DatabaseSearchView extends HookConsumerWidget {
                     data: (stats) => SliverToBoxAdapter(
                       child: Column(
                         children: [
-                          _buildStatsHeader(theme, stats),
+                          _buildStatsHeader(context, stats),
                           const Gap(AppDimens.spacingMd),
                         ],
                       ),
@@ -152,7 +144,6 @@ class DatabaseSearchView extends HookConsumerWidget {
                       height: _searchHeaderHeight,
                       child: _buildSearchBarWithFilters(
                         context,
-                        theme,
                         ref,
                         searchController,
                         debouncedQuery,
@@ -162,35 +153,28 @@ class DatabaseSearchView extends HookConsumerWidget {
                   const SliverToBoxAdapter(child: Gap(AppDimens.spacingXs)),
                   if (!hasSearchText)
                     _buildGenericGroupsSliver(
-                      theme,
                       groups,
                       ref,
                       key: const ValueKey('generic_groups_sliver'),
                     )
                   else if (!isSearching)
                     _buildSkeletonSliver(
-                      theme,
                       key: const ValueKey('search_skeleton_sliver'),
                     )
                   else
                     searchResults.when(
                       skipLoadingOnReload: true,
                       data: (items) => _buildSearchResultsSliver(
-                        theme,
+                        context,
                         items,
                         ref,
                         key: const ValueKey('search_results_sliver'),
                       ),
                       loading: () => _buildSkeletonSliver(
-                        theme,
                         key: const ValueKey('search_loading_sliver'),
                       ),
-                      error: (error, _) => _buildSearchErrorSliver(
-                        theme,
-                        error,
-                        currentQuery,
-                        ref,
-                      ),
+                      error: (error, _) =>
+                          _buildSearchErrorSliver(error, currentQuery, ref),
                     ),
                   // Espaceur pour scroller au-dessus de la barre de filtre
                   SliverToBoxAdapter(
@@ -204,7 +188,7 @@ class DatabaseSearchView extends HookConsumerWidget {
                 left: 16,
                 right: 16,
                 bottom: 16,
-                child: _buildActiveFiltersBar(theme, filters, ref),
+                child: _buildActiveFiltersBar(filters, ref),
               ),
           ],
         ),
@@ -212,15 +196,11 @@ class DatabaseSearchView extends HookConsumerWidget {
     );
   }
 
-  Widget _buildStatsHeader(ShadThemeData theme, Map<String, dynamic> stats) {
+  Widget _buildStatsHeader(BuildContext context, Map<String, dynamic> stats) {
     final statsConfig = [
-      (LucideIcons.star, Strings.totalPrinceps, '${stats['total_princeps']}'),
-      (LucideIcons.pill, Strings.totalGenerics, '${stats['total_generiques']}'),
-      (
-        LucideIcons.activity,
-        Strings.totalPrinciples,
-        '${stats['total_principes']}',
-      ),
+      (FIcons.star, Strings.totalPrinceps, '${stats['total_princeps']}'),
+      (FIcons.pill, Strings.totalGenerics, '${stats['total_generiques']}'),
+      (FIcons.activity, Strings.totalPrinciples, '${stats['total_principes']}'),
     ];
 
     return SizedBox(
@@ -235,45 +215,50 @@ class DatabaseSearchView extends HookConsumerWidget {
           final config = statsConfig[index];
           return ConstrainedBox(
             constraints: const BoxConstraints(minWidth: 140),
-            child: ShadCard(
-              padding: const EdgeInsets.symmetric(
-                vertical: AppDimens.spacingSm,
-                horizontal: AppDimens.spacingSm,
-              ),
-              backgroundColor: theme.colorScheme.card,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 32,
-                    height: 32,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.primary.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(AppDimens.radiusSm),
-                    ),
-                    child: Icon(
-                      config.$1,
-                      size: AppDimens.iconSm,
-                      color: theme.colorScheme.primary,
-                    ),
-                  ),
-                  const Gap(AppDimens.spacingSm),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        config.$2,
-                        style: theme.textTheme.small.copyWith(
-                          color: theme.colorScheme.mutedForeground,
-                          fontWeight: FontWeight.w600,
+            child: FCard.raw(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  vertical: AppDimens.spacingSm,
+                  horizontal: AppDimens.spacingSm,
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 32,
+                      height: 32,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: context.theme.colors.primary.withValues(
+                          alpha: 0.15,
                         ),
+                        borderRadius: BorderRadius.circular(AppDimens.radiusSm),
                       ),
-                      const Gap(AppDimens.spacing2xs),
-                      Text(config.$3, style: theme.textTheme.h4),
-                    ],
-                  ),
-                ],
+                      child: Icon(
+                        config.$1,
+                        size: AppDimens.iconSm,
+                        color: context.theme.colors.primary,
+                      ),
+                    ),
+                    const Gap(AppDimens.spacingSm),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          config.$2,
+                          style: context.theme.typography.sm.copyWith(
+                            color: context.theme.colors.mutedForeground,
+                          ),
+                        ),
+                        const Gap(AppDimens.spacing2xs),
+                        Text(
+                          config.$3,
+                          style: context.theme.typography.xl2, // h4 equivalent
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           );
@@ -286,7 +271,6 @@ class DatabaseSearchView extends HookConsumerWidget {
 
   Widget _buildSearchBarWithFilters(
     BuildContext context,
-    ShadThemeData theme,
     WidgetRef ref,
     TextEditingController searchController,
     ValueNotifier<String> debouncedQuery,
@@ -296,20 +280,20 @@ class DatabaseSearchView extends HookConsumerWidget {
       children: [
         Expanded(
           child: _buildSearchBar(
-            theme,
+            context,
             ref,
             searchController,
             debouncedQuery,
           ),
         ),
         const Gap(AppDimens.spacingXs),
-        _buildFiltersButton(context, theme, filters, ref),
+        _buildFiltersButton(context, filters, ref),
       ],
     );
   }
 
   Widget _buildSearchBar(
-    ShadThemeData theme,
+    BuildContext context,
     WidgetRef ref,
     TextEditingController searchController,
     ValueNotifier<String> debouncedQuery,
@@ -329,9 +313,7 @@ class DatabaseSearchView extends HookConsumerWidget {
           valueListenable: searchController,
           builder: (context, value, _) {
             final hasText = value.text.isNotEmpty;
-            final theme = ShadTheme.of(context);
-
-            final backgroundColor = theme.colorScheme.muted.withValues(
+            final backgroundColor = context.theme.colors.muted.withValues(
               alpha: 0.08,
             );
             return ClipRRect(
@@ -345,21 +327,20 @@ class DatabaseSearchView extends HookConsumerWidget {
                   padding: const EdgeInsets.symmetric(
                     horizontal: AppDimens.spacingSm,
                   ),
-                  child: ShadInput(
+                  child: FTextField(
                     controller: searchController,
-                    placeholder: const Text(Strings.searchPlaceholder),
-                    onChanged: (_) {
+                    hint: Strings.searchPlaceholder,
+                    onChange: (_) {
                       // WHY: Provider handles debouncing - just trigger rebuild
                       // The searchResultsProvider will debounce internally via Future.delayed
                     },
-                    decoration: ShadDecoration.none,
-                    leading: Icon(
-                      LucideIcons.search,
+                    prefixBuilder: (context, style, states) => Icon(
+                      FIcons.search,
                       size: AppDimens.iconSm,
-                      color: theme.colorScheme.mutedForeground,
+                      color: context.theme.colors.mutedForeground,
                     ),
-                    trailing: isFetching
-                        ? Semantics(
+                    suffixBuilder: isFetching
+                        ? (context, style, states) => Semantics(
                             label: Strings.searchingInProgress,
                             liveRegion: true,
                             child: SizedBox(
@@ -368,28 +349,25 @@ class DatabaseSearchView extends HookConsumerWidget {
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
                                 valueColor: AlwaysStoppedAnimation<Color>(
-                                  theme.colorScheme.mutedForeground,
+                                  context.theme.colors.mutedForeground,
                                 ),
                               ),
                             ),
                           )
                         : hasText
-                        ? Testable(
+                        ? (context, style, states) => Testable(
                             id: TestTags.searchClearBtn,
                             child: Semantics(
                               button: true,
                               label: Strings.clearSearch,
-                              child: ShadButton.ghost(
-                                onPressed: () {
+                              child: FButton.icon(
+                                style: FButtonStyle.ghost(),
+                                onPress: () {
                                   searchController.clear();
                                 },
-                                width: AppDimens.iconLg,
-                                height: AppDimens.iconLg,
-                                padding: EdgeInsets.zero,
-                                child: Icon(
-                                  LucideIcons.x,
-                                  size: AppDimens.iconSm,
-                                  color: theme.colorScheme.mutedForeground,
+                                child: const Icon(
+                                  FIcons.x,
+                                  size: AppDimens.iconLg,
                                 ),
                               ),
                             ),
@@ -407,7 +385,6 @@ class DatabaseSearchView extends HookConsumerWidget {
 
   Widget _buildFiltersButton(
     BuildContext context,
-    ShadThemeData theme,
     SearchFilters filters,
     WidgetRef ref,
   ) {
@@ -440,17 +417,17 @@ class DatabaseSearchView extends HookConsumerWidget {
               alignment: Alignment.center,
               children: [
                 InkWell(
-                  onTap: () => _openFiltersSheet(context, theme, filters, ref),
+                  onTap: () => _openFiltersSheet(context, filters, ref),
                   child: Container(
                     decoration: BoxDecoration(
-                      border: Border.all(color: theme.colorScheme.border),
+                      border: Border.all(color: context.theme.colors.border),
                       borderRadius: BorderRadius.circular(AppDimens.radiusSm),
                     ),
                     alignment: Alignment.center,
                     child: Icon(
-                      LucideIcons.slidersHorizontal,
+                      FIcons.slidersHorizontal,
                       size: 18,
-                      color: theme.colorScheme.foreground,
+                      color: context.theme.colors.foreground,
                     ),
                   ),
                 ),
@@ -460,15 +437,11 @@ class DatabaseSearchView extends HookConsumerWidget {
                     right: 4,
                     child: Semantics(
                       label: Strings.activeFilterCount(filterCount),
-                      child: ShadBadge(
-                        backgroundColor: theme.colorScheme.primary,
+                      child: FBadge(
+                        style: FBadgeStyle.primary(),
                         child: Text(
                           '$filterCount',
-                          style: theme.textTheme.small.copyWith(
-                            color: theme.colorScheme.primaryForeground,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 10,
-                          ),
+                          style: context.theme.typography.sm,
                         ),
                       ),
                     ),
@@ -483,130 +456,130 @@ class DatabaseSearchView extends HookConsumerWidget {
 
   Future<void> _openFiltersSheet(
     BuildContext context,
-    ShadThemeData theme,
     SearchFilters currentFilters,
     WidgetRef ref,
   ) {
     return showAdaptiveOverlay(
       context: context,
       builder: (overlayContext) =>
-          _buildFiltersPanel(overlayContext, theme, currentFilters, ref),
+          _buildFiltersPanel(overlayContext, currentFilters, ref),
     );
   }
 
-  Widget _buildActiveFiltersBar(
-    ShadThemeData theme,
-    SearchFilters filters,
-    WidgetRef ref,
-  ) {
-    final chips = <Widget>[];
-    if (filters.voieAdministration != null) {
-      chips.add(
-        ShadBadge(
-          child: Text(
-            filters.voieAdministration!,
-            style: theme.textTheme.small.copyWith(
-              color: theme.colorScheme.primaryForeground,
+  Widget _buildActiveFiltersBar(SearchFilters filters, WidgetRef ref) {
+    return Builder(
+      builder: (context) {
+        final chips = <Widget>[];
+        if (filters.voieAdministration != null) {
+          chips.add(
+            FBadge(
+              style: FBadgeStyle.primary(),
+              child: Text(
+                filters.voieAdministration!,
+                style: context.theme.typography.sm,
+              ),
             ),
-          ),
-        ),
-      );
-    }
-    if (filters.atcClass != null) {
-      final atcLabel =
-          Strings.getAtcLevel1Label(filters.atcClass) ?? filters.atcClass!;
-      chips.add(
-        ShadBadge(
-          child: Text(
-            atcLabel,
-            style: theme.textTheme.small.copyWith(
-              color: theme.colorScheme.primaryForeground,
+          );
+        }
+        if (filters.atcClass != null) {
+          final atcLabel =
+              Strings.getAtcLevel1Label(filters.atcClass) ?? filters.atcClass!;
+          chips.add(
+            FBadge(
+              style: FBadgeStyle.primary(),
+              child: Text(atcLabel, style: context.theme.typography.sm),
             ),
-          ),
-        ),
-      );
-    }
+          );
+        }
 
-    final hasChips = chips.isNotEmpty;
+        final hasChips = chips.isNotEmpty;
 
-    return ShadCard(
-      padding: const EdgeInsets.all(AppDimens.spacingMd),
-      child: Row(
-        children: [
-          Expanded(
-            child: hasChips
-                ? Wrap(spacing: 8, runSpacing: 8, children: chips)
-                : Text(Strings.noActiveFilters, style: theme.textTheme.muted),
-          ),
-          const Gap(AppDimens.spacingSm),
-          Semantics(
-            button: true,
-            label: Strings.resetAllFilters,
-            enabled: hasChips,
-            child: ShadButton.ghost(
-              onPressed: hasChips
-                  ? ref.read(searchFiltersProvider.notifier).clearFilters
-                  : null,
-              child: const Text(Strings.resetFilters),
+        return FCard.raw(
+          child: Padding(
+            padding: const EdgeInsets.all(AppDimens.spacingMd),
+            child: Row(
+              children: [
+                Expanded(
+                  child: hasChips
+                      ? Wrap(spacing: 8, runSpacing: 8, children: chips)
+                      : Text(
+                          Strings.noActiveFilters,
+                          style: context.theme.typography.sm.copyWith(
+                            color: context.theme.colors.mutedForeground,
+                          ),
+                        ),
+                ),
+                const Gap(AppDimens.spacingSm),
+                Semantics(
+                  button: true,
+                  label: Strings.resetAllFilters,
+                  enabled: hasChips,
+                  child: FButton(
+                    style: FButtonStyle.ghost(),
+                    onPress: hasChips
+                        ? ref.read(searchFiltersProvider.notifier).clearFilters
+                        : null,
+                    child: const Text(Strings.resetFilters),
+                  ),
+                ),
+              ],
             ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
   Widget _buildFiltersPanel(
     BuildContext context,
-    ShadThemeData theme,
     SearchFilters currentFilters,
     WidgetRef ref,
   ) {
-    return ShadCard(
-      padding: const EdgeInsets.all(AppDimens.spacingMd),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(Strings.filters, style: theme.textTheme.h4),
-              ShadButton.ghost(
-                onPressed: currentFilters.hasActiveFilters
-                    ? ref.read(searchFiltersProvider.notifier).clearFilters
-                    : null,
-                padding: EdgeInsets.zero,
-                child: Text(
-                  Strings.resetFilters,
-                  style: theme.textTheme.small.copyWith(
-                    color: theme.colorScheme.primary,
-                  ),
+    return FCard.raw(
+      child: Padding(
+        padding: const EdgeInsets.all(AppDimens.spacingMd),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  Strings.filters,
+                  style: context.theme.typography.xl2, // h4 equivalent
                 ),
-              ),
-            ],
-          ),
-          const Gap(AppDimens.spacingMd),
-          Text(
-            Strings.administrationRouteFilter,
-            style: theme.textTheme.small.copyWith(fontWeight: FontWeight.w600),
-          ),
-          const Gap(AppDimens.spacingXs),
-          _buildPharmaceuticalFormFilter(context, theme, currentFilters, ref),
-          const Gap(AppDimens.spacingMd),
-          Text(
-            Strings.therapeuticClassFilter,
-            style: theme.textTheme.small.copyWith(fontWeight: FontWeight.w600),
-          ),
-          const Gap(AppDimens.spacingXs),
-          _buildTherapeuticClassFilter(context, theme, currentFilters, ref),
-        ],
+                FButton(
+                  style: FButtonStyle.ghost(),
+                  onPress: currentFilters.hasActiveFilters
+                      ? ref.read(searchFiltersProvider.notifier).clearFilters
+                      : null,
+                  child: const Text(Strings.resetFilters),
+                ),
+              ],
+            ),
+            const Gap(AppDimens.spacingMd),
+            Text(
+              Strings.administrationRouteFilter,
+              style: context.theme.typography.sm,
+            ),
+            const Gap(AppDimens.spacingXs),
+            _buildPharmaceuticalFormFilter(context, currentFilters, ref),
+            const Gap(AppDimens.spacingMd),
+            Text(
+              Strings.therapeuticClassFilter,
+              style: context.theme.typography.sm,
+            ),
+            const Gap(AppDimens.spacingXs),
+            _buildTherapeuticClassFilter(context, currentFilters, ref),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildPharmaceuticalFormFilter(
     BuildContext context,
-    ShadThemeData theme,
     SearchFilters currentFilters,
     WidgetRef ref,
   ) {
@@ -615,36 +588,44 @@ class DatabaseSearchView extends HookConsumerWidget {
     return routesAsync.when(
       data: (routes) {
         if (routes.isEmpty) {
-          return Text(Strings.noRoutesAvailable, style: theme.textTheme.muted);
+          return Text(
+            Strings.noRoutesAvailable,
+            style: context.theme.typography.sm.copyWith(
+              color: context.theme.colors.mutedForeground,
+            ),
+          );
         }
 
-        return ShadSelect<String?>(
-          minWidth: double.infinity,
-          placeholder: const Text(Strings.allRoutes),
-          initialValue: currentFilters.voieAdministration,
-          options: [
-            const ShadOption<String?>(
-              value: null,
-              child: Text(Strings.allRoutes),
-            ),
-            ...routes.map(
-              (route) => ShadOption<String?>(value: route, child: Text(route)),
-            ),
-          ],
-          selectedOptionBuilder: (context, value) {
-            if (value == null) {
-              return const Text(Strings.allRoutes);
-            }
-            return Text(value);
-          },
-          onChanged: (value) {
-            ref
-                .read(searchFiltersProvider.notifier)
-                .updateFilters(
-                  currentFilters.copyWith(voieAdministration: value),
-                );
-            Navigator.of(context).maybePop();
-          },
+        return ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: double.infinity),
+          child: FSelect<String?>.rich(
+            hint: Strings.allRoutes,
+            format: (value) => value ?? Strings.allRoutes,
+            initialValue: currentFilters.voieAdministration,
+            onChange: (value) {
+              ref
+                  .read(searchFiltersProvider.notifier)
+                  .updateFilters(
+                    currentFilters.copyWith(voieAdministration: value),
+                  );
+              Navigator.of(context).maybePop();
+            },
+            children: [
+              FSelectItem<String?>(
+                title: Text(
+                  Strings.allRoutes,
+                  style: context.theme.typography.base,
+                ),
+                value: null,
+              ),
+              ...routes.map(
+                (route) => FSelectItem<String?>(
+                  title: Text(route, style: context.theme.typography.base),
+                  value: route,
+                ),
+              ),
+            ],
+          ),
         );
       },
       loading: () => SizedBox(
@@ -656,20 +637,23 @@ class DatabaseSearchView extends HookConsumerWidget {
             child: CircularProgressIndicator(
               strokeWidth: 2,
               valueColor: AlwaysStoppedAnimation<Color>(
-                theme.colorScheme.mutedForeground,
+                context.theme.colors.mutedForeground,
               ),
             ),
           ),
         ),
       ),
-      error: (error, stackTrace) =>
-          Text(Strings.errorLoadingRoutes, style: theme.textTheme.muted),
+      error: (error, stackTrace) => Text(
+        Strings.errorLoadingRoutes,
+        style: context.theme.typography.sm.copyWith(
+          color: context.theme.colors.mutedForeground,
+        ),
+      ),
     );
   }
 
   Widget _buildTherapeuticClassFilter(
     BuildContext context,
-    ShadThemeData theme,
     SearchFilters currentFilters,
     WidgetRef ref,
   ) {
@@ -691,39 +675,38 @@ class DatabaseSearchView extends HookConsumerWidget {
       ('V', 'Divers'),
     ];
 
-    return ShadSelect<String?>(
-      minWidth: double.infinity,
-      placeholder: const Text(Strings.allClasses),
-      initialValue: currentFilters.atcClass,
-      options: [
-        const ShadOption<String?>(value: null, child: Text(Strings.allClasses)),
-        ...atcOptions.map(
-          (option) =>
-              ShadOption<String?>(value: option.$1, child: Text(option.$2)),
-        ),
-      ],
-      selectedOptionBuilder: (context, value) {
-        if (value == null) {
-          return const Text(Strings.allClasses);
-        }
-        final label = atcOptions
-            .firstWhere(
-              (option) => option.$1 == value,
-              orElse: () => (value, value),
-            )
-            .$2;
-        return Text(label);
-      },
-      onChanged: (value) {
-        ref
-            .read(searchFiltersProvider.notifier)
-            .updateFilters(currentFilters.copyWith(atcClass: value));
-        Navigator.of(context).maybePop();
-      },
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minWidth: double.infinity),
+      child: FSelect<String?>.rich(
+        hint: Strings.allClasses,
+        format: (value) => value ?? Strings.allClasses,
+        initialValue: currentFilters.atcClass,
+        onChange: (value) {
+          ref
+              .read(searchFiltersProvider.notifier)
+              .updateFilters(currentFilters.copyWith(atcClass: value));
+          Navigator.of(context).maybePop();
+        },
+        children: [
+          FSelectItem<String?>(
+            title: Text(
+              Strings.allClasses,
+              style: context.theme.typography.base,
+            ),
+            value: null,
+          ),
+          ...atcOptions.map(
+            (option) => FSelectItem<String?>(
+              title: Text(option.$2, style: context.theme.typography.base),
+              value: option.$1,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildGroupsError(ShadThemeData theme, WidgetRef ref) {
+  Widget _buildGroupsError(WidgetRef ref) {
     return StatusView(
       type: StatusType.error,
       title: Strings.loadingError,
@@ -731,8 +714,9 @@ class DatabaseSearchView extends HookConsumerWidget {
       action: Semantics(
         button: true,
         label: Strings.retryLoadingGroups,
-        child: ShadButton(
-          onPressed: () => ref.invalidate(genericGroupsProvider),
+        child: FButton(
+          style: FButtonStyle.primary(),
+          onPress: () => ref.invalidate(genericGroupsProvider),
           child: const Text(Strings.retry),
         ),
       ),
@@ -741,18 +725,17 @@ class DatabaseSearchView extends HookConsumerWidget {
 
   // Sliver versions for CustomScrollView
   Widget _buildGenericGroupsSliver(
-    ShadThemeData theme,
     AsyncValue<GenericGroupsState> groups,
     WidgetRef ref, {
     Key? key,
   }) {
     Widget sliver;
     if (groups.isLoading) {
-      sliver = _buildSkeletonSliver(theme);
+      sliver = _buildSkeletonSliver();
     } else {
       final data = groups.asData?.value;
       if (groups.hasError && (data == null || data.items.isEmpty)) {
-        sliver = SliverToBoxAdapter(child: _buildGroupsError(theme, ref));
+        sliver = SliverToBoxAdapter(child: _buildGroupsError(ref));
       } else if (data == null || data.items.isEmpty) {
         sliver = const SliverToBoxAdapter(
           child: StatusView(type: StatusType.empty, title: Strings.noResults),
@@ -773,7 +756,11 @@ class DatabaseSearchView extends HookConsumerWidget {
                 child: Center(
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 300),
-                    child: const ShadProgress(),
+                    child: CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        context.theme.colors.primary,
+                      ),
+                    ),
                   ),
                 ),
               );
@@ -786,80 +773,81 @@ class DatabaseSearchView extends HookConsumerWidget {
               child: Material(
                 color: Colors.transparent,
                 child: InkWell(
-                  onTap: () =>
-                      context.push(AppRoutes.groupDetail(group.groupId)),
+                  onTap: () => GroupDetailRoute(
+                    groupId: group.groupId,
+                  ).push<void>(context),
                   borderRadius: BorderRadius.circular(AppDimens.radiusMd),
-                  splashColor: theme.colorScheme.primary.withValues(alpha: 0.1),
-                  highlightColor: theme.colorScheme.primary.withValues(
+                  splashColor: context.theme.colors.primary.withValues(
+                    alpha: 0.1,
+                  ),
+                  highlightColor: context.theme.colors.primary.withValues(
                     alpha: 0.05,
                   ),
-                  child: ShadCard(
-                    padding: const EdgeInsets.all(AppDimens.spacingLg),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                Strings.princepsLabel,
-                                style: theme.textTheme.small.copyWith(
-                                  color: theme.colorScheme.mutedForeground,
-                                  fontWeight: FontWeight.w500,
+                  child: FCard.raw(
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppDimens.spacingLg),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  Strings.princepsLabel,
+                                  style: context.theme.typography.sm.copyWith(
+                                    color: context.theme.colors.mutedForeground,
+                                  ),
                                 ),
-                              ),
-                              const Gap(AppDimens.spacingXs),
-                              Text(
-                                group.princepsReferenceName,
-                                style: theme.textTheme.p.copyWith(
-                                  fontWeight: FontWeight.w600,
+                                const Gap(AppDimens.spacingXs),
+                                Text(
+                                  group.princepsReferenceName,
+                                  style: context.theme.typography.base,
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 2,
                                 ),
-                                overflow: TextOverflow.ellipsis,
-                                maxLines: 2,
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppDimens.spacingMd,
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppDimens.spacingMd,
+                            ),
+                            child: Icon(
+                              FIcons.arrowRightLeft,
+                              color: context.theme.colors.mutedForeground,
+                            ),
                           ),
-                          child: Icon(
-                            LucideIcons.arrowRightLeft,
-                            color: theme.colorScheme.mutedForeground,
-                          ),
-                        ),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                Strings.activePrinciplesLabel,
-                                style: theme.textTheme.small.copyWith(
-                                  color: theme.colorScheme.mutedForeground,
-                                  fontWeight: FontWeight.w500,
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  Strings.activePrinciplesLabel,
+                                  style: context.theme.typography.sm.copyWith(
+                                    color: context.theme.colors.mutedForeground,
+                                  ),
                                 ),
-                              ),
-                              const Gap(AppDimens.spacingXs),
-                              Text(
-                                group.commonPrincipes.isEmpty
-                                    ? Strings.notDetermined
-                                    : group.commonPrincipes,
-                                style: theme.textTheme.p,
-                                overflow: TextOverflow.ellipsis,
-                                maxLines: 3,
-                              ),
-                            ],
+                                const Gap(AppDimens.spacingXs),
+                                Text(
+                                  group.commonPrincipes.isEmpty
+                                      ? Strings.notDetermined
+                                      : group.commonPrincipes,
+                                  style: context.theme.typography.base,
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 3,
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                        const Gap(AppDimens.spacingXs),
-                        Icon(
-                          LucideIcons.chevronRight,
-                          size: AppDimens.iconSm,
-                          color: theme.colorScheme.mutedForeground,
-                        ),
-                      ],
+                          const Gap(AppDimens.spacingXs),
+                          Icon(
+                            FIcons.chevronRight,
+                            size: AppDimens.iconSm,
+                            color: context.theme.colors.mutedForeground,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -872,46 +860,55 @@ class DatabaseSearchView extends HookConsumerWidget {
     return _wrapSliverWithKey(sliver, key);
   }
 
-  Widget _buildSkeletonSliver(ShadThemeData theme, {Key? key}) {
-    final placeholderColor = theme.colorScheme.muted.withValues(alpha: 0.3);
-    final sliver = SliverList.separated(
-      itemCount: 4,
-      separatorBuilder: (context, index) => const Gap(AppDimens.spacingSm),
-      itemBuilder: (context, index) {
-        return ShadCard(
-          padding: const EdgeInsets.all(AppDimens.spacingLg),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
+  Widget _buildSkeletonSliver({Key? key}) {
+    // Note: This method needs context for token resolution, but we'll resolve it in the builder
+    final sliver = Builder(
+      builder: (context) {
+        final placeholderColor = context.theme.colors.muted.withValues(
+          alpha: 0.3,
+        );
+        return SliverList.separated(
+          itemCount: 4,
+          separatorBuilder: (context, index) => const Gap(AppDimens.spacingSm),
+          itemBuilder: (context, index) {
+            return FCard.raw(
+              child: Padding(
+                padding: const EdgeInsets.all(AppDimens.spacingLg),
+                child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _SkeletonBlock(height: 14, color: placeholderColor),
-                    const Gap(AppDimens.spacingXs),
-                    _SkeletonBlock(height: 16, color: placeholderColor),
-                    const Gap(AppDimens.spacingXs),
-                    _SkeletonBlock(
-                      height: 16,
-                      width: 120,
-                      color: placeholderColor,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _SkeletonBlock(height: 14, color: placeholderColor),
+                          const Gap(AppDimens.spacingXs),
+                          _SkeletonBlock(height: 16, color: placeholderColor),
+                          const Gap(AppDimens.spacingXs),
+                          _SkeletonBlock(
+                            height: 16,
+                            width: 120,
+                            color: placeholderColor,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Gap(AppDimens.spacingMd),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _SkeletonBlock(height: 14, color: placeholderColor),
+                          const Gap(AppDimens.spacingXs),
+                          _SkeletonBlock(height: 16, color: placeholderColor),
+                        ],
+                      ),
                     ),
                   ],
                 ),
               ),
-              const Gap(AppDimens.spacingMd),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _SkeletonBlock(height: 14, color: placeholderColor),
-                    const Gap(AppDimens.spacingXs),
-                    _SkeletonBlock(height: 16, color: placeholderColor),
-                  ],
-                ),
-              ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
@@ -919,7 +916,7 @@ class DatabaseSearchView extends HookConsumerWidget {
   }
 
   Widget _buildSearchResultsSliver(
-    ShadThemeData theme,
+    BuildContext context,
     List<SearchResultItem> results,
     WidgetRef ref, {
     Key? key,
@@ -934,14 +931,20 @@ class DatabaseSearchView extends HookConsumerWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(Strings.noResults, style: theme.textTheme.muted),
+                Text(
+                  Strings.noResults,
+                  style: context.theme.typography.sm.copyWith(
+                    color: context.theme.colors.mutedForeground,
+                  ),
+                ),
                 if (hasFilters) ...[
                   const Gap(AppDimens.spacingSm),
                   Semantics(
                     button: true,
                     label: Strings.resetAllFilters,
-                    child: ShadButton.outline(
-                      onPressed: ref
+                    child: FButton(
+                      style: FButtonStyle.outline(),
+                      onPress: ref
                           .read(searchFiltersProvider.notifier)
                           .clearFilters,
                       child: const Text(Strings.clearFilters),
@@ -961,6 +964,107 @@ class DatabaseSearchView extends HookConsumerWidget {
       separatorBuilder: (context, index) => const Gap(AppDimens.spacingSm),
       itemBuilder: (context, index) {
         final result = results[index];
+        final child = result.when(
+          groupResult: (group) => Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () =>
+                  GroupDetailRoute(groupId: group.groupId).push<void>(context),
+              borderRadius: BorderRadius.circular(AppDimens.radiusMd),
+              splashColor: context.theme.colors.primary.withValues(alpha: 0.1),
+              highlightColor: context.theme.colors.primary.withValues(
+                alpha: 0.05,
+              ),
+              child: GroupResultCard(group: group),
+            ),
+          ),
+          princepsResult: (princeps, generics, groupId, unusedPrinciples) =>
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () =>
+                      GroupDetailRoute(groupId: groupId).push<void>(context),
+                  borderRadius: BorderRadius.circular(AppDimens.radiusMd),
+                  splashColor: context.theme.colors.primary.withValues(
+                    alpha: 0.1,
+                  ),
+                  highlightColor: context.theme.colors.primary.withValues(
+                    alpha: 0.05,
+                  ),
+                  child: PrincepsResultCard(
+                    princeps: princeps,
+                    generics: generics,
+                  ),
+                ),
+              ),
+          genericResult: (generic, princepsList, groupId, unusedPrinciples) =>
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () =>
+                      GroupDetailRoute(groupId: groupId).push<void>(context),
+                  borderRadius: BorderRadius.circular(AppDimens.radiusMd),
+                  splashColor: context.theme.colors.primary.withValues(
+                    alpha: 0.1,
+                  ),
+                  highlightColor: context.theme.colors.primary.withValues(
+                    alpha: 0.05,
+                  ),
+                  child: GenericResultCard(
+                    generic: generic,
+                    princeps: princepsList,
+                  ),
+                ),
+              ),
+          standaloneResult:
+              (cisCode, summary, representativeCip, unusedPrinciples) {
+                final sanitizedPrinciples = summary.principesActifsCommuns
+                    .map(sanitizeActivePrinciple)
+                    .toList();
+                final description =
+                    summary.formePharmaceutique != null &&
+                        sanitizedPrinciples.isNotEmpty
+                    ? '${summary.formePharmaceutique} - ${sanitizedPrinciples.join(' + ')}'
+                    : summary.formePharmaceutique ??
+                          (sanitizedPrinciples.isNotEmpty
+                              ? sanitizedPrinciples.join(' + ')
+                              : null);
+
+                return ProductCard(
+                  summary: summary,
+                  cip: representativeCip,
+                  groupLabel: summary.groupId != null
+                      ? summary.princepsBrandName
+                      : null,
+                  subtitle: description != null ? [description] : null,
+                  badges: [
+                    FBadge(
+                      style: FBadgeStyle.primary(),
+                      child: Text(
+                        Strings.uniqueMedicationBadge,
+                        style: context.theme.typography.sm,
+                      ),
+                    ),
+                  ],
+                  trailing: Icon(
+                    FIcons.chevronRight,
+                    size: AppDimens.iconSm,
+                    color: context.theme.colors.mutedForeground,
+                  ),
+                  onTap: () {
+                    showAdaptiveOverlay<void>(
+                      context: context,
+                      builder: (overlayContext) =>
+                          _buildStandaloneDetailOverlay(
+                            overlayContext,
+                            summary,
+                            representativeCip,
+                          ),
+                    );
+                  },
+                );
+              },
+        );
         return Semantics(
           button: true,
           label: result.when(
@@ -980,116 +1084,14 @@ class DatabaseSearchView extends HookConsumerWidget {
                 (cisCode, summary, representativeCip, unusedPrinciples) =>
                     '${Strings.medication} ${summary.nomCanonique}',
           ),
-          child: result.when(
-            groupResult: (group) => Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () => context.push(AppRoutes.groupDetail(group.groupId)),
-                borderRadius: BorderRadius.circular(AppDimens.radiusMd),
-                splashColor: theme.colorScheme.primary.withValues(alpha: 0.1),
-                highlightColor: theme.colorScheme.primary.withValues(
-                  alpha: 0.05,
-                ),
-                child: GroupResultCard(group: group),
-              ),
-            ),
-            princepsResult: (princeps, generics, groupId, unusedPrinciples) =>
-                Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: () => context.push(AppRoutes.groupDetail(groupId)),
-                    borderRadius: BorderRadius.circular(AppDimens.radiusMd),
-                    splashColor: theme.colorScheme.primary.withValues(
-                      alpha: 0.1,
-                    ),
-                    highlightColor: theme.colorScheme.primary.withValues(
-                      alpha: 0.05,
-                    ),
-                    child: PrincepsResultCard(
-                      princeps: princeps,
-                      generics: generics,
-                    ),
-                  ),
-                ),
-            genericResult: (generic, princepsList, groupId, unusedPrinciples) =>
-                Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: () => context.push(AppRoutes.groupDetail(groupId)),
-                    borderRadius: BorderRadius.circular(AppDimens.radiusMd),
-                    splashColor: theme.colorScheme.primary.withValues(
-                      alpha: 0.1,
-                    ),
-                    highlightColor: theme.colorScheme.primary.withValues(
-                      alpha: 0.05,
-                    ),
-                    child: GenericResultCard(
-                      generic: generic,
-                      princeps: princepsList,
-                    ),
-                  ),
-                ),
-            standaloneResult:
-                (cisCode, summary, representativeCip, unusedPrinciples) {
-                  final theme = ShadTheme.of(context);
-                  final sanitizedPrinciples = summary.principesActifsCommuns
-                      .map(sanitizeActivePrinciple)
-                      .toList();
-                  final description =
-                      summary.formePharmaceutique != null &&
-                          sanitizedPrinciples.isNotEmpty
-                      ? '${summary.formePharmaceutique} - ${sanitizedPrinciples.join(' + ')}'
-                      : summary.formePharmaceutique ??
-                            (sanitizedPrinciples.isNotEmpty
-                                ? sanitizedPrinciples.join(' + ')
-                                : null);
-
-                  return ProductCard(
-                    summary: summary,
-                    cip: representativeCip,
-                    groupLabel: summary.groupId != null
-                        ? summary.princepsBrandName
-                        : null,
-                    subtitle: description != null ? [description] : null,
-                    badges: [
-                      ShadBadge(
-                        backgroundColor: theme.colorScheme.muted,
-                        child: Text(
-                          Strings.uniqueMedicationBadge,
-                          style: theme.textTheme.small.copyWith(
-                            color: theme.colorScheme.mutedForeground,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                    trailing: Icon(
-                      LucideIcons.chevronRight,
-                      size: AppDimens.iconSm,
-                      color: theme.colorScheme.mutedForeground,
-                    ),
-                    onTap: () {
-                      showAdaptiveOverlay(
-                        context: context,
-                        builder: (overlayContext) =>
-                            _buildStandaloneDetailOverlay(
-                              overlayContext,
-                              summary,
-                              representativeCip,
-                            ),
-                      );
-                    },
-                  );
-                },
-          ),
-        ).animate(delay: (index * 40).ms, effects: AppAnimations.listItemEnter);
+          child: child,
+        );
       },
     );
     return _wrapSliverWithKey(sliver, key);
   }
 
   Widget _buildSearchErrorSliver(
-    ShadThemeData theme,
     Object error,
     String currentQuery,
     WidgetRef ref,
@@ -1099,8 +1101,9 @@ class DatabaseSearchView extends HookConsumerWidget {
         type: StatusType.error,
         title: Strings.searchErrorOccurred,
         description: error.toString(),
-        action: ShadButton(
-          onPressed: () => ref.invalidate(searchResultsProvider(currentQuery)),
+        action: FButton(
+          style: FButtonStyle.primary(),
+          onPress: () => ref.invalidate(searchResultsProvider(currentQuery)),
           child: const Text(Strings.retry),
         ),
       ),
@@ -1118,14 +1121,12 @@ class DatabaseSearchView extends HookConsumerWidget {
     MedicamentSummaryData summary,
     String representativeCip,
   ) {
-    final theme = ShadTheme.of(context);
     final sanitizedPrinciples = summary.principesActifsCommuns
         .map(sanitizeActivePrinciple)
         .toList();
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 480, maxHeight: 520),
-      child: ShadCard(
-        padding: EdgeInsets.zero,
+      child: FCard.raw(
         child: PharmaSheetLayout(
           title: Strings.medicationDetails,
           onClose: () => Navigator.of(context).maybePop(),
@@ -1160,10 +1161,11 @@ class DatabaseSearchView extends HookConsumerWidget {
                   ),
                 ],
                 const Gap(16),
-                ShadBadge.outline(
+                FBadge(
+                  style: FBadgeStyle.outline(),
                   child: Text(
                     Strings.uniqueMedicationNoGroup,
-                    style: theme.textTheme.small,
+                    style: context.theme.typography.sm,
                     overflow: TextOverflow.ellipsis,
                     maxLines: 2,
                   ),
@@ -1195,10 +1197,9 @@ class _SearchBarHeaderDelegate extends SliverPersistentHeaderDelegate {
     double shrinkOffset,
     bool overlapsContent,
   ) {
-    final theme = ShadTheme.of(context);
     return Container(
       height: height,
-      color: theme.colorScheme.background,
+      color: context.theme.colors.background,
       alignment: Alignment.center,
       child: child,
     );

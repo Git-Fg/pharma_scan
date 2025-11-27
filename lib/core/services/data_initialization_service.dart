@@ -96,7 +96,7 @@ class DataInitializationService {
       _stepController.add(InitializationStep.aggregating);
       // WHY: Add delay before aggregation to ensure isolate database operations complete
       // This helps prevent "database is locked" errors when main thread tries to aggregate
-      await Future.delayed(const Duration(milliseconds: 500));
+      await Future<void>.delayed(const Duration(milliseconds: 500));
       await _aggregateDataForSummary();
 
       await _db.settingsDao.updateBdpmVersion(_currentDataVersion);
@@ -213,9 +213,9 @@ class DataInitializationService {
     // This helps prevent "database is locked" errors when isolate tries to open the database
     // WHY: Multiple delays to ensure all database operations complete and connections are released
     // WHY: Force multiple event loop ticks to allow any pending database operations to complete
-    await Future.delayed(const Duration(milliseconds: 100));
-    await Future.delayed(const Duration(milliseconds: 200));
-    await Future.delayed(const Duration(milliseconds: 300));
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    await Future<void>.delayed(const Duration(milliseconds: 300));
 
     final dbPath = await _getDatabasePath();
     final tempPath = (await getTemporaryDirectory()).path;
@@ -343,7 +343,7 @@ class DataInitializationService {
         LoggerService.warning(
           '[DataInit] Download failed for $filename (attempt $retryCount/$maxRetries), retrying in ${delayMs}ms: $error',
         );
-        await Future.delayed(Duration(milliseconds: delayMs));
+        await Future<void>.delayed(Duration(milliseconds: delayMs));
       }
     }
     // This should never be reached, but Dart requires a return
@@ -430,7 +430,7 @@ Future<_ParseAndInsertResult> _parseAndInsertDataInBackground(
       LoggerService.warning(
         '[DataInit] Failed to open database (attempt $dbOpenRetryCount/$maxDbOpenRetries), retrying in ${delayMs}ms: $e',
       );
-      await Future.delayed(Duration(milliseconds: delayMs));
+      await Future<void>.delayed(Duration(milliseconds: delayMs));
     }
   }
 
@@ -448,37 +448,65 @@ Future<_ParseAndInsertResult> _parseAndInsertDataInBackground(
   }
 
   // Parse all files using BdpmFileParser static methods
+  // Using Railway Oriented Programming with Either for explicit error handling
   final conditionsMap = BdpmFileParser.parseConditions(
     readFileInIsolate(args.filePaths['conditions']),
   );
   final mitmMap = BdpmFileParser.parseMitm(
     readFileInIsolate(args.filePaths['mitm']),
   );
-  final specialitesResult = BdpmFileParser.parseSpecialites(
+
+  final specialitesEither = BdpmFileParser.parseSpecialites(
     readFileInIsolate(args.filePaths['specialites']),
     conditionsMap,
     mitmMap,
   );
 
-  final medicamentsResult = BdpmFileParser.parseMedicaments(
+  final specialitesResult = specialitesEither.fold((error) {
+    LoggerService.error('[DataInit] Failed to parse specialites: $error');
+    throw Exception('Failed to parse specialites: $error');
+  }, (result) => result);
+
+  final medicamentsEither = BdpmFileParser.parseMedicaments(
     readFileInIsolate(args.filePaths['medicaments']),
     specialitesResult,
   );
 
-  final principes = BdpmFileParser.parseCompositions(
+  final medicamentsResult = medicamentsEither.fold((error) {
+    LoggerService.error('[DataInit] Failed to parse medicaments: $error');
+    throw Exception('Failed to parse medicaments: $error');
+  }, (result) => result);
+
+  final principesEither = BdpmFileParser.parseCompositions(
     readFileInIsolate(args.filePaths['compositions']),
     medicamentsResult.cisToCip13,
   );
 
-  final generiqueResult = BdpmFileParser.parseGeneriques(
+  final principes = principesEither.fold((error) {
+    LoggerService.error('[DataInit] Failed to parse compositions: $error');
+    throw Exception('Failed to parse compositions: $error');
+  }, (result) => result);
+
+  final generiqueEither = BdpmFileParser.parseGeneriques(
     readFileInIsolate(args.filePaths['generiques']),
     medicamentsResult.cisToCip13,
     medicamentsResult.medicamentCips,
   );
-  final availabilityRows = BdpmFileParser.parseAvailability(
+
+  final generiqueResult = generiqueEither.fold((error) {
+    LoggerService.error('[DataInit] Failed to parse generiques: $error');
+    throw Exception('Failed to parse generiques: $error');
+  }, (result) => result);
+
+  final availabilityEither = BdpmFileParser.parseAvailability(
     readFileInIsolate(args.filePaths['availability']),
     medicamentsResult.cisToCip13,
   );
+
+  final availabilityRows = availabilityEither.fold((error) {
+    LoggerService.error('[DataInit] Failed to parse availability: $error');
+    throw Exception('Failed to parse availability: $error');
+  }, (result) => result);
 
   // WHY: Wrap database operations in try/finally to ensure database is always closed
   // This prevents database locks from persisting after isolate completes
@@ -604,7 +632,7 @@ Future<_ParseAndInsertResult> _parseAndInsertDataInBackground(
         LoggerService.warning(
           '[DataInit] Database lock error (attempt $retryCount/$maxRetries), retrying in ${delayMs}ms: $e',
         );
-        await Future.delayed(Duration(milliseconds: delayMs));
+        await Future<void>.delayed(Duration(milliseconds: delayMs));
       }
     }
 

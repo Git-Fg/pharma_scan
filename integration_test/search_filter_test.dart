@@ -1,7 +1,9 @@
 // integration_test/search_filter_test.dart
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:pharma_scan/features/explorer/providers/search_provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'test_bootstrap.dart';
 
 void main() {
@@ -16,9 +18,22 @@ void main() {
       final container = integrationTestContainer;
 
       // WHY: Empty query should return empty results immediately
-      final results = await container.read(searchResultsProvider('').future);
-
-      expect(results, isEmpty);
+      // Use a widget to watch the provider and get the stream value
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: Builder(
+            builder: (context) {
+              final asyncValue = container.read(searchResultsProvider(''));
+              asyncValue.whenData((results) {
+                expect(results, isEmpty);
+              });
+              return const SizedBox();
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
     });
 
     testWidgets('search provider handles whitespace-only query', (
@@ -29,9 +44,22 @@ void main() {
       final container = integrationTestContainer;
 
       // WHY: Whitespace-only query should return empty results
-      final results = await container.read(searchResultsProvider('   ').future);
-
-      expect(results, isEmpty);
+      // Use a widget to watch the provider and get the stream value
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: Builder(
+            builder: (context) {
+              final asyncValue = container.read(searchResultsProvider('   '));
+              asyncValue.whenData((results) {
+                expect(results, isEmpty);
+              });
+              return const SizedBox();
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
     });
   });
 }

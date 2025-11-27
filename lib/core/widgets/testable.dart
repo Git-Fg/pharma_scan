@@ -9,7 +9,7 @@ import 'package:flutter/material.dart';
 /// ```dart
 /// Testable(
 ///   id: TestTags.navScanner,
-///   child: ShadButton(...),
+///   child: FButton(...),
 /// )
 /// ```
 ///

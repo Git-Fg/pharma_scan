@@ -1,17 +1,19 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:gap/gap.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
 
 import 'package:pharma_scan/core/providers/core_providers.dart';
+import 'package:forui/forui.dart';
 import 'package:pharma_scan/core/utils/adaptive_overlay.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/models/update_frequency.dart';
 import 'package:pharma_scan/core/providers/preferences_provider.dart';
 import 'package:pharma_scan/core/providers/theme_provider.dart';
-import 'package:pharma_scan/core/router/app_routes.dart';
+import 'package:pharma_scan/core/router/routes.dart';
 import 'package:pharma_scan/features/home/providers/sync_provider.dart';
 
 class SettingsScreen extends HookConsumerWidget {
@@ -19,6 +21,15 @@ class SettingsScreen extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final themeController = useMemoized(
+      FSelectGroupController<ThemeSetting>.radio,
+    );
+    final frequencyController = useMemoized(
+      FSelectGroupController<UpdateFrequency>.radio,
+    );
+
+    final frequencyState = ref.watch(appPreferencesProvider);
+    final isFrequencyLoading = frequencyState.isLoading;
     final isResetting = useState(false);
     final isCheckingUpdates = useState(false);
 
@@ -32,27 +43,20 @@ class SettingsScreen extends HookConsumerWidget {
             .initializeDatabase(forceRefresh: true);
 
         if (context.mounted) {
-          ShadSonner.of(context).show(
-            const ShadToast(
-              title: Text(Strings.resetComplete),
-              description: Text(Strings.resetSuccess),
-            ),
+          showFToast(
+            context: context,
+            title: const Text(Strings.resetComplete),
+            description: const Text(Strings.resetSuccess),
+            icon: const Icon(FIcons.check),
           );
         }
       } catch (_) {
         if (context.mounted) {
-          final sonner = ShadSonner.of(context);
-          final toastId = DateTime.now().millisecondsSinceEpoch;
-          sonner.show(
-            ShadToast.destructive(
-              id: toastId,
-              title: const Text(Strings.resetError),
-              description: const Text(Strings.resetErrorDescription),
-              action: ShadButton.outline(
-                onPressed: () => sonner.hide(toastId),
-                child: const Text(Strings.close),
-              ),
-            ),
+          showFToast(
+            context: context,
+            title: const Text(Strings.resetError),
+            description: const Text(Strings.resetErrorDescription),
+            icon: const Icon(FIcons.triangleAlert),
           );
         }
       } finally {
@@ -63,59 +67,75 @@ class SettingsScreen extends HookConsumerWidget {
     }
 
     void showResetConfirmation() {
-      final theme = ShadTheme.of(context);
       final isMobile = MediaQuery.sizeOf(context).width < 600;
 
-      showAdaptiveOverlay(
+      showAdaptiveOverlay<void>(
         context: context,
         builder: (overlayContext) {
           if (isMobile) {
-            // Mobile : ShadCard dans BottomSheet
-            return ShadCard(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(Strings.resetDatabaseTitle, style: theme.textTheme.h4),
-                  const Gap(12),
-                  Text(
-                    Strings.resetDatabaseDescription,
-                    style: theme.textTheme.muted,
-                  ),
-                  const Gap(24),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      ShadButton.outline(
-                        onPressed: () => Navigator.of(overlayContext).pop(),
-                        child: const Text(Strings.cancel),
+            // Mobile : FCard dans BottomSheet
+            return FCard.raw(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      Strings.resetDatabaseTitle,
+                      style: context.theme.typography.xl2, // h4 equivalent
+                    ),
+                    const Gap(12),
+                    Text(
+                      Strings.resetDatabaseDescription,
+                      style: context.theme.typography.sm.copyWith(
+                        color: context.theme.colors.mutedForeground,
                       ),
-                      const Gap(8),
-                      ShadButton.destructive(
-                        onPressed: () {
-                          Navigator.of(overlayContext).pop();
-                          performReset();
-                        },
-                        child: const Text(Strings.confirm),
-                      ),
-                    ],
-                  ),
-                ],
+                    ),
+                    const Gap(24),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        FButton(
+                          style: FButtonStyle.outline(),
+                          onPress: () => Navigator.of(overlayContext).pop(),
+                          child: const Text(Strings.cancel),
+                        ),
+                        const Gap(8),
+                        FButton(
+                          style: FButtonStyle.primary(),
+                          onPress: () {
+                            Navigator.of(overlayContext).pop();
+                            performReset();
+                          },
+                          child: const Text(Strings.confirm),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             );
           } else {
-            // Desktop : ShadDialog
-            return ShadDialog.alert(
-              title: const Text(Strings.resetDatabaseTitle),
-              description: const Text(Strings.resetDatabaseDescription),
+            // Desktop : FDialog
+            return FDialog(
+              title: Text(
+                Strings.resetDatabaseTitle,
+                style: context.theme.typography.xl2,
+              ),
+              body: Text(
+                Strings.resetDatabaseDescription,
+                style: context.theme.typography.base,
+              ),
               actions: [
-                ShadButton.outline(
-                  onPressed: () => Navigator.of(overlayContext).pop(),
+                FButton(
+                  style: FButtonStyle.outline(),
+                  onPress: () => Navigator.of(overlayContext).pop(),
                   child: const Text(Strings.cancel),
                 ),
-                ShadButton.destructive(
-                  onPressed: () {
+                FButton(
+                  style: FButtonStyle.primary(),
+                  onPress: () {
                     Navigator.of(overlayContext).pop();
                     performReset();
                   },
@@ -132,11 +152,13 @@ class SettingsScreen extends HookConsumerWidget {
       if (isCheckingUpdates.value) return;
       isCheckingUpdates.value = true;
 
-      showAdaptiveOverlay(
-        context: context,
-        isDismissible: false,
-        builder: (overlayContext) => _SyncProgressDialog(
-          isMobile: MediaQuery.sizeOf(context).width < 600,
+      unawaited(
+        showAdaptiveOverlay<void>(
+          context: context,
+          isDismissible: false,
+          builder: (overlayContext) => _SyncProgressDialog(
+            isMobile: MediaQuery.sizeOf(context).width < 600,
+          ),
         ),
       );
 
@@ -145,30 +167,21 @@ class SettingsScreen extends HookConsumerWidget {
             .read(syncControllerProvider.notifier)
             .startSync(force: true);
         if (!context.mounted) return;
-        ShadSonner.of(context).show(
-          ShadToast(
-            title: Text(updated ? Strings.bdpmSynced : Strings.noNewUpdates),
-            description: Text(
-              updated
-                  ? Strings.latestBdpmDataApplied
-                  : Strings.localDataUpToDate,
-            ),
+        showFToast(
+          context: context,
+          title: Text(updated ? Strings.bdpmSynced : Strings.noNewUpdates),
+          description: Text(
+            updated ? Strings.latestBdpmDataApplied : Strings.localDataUpToDate,
           ),
+          icon: updated ? const Icon(FIcons.check) : null,
         );
       } catch (_) {
         if (!context.mounted) return;
-        final sonner = ShadSonner.of(context);
-        final toastId = DateTime.now().millisecondsSinceEpoch;
-        sonner.show(
-          ShadToast.destructive(
-            id: toastId,
-            title: const Text(Strings.syncFailed),
-            description: const Text(Strings.unableToCheckBdpmUpdates),
-            action: ShadButton.outline(
-              onPressed: () => sonner.hide(toastId),
-              child: const Text(Strings.close),
-            ),
-          ),
+        showFToast(
+          context: context,
+          title: const Text(Strings.syncFailed),
+          description: const Text(Strings.unableToCheckBdpmUpdates),
+          icon: const Icon(FIcons.triangleAlert),
         );
       } finally {
         if (context.mounted) {
@@ -178,93 +191,95 @@ class SettingsScreen extends HookConsumerWidget {
       }
     }
 
-    final theme = ShadTheme.of(context);
-    final frequencyState = ref.watch(appPreferencesProvider);
-    final updateFrequency = frequencyState.value ?? UpdateFrequency.daily;
-    final isFrequencyLoading = frequencyState.isLoading;
-    final themeAsync = ref.watch(themeProvider);
-    final currentTheme = themeSettingFromThemeMode(
-      themeAsync.value ?? ThemeMode.system,
-    );
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text(Strings.settings),
-        backgroundColor: theme.colorScheme.background,
-        elevation: 0,
-        iconTheme: IconThemeData(color: theme.colorScheme.foreground),
+    return FScaffold(
+      header: FHeader.nested(
+        title: Text(
+          Strings.settings,
+          style: context.theme.typography.xl2, // h4 equivalent
+        ),
+        prefixes: [FHeaderAction.back(onPress: () => context.pop())],
       ),
-      backgroundColor: theme.colorScheme.background,
-      body: Stack(
+      child: Stack(
         children: [
           Padding(
             padding: const EdgeInsets.all(24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(Strings.appearance, style: theme.textTheme.h4),
+                Text(
+                  Strings.appearance,
+                  style: context.theme.typography.xl2, // h4 equivalent
+                ),
                 const Gap(16),
-                ShadRadioGroup<ThemeSetting>(
-                  initialValue: currentTheme,
-                  onChanged: (value) {
-                    if (value != null) {
-                      ref.read(themeProvider.notifier).setTheme(value);
+                FSelectGroup<ThemeSetting>(
+                  controller: themeController,
+                  onChange: (values) {
+                    if (values.isNotEmpty) {
+                      ref.read(themeProvider.notifier).setTheme(values.first);
                     }
                   },
-                  items: const [
-                    ShadRadio<ThemeSetting>(
+                  children: [
+                    FRadio.grouped<ThemeSetting>(
                       value: ThemeSetting.system,
-                      label: Text(Strings.systemTheme),
+                      label: const Text(Strings.systemTheme),
                     ),
-                    ShadRadio<ThemeSetting>(
+                    FRadio.grouped<ThemeSetting>(
                       value: ThemeSetting.light,
-                      label: Text(Strings.lightTheme),
+                      label: const Text(Strings.lightTheme),
                     ),
-                    ShadRadio<ThemeSetting>(
+                    FRadio.grouped<ThemeSetting>(
                       value: ThemeSetting.dark,
-                      label: Text(Strings.darkTheme),
+                      label: const Text(Strings.darkTheme),
                     ),
                   ],
                 ),
                 const Gap(48),
-                Text(Strings.sync, style: theme.textTheme.h4),
+                Text(
+                  Strings.sync,
+                  style: context.theme.typography.xl2, // h4 equivalent
+                ),
                 const Gap(16),
-                ShadRadioGroup<UpdateFrequency>(
-                  initialValue: updateFrequency,
-                  onChanged: isFrequencyLoading
+                FSelectGroup<UpdateFrequency>(
+                  controller: frequencyController,
+                  onChange: isFrequencyLoading
                       ? null
-                      : (value) async {
-                          if (value == null) return;
+                      : (values) async {
+                          if (values.isEmpty) return;
                           await ref
                               .read(appPreferencesProvider.notifier)
-                              .setUpdateFrequency(value);
+                              .setUpdateFrequency(values.first);
                         },
-                  items: const [
-                    ShadRadio<UpdateFrequency>(
+                  children: [
+                    FRadio.grouped<UpdateFrequency>(
                       value: UpdateFrequency.none,
-                      label: Text(Strings.never),
+                      label: const Text(Strings.never),
                     ),
-                    ShadRadio<UpdateFrequency>(
+                    FRadio.grouped<UpdateFrequency>(
                       value: UpdateFrequency.daily,
-                      label: Text(Strings.daily),
+                      label: const Text(Strings.daily),
                     ),
-                    ShadRadio<UpdateFrequency>(
+                    FRadio.grouped<UpdateFrequency>(
                       value: UpdateFrequency.weekly,
-                      label: Text(Strings.weekly),
+                      label: const Text(Strings.weekly),
                     ),
-                    ShadRadio<UpdateFrequency>(
+                    FRadio.grouped<UpdateFrequency>(
                       value: UpdateFrequency.monthly,
-                      label: Text(Strings.monthly),
+                      label: const Text(Strings.monthly),
                     ),
                   ],
                 ),
                 const Gap(8),
                 Text(
                   Strings.determinesCheckFrequency,
-                  style: theme.textTheme.muted,
+                  style: context.theme.typography.sm.copyWith(
+                    color: context.theme.colors.mutedForeground,
+                  ),
                 ),
                 const Gap(48),
-                Text(Strings.data, style: theme.textTheme.h4),
+                Text(
+                  Strings.data,
+                  style: context.theme.typography.xl2, // h4 equivalent
+                ),
                 const Gap(16),
                 Semantics(
                   button: true,
@@ -272,9 +287,10 @@ class SettingsScreen extends HookConsumerWidget {
                       ? Strings.checkingUpdatesTitle
                       : Strings.checkUpdatesNow,
                   enabled: !isCheckingUpdates.value,
-                  child: ShadButton(
-                    onPressed: isCheckingUpdates.value ? null : runManualSync,
-                    leading: const Icon(LucideIcons.refreshCw, size: 16),
+                  child: FButton(
+                    style: FButtonStyle.secondary(),
+                    onPress: isCheckingUpdates.value ? null : runManualSync,
+                    prefix: const Icon(FIcons.refreshCw, size: 16),
                     child: Text(
                       isCheckingUpdates.value
                           ? Strings.checkingUpdatesInProgress
@@ -289,27 +305,34 @@ class SettingsScreen extends HookConsumerWidget {
                       'Forcer la réinitialisation complète de la base de données',
                   hint:
                       'Cette action supprimera toutes les données locales et les re-téléchargera',
-                  child: ShadButton.destructive(
-                    onPressed: showResetConfirmation,
-                    leading: const Icon(LucideIcons.databaseZap, size: 16),
+                  child: FButton(
+                    style: FButtonStyle.primary(),
+                    onPress: showResetConfirmation,
+                    prefix: const Icon(FIcons.databaseZap, size: 16),
                     child: const Text(Strings.forceReset),
                   ),
                 ),
                 const Gap(8),
                 Text(
                   Strings.forceResetDescription,
-                  style: theme.textTheme.muted,
+                  style: context.theme.typography.sm.copyWith(
+                    color: context.theme.colors.mutedForeground,
+                  ),
                 ),
                 const Gap(24),
-                Text(Strings.diagnostics, style: theme.textTheme.h4),
+                Text(
+                  Strings.diagnostics,
+                  style: context.theme.typography.xl2, // h4 equivalent
+                ),
                 const Gap(12),
                 Semantics(
                   button: true,
                   label: Strings.showApplicationLogs,
                   hint: Strings.openDetailedViewForSupport,
-                  child: ShadButton.outline(
-                    onPressed: () => context.push(AppRoutes.logs),
-                    leading: const Icon(LucideIcons.terminal, size: 16),
+                  child: FButton(
+                    style: FButtonStyle.outline(),
+                    onPress: () => const LogsRoute().push<void>(context),
+                    prefix: const Icon(FIcons.terminal, size: 16),
                     child: const Text(Strings.showLogs),
                   ),
                 ),
@@ -318,11 +341,27 @@ class SettingsScreen extends HookConsumerWidget {
           ),
           if (isResetting.value)
             ColoredBox(
-              color: theme.colorScheme.background.withValues(alpha: 0.8),
-              child: const Center(
+              color: context.theme.colors.background.withValues(alpha: 0.8),
+              child: Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
-                  children: [ShadProgress(), Gap(16), Text(Strings.resetting)],
+                  children: [
+                    SizedBox(
+                      height: 4.0,
+                      child: LinearProgressIndicator(
+                        backgroundColor: context.theme.colors.muted,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          context.theme.colors.primary,
+                        ),
+                        minHeight: 4.0,
+                      ),
+                    ),
+                    const Gap(16),
+                    Text(
+                      Strings.resetting,
+                      style: context.theme.typography.base,
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -339,42 +378,68 @@ class _SyncProgressDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = ShadTheme.of(context);
-
     if (isMobile) {
-      // Mobile : ShadCard dans BottomSheet
-      return ShadCard(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(Strings.checkUpdates, style: theme.textTheme.h4),
-            const Gap(16),
-            const ShadProgress(),
-            const Gap(12),
-            Text(
-              Strings.pleaseWaitSync,
-              style: theme.textTheme.muted,
-              textAlign: TextAlign.center,
-            ),
-          ],
+      // Mobile : FCard dans BottomSheet
+      return FCard.raw(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                Strings.checkUpdates,
+                style: context.theme.typography.xl2, // h4 equivalent
+              ),
+              const Gap(16),
+              SizedBox(
+                height: 4.0,
+                child: LinearProgressIndicator(
+                  backgroundColor: context.theme.colors.muted,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    context.theme.colors.primary,
+                  ),
+                  minHeight: 4.0,
+                ),
+              ),
+              const Gap(12),
+              Text(
+                Strings.pleaseWaitSync,
+                style: context.theme.typography.sm.copyWith(
+                  color: context.theme.colors.mutedForeground,
+                ),
+              ),
+            ],
+          ),
         ),
       );
     } else {
-      // Desktop : ShadDialog
-      return ShadDialog(
-        title: const Text(Strings.checkUpdatesTitle),
-        description: Column(
+      // Desktop : FDialog
+      return FDialog(
+        title: Text(
+          Strings.checkUpdatesTitle,
+          style: context.theme.typography.xl2,
+        ),
+        body: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             const Gap(16),
-            const ShadProgress(),
+            SizedBox(
+              height: 4.0,
+              child: LinearProgressIndicator(
+                backgroundColor: context.theme.colors.muted,
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  context.theme.colors.primary,
+                ),
+                minHeight: 4.0,
+              ),
+            ),
             const Gap(12),
             Text(
               Strings.pleaseWaitSync,
-              style: theme.textTheme.muted,
-              textAlign: TextAlign.center,
+              style: context.theme.typography.sm.copyWith(
+                color: context.theme.colors.mutedForeground,
+              ),
             ),
           ],
         ),

@@ -1,8 +1,8 @@
 // lib/core/database/daos/database_dao.dart
+import 'package:diacritic/diacritic.dart';
 import 'package:drift/drift.dart';
 import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/database/daos/settings_dao.dart';
-import 'package:pharma_scan/core/utils/medicament_helpers.dart';
 
 part 'database_dao.g.dart';
 
@@ -152,7 +152,8 @@ class DatabaseDao extends DatabaseAccessor<AppDatabase>
 
   // WHY: Populate FTS5 search index from medicament_summary table
   // This enables fast full-text search directly in SQLite
-  // Active principles are sanitized to remove salt prefixes for better searchability
+  // Uses trigram tokenizer for enhanced fuzzy search capabilities
+  // Data is normalized (lowercase, diacritic-free) before insertion to match query normalization
   Future<void> populateFts5Index() async {
     // WHY: Defensive creation immediately before DELETE to ensure table exists
     // This prevents "no such table: search_index" crashes if table wasn't created in schema
@@ -169,9 +170,9 @@ class DatabaseDao extends DatabaseAccessor<AppDatabase>
 
     await customStatement('DELETE FROM search_index;');
 
-    // WHY: Fetch summaries and sanitize active principles in Dart
-    // SQLite doesn't have native regex/sanitization, so we do it in Dart
-    // This ensures searches work for both "RANITIDINE" and "CHLORHYDRATE DE RANITIDINE"
+    // WHY: Fetch summaries and normalize data before inserting into FTS5 index
+    // Trigram tokenizer enables powerful substring matching (e.g., "loro" finds "phloroglucinol")
+    // Normalization via diacritic package ensures consistency with business logic
     final summaries =
         await (db.select(db.medicamentSummary)..where(
               (tbl) =>
@@ -181,28 +182,40 @@ class DatabaseDao extends DatabaseAccessor<AppDatabase>
             ))
             .get();
 
-    // WHY: Batch insert sanitized principles into FTS5 index
-    // This allows searching for "RANITIDINE" to match "CHLORHYDRATE DE RANITIDINE"
-    for (final summary in summaries) {
-      final sanitizedPrinciples = summary.principesActifsCommuns
-          .map(sanitizeActivePrinciple)
-          .where((p) => p.isNotEmpty)
-          .join(' ');
+    // WHY: Batch insert normalized data into FTS5 index using batch API
+    // All text fields are normalized (lowercase + diacritic removal) before insertion
+    // This ensures queries can match the index content exactly
+    // Using batch ensures transaction safety and better performance
+    await batch((batch) {
+      for (final summary in summaries) {
+        final activePrinciples = summary.principesActifsCommuns.join(' ');
 
-      if (sanitizedPrinciples.isEmpty) continue;
+        if (activePrinciples.isEmpty) continue;
 
-      await customStatement(
-        '''
-        INSERT INTO search_index (cis_code, canonical_name, princeps_name, active_principles)
-        VALUES (?, ?, ?, ?)
-        ''',
-        [
-          summary.cisCode,
+        // Normalize all text fields before insertion
+        final normalizedCanonicalName = removeDiacritics(
           summary.nomCanonique,
+        ).toLowerCase();
+        final normalizedPrincepsName = removeDiacritics(
           summary.princepsDeReference,
-          sanitizedPrinciples,
-        ],
-      );
-    }
+        ).toLowerCase();
+        final normalizedActivePrinciples = removeDiacritics(
+          activePrinciples,
+        ).toLowerCase();
+
+        batch.customStatement(
+          '''
+          INSERT INTO search_index (cis_code, canonical_name, princeps_name, active_principles)
+          VALUES (?, ?, ?, ?)
+          ''',
+          [
+            summary.cisCode, // Keep cis_code raw (it's numeric/ID)
+            normalizedCanonicalName,
+            normalizedPrincepsName,
+            normalizedActivePrinciples,
+          ],
+        );
+      }
+    });
   }
 }

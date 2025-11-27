@@ -1,14 +1,14 @@
 // lib/core/utils/adaptive_overlay.dart
 import 'package:flutter/material.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
+import 'package:forui/forui.dart';
 
 /// Affiche un overlay adaptatif qui s'adapte automatiquement à la largeur d'écran.
 ///
-/// - **Mobile (< sm breakpoint)** : Affiche une [ModalBottomSheet] avec drag handle et coins arrondis.
-/// - **Desktop/Tablette (>= sm breakpoint)** : Affiche un [Dialog] centré avec une largeur maximale de 500px.
+/// - **Mobile (< sm breakpoint)** : Affiche une [FSheet] avec drag handle et coins arrondis.
+/// - **Desktop/Tablette (>= sm breakpoint)** : Affiche un [FDialog] centré avec une largeur maximale de 500px.
 ///
 /// Le contenu fourni par [builder] doit être compatible avec les deux modes d'affichage.
-/// Il est recommandé d'utiliser [ShadCard] pour le contenu principal.
+/// Il est recommandé d'utiliser [FCard] ou [FCard.raw] pour le contenu principal.
 ///
 /// [context] : Le contexte de build pour accéder au thème et à MediaQuery.
 /// [builder] : Fonction qui construit le widget à afficher dans l'overlay.
@@ -22,23 +22,18 @@ Future<T?> showAdaptiveOverlay<T>({
   bool isDismissible = true,
   String? title,
 }) {
-  final theme = ShadTheme.of(context);
   final screenWidth = MediaQuery.sizeOf(context).width;
-  // WHY: Use theme breakpoint value for responsive layout
-  // Default sm breakpoint is 640, but we use the theme's configured value
-  final breakpointValue = theme.breakpoints.sm is int
-      ? theme.breakpoints.sm as int
-      : 640; // Fallback to default if not a number
+  // WHY: Use standard breakpoint value for responsive layout
+  // Standard sm breakpoint is 640px (standard responsive breakpoint)
+  const breakpointValue = 640;
 
   if (screenWidth < breakpointValue) {
-    // Mobile : BottomSheet
-    return showModalBottomSheet<T>(
+    // Mobile : BottomSheet using Forui
+    return showFSheet<T>(
       context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      isDismissible: isDismissible,
-      enableDrag: isDismissible,
-      showDragHandle: true,
+      side: FLayout.btt, // Bottom to Top
+      barrierDismissible: isDismissible,
+      draggable: isDismissible,
       builder: (sheetContext) {
         return Padding(
           padding: EdgeInsets.only(
@@ -52,18 +47,30 @@ Future<T?> showAdaptiveOverlay<T>({
       },
     );
   } else {
-    // Desktop/Tablette : Dialog
-    return showDialog<T>(
+    // Desktop/Tablette : Dialog using Forui
+    return showFDialog<T>(
       context: context,
       barrierDismissible: isDismissible,
-      builder: (dialogContext) {
-        return Dialog(
-          backgroundColor: Colors.transparent,
-          insetPadding: const EdgeInsets.all(24),
-          child: ConstrainedBox(
+      builder: (dialogContext, style, animation) {
+        // Wrap builder content in FDialog if it returns raw content
+        final content = builder(dialogContext);
+
+        // If content is already an FDialog, return it
+        if (content is FDialog) {
+          return content;
+        }
+
+        // Otherwise wrap in FDialog
+        return FDialog(
+          style: style.call,
+          animation: animation,
+          direction: Axis.vertical,
+          title: title != null ? Text(title) : null,
+          body: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 500),
-            child: builder(dialogContext),
+            child: content,
           ),
+          actions: const [], // Empty actions list
         );
       },
     );

@@ -3,7 +3,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:gap/gap.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
+import 'package:forui/forui.dart';
 
 class UnifiedActivityBanner extends HookWidget {
   const UnifiedActivityBanner({
@@ -39,7 +39,6 @@ class UnifiedActivityBanner extends HookWidget {
     // doesn't emit new values (e.g. parsing phase).
     useStream(Stream<void>.periodic(const Duration(seconds: 1)));
 
-    final theme = ShadTheme.of(context);
     final elapsed = startTime != null
         ? DateTime.now().difference(startTime!)
         : null;
@@ -63,84 +62,105 @@ class UnifiedActivityBanner extends HookWidget {
         AppDimens.spacingMd,
         AppDimens.spacingXs,
       ),
-      child: ShadCard(
-        title: Row(
-          children: [
-            Icon(
-              icon,
-              color: isError
-                  ? theme.colorScheme.destructive
-                  : theme.colorScheme.primary,
-            ),
-            const Gap(AppDimens.spacingXs),
-            Expanded(
-              child: Text(
-                title,
-                style: theme.textTheme.h4.copyWith(
-                  color: isError
-                      ? theme.colorScheme.destructive
-                      : theme.colorScheme.foreground,
-                ),
-              ),
-            ),
-          ],
-        ),
-        description: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(status, style: theme.textTheme.muted),
-            if (secondaryStatus != null) ...[
-              const Gap(AppDimens.spacing2xs),
-              Text(secondaryStatus!, style: theme.textTheme.small),
-            ],
-            const Gap(AppDimens.spacingSm),
-            if (effectiveProgress != null || indeterminate)
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+      child: FCard.raw(
+        child: Padding(
+          padding: const EdgeInsets.all(AppDimens.spacingMd),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
                 children: [
-                  indeterminate && effectiveProgress == null
-                      ? const ShadProgress()
-                      : ShadProgress(value: effectiveProgress ?? 0),
-                  const Gap(AppDimens.spacing2xs),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          progressSummary,
-                          style: theme.textTheme.small,
-                        ),
-                      ),
-                      Text(
-                        '${Strings.dataOperationsElapsed}: '
-                        '${elapsed != null ? _formatDuration(elapsed) : '--:--'}',
-                        style: theme.textTheme.small.copyWith(
-                          color: theme.colorScheme.mutedForeground,
-                        ),
-                      ),
-                    ],
+                  Icon(
+                    icon,
+                    color: isError
+                        ? context.theme.colors.destructive
+                        : context.theme.colors.primary,
                   ),
-                  const Gap(AppDimens.spacing2xs),
-                  Text(
-                    '${Strings.dataOperationsEta}: '
-                    '${eta != null ? _formatDuration(eta) : Strings.dataOperationsEtaPending}',
-                    style: theme.textTheme.small.copyWith(
-                      color: theme.colorScheme.mutedForeground,
+                  const Gap(AppDimens.spacingXs),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: context.theme.typography.xl2.copyWith(
+                        color: isError
+                            ? context.theme.colors.destructive
+                            : context.theme.colors.foreground,
+                      ),
                     ),
                   ),
                 ],
               ),
-          ],
-        ),
-        footer: isError && onRetry != null
-            ? Align(
-                alignment: Alignment.centerRight,
-                child: ShadButton.destructive(
-                  onPressed: onRetry,
-                  child: const Text(Strings.retry),
+              const Gap(AppDimens.spacingSm),
+              Text(
+                status,
+                style: context.theme.typography.sm.copyWith(
+                  color: context.theme.colors.mutedForeground,
                 ),
-              )
-            : null,
-        child: const SizedBox.shrink(),
+              ),
+              if (secondaryStatus != null) ...[
+                const Gap(AppDimens.spacing2xs),
+                Text(secondaryStatus!, style: context.theme.typography.sm),
+              ],
+              const Gap(AppDimens.spacingSm),
+              if (effectiveProgress != null || indeterminate)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      height: 4.0,
+                      child: LinearProgressIndicator(
+                        value: indeterminate && effectiveProgress == null
+                            ? null
+                            : effectiveProgress ?? 0,
+                        backgroundColor: context.theme.colors.muted,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          context.theme.colors.primary,
+                        ),
+                        minHeight: 4.0,
+                      ),
+                    ),
+                    const Gap(AppDimens.spacing2xs),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            progressSummary,
+                            style: context.theme.typography.sm,
+                          ),
+                        ),
+                        Text(
+                          '${Strings.dataOperationsElapsed}: '
+                          '${elapsed != null ? _formatDuration(elapsed) : '--:--'}',
+                          style: context.theme.typography.sm.copyWith(
+                            color: context.theme.colors.mutedForeground,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Gap(AppDimens.spacing2xs),
+                    Text(
+                      '${Strings.dataOperationsEta}: '
+                      '${eta != null ? _formatDuration(eta) : Strings.dataOperationsEtaPending}',
+                      style: context.theme.typography.sm.copyWith(
+                        color: context.theme.colors.mutedForeground,
+                      ),
+                    ),
+                  ],
+                ),
+              if (isError && onRetry != null) ...[
+                const Gap(AppDimens.spacingMd),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: FButton(
+                    style: FButtonStyle.primary(),
+                    onPress: onRetry,
+                    child: const Text(Strings.retry),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }

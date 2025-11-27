@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
+import 'package:forui/forui.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
 
 class InfoLabel extends StatelessWidget {
   const InfoLabel({
@@ -25,17 +25,22 @@ class InfoLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = ShadTheme.of(context);
-    final effectiveStyle = style ?? theme.textTheme.muted;
+    final effectiveStyle =
+        style ??
+        context.theme.typography.sm.copyWith(
+          color: context.theme.colors.mutedForeground,
+        );
     final effectiveIconColor = iconColor ?? effectiveStyle.color;
 
+    final textWidget = Text(
+      text,
+      style: effectiveStyle,
+      maxLines: maxLines,
+      overflow: TextOverflow.ellipsis,
+    );
+
     if (icon == null) {
-      return Text(
-        text,
-        style: effectiveStyle,
-        overflow: TextOverflow.ellipsis,
-        maxLines: maxLines,
-      );
+      return textWidget;
     }
 
     return Row(
@@ -44,14 +49,7 @@ class InfoLabel extends StatelessWidget {
       children: [
         Icon(icon, size: iconSize, color: effectiveIconColor),
         const Gap(_iconGap),
-        Flexible(
-          child: Text(
-            text,
-            style: effectiveStyle,
-            overflow: TextOverflow.ellipsis,
-            maxLines: maxLines,
-          ),
-        ),
+        Flexible(child: textWidget),
       ],
     );
   }

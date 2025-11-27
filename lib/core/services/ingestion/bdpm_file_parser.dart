@@ -2,15 +2,34 @@
 import 'dart:convert';
 
 import 'package:decimal/decimal.dart';
+import 'package:fpdart/fpdart.dart';
+
+/// Parse error types for functional error handling
+sealed class ParseError {
+  const ParseError();
+}
+
+class EmptyContentError extends ParseError {
+  const EmptyContentError(this.fileName);
+  final String fileName;
+}
+
+class InvalidFormatError extends ParseError {
+  const InvalidFormatError(this.fileName, this.details);
+  final String fileName;
+  final String details;
+}
 
 /// WHY: BDPM file parser with static methods for parsing BDPM data files.
 /// Separates parsing logic from service orchestration for better testability and reusability.
+/// Uses fpdart Either for Railway Oriented Programming - explicit error handling without exceptions.
 class BdpmFileParser {
   BdpmFileParser._(); // Private constructor to prevent instantiation
 
   // WHY: Parse BDPM specialites file and return structured data.
   // Allows every form and filters only on BOIRON noise.
-  static SpecialitesParseResult parseSpecialites(
+  // Returns Either for Railway Oriented Programming - explicit error handling.
+  static Either<ParseError, SpecialitesParseResult> parseSpecialites(
     String? content,
     Map<String, String> conditionsByCis,
     Map<String, String> mitmMap,
@@ -19,12 +38,8 @@ class BdpmFileParser {
     final namesByCis = <String, String>{};
     final seenCis = <String>{};
 
-    if (content == null) {
-      return (
-        specialites: specialites,
-        namesByCis: namesByCis,
-        seenCis: seenCis,
-      );
+    if (content == null || content.isEmpty) {
+      return const Left(EmptyContentError('specialites'));
     }
 
     for (final line in content.split('\n')) {
@@ -85,11 +100,16 @@ class BdpmFileParser {
       }
     }
 
-    return (specialites: specialites, namesByCis: namesByCis, seenCis: seenCis);
+    return Right((
+      specialites: specialites,
+      namesByCis: namesByCis,
+      seenCis: seenCis,
+    ));
   }
 
   // WHY: Parse BDPM medicaments file and return structured data.
-  static MedicamentsParseResult parseMedicaments(
+  // Returns Either for Railway Oriented Programming.
+  static Either<ParseError, MedicamentsParseResult> parseMedicaments(
     String? content,
     SpecialitesParseResult specialitesResult,
   ) {
@@ -99,12 +119,8 @@ class BdpmFileParser {
     final seenCis = specialitesResult.seenCis;
     final namesByCis = specialitesResult.namesByCis;
 
-    if (content == null) {
-      return (
-        medicaments: medicaments,
-        cisToCip13: cisToCip13,
-        medicamentCips: medicamentCips,
-      );
+    if (content == null || content.isEmpty) {
+      return const Left(EmptyContentError('medicaments'));
     }
 
     for (final line in content.split('\n')) {
@@ -161,21 +177,24 @@ class BdpmFileParser {
       }
     }
 
-    return (
+    return Right((
       medicaments: medicaments,
       cisToCip13: cisToCip13,
       medicamentCips: medicamentCips,
-    );
+    ));
   }
 
   // WHY: Parse BDPM compositions file and extract active principles with dosages.
-  static List<Map<String, dynamic>> parseCompositions(
+  // Returns Either for Railway Oriented Programming.
+  static Either<ParseError, List<Map<String, dynamic>>> parseCompositions(
     String? content,
     Map<String, List<String>> cisToCip13,
   ) {
     final principes = <Map<String, dynamic>>[];
 
-    if (content == null) return principes;
+    if (content == null || content.isEmpty) {
+      return Right(principes);
+    }
 
     final rowsByKey = <String, _CompositionGroup>{};
 
@@ -226,11 +245,12 @@ class BdpmFileParser {
       }
     }
 
-    return principes;
+    return Right(principes);
   }
 
   // WHY: Parse BDPM generiques file and return group data.
-  static GeneriquesParseResult parseGeneriques(
+  // Returns Either for Railway Oriented Programming.
+  static Either<ParseError, GeneriquesParseResult> parseGeneriques(
     String? content,
     Map<String, List<String>> cisToCip13,
     Set<String> medicamentCips,
@@ -239,8 +259,11 @@ class BdpmFileParser {
     final groupMembers = <Map<String, dynamic>>[];
     final seenGroups = <String>{};
 
-    if (content == null) {
-      return (generiqueGroups: generiqueGroups, groupMembers: groupMembers);
+    if (content == null || content.isEmpty) {
+      return Right((
+        generiqueGroups: generiqueGroups,
+        groupMembers: groupMembers,
+      ));
     }
 
     for (final line in content.split('\n')) {
@@ -281,7 +304,10 @@ class BdpmFileParser {
       }
     }
 
-    return (generiqueGroups: generiqueGroups, groupMembers: groupMembers);
+    return Right((
+      generiqueGroups: generiqueGroups,
+      groupMembers: groupMembers,
+    ));
   }
 
   // WHY: Parse BDPM conditions file and return CIS-to-condition mapping.
@@ -314,9 +340,11 @@ class BdpmFileParser {
     bool isRestricted,
     bool isSurveillance,
     bool isOtc,
-  }) parseRegulatoryFlags(String? conditionText) {
+  })
+  parseRegulatoryFlags(String? conditionText) {
     final normalized = _normalizeConditionText(conditionText);
-    final hasHospital = normalized.contains('HOSPITALIER') ||
+    final hasHospital =
+        normalized.contains('HOSPITALIER') ||
         normalized.contains('PHARMACIES A USAGE INTERIEUR') ||
         normalized.contains('DELIVRANCE RESERVEE AUX ETS');
     final hasDental = normalized.contains('DENTAIRE');
@@ -324,11 +352,14 @@ class BdpmFileParser {
     final hasList1 = normalized.contains('LISTE I') && !hasList2;
     final hasNarcotic = normalized.contains('STUPEFIANT');
     final hasException =
-        normalized.contains('EXCEPTION') || normalized.contains('ORDONNANCE SECURISEE');
-    final hasRestricted = normalized.contains('PRESCRIPTION HOSPITALIERE') ||
+        normalized.contains('EXCEPTION') ||
+        normalized.contains('ORDONNANCE SECURISEE');
+    final hasRestricted =
+        normalized.contains('PRESCRIPTION HOSPITALIERE') ||
         normalized.contains('PRESCRIPTION INITIALE HOSPITALIERE') ||
         normalized.contains('RESERVEE AUX SPECIALISTES');
-    final hasSurveillance = normalized.contains('SURVEILLANCE PARTICULIERE') ||
+    final hasSurveillance =
+        normalized.contains('SURVEILLANCE PARTICULIERE') ||
         normalized.contains('CARNET DE SUIVI') ||
         normalized.contains('GROSSESSE');
     final hasAny =
@@ -373,12 +404,15 @@ class BdpmFileParser {
 
   // WHY: Parse BDPM availability file and keep only actionable shortage/tension rows.
   // Expands CIS-level shortages (empty CIP) to every known CIP for that CIS.
-  static List<Map<String, dynamic>> parseAvailability(
+  // Returns Either for Railway Oriented Programming.
+  static Either<ParseError, List<Map<String, dynamic>>> parseAvailability(
     String? content,
     Map<String, List<String>> cisToCip13,
   ) {
     final availability = <Map<String, dynamic>>[];
-    if (content == null) return availability;
+    if (content == null || content.isEmpty) {
+      return Right(availability);
+    }
 
     for (final line in content.split('\n')) {
       if (line.trim().isEmpty) continue;
@@ -423,7 +457,7 @@ class BdpmFileParser {
       }
     }
 
-    return availability;
+    return Right(availability);
   }
 
   // WHY: Decode file content, handling both latin1 and utf8 encodings.

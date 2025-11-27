@@ -3,12 +3,13 @@ import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart' hide ScanWindowOverlay;
-import 'package:shadcn_ui/shadcn_ui.dart';
-// Importez les modèles et services nécessaires
-import 'package:pharma_scan/core/router/app_routes.dart';
+import 'package:forui/forui.dart';
+import 'package:pharma_scan/core/router/routes.dart';
+import 'package:pharma_scan/core/utils/adaptive_overlay.dart';
+import 'package:pharma_scan/core/widgets/ui_kit/pharma_sheet_layout.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:pharma_scan/core/utils/app_animations.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/utils/test_tags.dart';
@@ -41,9 +42,8 @@ class CameraScreen extends HookConsumerWidget {
     // Lifecycle handling for the scanner is now encapsulated in useMobileScanner.
 
     Future<void> openManualEntrySheet() async {
-      await showShadSheet(
+      await showAdaptiveOverlay<void>(
         context: context,
-        side: ShadSheetSide.bottom,
         builder: (sheetContext) => _ManualCipSheet(
           onSubmit: (codeCip) =>
               ref.read(scannerProvider.notifier).findMedicament(codeCip),
@@ -52,9 +52,8 @@ class CameraScreen extends HookConsumerWidget {
     }
 
     Future<void> openGallerySheet() async {
-      final action = await showShadSheet<_GallerySheetResult>(
+      final action = await showAdaptiveOverlay<_GallerySheetResult>(
         context: context,
-        side: ShadSheetSide.bottom,
         builder: (sheetContext) => const _GallerySheet(),
       );
 
@@ -117,16 +116,15 @@ class CameraScreen extends HookConsumerWidget {
       );
     }
 
-    final theme = ShadTheme.of(context);
     final initStepAsync = ref.watch(initializationStepProvider);
     final initStep = initStepAsync.value;
     final isInitializing =
         initStep != null && initStep != InitializationStep.ready;
 
-    return Scaffold(
-      backgroundColor: theme.colorScheme.background,
+    return FScaffold(
+      childPad: false, // Disable default padding for full-screen camera
       // WHY: Use SafeArea to ensure camera controls don't overlap with navigation bar
-      body: SafeArea(
+      child: SafeArea(
         bottom:
             false, // Don't add bottom padding - let parent Scaffold handle it
         child: Stack(
@@ -142,19 +140,21 @@ class CameraScreen extends HookConsumerWidget {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
-                          LucideIcons.videoOff,
+                          FIcons.videoOff,
                           size: 64,
-                          color: theme.colorScheme.destructive,
+                          color: context.theme.colors.destructive,
                         ),
                         const Gap(16),
                         Text(
                           Strings.cameraUnavailable,
-                          style: theme.textTheme.h4,
+                          style: context.theme.typography.xl2,
                         ),
                         const Gap(8),
                         Text(
                           Strings.checkPermissionsMessage,
-                          style: theme.textTheme.muted,
+                          style: context.theme.typography.sm.copyWith(
+                            color: context.theme.colors.mutedForeground,
+                          ),
                         ),
                       ],
                     ),
@@ -165,7 +165,7 @@ class CameraScreen extends HookConsumerWidget {
               const Center(
                 child: StatusView(
                   type: StatusType.loading,
-                  icon: LucideIcons.loader,
+                  icon: FIcons.loader,
                   title: Strings.initializationInProgress,
                   description: Strings.initializationDescription,
                 ),
@@ -176,15 +176,15 @@ class CameraScreen extends HookConsumerWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
-                      LucideIcons.scan,
+                      FIcons.scan,
                       size: 80,
-                      color: theme.colorScheme.muted,
+                      color: context.theme.colors.muted,
                     ),
                     const Gap(24),
                     Text(
                       Strings.readyToScan,
-                      style: theme.textTheme.h4.copyWith(
-                        color: theme.colorScheme.mutedForeground,
+                      style: context.theme.typography.xl2.copyWith(
+                        color: context.theme.colors.mutedForeground,
                       ),
                     ),
                   ],
@@ -234,17 +234,17 @@ class CameraScreen extends HookConsumerWidget {
                                   AppDimens.spacingLg,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: theme.colorScheme.card.withValues(
-                                    alpha: 0.92,
-                                  ),
+                                  color: context.theme.colors.secondary
+                                      .withValues(alpha: 0.92),
                                   border: Border.all(
-                                    color: theme.colorScheme.border.withValues(
-                                      alpha: 0.4,
-                                    ),
+                                    color: context.theme.colors.border
+                                        .withValues(alpha: 0.4),
                                   ),
                                 ),
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
                                   children: [
                                     Center(
                                       child: Testable(
@@ -268,8 +268,11 @@ class CameraScreen extends HookConsumerWidget {
                                                 shape: BoxShape.circle,
                                                 gradient: LinearGradient(
                                                   colors: [
-                                                    theme.colorScheme.primary,
-                                                    theme.colorScheme.primary
+                                                    context
+                                                        .theme
+                                                        .colors
+                                                        .primary,
+                                                    context.theme.colors.primary
                                                         .withValues(
                                                           alpha: 0.85,
                                                         ),
@@ -277,8 +280,9 @@ class CameraScreen extends HookConsumerWidget {
                                                 ),
                                                 boxShadow: [
                                                   BoxShadow(
-                                                    color: theme
-                                                        .colorScheme
+                                                    color: context
+                                                        .theme
+                                                        .colors
                                                         .primary
                                                         .withValues(
                                                           alpha: 0.35,
@@ -290,11 +294,12 @@ class CameraScreen extends HookConsumerWidget {
                                               ),
                                               child: Icon(
                                                 isCameraActive.value
-                                                    ? LucideIcons.cameraOff
-                                                    : LucideIcons.scanLine,
+                                                    ? FIcons.cameraOff
+                                                    : FIcons.scanLine,
                                                 size: AppDimens.iconXl,
-                                                color: theme
-                                                    .colorScheme
+                                                color: context
+                                                    .theme
+                                                    .colors
                                                     .primaryForeground,
                                               ),
                                             ),
@@ -303,84 +308,94 @@ class CameraScreen extends HookConsumerWidget {
                                       ),
                                     ),
                                     const Gap(AppDimens.spacingLg),
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: Testable(
-                                            id: TestTags.scanGalleryBtn,
-                                            child: Semantics(
-                                              button: true,
-                                              label: Strings
-                                                  .importBarcodeFromGallery,
-                                              child: ShadButton.ghost(
-                                                onPressed: isInitializing
-                                                    ? null
-                                                    : openGallerySheet,
-                                                leading: Icon(
-                                                  LucideIcons.image,
-                                                  size: AppDimens.iconMd,
-                                                  color:
-                                                      theme.colorScheme.primary,
-                                                ),
-                                                child: Text(
-                                                  Strings.gallery,
-                                                  style: theme.textTheme.small,
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                        const Gap(AppDimens.spacingSm),
-                                        Expanded(
-                                          child: Testable(
-                                            id: TestTags.scanManualBtn,
-                                            child: Semantics(
-                                              button: true,
-                                              label:
-                                                  Strings.manuallyEnterCipCode,
-                                              child: ShadButton.ghost(
-                                                onPressed: isInitializing
-                                                    ? null
-                                                    : openManualEntrySheet,
-                                                leading: Icon(
-                                                  LucideIcons.keyboard,
-                                                  size: AppDimens.iconMd,
-                                                  color:
-                                                      theme.colorScheme.primary,
-                                                ),
-                                                child: Text(
-                                                  Strings.manualEntry,
-                                                  style: theme.textTheme.small,
+                                    SizedBox(
+                                      width: double.infinity,
+                                      child: Row(
+                                        children: [
+                                          Expanded(
+                                            child: Testable(
+                                              id: TestTags.scanGalleryBtn,
+                                              child: Semantics(
+                                                button: true,
+                                                label: Strings
+                                                    .importBarcodeFromGallery,
+                                                child: FButton(
+                                                  onPress: isInitializing
+                                                      ? null
+                                                      : openGallerySheet,
+                                                  prefix: Icon(
+                                                    FIcons.image,
+                                                    size: AppDimens.iconMd,
+                                                    color: context
+                                                        .theme
+                                                        .colors
+                                                        .primary,
+                                                  ),
+                                                  child: const Text(
+                                                    Strings.gallery,
+                                                  ),
                                                 ),
                                               ),
                                             ),
                                           ),
-                                        ),
-                                        const Gap(AppDimens.spacingSm),
-                                        Semantics(
-                                          button: true,
-                                          label: isTorchOn.value
-                                              ? Strings.turnOffTorch
-                                              : Strings.turnOnTorch,
-                                          child: ShadButton.outline(
-                                            width: 52,
-                                            height: 52,
-                                            padding: EdgeInsets.zero,
-                                            onPressed: isInitializing
-                                                ? null
-                                                : toggleTorch,
-                                            child: Icon(
-                                              LucideIcons.zap,
-                                              size: AppDimens.iconMd,
-                                              color: isTorchOn.value
-                                                  ? theme.colorScheme.primary
-                                                  : theme
-                                                        .colorScheme
-                                                        .foreground,
+                                          const Gap(AppDimens.spacingSm),
+                                          Expanded(
+                                            child: Testable(
+                                              id: TestTags.scanManualBtn,
+                                              child: Semantics(
+                                                button: true,
+                                                label: Strings
+                                                    .manuallyEnterCipCode,
+                                                child: FButton(
+                                                  onPress: isInitializing
+                                                      ? null
+                                                      : openManualEntrySheet,
+                                                  prefix: Icon(
+                                                    FIcons.keyboard,
+                                                    size: AppDimens.iconMd,
+                                                    color: context
+                                                        .theme
+                                                        .colors
+                                                        .primary,
+                                                  ),
+                                                  child: const Text(
+                                                    Strings.manualEntry,
+                                                  ),
+                                                ),
+                                              ),
                                             ),
                                           ),
-                                        ),
-                                      ],
+                                          const Gap(AppDimens.spacingSm),
+                                          Semantics(
+                                            button: true,
+                                            label: isTorchOn.value
+                                                ? Strings.turnOffTorch
+                                                : Strings.turnOnTorch,
+                                            child: SizedBox(
+                                              width: 52,
+                                              height: 52,
+                                              child: FButton.icon(
+                                                onPress: isInitializing
+                                                    ? null
+                                                    : toggleTorch,
+                                                child: Icon(
+                                                  FIcons.zap,
+                                                  size: AppDimens.iconMd,
+                                                  color: isTorchOn.value
+                                                      ? context
+                                                            .theme
+                                                            .colors
+                                                            .primary
+                                                      : context
+                                                            .theme
+                                                            .colors
+                                                            .foreground,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -509,18 +524,11 @@ Future<void> _pickAndScanImage(
       } else {
         LoggerService.warning('[CameraScreen] No barcodes detected in image');
         if (context.mounted) {
-          final sonner = ShadSonner.of(context);
-          final toastId = DateTime.now().millisecondsSinceEpoch;
-          sonner.show(
-            ShadToast.destructive(
-              id: toastId,
-              title: const Text(Strings.noBarcodeDetected),
-              description: const Text(Strings.imageContainsNoValidBarcode),
-              action: ShadButton.outline(
-                onPressed: () => sonner.hide(toastId),
-                child: const Text(Strings.close),
-              ),
-            ),
+          showFToast(
+            context: context,
+            title: const Text(Strings.noBarcodeDetected),
+            description: const Text(Strings.imageContainsNoValidBarcode),
+            icon: const Icon(FIcons.triangleAlert),
           );
         }
       }
@@ -531,20 +539,11 @@ Future<void> _pickAndScanImage(
         stackTrace,
       );
       if (context.mounted) {
-        final sonner = ShadSonner.of(context);
-        final toastId = DateTime.now().millisecondsSinceEpoch;
-        sonner.show(
-          ShadToast.destructive(
-            id: toastId,
-            title: const Text(Strings.analysisError),
-            description: Text(
-              '${Strings.unableToAnalyzeImage} ${e.toString()}',
-            ),
-            action: ShadButton.outline(
-              onPressed: () => sonner.hide(toastId),
-              child: const Text(Strings.close),
-            ),
-          ),
+        showFToast(
+          context: context,
+          title: const Text(Strings.analysisError),
+          description: Text('${Strings.unableToAnalyzeImage} ${e.toString()}'),
+          icon: const Icon(FIcons.triangleAlert),
         );
       }
     }
@@ -555,18 +554,11 @@ Future<void> _pickAndScanImage(
       stackTrace,
     );
     if (context.mounted) {
-      final sonner = ShadSonner.of(context);
-      final toastId = DateTime.now().millisecondsSinceEpoch;
-      sonner.show(
-        ShadToast.destructive(
-          id: toastId,
-          title: const Text(Strings.error),
-          description: Text('${Strings.unableToSelectImage} ${e.toString()}'),
-          action: ShadButton.outline(
-            onPressed: () => sonner.hide(toastId),
-            child: const Text(Strings.close),
-          ),
-        ),
+      showFToast(
+        context: context,
+        title: const Text(Strings.error),
+        description: Text('${Strings.unableToSelectImage} ${e.toString()}'),
+        icon: const Icon(FIcons.triangleAlert),
       );
     }
   }
@@ -577,7 +569,6 @@ Widget _buildBubbleContent(
   WidgetRef ref,
   ScanBubble bubble,
 ) {
-  final theme = ShadTheme.of(context);
   final summary = bubble.summary;
 
   // Build badges based on product type
@@ -585,43 +576,37 @@ Widget _buildBubbleContent(
   if (summary.groupId != null) {
     if (summary.isPrinceps) {
       badges.add(
-        ShadTooltip(
-          builder: (context) => const Text(Strings.badgePrincepsTooltip),
-          child: ShadBadge(
-            backgroundColor: theme.colorScheme.secondary,
+        Tooltip(
+          message: Strings.badgePrincepsTooltip,
+          child: FBadge(
+            style: FBadgeStyle.secondary(),
             child: Text(
               Strings.badgePrinceps,
-              style: theme.textTheme.small.copyWith(
-                color: theme.colorScheme.secondaryForeground,
-                fontWeight: FontWeight.bold,
-              ),
+              style: context.theme.typography.sm,
             ),
           ),
         ),
       );
     } else {
       badges.add(
-        ShadTooltip(
-          builder: (context) => const Text(Strings.badgeGenericTooltip),
-          child: ShadBadge(
-            backgroundColor: theme.colorScheme.primary,
-            child: Text(Strings.generic, style: theme.textTheme.small),
+        Tooltip(
+          message: Strings.badgeGenericTooltip,
+          child: FBadge(
+            style: FBadgeStyle.primary(),
+            child: Text(Strings.generic, style: context.theme.typography.sm),
           ),
         ),
       );
     }
   } else {
     badges.add(
-      ShadTooltip(
-        builder: (context) => const Text(Strings.badgeStandaloneTooltip),
-        child: ShadBadge(
-          backgroundColor: theme.colorScheme.muted,
+      Tooltip(
+        message: Strings.badgeStandaloneTooltip,
+        child: FBadge(
+          style: FBadgeStyle.primary(),
           child: Text(
             Strings.uniqueMedicationBadge,
-            style: theme.textTheme.small.copyWith(
-              color: theme.colorScheme.mutedForeground,
-              fontWeight: FontWeight.bold,
-            ),
+            style: context.theme.typography.sm,
           ),
         ),
       ),
@@ -632,10 +617,11 @@ Widget _buildBubbleContent(
   if (summary.conditionsPrescription != null &&
       summary.conditionsPrescription!.isNotEmpty) {
     badges.add(
-      ShadBadge.outline(
+      FBadge(
+        style: FBadgeStyle.outline(),
         child: Text(
           summary.conditionsPrescription!,
-          style: theme.textTheme.small,
+          style: context.theme.typography.sm,
         ),
       ),
     );
@@ -681,7 +667,7 @@ Widget _buildBubbleContent(
     animation: true,
     onClose: () => ref.read(scannerProvider.notifier).removeBubble(bubble.cip),
     onExplore: summary.groupId != null
-        ? () => context.go(AppRoutes.groupDetail(summary.groupId!))
+        ? () => GroupDetailRoute(groupId: summary.groupId!).go(context)
         : null,
     price: bubble.price,
     refundRate: bubble.refundRate,
@@ -699,53 +685,52 @@ class _GallerySheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = ShadTheme.of(context);
-    return ShadSheet(
-      title: const Text(Strings.importFromGallery),
-      description: const Text(Strings.pharmascanAnalyzesOnly),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          spacing: 16,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(
-                  LucideIcons.shieldCheck,
-                  color: theme.colorScheme.primary,
-                  size: 20,
-                ),
-                const Gap(12),
-                Expanded(
-                  child: Text(
-                    Strings.noPhotoStoredMessage,
-                    style: theme.textTheme.small,
-                  ),
-                ),
-              ],
-            ),
-            Semantics(
-              button: true,
-              label: Strings.choosePhotoFromGallery,
-              child: ShadButton(
-                onPressed: () =>
-                    Navigator.of(context).pop(_GallerySheetResult.pick),
-                child: const Text(Strings.choosePhoto),
+    return PharmaSheetLayout(
+      title: Strings.importFromGallery,
+      description: Strings.pharmascanAnalyzesOnly,
+      onClose: () => Navigator.of(context).maybePop(),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                FIcons.shieldCheck,
+                color: context.theme.colors.primary,
+                size: 20,
               ),
-            ),
-            Semantics(
-              button: true,
-              label: Strings.cancelPhotoSelection,
-              child: ShadButton.outline(
-                onPressed: () => Navigator.of(context).maybePop(),
-                child: const Text(Strings.cancel),
+              const Gap(12),
+              Expanded(
+                child: Text(
+                  Strings.noPhotoStoredMessage,
+                  style: context.theme.typography.sm,
+                ),
               ),
+            ],
+          ),
+          const Gap(16),
+          Semantics(
+            button: true,
+            label: Strings.choosePhotoFromGallery,
+            child: FButton(
+              onPress: () =>
+                  Navigator.of(context).pop(_GallerySheetResult.pick),
+              child: const Text(Strings.choosePhoto),
             ),
-          ],
-        ),
+          ),
+          const Gap(8),
+          Semantics(
+            button: true,
+            label: Strings.cancelPhotoSelection,
+            child: FButton(
+              style: FButtonStyle.outline(),
+              onPress: () => Navigator.of(context).maybePop(),
+              child: const Text(Strings.cancel),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -759,12 +744,14 @@ class _ManualCipSheet extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isSubmitting = useState(false);
-    final formKey = useMemoized(GlobalKey<ShadFormState>.new);
+    final formKey = useMemoized(GlobalKey<FormState>.new);
+    final cipController = useTextEditingController();
+    final focusNode = useFocusNode();
 
     // WHY: Request focus on the form field after the first frame
     useEffect(() {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        formKey.currentState?.fields['cip']?.focusNode.requestFocus();
+        focusNode.requestFocus();
       });
       return null;
     }, []);
@@ -773,8 +760,8 @@ class _ManualCipSheet extends HookConsumerWidget {
       if (isSubmitting.value) return;
 
       // WHY: Validate and save form data
-      if (formKey.currentState!.saveAndValidate()) {
-        final code = formKey.currentState!.value['cip'] as String;
+      if (formKey.currentState!.validate()) {
+        final code = cipController.text;
 
         isSubmitting.value = true;
 
@@ -785,79 +772,79 @@ class _ManualCipSheet extends HookConsumerWidget {
 
         if (!success) {
           // WHY: Show toast notification when medicament is not found.
-          ShadSonner.of(context).show(
-            ShadToast(
-              title: const Text(Strings.medicamentNotFound),
-              description: Text('${Strings.noMedicamentFoundForCipCode} $code'),
-            ),
+          showFToast(
+            context: context,
+            title: const Text(Strings.medicamentNotFound),
+            description: Text('${Strings.noMedicamentFoundForCipCode} $code'),
+            icon: const Icon(FIcons.triangleAlert),
           );
         } else if (context.mounted) {
-          Navigator.of(context).maybePop();
+          unawaited(Navigator.of(context).maybePop());
         }
       }
     }
 
-    final theme = ShadTheme.of(context);
-    return ShadSheet(
-      title: const Text(Strings.manualCipEntry),
-      description: const Text(Strings.manualCipDescription),
+    return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 480),
-      actions: [
-        ShadButton.ghost(
-          onPressed: () => Navigator.of(context).maybePop(),
-          child: const Text(Strings.close),
-        ),
-      ],
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 20),
-        child: ShadForm(
+      child: PharmaSheetLayout(
+        title: Strings.manualCipEntry,
+        description: Strings.manualCipDescription,
+        onClose: () => Navigator.of(context).maybePop(),
+        child: Form(
           key: formKey,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
-            spacing: 16,
             children: [
-              ShadInputFormField(
-                id: 'cip',
+              FTextFormField(
+                controller: cipController,
+                focusNode: focusNode,
                 label: const Text(Strings.cipCodeLabel),
-                placeholder: const Text(Strings.cipPlaceholder),
+                hint: Strings.cipPlaceholder,
                 keyboardType: TextInputType.number,
                 inputFormatters: [
                   FilteringTextInputFormatter.digitsOnly,
                   LengthLimitingTextInputFormatter(AppConfig.cipLength),
                 ],
-                validator: (v) {
+                validator: (String? v) {
+                  if (v == null || v.isEmpty) {
+                    return Strings.cipMustBe13Digits;
+                  }
                   if (v.length != AppConfig.cipLength) {
                     return Strings.cipMustBe13Digits;
                   }
                   return null;
                 },
-                onChanged: (value) {
+                onChange: (String value) {
                   // WHY: Auto-submit when 13 digits are entered
                   if (value.length == AppConfig.cipLength) {
                     unawaited(submit());
                   }
                 },
+                autofocus: true,
               ),
+              const Gap(16),
               Text(
                 Strings.searchStartsAutomatically,
-                style: theme.textTheme.small,
+                style: context.theme.typography.sm,
               ),
+              const Gap(16),
               Semantics(
                 button: true,
                 label: isSubmitting.value
                     ? Strings.searchingInProgress
                     : Strings.searchMedicamentWithCip,
                 enabled: !isSubmitting.value,
-                child: ShadButton(
-                  onPressed: isSubmitting.value ? null : submit,
-                  child: isSubmitting.value
+                child: FButton(
+                  onPress: isSubmitting.value ? null : submit,
+                  prefix: isSubmitting.value
                       ? const SizedBox(
                           width: 16,
                           height: 16,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Text(Strings.search),
+                      : null,
+                  child: const Text(Strings.search),
                 ),
               ),
             ],

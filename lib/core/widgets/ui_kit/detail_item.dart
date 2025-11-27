@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
+import 'package:forui/forui.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
 
 class DetailItem extends StatelessWidget {
   const DetailItem({
@@ -19,7 +19,8 @@ class DetailItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = ShadTheme.of(context);
+    final mutedForeground = context.theme.colors.mutedForeground;
+    final textColor = isHighlight ? null : context.theme.colors.foreground;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -27,19 +28,14 @@ class DetailItem extends StatelessWidget {
       children: [
         Text(
           label,
-          style: theme.textTheme.small.copyWith(
-            color: theme.colorScheme.mutedForeground,
-            fontWeight: FontWeight.w500,
-          ),
+          style: context.theme.typography.sm.copyWith(color: mutedForeground),
         ),
         const Gap(AppDimens.spacing2xs),
         Text(
           value,
-          style: isHighlight
-              ? theme.textTheme.p.copyWith(fontWeight: FontWeight.w600)
-              : theme.textTheme.p,
-          overflow: TextOverflow.ellipsis,
+          style: context.theme.typography.base.copyWith(color: textColor),
           maxLines: 10, // Autorise le multiligne pour les détails
+          overflow: TextOverflow.ellipsis,
         ),
       ],
     );

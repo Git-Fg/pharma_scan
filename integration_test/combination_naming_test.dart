@@ -1,9 +1,13 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/providers/core_providers.dart';
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
+import 'package:pharma_scan/features/explorer/models/grouped_by_product_model.dart';
 import 'package:pharma_scan/features/explorer/providers/group_classification_provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'test_bootstrap.dart';
 import '../test/fixtures/seed_builder.dart';
 
@@ -44,13 +48,37 @@ void main() {
       await dataInitService.runSummaryAggregationForTesting();
 
       // WHEN: Query groupDetailViewModelProvider
+      // Use a widget to watch the provider and get the stream value
       final container = integrationTestContainer;
-      final viewModel = await container.read(
-        groupDetailViewModelProvider('GRP_TENORDATE').future,
+      GroupedProductsViewModel? viewModel;
+      
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: Consumer(
+            builder: (context, ref, child) {
+              final asyncValue = ref.watch(
+                groupDetailViewModelProvider('GRP_TENORDATE'),
+              );
+              return asyncValue.when(
+                data: (vm) {
+                  viewModel = vm;
+                  return const SizedBox();
+                },
+                loading: () => const SizedBox(),
+                error: (err, stack) => const SizedBox(),
+              );
+            },
+          ),
+        ),
       );
+      await tester.pumpAndSettle(const Duration(seconds: 5));
+      
+      // Ensure we got the viewModel
+      expect(viewModel, isNotNull, reason: 'ViewModel should be loaded');
 
       // THEN: Verify that productName contains BOTH molecules
-      final generics = viewModel.generics;
+      final generics = viewModel!.generics;
       expect(
         generics,
         isNotEmpty,

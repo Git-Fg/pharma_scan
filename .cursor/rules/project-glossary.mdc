@@ -19,6 +19,7 @@ This document defines key terms used throughout the PharmaScan project to ensure
 * **Definition:** A normalized, cleaned version of a medication name produced by the parser.
 * **Process:** The parser applies knowledge-injected subtraction (removes known Form and Lab from raw string), then extracts the core name component.
 * **Standalone Medications:** The normalization process for standalone medications now involves **pre-normalization** (lowercase + trim + diacritic removal) of both the raw string and the official reference columns (Form/Lab) before subtraction.
+* **Normalization:** Diacritic removal is performed using the `diacritic` package (`removeDiacritics()`) to ensure consistency across business logic, search indexing, and query processing.
 * **Usage:** Used for grouping, searching, and display. The canonical name is deterministic and stable for the same raw input.
 
 ### Fraction Thérapeutique (FT)

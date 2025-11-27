@@ -7,19 +7,17 @@ import 'package:pharma_scan/features/explorer/models/search_filters_model.dart';
 
 part 'search_dao.g.dart';
 
-// WHY: Sanitize FTS5 query string to prevent syntax errors and enable approximate matching
-// Escapes special FTS5 characters, normalizes diacritics; with trigram tokenization,
-// approximate matching is handled by the tokenizer so no explicit wildcard suffix is needed.
-String _sanitizeFts5Query(String query, {bool enablePrefixMatching = true}) {
-  // WHY: Trim and normalize whitespace
-  final trimmed = query.trim();
-  if (trimmed.isEmpty) return '';
-
-  // WHY: Normalize diacritics to match both "paracetamol" and "paracétamol"
-  // This improves approximate matching for molecule names with accents
-  final normalized = removeDiacritics(trimmed);
+// WHY: Escape special FTS5 characters and normalize query to match index content
+// FTS5 trigram tokenizer with Dart-side normalization ensures consistent matching
+// Query is normalized (lowercase + diacritic removal) to match normalized index data
+String _escapeFts5Query(String query) {
+  // WHY: Normalize query at the start to match index content
+  // Index contains normalized (lowercase, diacritic-free) text, so queries must match
+  final normalized = removeDiacritics(query.trim()).toLowerCase();
+  if (normalized.isEmpty) return '';
 
   // WHY: Escape special FTS5 characters: ", :, AND, OR, NOT
+  // Replace with spaces to prevent syntax errors while preserving search intent
   var escaped = normalized
       .replaceAll('"', ' ')
       .replaceAll(':', ' ')
@@ -28,12 +26,11 @@ String _sanitizeFts5Query(String query, {bool enablePrefixMatching = true}) {
 
   if (escaped.isEmpty) return '';
 
-  // WHY: Split into terms and process each
+  // WHY: Split into terms and combine with AND
+  // Trigram tokenizer enables powerful substring matching for fuzzy search
   final terms = escaped.split(' ').where((t) => t.isNotEmpty).toList();
   if (terms.isEmpty) return '';
 
-  // WHY: With trigram tokenization, fuzzy matching is handled by the tokenizer itself.
-  // Combine all terms with AND so that all words must be present, without explicit wildcards.
   return terms.join(' AND ');
 }
 
@@ -49,10 +46,7 @@ class SearchDao extends DatabaseAccessor<AppDatabase> with _$SearchDaoMixin {
     String query, {
     SearchFilters? filters,
   }) async {
-    final sanitizedQuery = _sanitizeFts5Query(
-      query,
-      enablePrefixMatching: true,
-    );
+    final sanitizedQuery = _escapeFts5Query(query);
     if (sanitizedQuery.isEmpty) {
       LoggerService.db('Empty search query, returning empty results');
       return [];
@@ -102,17 +96,14 @@ class SearchDao extends DatabaseAccessor<AppDatabase> with _$SearchDaoMixin {
         .get();
 
     // WHY: Map query rows to MedicamentSummaryData using the table's mapper
-    return Future.wait(rows.map((row) => db.medicamentSummary.mapFromRow(row)));
+    return Future.wait(rows.map(db.medicamentSummary.mapFromRow));
   }
 
   Stream<List<MedicamentSummaryData>> watchMedicaments(
     String query, {
     SearchFilters? filters,
   }) {
-    final sanitizedQuery = _sanitizeFts5Query(
-      query,
-      enablePrefixMatching: true,
-    );
+    final sanitizedQuery = _escapeFts5Query(query);
     if (sanitizedQuery.isEmpty) {
       LoggerService.db('Empty search query, emitting empty stream');
       return Stream<List<MedicamentSummaryData>>.value(

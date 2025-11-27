@@ -1,12 +1,11 @@
 // lib/features/explorer/widgets/search_results/group_result_card.dart
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
-import 'package:pharma_scan/core/theme/app_colors.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/features/explorer/models/generic_group_entity.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/pharma_badges.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
+import 'package:forui/forui.dart';
 
 /// WHY: Widget for displaying a generic group search result card.
 /// Extracted from DatabaseSearchView for better separation of concerns and testability.
@@ -17,13 +16,10 @@ class GroupResultCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = ShadTheme.of(context);
-    final accentColor = theme.colorScheme.princeps;
+    final accentColor = context.theme.colors.secondary;
     final hasPrinciples = group.commonPrincipes.isNotEmpty;
 
-    return ShadCard(
-      padding: EdgeInsets.zero,
-      backgroundColor: theme.colorScheme.background,
+    return FCard.raw(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -49,9 +45,7 @@ class GroupResultCard extends StatelessWidget {
                       Expanded(
                         child: Text(
                           group.princepsReferenceName,
-                          style: theme.textTheme.p.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
+                          style: context.theme.typography.base,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -61,9 +55,8 @@ class GroupResultCard extends StatelessWidget {
                   const Gap(AppDimens.spacingSm),
                   Text(
                     Strings.activePrinciplesLabel,
-                    style: theme.textTheme.small.copyWith(
-                      color: theme.colorScheme.mutedForeground,
-                      fontWeight: FontWeight.w600,
+                    style: context.theme.typography.sm.copyWith(
+                      color: context.theme.colors.mutedForeground,
                     ),
                   ),
                   const Gap(AppDimens.spacing2xs),
@@ -71,9 +64,9 @@ class GroupResultCard extends StatelessWidget {
                     hasPrinciples
                         ? group.commonPrincipes
                         : Strings.notDetermined,
-                    style: hasPrinciples
-                        ? theme.textTheme.muted
-                        : theme.textTheme.small,
+                    style: context.theme.typography.sm.copyWith(
+                      color: context.theme.colors.mutedForeground,
+                    ),
                     maxLines: 3,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -81,9 +74,9 @@ class GroupResultCard extends StatelessWidget {
                   Align(
                     alignment: Alignment.centerRight,
                     child: Icon(
-                      LucideIcons.chevronRight,
+                      FIcons.chevronRight,
                       size: AppDimens.iconSm,
-                      color: theme.colorScheme.mutedForeground,
+                      color: context.theme.colors.mutedForeground,
                     ),
                   ),
                 ],

@@ -1,6 +1,6 @@
 // lib/core/widgets/ui_kit/badges/condition_badge.dart
 import 'package:flutter/material.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
+import 'package:forui/forui.dart';
 
 /// Badge widget for displaying prescription condition text.
 /// Returns null if conditionText is null or empty.
@@ -19,15 +19,9 @@ class ConditionBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = ShadTheme.of(context);
-    return ShadBadge.outline(
-      child: Text(
-        conditionText!,
-        style: theme.textTheme.small.copyWith(
-          fontSize: 10,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
+    return FBadge(
+      style: FBadgeStyle.outline(),
+      child: Text(conditionText!, style: context.theme.typography.sm),
     );
   }
 }

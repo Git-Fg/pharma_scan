@@ -1,9 +1,8 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/product_card.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
+import '../../../helpers/pump_app.dart';
 
 void main() {
   MedicamentSummaryData buildSummary() {
@@ -41,18 +40,15 @@ void main() {
   testWidgets(
     'shows destructive availability alert when availabilityStatus is set',
     (tester) async {
-      await tester.pumpWidget(
-        ShadApp(
-          home: Scaffold(
-            body: ProductCard(
-              summary: buildSummary(),
-              cip: '3400000000012',
-              availabilityStatus: 'Rupture de stock',
-            ),
-          ),
+      await tester.pumpApp(
+        ProductCard(
+          summary: buildSummary(),
+          cip: '3400000000012',
+          availabilityStatus: 'Rupture de stock',
         ),
       );
 
+      // FAlert renders the text, so we can find it directly
       expect(find.text(Strings.stockAlert('Rupture de stock')), findsOneWidget);
     },
   );

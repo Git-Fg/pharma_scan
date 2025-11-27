@@ -94,11 +94,13 @@ If no specific task is provided, you **MUST** verify the default "Golden Path" t
 
 **CRITICAL:** If **ANY** error or incoherence is found in Steps 2 or 3:
 
-1. **Fix:** Apply the necessary code changes to resolve the issue.
+1. **Auto-Fix Linter Issues (MANDATORY FIRST STEP):** Run `dart fix --apply` to automatically resolve structural linter issues (unused imports, deprecated APIs, etc.). This prevents manual suppression comments and ensures the codebase stays clean of auto-fixable issues.
 
-2. **Relaunch IMMEDIATELY:** Run `bash tool/run_session.sh` again (it auto-kills the previous instance). **Do NOT ask for permission.**
+2. **Fix:** Apply the necessary code changes to resolve the issue.
 
-3. **Loop:** Return to Step 1 and repeat the entire cycle.
+3. **Relaunch IMMEDIATELY:** Run `bash tool/run_session.sh` again (it auto-kills the previous instance). **Do NOT ask for permission.**
+
+4. **Loop:** Return to Step 1 and repeat the entire cycle.
 
 **Prohibition:** You are **FORBIDDEN** from:
 

@@ -1,42 +1,45 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
-import 'package:pharma_scan/core/router/app_routes.dart';
+import 'package:forui/forui.dart';
+import 'package:pharma_scan/core/router/routes.dart';
 import 'package:pharma_scan/core/theme/app_colors.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/info_label.dart';
-import 'package:pharma_scan/core/widgets/ui_kit/pharma_back_header.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/pharma_badges.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/section_header.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/status_view.dart';
 import 'package:pharma_scan/features/explorer/models/grouped_by_product_model.dart';
 import 'package:pharma_scan/features/explorer/providers/group_classification_provider.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-class GroupExplorerView extends ConsumerWidget {
+class GroupExplorerView extends HookConsumerWidget {
   const GroupExplorerView({required this.groupId, super.key});
 
   final String groupId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = ShadTheme.of(context);
     final detailAsync = ref.watch(groupDetailViewModelProvider(groupId));
     final relatedAsync = ref.watch(relatedPrincepsProvider(groupId));
 
     return detailAsync.when(
       data: (viewModel) {
         if (!viewModel.hasMembers) {
-          return Scaffold(
-            body: StatusView(
+          return FScaffold(
+            header: FHeader.nested(
+              title: const Text(Strings.loadDetailsError),
+              prefixes: [FHeaderAction.back(onPress: () => context.pop())],
+            ),
+            child: StatusView(
               type: StatusType.error,
               title: Strings.loadDetailsError,
               description: Strings.errorLoadingGroups,
-              action: ShadButton(
-                onPressed: () => context.pop(),
+              action: FButton(
+                style: FButtonStyle.outline(),
+                onPress: () => context.pop(),
                 child: const Text(Strings.back),
               ),
             ),
@@ -50,62 +53,73 @@ class GroupExplorerView extends ConsumerWidget {
         final shouldShowRelatedSection =
             relatedAsync.isLoading || relatedMembers.isNotEmpty;
 
-        return Scaffold(
-          backgroundColor: theme.colorScheme.background,
-          body: SafeArea(
-            child: CustomScrollView(
-              slivers: [
-                SliverToBoxAdapter(
-                  child: _buildAppBarContent(
-                    context,
-                    theme,
-                    viewModel,
-                    princepsMembers.length,
-                    genericMembers.length,
-                    relatedMembers.length,
-                  ),
-                ),
-                _buildSectionAccordion(
+        return FScaffold(
+          header: FHeader.nested(
+            title: Text(viewModel.metadata.title),
+            prefixes: [FHeaderAction.back(onPress: () => context.pop())],
+          ),
+          child: CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(
+                child: _buildAppBarContent(
                   context,
-                  Strings.princeps,
+                  viewModel,
                   princepsMembers.length,
-                  princepsMembers,
-                  sectionType: _ProductSectionType.princeps,
-                  icon: LucideIcons.star,
-                ),
-                _buildSectionAccordion(
-                  context,
-                  Strings.generics,
                   genericMembers.length,
-                  genericMembers,
-                  sectionType: _ProductSectionType.generics,
-                  icon: LucideIcons.copy,
+                  relatedMembers.length,
                 ),
-                if (shouldShowRelatedSection) ...[
-                  _buildSectionHeader(
-                    Strings.relatedTherapies,
-                    relatedMembers.length,
-                    icon: LucideIcons.link,
-                  ),
-                  _buildRelatedList(
-                    relatedMembers,
-                    isLoading: relatedAsync.isLoading,
-                  ),
-                ],
-                const SliverToBoxAdapter(child: Gap(AppDimens.spacingXl)),
+              ),
+              _buildSectionAccordion(
+                context,
+                Strings.princeps,
+                princepsMembers.length,
+                princepsMembers,
+                sectionType: _ProductSectionType.princeps,
+                icon: FIcons.star,
+              ),
+              _buildSectionAccordion(
+                context,
+                Strings.generics,
+                genericMembers.length,
+                genericMembers,
+                sectionType: _ProductSectionType.generics,
+                icon: FIcons.copy,
+              ),
+              if (shouldShowRelatedSection) ...[
+                _buildSectionHeader(
+                  Strings.relatedTherapies,
+                  relatedMembers.length,
+                  icon: FIcons.link,
+                ),
+                _buildRelatedList(
+                  relatedMembers,
+                  isLoading: relatedAsync.isLoading,
+                ),
               ],
-            ),
+              const SliverToBoxAdapter(child: Gap(AppDimens.spacingXl)),
+            ],
           ),
         );
       },
-      loading: () => const Scaffold(body: StatusView(type: StatusType.loading)),
-      error: (error, stackTrace) => Scaffold(
-        body: StatusView(
+      loading: () => FScaffold(
+        header: FHeader.nested(
+          title: const Text(''),
+          prefixes: [FHeaderAction.back(onPress: () => context.pop())],
+        ),
+        child: const StatusView(type: StatusType.loading),
+      ),
+      error: (error, stackTrace) => FScaffold(
+        header: FHeader.nested(
+          title: const Text(Strings.loadDetailsError),
+          prefixes: [FHeaderAction.back(onPress: () => context.pop())],
+        ),
+        child: StatusView(
           type: StatusType.error,
           title: Strings.loadDetailsError,
           description: error.toString(),
-          action: ShadButton(
-            onPressed: () =>
+          action: FButton(
+            style: FButtonStyle.primary(),
+            onPress: () =>
                 ref.invalidate(groupDetailViewModelProvider(groupId)),
             child: const Text(Strings.retry),
           ),
@@ -116,7 +130,6 @@ class GroupExplorerView extends ConsumerWidget {
 
   Widget _buildAppBarContent(
     BuildContext context,
-    ShadThemeData theme,
     GroupedProductsViewModel viewModel,
     int princepsCount,
     int genericsCount,
@@ -126,21 +139,21 @@ class GroupExplorerView extends ConsumerWidget {
     final metadataBadges = <Widget>[
       if (metadata.distinctDosages.isNotEmpty)
         ...metadata.distinctDosages.map(
-          (dosage) => ShadBadge.outline(
+          (dosage) => FBadge(
+            style: FBadgeStyle.outline(),
             child: Text(
               '${Strings.dosagesLabel} $dosage',
-              style: theme.textTheme.small,
+              style: context.theme.typography.sm,
             ),
           ),
         ),
       if (metadata.distinctFormulations.isNotEmpty)
         ...metadata.distinctFormulations.map(
-          (form) => ShadBadge.secondary(
+          (form) => FBadge(
+            style: FBadgeStyle.secondary(),
             child: Text(
               Strings.formWithValue(form),
-              style: theme.textTheme.small.copyWith(
-                color: theme.colorScheme.secondaryForeground,
-              ),
+              style: context.theme.typography.sm,
             ),
           ),
         ),
@@ -153,47 +166,43 @@ class GroupExplorerView extends ConsumerWidget {
       if (relatedCount > 0) Strings.associatedPrincepsCount(relatedCount),
     ];
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        PharmaBackHeader(
-          title: metadata.title,
-          backLabel: Strings.backToSearch,
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(
-            AppDimens.spacingMd,
-            AppDimens.spacingSm,
-            AppDimens.spacingMd,
-            0,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _GroupIdentityHeader(viewModel: viewModel),
-              _buildActionBar(context, theme, viewModel),
-              if (metadataBadges.isNotEmpty) ...[
-                const Gap(AppDimens.spacingSm),
-                Wrap(
-                  spacing: AppDimens.spacingXs,
-                  runSpacing: AppDimens.spacing2xs,
-                  children: metadataBadges,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppDimens.spacingMd,
+        AppDimens.spacingSm,
+        AppDimens.spacingMd,
+        0,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _GroupIdentityHeader(viewModel: viewModel),
+          _buildActionBar(context, viewModel),
+          if (metadataBadges.isNotEmpty) ...[
+            const Gap(AppDimens.spacingSm),
+            Wrap(
+              spacing: AppDimens.spacingXs,
+              runSpacing: AppDimens.spacing2xs,
+              children: metadataBadges,
+            ),
+          ],
+          if (summaryLines.isNotEmpty) ...[
+            const Gap(AppDimens.spacingSm),
+            for (final line in summaryLines)
+              Padding(
+                padding: const EdgeInsets.only(
+                  bottom: AppDimens.spacing2xs / 2,
                 ),
-              ],
-              if (summaryLines.isNotEmpty) ...[
-                const Gap(AppDimens.spacingSm),
-                for (final line in summaryLines)
-                  Padding(
-                    padding: const EdgeInsets.only(
-                      bottom: AppDimens.spacing2xs / 2,
-                    ),
-                    child: Text(line, style: theme.textTheme.muted),
+                child: Text(
+                  line,
+                  style: context.theme.typography.sm.copyWith(
+                    color: context.theme.colors.mutedForeground,
                   ),
-              ],
-            ],
-          ),
-        ),
-      ],
+                ),
+              ),
+          ],
+        ],
+      ),
     );
   }
 
@@ -215,45 +224,46 @@ class GroupExplorerView extends ConsumerWidget {
       return const SliverToBoxAdapter(child: SizedBox.shrink());
     }
 
-    final theme = ShadTheme.of(context);
-    final sectionId = '${sectionType.name}_$title';
-
     return SliverToBoxAdapter(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: AppDimens.spacingMd),
-        child: ShadAccordion<String>(
+        child: FAccordion(
+          controller: FAccordionController(),
           children: [
-            ShadAccordionItem(
-              value: sectionId,
+            FAccordionItem(
               title: Padding(
-                padding: const EdgeInsets.symmetric(vertical: AppDimens.spacingXs),
+                padding: const EdgeInsets.symmetric(
+                  vertical: AppDimens.spacingXs,
+                ),
                 child: Row(
                   children: [
                     if (icon != null) ...[
                       Icon(
                         icon,
                         size: AppDimens.iconSm,
-                        color: theme.colorScheme.mutedForeground,
+                        color: context.theme.colors.mutedForeground,
                       ),
                       const Gap(AppDimens.spacingXs),
                     ],
                     Expanded(
                       child: Text(
                         title,
-                        style: theme.textTheme.h4,
-                        overflow: TextOverflow.ellipsis,
+                        style: context.theme.typography.xl2, // h4 equivalent
                         maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     const Gap(AppDimens.spacingXs),
-                    ShadBadge(
-                      backgroundColor: theme.colorScheme.muted,
-                      child: Text(
-                        '$count',
-                        style: theme.textTheme.small.copyWith(
-                          color: theme.colorScheme.mutedForeground,
-                        ),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: context.theme.colors.muted,
+                        borderRadius: BorderRadius.circular(4),
                       ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      child: Text('$count', style: context.theme.typography.sm),
                     ),
                   ],
                 ),
@@ -290,7 +300,6 @@ class GroupExplorerView extends ConsumerWidget {
               ),
               child: _buildMemberAccordion(
                 context,
-                ShadTheme.of(context),
                 member,
                 sectionType: sectionType,
                 showNavigationIndicator: false,
@@ -334,7 +343,6 @@ class GroupExplorerView extends ConsumerWidget {
             ),
             child: _buildMemberAccordion(
               context,
-              ShadTheme.of(context),
               therapy.medication,
               sectionType: _ProductSectionType.related,
               showNavigationIndicator: true,
@@ -348,7 +356,6 @@ class GroupExplorerView extends ConsumerWidget {
 
   Widget _buildMemberAccordion(
     BuildContext context,
-    ShadThemeData theme,
     MedicationItem member, {
     required _ProductSectionType sectionType,
     required bool showNavigationIndicator,
@@ -359,7 +366,7 @@ class GroupExplorerView extends ConsumerWidget {
       _ProductSectionType.generics => const GenericBadge(),
       _ProductSectionType.related => const PrincepsBadge(),
     };
-    final regulatoryBadges = _buildRegulatoryBadges(theme, member);
+    final regulatoryBadges = _buildRegulatoryBadges(context, member);
     final labDisplay = member.titulaire.isEmpty
         ? Strings.unknownHolder
         : member.titulaire;
@@ -370,26 +377,22 @@ class GroupExplorerView extends ConsumerWidget {
     final shouldShowRefund = refundLabel != null;
 
     // Build collapsed header title
-    final titleText = '${member.displayName}${member.dosageLabel != null && member.dosageLabel!.isNotEmpty ? ' • ${member.dosageLabel}' : ''}';
+    final titleText =
+        '${member.displayName}${member.dosageLabel != null && member.dosageLabel!.isNotEmpty ? ' • ${member.dosageLabel}' : ''}';
 
-    return ShadAccordion<MedicationItem>(
+    return FAccordion(
+      controller: FAccordionController(),
       children: [
-        ShadAccordionItem(
-          value: member,
+        FAccordionItem(
           title: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Transform.scale(
-                scale: 0.85,
-                child: typeBadge,
-              ),
+              Transform.scale(scale: 0.85, child: typeBadge),
               const Gap(AppDimens.spacingXs),
               Expanded(
                 child: Text(
                   titleText,
-                  style: theme.textTheme.p.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: context.theme.typography.base,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -404,14 +407,18 @@ class GroupExplorerView extends ConsumerWidget {
                 const Gap(AppDimens.spacingSm),
                 InfoLabel(
                   text: '${Strings.cip} ${member.codeCip}',
-                  icon: LucideIcons.barcode,
-                  style: theme.textTheme.muted,
+                  icon: FIcons.barcode,
+                  style: context.theme.typography.sm.copyWith(
+                    color: context.theme.colors.mutedForeground,
+                  ),
                 ),
                 const Gap(AppDimens.spacingSm),
                 InfoLabel(
                   text: labDisplay,
-                  icon: LucideIcons.building2,
-                  style: theme.textTheme.muted,
+                  icon: FIcons.building2,
+                  style: context.theme.typography.sm.copyWith(
+                    color: context.theme.colors.mutedForeground,
+                  ),
                 ),
                 if (hasPrice || shouldShowRefund) ...[
                   const Gap(AppDimens.spacingSm),
@@ -420,7 +427,7 @@ class GroupExplorerView extends ConsumerWidget {
                       if (hasPrice)
                         Text(
                           priceText,
-                          style: theme.textTheme.p.copyWith(
+                          style: context.theme.typography.base.copyWith(
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -428,18 +435,18 @@ class GroupExplorerView extends ConsumerWidget {
                         const Gap(AppDimens.spacingXs),
                       if (shouldShowRefund)
                         member.refundRate != null
-                            ? ShadBadge.secondary(
+                            ? FBadge(
+                                style: FBadgeStyle.secondary(),
                                 child: Text(
                                   refundLabel,
-                                  style: theme.textTheme.small.copyWith(
-                                    color: theme.colorScheme.secondaryForeground,
-                                  ),
+                                  style: context.theme.typography.sm,
                                 ),
                               )
-                            : ShadBadge.outline(
+                            : FBadge(
+                                style: FBadgeStyle.outline(),
                                 child: Text(
                                   refundLabel,
-                                  style: theme.textTheme.small,
+                                  style: context.theme.typography.sm,
                                 ),
                               ),
                     ],
@@ -447,13 +454,11 @@ class GroupExplorerView extends ConsumerWidget {
                 ],
                 if (member.availabilityStatus != null) ...[
                   const Gap(AppDimens.spacingSm),
-                  ShadBadge.destructive(
+                  FBadge(
+                    style: FBadgeStyle.destructive(),
                     child: Text(
                       Strings.stockAlert(member.availabilityStatus!.trim()),
-                      style: theme.textTheme.small.copyWith(
-                        color: theme.colorScheme.destructiveForeground,
-                        fontWeight: FontWeight.w700,
-                      ),
+                      style: context.theme.typography.sm,
                     ),
                   ),
                 ],
@@ -467,25 +472,17 @@ class GroupExplorerView extends ConsumerWidget {
                 ],
                 if (showNavigationIndicator && navigationGroupId != null) ...[
                   const Gap(AppDimens.spacingMd),
-                  ShadButton.outline(
-                    width: double.infinity,
-                    onPressed: () =>
-                        context.push(AppRoutes.groupDetail(navigationGroupId)),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          Strings.showMedicamentDetails,
-                          style: theme.textTheme.small,
-                        ),
-                        const Gap(AppDimens.spacingXs),
-                        Icon(
-                          LucideIcons.arrowRight,
-                          size: AppDimens.iconSm,
-                          color: theme.colorScheme.foreground,
-                        ),
-                      ],
+                  FButton(
+                    style: FButtonStyle.outline(),
+                    onPress: () => GroupDetailRoute(
+                      groupId: navigationGroupId,
+                    ).push<void>(context),
+                    suffix: Icon(
+                      FIcons.arrowRight,
+                      size: AppDimens.iconSm,
+                      color: context.theme.colors.foreground,
                     ),
+                    child: const Text(Strings.showMedicamentDetails),
                   ),
                 ],
               ],
@@ -502,7 +499,7 @@ class GroupExplorerView extends ConsumerWidget {
   }
 
   List<Widget> _buildRegulatoryBadges(
-    ShadThemeData theme,
+    BuildContext context,
     MedicationItem member,
   ) {
     final badges = <Widget>[];
@@ -510,13 +507,11 @@ class GroupExplorerView extends ConsumerWidget {
 
     if (member.isNarcotic) {
       addBadge(
-        ShadBadge.destructive(
+        FBadge(
+          style: FBadgeStyle.destructive(),
           child: Text(
             Strings.badgeNarcotic,
-            style: theme.textTheme.small.copyWith(
-              color: theme.colorScheme.destructiveForeground,
-              fontWeight: FontWeight.w700,
-            ),
+            style: context.theme.typography.sm,
           ),
         ),
       );
@@ -524,12 +519,16 @@ class GroupExplorerView extends ConsumerWidget {
 
     if (member.isList1) {
       addBadge(
-        ShadBadge.outline(
+        Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: AppColors.regulatoryRed),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           child: Text(
             Strings.badgeList1,
-            style: theme.textTheme.small.copyWith(
+            style: context.theme.typography.sm.copyWith(
               color: AppColors.regulatoryRed,
-              fontWeight: FontWeight.w600,
             ),
           ),
         ),
@@ -538,12 +537,16 @@ class GroupExplorerView extends ConsumerWidget {
 
     if (member.isList2) {
       addBadge(
-        ShadBadge.outline(
+        Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: AppColors.regulatoryGreen),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           child: Text(
             Strings.badgeList2,
-            style: theme.textTheme.small.copyWith(
+            style: context.theme.typography.sm.copyWith(
               color: AppColors.regulatoryGreen,
-              fontWeight: FontWeight.w600,
             ),
           ),
         ),
@@ -552,14 +555,15 @@ class GroupExplorerView extends ConsumerWidget {
 
     if (member.isException) {
       addBadge(
-        ShadBadge.secondary(
-          backgroundColor: AppColors.regulatoryPurple,
+        Container(
+          decoration: BoxDecoration(
+            color: AppColors.regulatoryPurple,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           child: Text(
             Strings.badgeException,
-            style: theme.textTheme.small.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
-            ),
+            style: context.theme.typography.sm.copyWith(color: Colors.white),
           ),
         ),
       );
@@ -567,12 +571,16 @@ class GroupExplorerView extends ConsumerWidget {
 
     if (member.isRestricted) {
       addBadge(
-        ShadBadge.outline(
+        Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: AppColors.regulatoryAmber),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           child: Text(
             Strings.badgeRestricted,
-            style: theme.textTheme.small.copyWith(
+            style: context.theme.typography.sm.copyWith(
               color: AppColors.regulatoryAmber,
-              fontWeight: FontWeight.w600,
             ),
           ),
         ),
@@ -581,14 +589,15 @@ class GroupExplorerView extends ConsumerWidget {
 
     if (member.isHospitalOnly) {
       addBadge(
-        ShadBadge.secondary(
-          backgroundColor: AppColors.regulatoryGray,
+        Container(
+          decoration: BoxDecoration(
+            color: AppColors.regulatoryGray,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           child: Text(
             Strings.hospitalBadge,
-            style: theme.textTheme.small.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
-            ),
+            style: context.theme.typography.sm.copyWith(color: Colors.white),
           ),
         ),
       );
@@ -596,13 +605,16 @@ class GroupExplorerView extends ConsumerWidget {
 
     if (member.isDental) {
       addBadge(
-        ShadBadge.secondary(
-          backgroundColor: theme.colorScheme.secondary,
+        Container(
+          decoration: BoxDecoration(
+            color: context.theme.colors.secondary,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           child: Text(
             Strings.badgeDental,
-            style: theme.textTheme.small.copyWith(
-              color: theme.colorScheme.secondaryForeground,
-              fontWeight: FontWeight.w600,
+            style: context.theme.typography.sm.copyWith(
+              color: context.theme.colors.secondaryForeground,
             ),
           ),
         ),
@@ -611,13 +623,16 @@ class GroupExplorerView extends ConsumerWidget {
 
     if (member.isOtc) {
       addBadge(
-        ShadBadge(
-          backgroundColor: AppColors.regulatoryGreen.withValues(alpha: 0.15),
+        Container(
+          decoration: BoxDecoration(
+            color: AppColors.regulatoryGreen.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           child: Text(
             Strings.badgeOtc,
-            style: theme.textTheme.small.copyWith(
+            style: context.theme.typography.sm.copyWith(
               color: AppColors.regulatoryGreen,
-              fontWeight: FontWeight.w600,
             ),
           ),
         ),
@@ -626,14 +641,15 @@ class GroupExplorerView extends ConsumerWidget {
 
     if (member.isSurveillance) {
       addBadge(
-        ShadBadge.secondary(
-          backgroundColor: AppColors.regulatoryYellow,
+        Container(
+          decoration: BoxDecoration(
+            color: AppColors.regulatoryYellow,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           child: Text(
             Strings.badgeSurveillance,
-            style: theme.textTheme.small.copyWith(
-              color: Colors.black,
-              fontWeight: FontWeight.w600,
-            ),
+            style: context.theme.typography.sm.copyWith(color: Colors.black),
           ),
         ),
       );
@@ -644,7 +660,6 @@ class GroupExplorerView extends ConsumerWidget {
 
   Widget _buildActionBar(
     BuildContext context,
-    ShadThemeData theme,
     GroupedProductsViewModel viewModel,
   ) {
     final cisCode = viewModel.princepsCisCode;
@@ -677,11 +692,11 @@ class GroupExplorerView extends ConsumerWidget {
                     ),
                     decoration: BoxDecoration(
                       border: Border.all(
-                        color: theme.colorScheme.destructive,
+                        color: context.theme.colors.destructive,
                         width: 1,
                       ),
                       borderRadius: BorderRadius.circular(AppDimens.radiusMd),
-                      color: theme.colorScheme.destructive.withValues(
+                      color: context.theme.colors.destructive.withValues(
                         alpha: 0.1,
                       ),
                     ),
@@ -689,15 +704,15 @@ class GroupExplorerView extends ConsumerWidget {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
-                          LucideIcons.triangleAlert,
+                          FIcons.triangleAlert,
                           size: AppDimens.iconSm,
-                          color: theme.colorScheme.destructive,
+                          color: context.theme.colors.destructive,
                         ),
                         const Gap(AppDimens.spacingXs),
                         Text(
                           Strings.shortageAlert,
-                          style: theme.textTheme.small.copyWith(
-                            color: theme.colorScheme.destructive,
+                          style: context.theme.typography.sm.copyWith(
+                            color: context.theme.colors.destructive,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -710,38 +725,28 @@ class GroupExplorerView extends ConsumerWidget {
             const Gap(8),
           ],
           Expanded(
-            child: ShadButton.secondary(
-              onPressed: () => _launchUrl(context, ficheUrl),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    LucideIcons.info,
-                    size: AppDimens.iconSm,
-                    color: theme.colorScheme.secondaryForeground,
-                  ),
-                  const Gap(AppDimens.spacingXs),
-                  Text(Strings.ficheInfo, style: theme.textTheme.small),
-                ],
+            child: FButton(
+              style: FButtonStyle.secondary(),
+              onPress: () => _launchUrl(context, ficheUrl),
+              prefix: Icon(
+                FIcons.info,
+                size: AppDimens.iconSm,
+                color: context.theme.colors.secondaryForeground,
               ),
+              child: const Text(Strings.ficheInfo),
             ),
           ),
           const Gap(8),
           Expanded(
-            child: ShadButton.outline(
-              onPressed: () => _launchUrl(context, rcpUrl),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    LucideIcons.fileText,
-                    size: AppDimens.iconSm,
-                    color: theme.colorScheme.foreground,
-                  ),
-                  const Gap(AppDimens.spacingXs),
-                  Text(Strings.rcpDocument, style: theme.textTheme.small),
-                ],
+            child: FButton(
+              style: FButtonStyle.outline(),
+              onPress: () => _launchUrl(context, rcpUrl),
+              prefix: Icon(
+                FIcons.fileText,
+                size: AppDimens.iconSm,
+                color: context.theme.colors.foreground,
               ),
+              child: const Text(Strings.rcpDocument),
             ),
           ),
         ],
@@ -755,8 +760,11 @@ class GroupExplorerView extends ConsumerWidget {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     } else {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Impossible d\'ouvrir l\'URL: $url')),
+        showFToast(
+          context: context,
+          title: const Text(Strings.error),
+          description: Text('Impossible d\'ouvrir l\'URL: $url'),
+          icon: const Icon(FIcons.triangleAlert),
         );
       }
     }
@@ -770,7 +778,6 @@ class _GroupIdentityHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = ShadTheme.of(context);
     final priceLabel = viewModel.priceLabel ?? Strings.priceUnavailable;
     final refundValue = viewModel.refundLabel ?? Strings.refundNotAvailable;
     final hasRefundData = viewModel.refundLabel != null;
@@ -779,69 +786,79 @@ class _GroupIdentityHeader extends StatelessWidget {
         .whereType<Widget>()
         .toList();
 
-    return ShadCard(
-      padding: const EdgeInsets.all(AppDimens.spacingMd),
-      backgroundColor: theme.colorScheme.secondary.withValues(alpha: 0.08),
-      border: ShadBorder.all(
-        color: theme.colorScheme.secondary.withValues(alpha: 0.2),
-        width: 1.2,
+    final customCardStyle = context.theme.cardStyle.copyWith(
+      decoration: BoxDecoration(
+        color: context.theme.colors.secondary.withValues(alpha: 0.08),
+        border: Border.all(
+          color: context.theme.colors.secondary.withValues(alpha: 0.2),
+          width: 1.2,
+        ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            viewModel.metadata.title,
-            style: theme.textTheme.h3.copyWith(fontWeight: FontWeight.w700),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const Gap(AppDimens.spacingSm),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Flexible(
-                child: Text(
-                  priceLabel,
-                  style: theme.textTheme.h3.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 1,
-                ),
+    );
+
+    return FCard.raw(
+      style: customCardStyle.call,
+      child: Padding(
+        padding: const EdgeInsets.all(AppDimens.spacingMd),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              viewModel.metadata.title,
+              style: context.theme.typography.xl3.copyWith(
+                fontWeight: FontWeight.w700,
               ),
-              const Gap(AppDimens.spacingSm),
-              Flexible(
-                child: hasRefundData
-                    ? ShadBadge.secondary(
-                        child: Text(
-                          '${Strings.refundLabel} · $refundValue',
-                          style: theme.textTheme.small.copyWith(
-                            color: theme.colorScheme.secondaryForeground,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const Gap(AppDimens.spacingSm),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Flexible(
+                  child: Text(
+                    priceLabel,
+                    style: context.theme.typography.xl3.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                  ),
+                ),
+                const Gap(AppDimens.spacingSm),
+                Flexible(
+                  child: hasRefundData
+                      ? FBadge(
+                          style: FBadgeStyle.secondary(),
+                          child: Text(
+                            '${Strings.refundLabel} · $refundValue',
+                            style: context.theme.typography.sm,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 1,
+                        )
+                      : FBadge(
+                          style: FBadgeStyle.outline(),
+                          child: Text(
+                            refundValue,
+                            style: context.theme.typography.sm,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
-                      )
-                    : ShadBadge.outline(
-                        child: Text(
-                          refundValue,
-                          style: theme.textTheme.small,
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 1,
-                        ),
-                      ),
+                ),
+              ],
+            ),
+            if (conditionBadges.isNotEmpty) ...[
+              const Gap(AppDimens.spacingSm),
+              Wrap(
+                spacing: AppDimens.spacing2xs,
+                runSpacing: AppDimens.spacing2xs,
+                children: conditionBadges,
               ),
             ],
-          ),
-          if (conditionBadges.isNotEmpty) ...[
-            const Gap(AppDimens.spacingSm),
-            Wrap(
-              spacing: AppDimens.spacing2xs,
-              runSpacing: AppDimens.spacing2xs,
-              children: conditionBadges,
-            ),
           ],
-        ],
+        ),
       ),
     );
   }

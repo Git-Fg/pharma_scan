@@ -2,12 +2,11 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 import 'package:pharma_scan/core/database/database.dart';
-import 'package:pharma_scan/core/theme/app_colors.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/utils/medicament_helpers.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/pharma_badges.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
+import 'package:forui/forui.dart';
 
 /// WHY: Widget for displaying a princeps search result card with generic count.
 /// Extracted from DatabaseSearchView for better separation of concerns and testability.
@@ -23,8 +22,7 @@ class PrincepsResultCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = ShadTheme.of(context);
-    final accentColor = theme.colorScheme.princeps;
+    final accentColor = context.theme.colors.secondaryForeground;
     // WHY: Summarize generics by name (similar to summarizeGenericsByName but for MedicamentSummaryData)
     final counts = <String, int>{};
     for (final generic in generics) {
@@ -49,9 +47,7 @@ class PrincepsResultCard extends StatelessWidget {
             .join(' + '),
     ].join(' • ');
 
-    return ShadCard(
-      padding: EdgeInsets.zero,
-      backgroundColor: theme.colorScheme.background,
+    return FCard.raw(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -75,11 +71,9 @@ class PrincepsResultCard extends StatelessWidget {
                       Expanded(
                         child: Text(
                           princeps.nomCanonique,
-                          style: theme.textTheme.p.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                          overflow: TextOverflow.ellipsis,
+                          style: context.theme.typography.base,
                           maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],
@@ -88,7 +82,9 @@ class PrincepsResultCard extends StatelessWidget {
                     const Gap(AppDimens.spacing2xs),
                     Text(
                       details,
-                      style: theme.textTheme.muted,
+                      style: context.theme.typography.sm.copyWith(
+                        color: context.theme.colors.mutedForeground,
+                      ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -96,9 +92,8 @@ class PrincepsResultCard extends StatelessWidget {
                   const Gap(AppDimens.spacingSm),
                   Text(
                     Strings.genericCount(generics.length),
-                    style: theme.textTheme.small.copyWith(
-                      color: theme.colorScheme.mutedForeground,
-                      fontWeight: FontWeight.w600,
+                    style: context.theme.typography.sm.copyWith(
+                      color: context.theme.colors.mutedForeground,
                     ),
                   ),
                   const Gap(AppDimens.spacing2xs),
@@ -107,7 +102,9 @@ class PrincepsResultCard extends StatelessWidget {
                       padding: const EdgeInsets.only(bottom: 2),
                       child: Text(
                         Strings.genericSummaryItem(entry.key, entry.value),
-                        style: theme.textTheme.muted,
+                        style: context.theme.typography.sm.copyWith(
+                          color: context.theme.colors.mutedForeground,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -116,9 +113,9 @@ class PrincepsResultCard extends StatelessWidget {
                   Align(
                     alignment: Alignment.centerRight,
                     child: Icon(
-                      LucideIcons.chevronRight,
+                      FIcons.chevronRight,
                       size: AppDimens.iconSm,
-                      color: theme.colorScheme.mutedForeground,
+                      color: context.theme.colors.mutedForeground,
                     ),
                   ),
                 ],

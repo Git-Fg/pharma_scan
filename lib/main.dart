@@ -1,4 +1,6 @@
 // lib/main.dart
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -6,20 +8,23 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:pharma_scan/core/providers/theme_provider.dart';
 import 'package:pharma_scan/core/router/app_router.dart';
 import 'package:pharma_scan/core/services/logger_service.dart';
-import 'package:pharma_scan/core/theme/app_colors.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/features/home/providers/initialization_provider.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:talker_riverpod_logger/talker_riverpod_logger.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import 'package:forui/forui.dart';
+import 'package:pharma_scan/theme/theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // WHY: Initialize logger in background to avoid blocking app startup
-  Future.microtask(() {
-    LoggerService().init();
-    LoggerService.info('🚀 App Starting...');
-  });
+  unawaited(
+    Future.microtask(() {
+      LoggerService().init();
+      LoggerService.info('🚀 App Starting...');
+    }),
+  );
 
   // Configure global animation defaults for consistency
   Animate.defaultDuration = 300.ms;
@@ -38,7 +43,7 @@ void main() async {
   );
 
   // Enable edge-to-edge display on Android
-  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  unawaited(SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge));
 
   runApp(
     ProviderScope(
@@ -75,56 +80,41 @@ class PharmaScanApp extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final headingTextTheme = useMemoized(() {
-      final base = ShadTextTheme();
-      return base.copyWith(
-        h3: base.h3.copyWith(fontWeight: FontWeight.w700),
-        h4: base.h4.copyWith(fontWeight: FontWeight.w600),
-      );
-    });
-
     // WHY: Start initialization immediately without waiting for first frame
     // The initialization provider already starts with success state, so this is safe
     useEffect(() {
-      Future.microtask(() {
-        // WHY: Don't await - let initialization happen in background
-        // The provider already starts with success state, so app remains responsive
-        ref.read(initializationStateProvider.notifier).initialize();
-      });
+      unawaited(
+        Future.microtask(() {
+          // WHY: Don't await - let initialization happen in background
+          // The provider already starts with success state, so app remains responsive
+          ref.read(initializationStateProvider.notifier).initialize();
+        }),
+      );
       return null;
     }, []);
     final goRouter = ref.watch(goRouterProvider);
     final themeAsync = ref.watch(themeProvider);
     final themeMode = themeAsync.value ?? ThemeMode.system;
 
+    // WHY: Use Forui Green themes with Material compatibility
+    final foruiLightTheme = greenLight;
+    final foruiDarkTheme = greenDark;
+
+    // WHY: Convert Forui themes to Material themes for system UI and Material widgets
+    final lightTheme = foruiLightTheme.toApproximateMaterialTheme();
+    final darkTheme = foruiDarkTheme.toApproximateMaterialTheme();
+
     // WHY: Always show the router - initialization happens in background
     // with reactive feedback via toasts and placeholders
-    return ShadApp.router(
+    // WHY: Wrap with FAnimatedTheme to provide Forui theme globally
+    return MaterialApp.router(
       title: Strings.appName,
       debugShowCheckedModeBanner: false,
       themeMode: themeMode,
-      theme: ShadThemeData(
-        brightness: Brightness.light,
-        colorScheme: const ShadZincColorScheme.light(
-          background: AppColors.scaffoldOffWhite,
-          custom: AppColors.semanticCustomColors,
-        ),
-        textTheme: headingTextTheme,
-        // WHY: Configure default button theme for consistency
-        // Note: Gradient and shadow must still be applied per-button
-        primaryButtonTheme: const ShadButtonTheme(),
-      ),
-      darkTheme: ShadThemeData(
-        brightness: Brightness.dark,
-        colorScheme: const ShadSlateColorScheme.dark(
-          background: AppColors.scaffoldSlateDark,
-          custom: AppColors.semanticCustomColors,
-        ),
-        textTheme: headingTextTheme,
-        // WHY: Configure default button theme for consistency
-        // Note: Gradient and shadow must still be applied per-button
-        primaryButtonTheme: const ShadButtonTheme(),
-      ),
+      theme: lightTheme,
+      darkTheme: darkTheme,
+      supportedLocales: FLocalizations.supportedLocales,
+      localizationsDelegates: const [...FLocalizations.localizationsDelegates],
       builder: (context, child) {
         // WHY: Update SystemUI overlay style based on theme brightness
         // This ensures status bar and navigation bar icons match the current theme
@@ -145,7 +135,11 @@ class PharmaScanApp extends HookConsumerWidget {
             systemNavigationBarDividerColor: Colors.transparent,
           ),
         );
-        return ShadSonner(alignment: Alignment.topCenter, child: child!);
+        // WHY: Wrap with FAnimatedTheme to provide Forui theme context
+        final activeForuiTheme = brightness == Brightness.dark
+            ? foruiDarkTheme
+            : foruiLightTheme;
+        return FAnimatedTheme(data: activeForuiTheme, child: child!);
       },
       routerConfig: goRouter,
     );

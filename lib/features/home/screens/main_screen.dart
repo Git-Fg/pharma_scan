@@ -3,8 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:forui/forui.dart';
 
-import 'package:pharma_scan/core/router/app_routes.dart';
+import 'package:pharma_scan/core/router/routes.dart';
 import 'package:pharma_scan/core/utils/app_animations.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/utils/test_tags.dart';
@@ -13,10 +14,8 @@ import 'package:pharma_scan/features/home/providers/sync_provider.dart';
 import 'package:pharma_scan/features/home/models/sync_state.dart';
 import 'package:pharma_scan/features/home/providers/initialization_provider.dart';
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
-import 'package:pharma_scan/core/theme/app_dimens.dart';
-import 'package:gap/gap.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:pharma_scan/features/home/widgets/unified_activity_banner.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 class MainScreen extends HookConsumerWidget {
   const MainScreen({required this.navigationShell, super.key});
@@ -53,7 +52,6 @@ class MainScreen extends HookConsumerWidget {
           .catchError((_) => false);
     }
 
-    final theme = ShadTheme.of(context);
     final titles = [Strings.scanner, Strings.explorer];
     final syncProgress = ref.watch(syncControllerProvider);
     final initState = ref.watch(initializationStateProvider);
@@ -75,33 +73,26 @@ class MainScreen extends HookConsumerWidget {
           previous?.phase != SyncPhase.success) {
         // Show success toast notification
         if (context.mounted) {
-          ShadSonner.of(context).show(
-            ShadToast(
-              title: const Text(Strings.updateCompleted),
-              description: Text(
-                presenter.successDescription ?? Strings.bdpmUpToDate,
-              ),
+          showFToast(
+            context: context,
+            title: const Text(Strings.updateCompleted),
+            description: Text(
+              presenter.successDescription ?? Strings.bdpmUpToDate,
             ),
+            icon: const Icon(FIcons.check),
           );
         }
       } else if (next.phase == SyncPhase.error &&
           previous?.phase != SyncPhase.error) {
         // Show error toast notification only on transition to error
         if (context.mounted) {
-          final sonner = ShadSonner.of(context);
-          final toastId = DateTime.now().millisecondsSinceEpoch;
-          sonner.show(
-            ShadToast.destructive(
-              id: toastId,
-              title: const Text(Strings.syncFailed),
-              description: Text(
-                presenter.errorDescription ?? Strings.syncFailedMessage,
-              ),
-              action: ShadButton.outline(
-                onPressed: () => sonner.hide(toastId),
-                child: const Text(Strings.close),
-              ),
+          showFToast(
+            context: context,
+            title: const Text(Strings.syncFailed),
+            description: Text(
+              presenter.errorDescription ?? Strings.syncFailedMessage,
             ),
+            icon: const Icon(FIcons.triangleAlert),
           );
         }
       }
@@ -127,7 +118,7 @@ class MainScreen extends HookConsumerWidget {
     UnifiedActivityBanner? activityBanner;
     if (isInitializationErrored) {
       activityBanner = UnifiedActivityBanner(
-        icon: LucideIcons.triangleAlert,
+        icon: FIcons.triangleAlert,
         title: Strings.dataOperationsTitle,
         status: Strings.initializationError,
         secondaryStatus:
@@ -158,27 +149,27 @@ class MainScreen extends HookConsumerWidget {
         InitializationStep.downloading => (
           Strings.initializationDownloading,
           Strings.initializationDownloadingDescription,
-          LucideIcons.download,
+          FIcons.download,
         ),
         InitializationStep.parsing => (
           Strings.initializationParsing,
           Strings.initializationParsingDescription,
-          LucideIcons.fileDigit,
+          FIcons.fileDigit,
         ),
         InitializationStep.aggregating => (
           Strings.initializationAggregatingTitle,
           Strings.initializationAggregatingDescription,
-          LucideIcons.database,
+          FIcons.database,
         ),
         InitializationStep.cleaning => (
           Strings.initializationInProgress,
           Strings.initializationDescription,
-          LucideIcons.loader,
+          FIcons.loader,
         ),
         _ => (
           Strings.initializationInProgress,
           Strings.initializationDescription,
-          LucideIcons.loader,
+          FIcons.loader,
         ),
       };
       activityBanner = UnifiedActivityBanner(
@@ -205,17 +196,17 @@ class MainScreen extends HookConsumerWidget {
 
       switch (syncProgress.phase) {
         case SyncPhase.waitingNetwork:
-          icon = LucideIcons.wifiOff;
+          icon = FIcons.wifiOff;
           status = Strings.dataOperationsWaitingNetwork;
           description = Strings.syncWaitingNetwork;
           break;
         case SyncPhase.checking:
-          icon = LucideIcons.search;
+          icon = FIcons.search;
           status = Strings.dataOperationsCheckingUpdates;
           description = Strings.syncCheckingUpdates;
           break;
         case SyncPhase.downloading:
-          icon = LucideIcons.download;
+          icon = FIcons.download;
           status = Strings.syncBannerDownloadingTitle;
           description = Strings.syncDownloadingSource(
             syncProgress.subject ?? Strings.data,
@@ -225,12 +216,12 @@ class MainScreen extends HookConsumerWidget {
           eta = syncProgress.estimatedRemaining;
           break;
         case SyncPhase.applying:
-          icon = LucideIcons.databaseZap;
+          icon = FIcons.databaseZap;
           status = Strings.syncBannerApplyingTitle;
           description = Strings.syncApplyingUpdate;
           break;
         case SyncPhase.success:
-          icon = LucideIcons.circleCheck;
+          icon = FIcons.circleCheck;
           status = Strings.syncBannerSuccessTitle;
           description =
               presenter.successDescription ?? Strings.syncDatabaseUpdated;
@@ -238,13 +229,13 @@ class MainScreen extends HookConsumerWidget {
           progressValue = 1;
           break;
         case SyncPhase.error:
-          icon = LucideIcons.triangleAlert;
+          icon = FIcons.triangleAlert;
           status = Strings.syncBannerErrorTitle;
           description = presenter.errorDescription ?? Strings.syncFailedMessage;
           isError = true;
           break;
         case SyncPhase.idle:
-          icon = LucideIcons.loader;
+          icon = FIcons.loader;
           status = Strings.dataOperationsIdle;
           break;
       }
@@ -266,68 +257,6 @@ class MainScreen extends HookConsumerWidget {
       );
     }
 
-    Widget buildNavItem(
-      int index,
-      IconData icon,
-      String label,
-      ShadThemeData theme,
-    ) {
-      final isSelected = navigationShell.currentIndex == index;
-      final testId = index == 0 ? TestTags.navScanner : TestTags.navExplorer;
-      // Animate the scale of the selected item
-      return Testable(
-        id: testId,
-        child: Semantics(
-          label: label,
-          button: true,
-          excludeSemantics: true,
-          child: GestureDetector(
-            key: ValueKey(testId),
-            onTap: () => onTabChanged(index),
-            behavior: HitTestBehavior.opaque,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppDimens.spacingLg,
-                vertical: AppDimens.spacing2xs,
-              ),
-              decoration: isSelected
-                  ? BoxDecoration(
-                      color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(AppDimens.radiusLg),
-                    )
-                  : null,
-              child: ExcludeSemantics(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      icon,
-                      size: 24,
-                      color: isSelected
-                          ? theme.colorScheme.primary
-                          : theme.colorScheme.mutedForeground,
-                    ),
-                    const Gap(AppDimens.spacing2xs),
-                    Text(
-                      label,
-                      style: theme.textTheme.small.copyWith(
-                        color: isSelected
-                            ? theme.colorScheme.primary
-                            : theme.colorScheme.mutedForeground,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
     return PopScope(
       canPop: navigationShell.currentIndex == 0,
       onPopInvokedWithResult: (didPop, _) {
@@ -336,80 +265,42 @@ class MainScreen extends HookConsumerWidget {
           onTabChanged(0);
         }
       },
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(
-            titles[navigationShell.currentIndex],
-            style: theme.textTheme.h4.copyWith(
-              color: theme.colorScheme.foreground,
-            ),
-          ),
-          backgroundColor: theme.colorScheme.background,
-          elevation: 0,
-          actions: [
+      child: FScaffold(
+        header: FHeader(
+          title: Text(titles[navigationShell.currentIndex]),
+          suffixes: [
             Testable(
               id: TestTags.navSettings,
-              child: Semantics(
-                button: true,
-                label: Strings.openSettings,
-                child: IconButton(
-                  key: const Key('settings_button'),
-                  onPressed: () => context.push(AppRoutes.settings),
-                  icon: Icon(
-                    LucideIcons.settings,
-                    size: 20,
-                    color: theme.colorScheme.foreground,
-                  ),
-                ),
+              child: FHeaderAction(
+                icon: const Icon(FIcons.settings),
+                onPress: () => const SettingsRoute().push<void>(context),
               ),
             ),
-            const Gap(AppDimens.spacingXs),
           ],
         ),
-        body: SafeArea(
-          bottom: false,
-          child: Column(
-            children: [
-              if (activityBanner != null)
-                activityBanner.animate(effects: AppAnimations.bannerEnter),
-              Expanded(
-                // The navigationShell acts as the body. It contains the IndexedStack internally.
-                child: navigationShell,
-              ),
-            ],
-          ),
+        footer: FBottomNavigationBar(
+          index: navigationShell.currentIndex,
+          onChange: onTabChanged,
+          children: const [
+            FBottomNavigationBarItem(
+              icon: Icon(FIcons.scan),
+              label: Text(Strings.scanner),
+            ),
+            FBottomNavigationBarItem(
+              icon: Icon(FIcons.database),
+              label: Text(Strings.explorer),
+            ),
+          ],
         ),
-        // WHY: Custom bottom navigation bar using Shadcn theme styling.
-        // Positioned at bottom for ergonomic thumb access.
-        // Enhanced with shadow and increased padding for better visibility.
-        // SafeArea ensures proper spacing above system navigation bar on Android.
-        bottomNavigationBar: SafeArea(
-          top: false,
-          child: Container(
-            decoration: BoxDecoration(
-              color: theme.colorScheme.card,
-              border: Border(top: BorderSide(color: theme.colorScheme.border)),
-              boxShadow: [
-                BoxShadow(
-                  color: theme.colorScheme.foreground.withValues(alpha: 0.08),
-                  blurRadius: 18,
-                  spreadRadius: 1,
-                  offset: const Offset(0, -2),
-                ),
-              ],
+        child: Column(
+          children: [
+            if (activityBanner != null)
+              activityBanner.animate(effects: AppAnimations.bannerEnter),
+            Expanded(
+              // The navigationShell acts as the body. It contains the IndexedStack internally.
+              child: navigationShell,
             ),
-            padding: const EdgeInsets.symmetric(
-              vertical: AppDimens.spacingSm,
-              horizontal: AppDimens.spacingXl,
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                buildNavItem(0, LucideIcons.scan, Strings.scanner, theme),
-                buildNavItem(1, LucideIcons.database, Strings.explorer, theme),
-              ],
-            ),
-          ),
+          ],
         ),
       ),
     );

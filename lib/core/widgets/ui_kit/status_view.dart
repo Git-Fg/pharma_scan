@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
+import 'package:forui/forui.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
 
 enum StatusType { empty, error, loading }
 
@@ -23,21 +23,28 @@ class StatusView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = ShadTheme.of(context);
-
     switch (type) {
       case StatusType.loading:
-        return const Center(child: ShadProgress());
+        return Center(
+          child: SizedBox(
+            height: 4.0,
+            child: LinearProgressIndicator(
+              backgroundColor: context.theme.colors.muted,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                context.theme.colors.primary,
+              ),
+              minHeight: 4.0,
+            ),
+          ),
+        );
       case StatusType.empty:
       case StatusType.error:
         final effectiveIcon =
             icon ??
-            (type == StatusType.empty
-                ? LucideIcons.searchX
-                : LucideIcons.triangleAlert);
+            (type == StatusType.empty ? FIcons.searchX : FIcons.triangleAlert);
         final iconColor = type == StatusType.empty
-            ? theme.colorScheme.mutedForeground
-            : theme.colorScheme.destructive;
+            ? context.theme.colors.mutedForeground
+            : context.theme.colors.destructive;
 
         return Center(
           child: Padding(
@@ -55,15 +62,15 @@ class StatusView extends StatelessWidget {
                 if (title != null)
                   Text(
                     title!,
-                    style: theme.textTheme.h4,
-                    textAlign: TextAlign.center,
+                    style: context.theme.typography.xl2, // h4 equivalent
                   ),
                 if (description != null) ...[
                   const Gap(AppDimens.spacingXs),
                   Text(
                     description!,
-                    style: theme.textTheme.muted,
-                    textAlign: TextAlign.center,
+                    style: context.theme.typography.sm.copyWith(
+                      color: context.theme.colors.mutedForeground,
+                    ),
                   ),
                 ],
                 if (action != null) ...[
