@@ -24,7 +24,9 @@ void main() {
     // WHY: Use file-based database for tests that need aggregation
     // Aggregation requires a file path to open database in isolate
     final dbFile = File(p.join(documentsDir.path, 'medicaments.db'));
-    database = AppDatabase.forTesting(NativeDatabase(dbFile));
+    database = AppDatabase.forTesting(
+      NativeDatabase(dbFile, setup: configureAppSQLite),
+    );
     dataInitializationService = DataInitializationService(database: database);
   });
 

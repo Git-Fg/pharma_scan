@@ -116,6 +116,8 @@ class Strings {
   static const String loadingError = 'Erreur de chargement';
   static const String loadDetailsError = 'Impossible de charger les détails.';
   static const String loadError = 'Erreur lors du chargement:';
+  static const String loading = 'Chargement...';
+  static const String tapToViewDetails = 'Double-tap pour afficher les détails';
 
   // Scanner
   static const String noBarcodeDetected = 'Aucun code-barres détecté';
@@ -158,6 +160,8 @@ class Strings {
   // Settings
   static const String settings = 'Réglages';
   static const String appearance = 'Apparence';
+  static const String appearanceDescription =
+      'Choisissez votre style de thème préféré.';
   static const String systemTheme = 'Thème du système';
   static const String lightTheme = 'Thème clair';
   static const String darkTheme = 'Thème sombre';
@@ -167,6 +171,8 @@ class Strings {
   static const String weekly = 'Une fois par semaine';
   static const String monthly = 'Une fois par mois';
   static const String data = 'Données';
+  static const String dataSectionDescription =
+      'Gérez la synchronisation BDPM et la base locale.';
   static const String forceReset = 'Forcer la réinitialisation de la base';
   static const String resetting = 'Réinitialisation en cours...';
   static const String checkUpdates = 'Vérification des mises à jour';
@@ -232,6 +238,8 @@ class Strings {
   static const String openDetailedViewForSupport =
       'Ouvre une vue détaillée des événements pour le support et la QA.';
   static const String diagnostics = 'Diagnostics';
+  static const String diagnosticsDescription =
+      'Outils avancés pour le support et la QA.';
   static const String pleaseWaitSync =
       'Patientez pendant la synchronisation avec le BDPM…';
   static const String checkingUpdatesTitle =
@@ -350,6 +358,7 @@ class Strings {
   static const String noActivePrincipleReported =
       'Aucun principe actif renseigné';
   static const String noGenericsFound = 'Aucun générique correspondant trouvé.';
+  static const String clickToSeeGenerics = 'Voir les génériques →';
   static const String uniqueMedicationDescription =
       'Médicament sans groupe générique';
   static const String cipCodeLabel = 'Code CIP';
@@ -454,4 +463,61 @@ class Strings {
     'S': 'Organes sensoriels',
     'V': 'Divers',
   };
+
+  // Accessibility Semantic Labels
+  // WHY: Centralized semantic labels for screen readers and accessibility tools.
+  // All semantic labels must use these constants to ensure consistency.
+
+  // Button Semantic Labels
+  static const String confirmButtonLabel = 'Confirmer';
+  static const String confirmButtonHint = 'Double-tap pour confirmer';
+  static const String confirmResetButtonHint =
+      'Double-tap pour confirmer la réinitialisation de la base de données';
+  static const String cancelButtonLabel = 'Annuler';
+  static const String cancelButtonHint = 'Double-tap pour annuler';
+  static const String resetButtonLabel = 'Réinitialiser';
+  static const String resetButtonHint =
+      'Double-tap pour réinitialiser la base de données';
+  static const String retryButtonLabel = 'Réessayer';
+  static const String retryButtonHint = 'Double-tap pour réessayer';
+  static const String backButtonLabel = 'Retour';
+  static const String backButtonHint = 'Double-tap pour revenir en arrière';
+  static const String checkUpdatesButtonLabel = 'Vérifier les mises à jour';
+  static const String checkUpdatesButtonHint =
+      'Double-tap pour vérifier les mises à jour de la base de données';
+  static const String forceResetButtonLabel = 'Forcer la réinitialisation';
+  static const String forceResetButtonHint =
+      'Double-tap pour forcer la réinitialisation de la base de données';
+  static const String showLogsButtonLabel = 'Afficher les logs';
+  static const String showLogsButtonHint =
+      'Double-tap pour ouvrir la vue des journaux applicatifs';
+
+  // Tile Semantic Labels
+  static const String tapToModify = 'Double-tap pour modifier';
+  static const String medicationTileHint =
+      'Double-tap pour afficher les détails du médicament';
+  static const String settingsTileHint =
+      'Double-tap pour modifier ce paramètre';
+
+  // Select Semantic Labels
+  static const String themeSelectorLabel = 'Sélecteur de thème';
+  static const String selectThemeHint = 'Double-tap pour modifier le thème';
+  static const String syncFrequencyLabel = 'Fréquence de synchronisation';
+  static const String selectSyncFrequencyHint =
+      'Double-tap pour modifier la fréquence de synchronisation';
+  static const String filterSelectorLabel = 'Filtre';
+  static const String selectFilterHint = 'Double-tap pour modifier le filtre';
+
+  // ProductCard Actions
+  static const String closeCardLabel = 'Fermer cette carte';
+  static const String closeCardHint =
+      'Double-tap pour fermer cette carte de médicament';
+  static const String exploreGroupLabel = 'Explorer le groupe';
+  static const String exploreGroupHint =
+      'Double-tap pour explorer le groupe de médicaments';
+
+  // Manual Entry
+  static const String manualEntryFieldLabel = 'Champ de saisie du code CIP';
+  static const String manualEntryFieldHint =
+      'Saisissez les 13 chiffres du code CIP du médicament';
 }

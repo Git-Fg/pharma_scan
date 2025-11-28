@@ -1,0 +1,245 @@
+// test/features/scanner/screens/camera_screen_test.dart
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:forui/forui.dart';
+import 'package:pharma_scan/core/utils/strings.dart';
+import 'package:pharma_scan/core/utils/test_tags.dart';
+import 'package:pharma_scan/core/widgets/adaptive_bottom_panel.dart';
+import 'package:pharma_scan/features/scanner/screens/camera_screen.dart';
+import '../../../helpers/pump_app.dart';
+import '../../../test_utils.dart';
+
+/// WHY: Widget tests for CameraScreen to ensure UI correctness and prevent regression.
+/// These tests verify:
+/// - Torch button is only visible when camera is active (not in bottom panel)
+/// - No overflow occurs on different screen sizes
+/// - Button texts have proper overflow protection
+/// - Layout is responsive and adapts to screen constraints
+void main() {
+  group('CameraScreen Widget Tests', () {
+    // WHY: Set up providers with mocked initialization to avoid real database operations
+    setUp(() {
+      // Ensure initialization is ready for tests
+      // This will be handled by the ProviderScope in pumpApp
+    });
+
+    testWidgets(
+      'displays gallery and manual entry buttons when camera is inactive',
+      (tester) async {
+        // WHEN: Pump the camera screen
+        await tester.pumpApp(const CameraScreen());
+        await tester.pumpAndSettle();
+
+        // THEN: Gallery and manual entry buttons should be visible
+        expect(
+          find.bySemanticsLabel(Strings.importBarcodeFromGallery),
+          findsOneWidget,
+        );
+        expect(
+          find.bySemanticsLabel(Strings.manuallyEnterCipCode),
+          findsOneWidget,
+        );
+
+        // AND: Torch button should NOT be visible when camera is inactive
+        final torchButton = find.descendant(
+          of: find.byType(CameraScreen),
+          matching: find.byIcon(FIcons.zap),
+        );
+        expect(torchButton, findsNothing);
+      },
+    );
+
+    testWidgets(
+      'torch button is not in the bottom panel with gallery and manual entry buttons',
+      (tester) async {
+        // WHEN: Pump the camera screen
+        await tester.pumpApp(const CameraScreen());
+        await tester.pumpAndSettle();
+
+        // THEN: Find the bottom panel (AdaptiveBottomPanel)
+        final bottomPanel = find.byType(AdaptiveBottomPanel);
+        expect(bottomPanel, findsOneWidget);
+
+        // AND: Verify gallery and manual entry buttons are in the bottom panel
+        final galleryButton = find.descendant(
+          of: bottomPanel,
+          matching: find.bySemanticsLabel(Strings.importBarcodeFromGallery),
+        );
+        final manualButton = find.descendant(
+          of: bottomPanel,
+          matching: find.bySemanticsLabel(Strings.manuallyEnterCipCode),
+        );
+
+        expect(galleryButton, findsOneWidget);
+        expect(manualButton, findsOneWidget);
+
+        // AND: Torch button should NOT be in the bottom panel
+        // We verify this by checking that no torch icon exists as a descendant
+        // of the bottom panel's Row containing the buttons
+        final bottomPanelRow = find.descendant(
+          of: bottomPanel,
+          matching: find.byType(Row),
+        );
+        final torchInRow = find.descendant(
+          of: bottomPanelRow,
+          matching: find.byIcon(FIcons.zap),
+        );
+        expect(torchInRow, findsNothing);
+      },
+    );
+
+    testWidgets('bottom panel buttons do not overflow on small screens', (
+      tester,
+    ) async {
+      // GIVEN: Small screen size (e.g., iPhone SE)
+      await tester.binding.setSurfaceSize(const Size(320, 568));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      // WHEN: Pump the camera screen
+      await tester.pumpApp(const CameraScreen());
+      await tester.pumpAndSettle();
+
+      // THEN: Verify no overflow exceptions are thrown
+      expect(tester.takeException(), isNull);
+
+      // AND: All buttons should still be visible
+      expect(
+        find.bySemanticsLabel(Strings.importBarcodeFromGallery),
+        findsOneWidget,
+      );
+      expect(
+        find.bySemanticsLabel(Strings.manuallyEnterCipCode),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('bottom panel buttons do not overflow on medium screens', (
+      tester,
+    ) async {
+      // GIVEN: Medium screen size
+      await tester.binding.setSurfaceSize(const Size(375, 667));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      // WHEN: Pump the camera screen
+      await tester.pumpApp(const CameraScreen());
+      await tester.pumpAndSettle();
+
+      // THEN: Verify no overflow exceptions
+      expect(tester.takeException(), isNull);
+
+      // AND: All buttons should be visible
+      expect(
+        find.bySemanticsLabel(Strings.importBarcodeFromGallery),
+        findsOneWidget,
+      );
+      expect(
+        find.bySemanticsLabel(Strings.manuallyEnterCipCode),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('bottom panel buttons do not overflow on large screens', (
+      tester,
+    ) async {
+      // GIVEN: Large screen size (e.g., iPad)
+      await tester.binding.setSurfaceSize(const Size(768, 1024));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      // WHEN: Pump the camera screen
+      await tester.pumpApp(const CameraScreen());
+      await tester.pumpAndSettle();
+
+      // THEN: Verify no overflow exceptions
+      expect(tester.takeException(), isNull);
+
+      // AND: All buttons should be visible
+      expect(
+        find.bySemanticsLabel(Strings.importBarcodeFromGallery),
+        findsOneWidget,
+      );
+      expect(
+        find.bySemanticsLabel(Strings.manuallyEnterCipCode),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('button texts have overflow protection', (tester) async {
+      // WHEN: Pump the camera screen
+      await tester.pumpApp(const CameraScreen());
+      await tester.pumpAndSettle();
+
+      // THEN: Find gallery button text and verify it has overflow protection
+      final galleryButtonText = find.descendant(
+        of: find.bySemanticsLabel(Strings.importBarcodeFromGallery),
+        matching: find.byType(Text),
+      );
+      expect(galleryButtonText, findsOneWidget);
+
+      final galleryTextWidget = tester.widget<Text>(galleryButtonText);
+      expect(galleryTextWidget.overflow, TextOverflow.ellipsis);
+      expect(galleryTextWidget.maxLines, 1);
+
+      // AND: Find manual entry button text and verify it has overflow protection
+      final manualButtonText = find.descendant(
+        of: find.bySemanticsLabel(Strings.manuallyEnterCipCode),
+        matching: find.byType(Text),
+      );
+      expect(manualButtonText, findsOneWidget);
+
+      final manualTextWidget = tester.widget<Text>(manualButtonText);
+      expect(manualTextWidget.overflow, TextOverflow.ellipsis);
+      expect(manualTextWidget.maxLines, 1);
+    });
+
+    testWidgets('scanner controls are accessible via test tags', (
+      tester,
+    ) async {
+      // WHEN: Pump the camera screen
+      await tester.pumpApp(const CameraScreen());
+      await tester.pumpAndSettle();
+
+      // THEN: Verify test tags are present
+      expect(find.byKey(const Key(TestTags.scanGalleryBtn)), findsOneWidget);
+      expect(find.byKey(const Key(TestTags.scanManualBtn)), findsOneWidget);
+    });
+
+    group('Torch Button Logic', () {
+      testWidgets(
+        'torch button visibility is conditionally rendered based on camera state',
+        (tester) async {
+          // WHEN: Pump the camera screen (camera starts inactive)
+          await tester.pumpApp(const CameraScreen());
+          await tester.pumpAndSettle();
+
+          // THEN: Torch button should NOT be visible initially
+          // We check for torch icon anywhere in the widget tree
+          final torchIconAnywhere = find.byIcon(FIcons.zap);
+          expect(torchIconAnywhere, findsNothing);
+
+          // NOTE: Testing the active state would require mocking the camera state,
+          // which is complex due to MobileScanner dependencies. This test verifies
+          // the initial state where torch should be hidden.
+        },
+      );
+
+      testWidgets('torch button is not in bottom panel structure', (
+        tester,
+      ) async {
+        // WHEN: Pump the camera screen
+        await tester.pumpApp(const CameraScreen());
+        await tester.pumpAndSettle();
+
+        // THEN: Find the bottom panel
+        final bottomPanel = find.byType(AdaptiveBottomPanel);
+        expect(bottomPanel, findsOneWidget);
+
+        // AND: Verify torch icon is not a descendant of bottom panel
+        final torchInBottomPanel = find.descendant(
+          of: bottomPanel,
+          matching: find.byIcon(FIcons.zap),
+        );
+        expect(torchInBottomPanel, findsNothing);
+      });
+    });
+  });
+}

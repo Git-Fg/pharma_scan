@@ -1,5 +1,5 @@
 import 'package:pharma_scan/core/providers/core_providers.dart';
-import 'package:pharma_scan/core/utils/form_category_helper.dart';
+import 'package:pharma_scan/core/logic/classifier.dart';
 import 'package:pharma_scan/features/explorer/models/explorer_enums.dart';
 import 'package:pharma_scan/features/explorer/models/generic_group_entity.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -89,7 +89,7 @@ class GroupSummaryNotifier extends _$GroupSummaryNotifier {
 
   Future<GroupSummaryState> _fetchSummaries({required bool reset}) async {
     final libraryDao = ref.watch(libraryDaoProvider);
-    final params = FormCategoryHelper.getKeywordsForCategory(_selectedCategory);
+    final params = keywordsForCategory(_selectedCategory);
     final summaries = await libraryDao.getGenericGroupSummaries(
       formKeywords: params.formKeywords,
       excludeKeywords: params.excludeKeywords,

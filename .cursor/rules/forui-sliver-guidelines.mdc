@@ -1,0 +1,149 @@
+---
+alwaysApply: true
+---
+# ForUI & Sliver Integration Guidelines
+
+## 1. The Core Conflict: Box vs. Sliver Protocol
+
+**Context:** ForUI/Shadcn widgets (`FCard`, `FButton`, `FTileGroup`) operate on the **Box Protocol** (they need explicit width/height constraints). Flutter's `CustomScrollView` operates on the **Sliver Protocol** (scroll-aware geometry).
+
+**The Prime Directive:** Never place a raw ForUI widget directly inside a `slivers: []` list. You must "Bridge" the protocols.
+
+## 2. The Decision Matrix
+
+Before implementing a screen, determine the **Layout Protocol**:
+
+| Scenario | Protocol | Implementation Strategy |
+| :--- | :--- | :--- |
+| **Static Forms / Settings** | **Box Protocol** | `FScaffold` > `SingleChildScrollView` > `Column` > `FWidget` |
+| **Simple Lists** | **Box Protocol** | `FScaffold` > `ListView.builder` > `FTile` |
+| **Collapsing Headers** | **Sliver Protocol** | `FScaffold` > `CustomScrollView` > `SliverAppBar` + `Sliver...` |
+| **Mixed Content** (Grid + List) | **Sliver Protocol** | `FScaffold` > `CustomScrollView` > `Sliver...` |
+
+---
+
+## 3. Implementation Rules
+
+### Rule A: The Bridge Pattern (`SliverToBoxAdapter`)
+
+When using `CustomScrollView`, individual ForUI widgets (like a header card or a button) must be wrapped.
+
+**❌ BAD (Crash / Overflow):**
+
+```dart
+CustomScrollView(
+  slivers: [
+    FCard(child: Text('Hello')), // Error: Not a subtype of Widget<Sliver>
+  ],
+)
+```
+
+**✅ GOOD:**
+
+```dart
+CustomScrollView(
+  slivers: [
+    SliverToBoxAdapter(
+      child: FCard(child: Text('Hello')),
+    ),
+  ],
+)
+```
+
+### Rule B: The List Pattern (`SliverList`)
+
+**Never** use multiple `SliverToBoxAdapter`s for a list of items. It kills lazy-loading performance.
+
+**❌ BAD (Performance Hit):**
+
+```dart
+// Do not do this for dynamic lists
+...items.map((item) => SliverToBoxAdapter(child: FTile(...)))
+```
+
+**✅ GOOD:**
+
+```dart
+SliverList(
+  delegate: SliverChildBuilderDelegate(
+    (context, index) {
+      // Return standard ForUI widget here
+      return FTile(title: Text(items[index].title));
+    },
+    childCount: items.length,
+  ),
+)
+```
+
+### Rule C: The Padding Rule
+
+**Never** wrap a Sliver in standard `Padding`. It breaks the scroll geometry.
+
+**❌ BAD:**
+
+```dart
+Padding( // Error
+  padding: EdgeInsets.all(16),
+  child: SliverList(...),
+)
+```
+
+**✅ GOOD:**
+
+```dart
+SliverPadding(
+  padding: EdgeInsets.all(16),
+  sliver: SliverList(...),
+)
+```
+
+### Rule D: The "Footer at Bottom" Pattern
+
+To place a button at the bottom of a scrollable form (common in ForUI flows), use `SliverFillRemaining`.
+
+```dart
+CustomScrollView(
+  slivers: [
+    SliverToBoxAdapter(child: FCard(...)), // Content
+    SliverFillRemaining(
+      hasScrollBody: false, // CRITICAL: Allows content to push footer down
+      child: Align(
+        alignment: Alignment.bottomCenter,
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: FButton(label: Text('Save')),
+        ),
+      ),
+    ),
+  ],
+)
+```
+
+---
+
+## 4. ForUI Specific Component Handling
+
+### `FTileGroup`
+
+* **Context:** `FTileGroup` is a *Box Widget* that contains its own list logic internally.
+* **Usage:**
+  * Inside `Column`: Use directly.
+  * Inside `CustomScrollView`: Wrap the *entire group* in **one** `SliverToBoxAdapter`.
+  * **Warning:** Do not put huge lists inside an `FTileGroup` inside a `CustomScrollView`. For huge lists, flatten the group and use `SliverList` with dividers manually.
+
+### `FScaffold`
+
+* `FScaffold` handles the top-level layout.
+* If you need a `SliverAppBar` (collapsing), you often cannot use `FHeader`. You must use `CustomScrollView` as the `body` of `FScaffold`.
+
+---
+
+## 5. Abductive Debugging Checklist
+
+If you encounter `RenderFlex overflowed` or `BoxConstraints` errors:
+
+1. **Check Protocol:** Am I inside a `slivers: []` array?
+2. **Verify Adapter:** Is the ForUI widget wrapped in `SliverToBoxAdapter`?
+3. **Check Height:** Does the widget have infinite height (like an unwrapped `ListView`) inside a `Column`? Wrap in `Expanded` or give it a height.
+4. **Check Padding:** Did I use `Padding` instead of `SliverPadding` inside the scroll view?
+

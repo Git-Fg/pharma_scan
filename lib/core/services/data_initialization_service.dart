@@ -393,16 +393,8 @@ Future<AppDatabase> _openDatabaseInIsolate(
 
   sqlite3.tempDirectory = tempPath;
 
-  // WHY: Enable WAL mode to support concurrent access from main isolate
-  // This prevents "database is locked" exceptions when background isolate
-  // performs parsing while main isolate reads/writes
-  // WHY: Set busy timeout to allow retries when database is locked
-  // This gives SQLite time to wait for locks to be released instead of failing immediately
-  final database = NativeDatabase(file);
-  final appDb = AppDatabase.forTesting(database);
-  await appDb.customStatement('PRAGMA journal_mode=WAL');
-  await appDb.customStatement('PRAGMA busy_timeout=30000'); // 30 second timeout
-  return appDb;
+  final database = NativeDatabase(file, setup: configureAppSQLite);
+  return AppDatabase.forTesting(database);
 }
 
 // WHY: Parse files and insert data entirely in isolate to avoid large data transfer
@@ -438,26 +430,18 @@ Future<_ParseAndInsertResult> _parseAndInsertDataInBackground(
   // INSERT OR REPLACE mode (InsertMode.replace) will overwrite existing data automatically
   // This eliminates lock conflicts from DELETE operations
 
-  // Helper to read file inside isolate
-  String? readFileInIsolate(String? path) {
-    if (path == null || path.isEmpty) return null;
-    final file = File(path);
-    if (!file.existsSync()) return null;
-    final bytes = file.readAsBytesSync();
-    return BdpmFileParser.decodeContent(bytes);
-  }
+  Stream<String>? streamForKey(String key) =>
+      BdpmFileParser.openLineStream(args.filePaths[key]);
 
   // Parse all files using BdpmFileParser static methods
   // Using Railway Oriented Programming with Either for explicit error handling
-  final conditionsMap = BdpmFileParser.parseConditions(
-    readFileInIsolate(args.filePaths['conditions']),
+  final conditionsMap = await BdpmFileParser.parseConditions(
+    streamForKey('conditions'),
   );
-  final mitmMap = BdpmFileParser.parseMitm(
-    readFileInIsolate(args.filePaths['mitm']),
-  );
+  final mitmMap = await BdpmFileParser.parseMitm(streamForKey('mitm'));
 
-  final specialitesEither = BdpmFileParser.parseSpecialites(
-    readFileInIsolate(args.filePaths['specialites']),
+  final specialitesEither = await BdpmFileParser.parseSpecialites(
+    streamForKey('specialites'),
     conditionsMap,
     mitmMap,
   );
@@ -467,8 +451,8 @@ Future<_ParseAndInsertResult> _parseAndInsertDataInBackground(
     throw Exception('Failed to parse specialites: $error');
   }, (result) => result);
 
-  final medicamentsEither = BdpmFileParser.parseMedicaments(
-    readFileInIsolate(args.filePaths['medicaments']),
+  final medicamentsEither = await BdpmFileParser.parseMedicaments(
+    streamForKey('medicaments'),
     specialitesResult,
   );
 
@@ -477,8 +461,8 @@ Future<_ParseAndInsertResult> _parseAndInsertDataInBackground(
     throw Exception('Failed to parse medicaments: $error');
   }, (result) => result);
 
-  final principesEither = BdpmFileParser.parseCompositions(
-    readFileInIsolate(args.filePaths['compositions']),
+  final principesEither = await BdpmFileParser.parseCompositions(
+    streamForKey('compositions'),
     medicamentsResult.cisToCip13,
   );
 
@@ -487,8 +471,8 @@ Future<_ParseAndInsertResult> _parseAndInsertDataInBackground(
     throw Exception('Failed to parse compositions: $error');
   }, (result) => result);
 
-  final generiqueEither = BdpmFileParser.parseGeneriques(
-    readFileInIsolate(args.filePaths['generiques']),
+  final generiqueEither = await BdpmFileParser.parseGeneriques(
+    streamForKey('generiques'),
     medicamentsResult.cisToCip13,
     medicamentsResult.medicamentCips,
   );
@@ -498,8 +482,8 @@ Future<_ParseAndInsertResult> _parseAndInsertDataInBackground(
     throw Exception('Failed to parse generiques: $error');
   }, (result) => result);
 
-  final availabilityEither = BdpmFileParser.parseAvailability(
-    readFileInIsolate(args.filePaths['availability']),
+  final availabilityEither = await BdpmFileParser.parseAvailability(
+    streamForKey('availability'),
     medicamentsResult.cisToCip13,
   );
 

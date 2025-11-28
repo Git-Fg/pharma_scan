@@ -1,8 +1,6 @@
 ---
-description: Solo developer guide for Flutter, Riverpod, Drift, and UI patterns. Keep it simple.
-globs: lib/**/*.dart, test/**/*.dart
+alwaysApply: true
 ---
-
 # Solo Developer Guide
 
 Simple rules for building and maintaining PharmaScan. No corporate overhead—just practical patterns that work.
@@ -46,39 +44,26 @@ for (var i = 0; i < ids.length; i += 900) { /* ... */ }
 
 ### Drift Managers Mandate
 
-* **Rule:** For batch inserts (multiple rows), ALWAYS use Drift's `batch()` API or table-specific batch insert methods. NEVER use loops with individual `INSERT` statements via `customStatement()`.
-* **Rationale:** Drift Managers provide transaction safety, better performance, and automatic error handling.
-* **Anti-Pattern:** The current FTS5 index population in `lib/core/database/daos/database_dao.dart:186-206` uses a loop with individual `customStatement()` calls—this should be refactored to use Drift's batch API.
+* **Rule:** For bulk data movements, push the work into SQL (views, inserts, helpers) and let Drift generate the APIs. Dart loops with per-row `customStatement()` calls are forbidden.
+* **Rationale:** SQL-side operations are faster, deterministic, and benefit from SQLite's optimizer.
+* **Reference Implementation:** `lib/core/database/queries.drift` owns the `search_index` virtual table plus the `insertSearchIndexFromSummary` helper. `DatabaseDao.populateFts5Index()` now just calls those generated statements.
 
 ```dart
-// ✅ CORRECT: Use Drift batch API
-await db.batch((batch) {
-  batch.insertAll(db.table, rows);
-});
+// ✅ CORRECT: Let SQL do the heavy work
+await database.deleteSearchIndex();
+await database.insertSearchIndexFromSummary();
 
-// ❌ FORBIDDEN: Loop with individual inserts
+// ❌ FORBIDDEN: Loop and insert manually from Dart
 for (final row in rows) {
-  await customStatement('INSERT INTO table ...');
+  await customStatement('INSERT INTO search_index ...');
 }
 ```
 
 ### FTS5 Native Tokenization
 
-* **Rule:** FTS5 indexes MUST use native tokenizers (`tokenize='trigram'`, `tokenize='porter'`, etc.) for text processing. NEVER perform Dart-side string sanitization before inserting into FTS5 tables.
-* **Rationale:** Native tokenizers handle normalization, stemming, and approximate matching at the SQLite level. Dart sanitization is redundant and can break tokenization.
-* **Current Implementation:** `lib/core/database/daos/database_dao.dart:166` correctly uses `tokenize='trigram'`, but lines 187-190 still perform Dart sanitization—this should be removed in favor of pure SQL tokenization.
-
-```dart
-// ✅ CORRECT: Let FTS5 tokenizer handle normalization
-CREATE VIRTUAL TABLE search_index USING fts5(
-  content,
-  tokenize='trigram'
-);
-
-// ❌ FORBIDDEN: Dart-side sanitization before FTS5 insert
-final sanitized = sanitizeString(raw); // Don't do this
-await insertIntoFts5(sanitized);
-```
+* **Rule:** Define FTS5 tables in `.drift` files (`CREATE VIRTUAL TABLE ... USING fts5(tokenize='trigram')`) so drift tracks them and migrations stay declarative.
+* **Normalization:** Use the SQLite `normalize_text` function (registered in `configureAppSQLite()` via the `diacritic` package) to lowercase + strip diacritics inside SQL. Dart should never mutate strings before hitting the index.
+* **Queries:** Always normalize user queries with the same logic (see `SearchDao`) to keep MATCH semantics consistent across languages.
 
 ### Group-First Architecture
 
@@ -164,6 +149,17 @@ Future<String> theme(Ref ref) async {
 
 Use `@Riverpod(keepAlive: true)` for static config (dropdown lists, enums, settings) to prevent unnecessary re-queries.
 
+## Accessibility
+
+**CRITICAL:** All interactive widgets MUST have semantic labels for screen reader support.
+
+* **FButton, FTile, FSelectTile:** Wrap with `Semantics` widget providing `label`, `hint`, and appropriate flags
+* **Decorative Icons:** Wrap chevrons and decorative-only icons with `ExcludeSemantics`
+* **All semantic labels MUST use `Strings.dart` constants** (project constraint)
+* **Focus Management:** Use `FocusTraversalGroup` for logical keyboard navigation in forms
+
+See `.cursor/rules/accessibility.mdc` for detailed patterns and examples.
+
 ## UI Patterns
 
 ### Two-Layer Separation
@@ -239,6 +235,20 @@ Content widgets (forms, detail lists) must NEVER contain `Scaffold` or call `Nav
 * **Design tokens:** Use `AppDimens` for spacing, radius, icon sizes
 * **Operational:** Use `AppConfig` for timeouts, debounce durations, limits
 * **Local:** If specific to one widget, use `private static const` in that class
+
+## Constants & Magic Values
+
+### 1. The Separation of Concerns
+
+* **Strings:** User-facing text -> `lib/core/utils/strings.dart`.
+* **Configuration:** Timeouts, limits, API keys -> `lib/core/config/app_config.dart`.
+* **Domain Knowledge:** Medical facts, ATC codes, categorizations -> `lib/core/constants/domain_constants.dart`.
+* **Parsing Logic:** Regex patterns, separators -> `lib/core/constants/parsing_constants.dart`.
+* **Design Tokens:** Spacing, colors, radius -> `lib/core/theme/`.
+
+### 2. Implementation Rule
+
+**NEVER** define static `const Map` or `final RegExp` inside a logic/helper class if it represents static domain knowledge. Move it to the appropriate `constants/` file and import it. Logic classes should only contain *behavior*, not *data*.
 
 ### Logging
 

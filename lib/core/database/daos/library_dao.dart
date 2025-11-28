@@ -3,7 +3,7 @@
 import 'package:drift/drift.dart';
 import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/services/logger_service.dart';
-import 'package:pharma_scan/core/utils/medicament_helpers.dart';
+import 'package:pharma_scan/core/logic/sanitizer.dart';
 import 'package:pharma_scan/features/explorer/models/generic_group_entity.dart';
 
 part 'library_dao.g.dart';

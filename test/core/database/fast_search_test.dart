@@ -33,7 +33,9 @@ void main() {
       // GIVEN: In-memory database with a simple group
       // WHY: Use file-based database for aggregation (required by isolate)
       final dbFile = File(p.join(documentsDir.path, 'medicaments.db'));
-      final database = AppDatabase.forTesting(NativeDatabase(dbFile));
+      final database = AppDatabase.forTesting(
+        NativeDatabase(dbFile, setup: configureAppSQLite),
+      );
       final dataInitializationService = DataInitializationService(
         database: database,
       );

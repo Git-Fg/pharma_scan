@@ -6,9 +6,9 @@ import 'package:forui/forui.dart';
 import 'package:pharma_scan/core/router/routes.dart';
 import 'package:pharma_scan/core/theme/app_colors.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
+import 'package:pharma_scan/theme/badge_styles.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/info_label.dart';
-import 'package:pharma_scan/core/widgets/ui_kit/pharma_badges.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/section_header.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/status_view.dart';
 import 'package:pharma_scan/features/explorer/models/grouped_by_product_model.dart';
@@ -37,10 +37,15 @@ class GroupExplorerView extends HookConsumerWidget {
               type: StatusType.error,
               title: Strings.loadDetailsError,
               description: Strings.errorLoadingGroups,
-              action: FButton(
-                style: FButtonStyle.outline(),
-                onPress: () => context.pop(),
-                child: const Text(Strings.back),
+              action: Semantics(
+                button: true,
+                label: Strings.backButtonLabel,
+                hint: Strings.backButtonHint,
+                child: FButton(
+                  style: FButtonStyle.outline(),
+                  onPress: () => context.pop(),
+                  child: const Text(Strings.back),
+                ),
               ),
             ),
           );
@@ -117,11 +122,16 @@ class GroupExplorerView extends HookConsumerWidget {
           type: StatusType.error,
           title: Strings.loadDetailsError,
           description: error.toString(),
-          action: FButton(
-            style: FButtonStyle.primary(),
-            onPress: () =>
-                ref.invalidate(groupDetailViewModelProvider(groupId)),
-            child: const Text(Strings.retry),
+          action: Semantics(
+            button: true,
+            label: Strings.retryButtonLabel,
+            hint: Strings.retryButtonHint,
+            child: FButton(
+              style: FButtonStyle.primary(),
+              onPress: () =>
+                  ref.invalidate(groupDetailViewModelProvider(groupId)),
+              child: const Text(Strings.retry),
+            ),
           ),
         ),
       ),
@@ -136,11 +146,12 @@ class GroupExplorerView extends HookConsumerWidget {
     int relatedCount,
   ) {
     final metadata = viewModel.metadata;
+    final badgeStyles = context.theme.badgeStyles;
     final metadataBadges = <Widget>[
       if (metadata.distinctDosages.isNotEmpty)
         ...metadata.distinctDosages.map(
           (dosage) => FBadge(
-            style: FBadgeStyle.outline(),
+            style: badgeStyles.condition,
             child: Text(
               '${Strings.dosagesLabel} $dosage',
               style: context.theme.typography.sm,
@@ -150,7 +161,7 @@ class GroupExplorerView extends HookConsumerWidget {
       if (metadata.distinctFormulations.isNotEmpty)
         ...metadata.distinctFormulations.map(
           (form) => FBadge(
-            style: FBadgeStyle.secondary(),
+            style: badgeStyles.princeps,
             child: Text(
               Strings.formWithValue(form),
               style: context.theme.typography.sm,
@@ -158,6 +169,24 @@ class GroupExplorerView extends HookConsumerWidget {
           ),
         ),
     ];
+    final conditionBadges = viewModel.aggregatedConditions
+        .whereType<String>()
+        .map((condition) => condition.trim())
+        .where((condition) => condition.isNotEmpty)
+        .map(
+          (condition) => FBadge(
+            style: badgeStyles.condition,
+            child: Text(
+              condition,
+              style: context.theme.typography.sm,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        )
+        .toList();
+    final priceLabel = viewModel.priceLabel ?? Strings.priceUnavailable;
+    final refundValue = viewModel.refundLabel ?? Strings.refundNotAvailable;
 
     final summaryLines = <String>[
       Strings.summaryLine(princepsCount, genericsCount),
@@ -176,7 +205,8 @@ class GroupExplorerView extends HookConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _GroupIdentityHeader(viewModel: viewModel),
+          _buildMetadataTiles(context, priceLabel, refundValue),
+          const Gap(AppDimens.spacingSm),
           _buildActionBar(context, viewModel),
           if (metadataBadges.isNotEmpty) ...[
             const Gap(AppDimens.spacingSm),
@@ -184,6 +214,14 @@ class GroupExplorerView extends HookConsumerWidget {
               spacing: AppDimens.spacingXs,
               runSpacing: AppDimens.spacing2xs,
               children: metadataBadges,
+            ),
+          ],
+          if (conditionBadges.isNotEmpty) ...[
+            const Gap(AppDimens.spacingSm),
+            Wrap(
+              spacing: AppDimens.spacing2xs,
+              runSpacing: AppDimens.spacing2xs,
+              children: conditionBadges,
             ),
           ],
           if (summaryLines.isNotEmpty) ...[
@@ -203,6 +241,29 @@ class GroupExplorerView extends HookConsumerWidget {
           ],
         ],
       ),
+    );
+  }
+
+  Widget _buildMetadataTiles(
+    BuildContext context,
+    String priceLabel,
+    String refundValue,
+  ) {
+    return FTileGroup(
+      label: const Text(Strings.regulatoryFinancials),
+      divider: FItemDivider.indented,
+      children: [
+        FTile(
+          prefix: const Icon(FIcons.banknote),
+          title: const Text(Strings.price),
+          details: Text(priceLabel, style: context.theme.typography.base),
+        ),
+        FTile(
+          prefix: const Icon(FIcons.percent),
+          title: const Text(Strings.refundLabel),
+          details: Text(refundValue, style: context.theme.typography.base),
+        ),
+      ],
     );
   }
 
@@ -318,7 +379,13 @@ class GroupExplorerView extends HookConsumerWidget {
       return const SliverToBoxAdapter(
         child: Padding(
           padding: EdgeInsets.all(AppDimens.spacingMd),
-          child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+          child: Center(
+            child: SizedBox(
+              width: 24,
+              height: 24,
+              child: FCircularProgress.loader(),
+            ),
+          ),
         ),
       );
     }
@@ -361,11 +428,8 @@ class GroupExplorerView extends HookConsumerWidget {
     required bool showNavigationIndicator,
     String? navigationGroupId,
   }) {
-    final typeBadge = switch (sectionType) {
-      _ProductSectionType.princeps => const PrincepsBadge(),
-      _ProductSectionType.generics => const GenericBadge(),
-      _ProductSectionType.related => const PrincepsBadge(),
-    };
+    final badgeStyles = context.theme.badgeStyles;
+    final typeBadge = _buildTypeBadge(context, sectionType, badgeStyles);
     final regulatoryBadges = _buildRegulatoryBadges(context, member);
     final labDisplay = member.titulaire.isEmpty
         ? Strings.unknownHolder
@@ -436,14 +500,14 @@ class GroupExplorerView extends HookConsumerWidget {
                       if (shouldShowRefund)
                         member.refundRate != null
                             ? FBadge(
-                                style: FBadgeStyle.secondary(),
+                                style: badgeStyles.princeps,
                                 child: Text(
                                   refundLabel,
                                   style: context.theme.typography.sm,
                                 ),
                               )
                             : FBadge(
-                                style: FBadgeStyle.outline(),
+                                style: badgeStyles.condition,
                                 child: Text(
                                   refundLabel,
                                   style: context.theme.typography.sm,
@@ -455,7 +519,7 @@ class GroupExplorerView extends HookConsumerWidget {
                 if (member.availabilityStatus != null) ...[
                   const Gap(AppDimens.spacingSm),
                   FBadge(
-                    style: FBadgeStyle.destructive(),
+                    style: badgeStyles.alert,
                     child: Text(
                       Strings.stockAlert(member.availabilityStatus!.trim()),
                       style: context.theme.typography.sm,
@@ -493,6 +557,35 @@ class GroupExplorerView extends HookConsumerWidget {
     );
   }
 
+  Widget _buildTypeBadge(
+    BuildContext context,
+    _ProductSectionType sectionType,
+    FBadgeStyles badgeStyles,
+  ) {
+    final (
+      FBaseBadgeStyle Function(FBadgeStyle) resolver,
+      String label,
+    ) = switch (sectionType) {
+      _ProductSectionType.princeps => (
+        badgeStyles.princeps,
+        Strings.badgePrinceps,
+      ),
+      _ProductSectionType.generics => (
+        badgeStyles.generic,
+        Strings.badgeGeneric,
+      ),
+      _ProductSectionType.related => (
+        badgeStyles.princeps,
+        Strings.badgePrinceps,
+      ),
+    };
+
+    return FBadge(
+      style: resolver,
+      child: Text(label, style: context.theme.typography.sm),
+    );
+  }
+
   String _formatEuro(double value) {
     final fixed = value.toStringAsFixed(2).replaceAll('.', ',');
     return '$fixed €';
@@ -502,13 +595,14 @@ class GroupExplorerView extends HookConsumerWidget {
     BuildContext context,
     MedicationItem member,
   ) {
+    final badgeStyles = context.theme.badgeStyles;
     final badges = <Widget>[];
     void addBadge(Widget badge) => badges.add(badge);
 
     if (member.isNarcotic) {
       addBadge(
         FBadge(
-          style: FBadgeStyle.destructive(),
+          style: badgeStyles.alert,
           child: Text(
             Strings.badgeNarcotic,
             style: context.theme.typography.sm,
@@ -768,99 +862,6 @@ class GroupExplorerView extends HookConsumerWidget {
         );
       }
     }
-  }
-}
-
-class _GroupIdentityHeader extends StatelessWidget {
-  const _GroupIdentityHeader({required this.viewModel});
-
-  final GroupedProductsViewModel viewModel;
-
-  @override
-  Widget build(BuildContext context) {
-    final priceLabel = viewModel.priceLabel ?? Strings.priceUnavailable;
-    final refundValue = viewModel.refundLabel ?? Strings.refundNotAvailable;
-    final hasRefundData = viewModel.refundLabel != null;
-    final conditionBadges = viewModel.aggregatedConditions
-        .map((condition) => ConditionBadge.condition(context, condition))
-        .whereType<Widget>()
-        .toList();
-
-    final customCardStyle = context.theme.cardStyle.copyWith(
-      decoration: BoxDecoration(
-        color: context.theme.colors.secondary.withValues(alpha: 0.08),
-        border: Border.all(
-          color: context.theme.colors.secondary.withValues(alpha: 0.2),
-          width: 1.2,
-        ),
-      ),
-    );
-
-    return FCard.raw(
-      style: customCardStyle.call,
-      child: Padding(
-        padding: const EdgeInsets.all(AppDimens.spacingMd),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              viewModel.metadata.title,
-              style: context.theme.typography.xl3.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const Gap(AppDimens.spacingSm),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Flexible(
-                  child: Text(
-                    priceLabel,
-                    style: context.theme.typography.xl3.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
-                  ),
-                ),
-                const Gap(AppDimens.spacingSm),
-                Flexible(
-                  child: hasRefundData
-                      ? FBadge(
-                          style: FBadgeStyle.secondary(),
-                          child: Text(
-                            '${Strings.refundLabel} · $refundValue',
-                            style: context.theme.typography.sm,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        )
-                      : FBadge(
-                          style: FBadgeStyle.outline(),
-                          child: Text(
-                            refundValue,
-                            style: context.theme.typography.sm,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                ),
-              ],
-            ),
-            if (conditionBadges.isNotEmpty) ...[
-              const Gap(AppDimens.spacingSm),
-              Wrap(
-                spacing: AppDimens.spacing2xs,
-                runSpacing: AppDimens.spacing2xs,
-                children: conditionBadges,
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
   }
 }
 

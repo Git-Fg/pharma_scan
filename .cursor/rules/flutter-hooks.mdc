@@ -1,9 +1,6 @@
 ---
-description: Standards for using flutter_hooks to reduce UI boilerplate.
-globs: lib/**/*.dart
-alwaysApply: false
+alwaysApply: true
 ---
-
 # Flutter Hooks Standards
 
 **Context:** Use `flutter_hooks` to manage ephemeral UI state (controllers, animations, focus nodes) instead of `StatefulWidget`.

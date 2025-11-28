@@ -7,10 +7,10 @@ import 'package:forui/forui.dart';
 class ScanWindowOverlay extends HookWidget {
   const ScanWindowOverlay({super.key});
 
-  static const double _windowSize = 240;
-  static const double _borderRadius = 18;
-  static const double _cornerLength = 26;
-  static const double _cornerThickness = 5;
+  static const double _windowSize = 192; // Reduced by 20% (240 * 0.8)
+  static const double _borderRadius = 14.4; // Reduced by 20% (18 * 0.8)
+  static const double _cornerLength = 20.8; // Reduced by 20% (26 * 0.8)
+  static const double _cornerThickness = 4; // Reduced by 20% (5 * 0.8)
 
   @override
   Widget build(BuildContext context) {
@@ -56,16 +56,18 @@ class ScanWindowOverlay extends HookWidget {
                 child: Opacity(
                   opacity: iconOpacity,
                   child: Container(
-                    width: 64,
-                    height: 64,
+                    width: 51.2, // Reduced by 20% (64 * 0.8)
+                    height: 51.2, // Reduced by 20% (64 * 0.8)
                     decoration: BoxDecoration(
-                      color: context.theme.colors.background.withValues(alpha: 0.15),
+                      color: context.theme.colors.background.withValues(
+                        alpha: 0.15,
+                      ),
                       shape: BoxShape.circle,
                     ),
-                      child: Icon(
+                    child: Icon(
                       FIcons.scanLine,
                       color: primary.withValues(alpha: 0.9),
-                      size: 28,
+                      size: 22.4, // Reduced by 20% (28 * 0.8)
                     ),
                   ),
                 ),

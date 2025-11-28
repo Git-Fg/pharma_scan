@@ -1,4 +1,5 @@
 // lib/core/utils/adaptive_overlay.dart
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 
@@ -23,17 +24,23 @@ Future<T?> showAdaptiveOverlay<T>({
   String? title,
 }) {
   final screenWidth = MediaQuery.sizeOf(context).width;
-  // WHY: Use standard breakpoint value for responsive layout
-  // Standard sm breakpoint is 640px (standard responsive breakpoint)
-  const breakpointValue = 640;
+  final breakpoints = context.theme.breakpoints;
+  final isSmallScreen = screenWidth < breakpoints.sm;
 
-  if (screenWidth < breakpointValue) {
+  if (isSmallScreen) {
     // Mobile : BottomSheet using Forui
     return showFSheet<T>(
       context: context,
       side: FLayout.btt, // Bottom to Top
       barrierDismissible: isDismissible,
       draggable: isDismissible,
+      style: context.theme.modalSheetStyle.copyWith(
+        // WHY: Make barrier completely transparent so camera is visible
+        barrierFilter: (animation) => ImageFilter.compose(
+          outer: ImageFilter.blur(sigmaX: animation * 5, sigmaY: animation * 5),
+          inner: ColorFilter.mode(Colors.transparent, BlendMode.srcOver),
+        ),
+      ),
       builder: (sheetContext) {
         return Padding(
           padding: EdgeInsets.only(

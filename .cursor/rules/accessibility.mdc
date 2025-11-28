@@ -1,0 +1,466 @@
+# Accessibility Guidelines (2025 Standard)
+
+**Context:** Flutter accessibility best practices for PharmaScan using Forui widgets and semantic widgets.
+
+## Core Principles
+
+* **Trust Forui's Built-in Accessibility:** Forui widgets automatically provide semantic information from their `title`, `label`, and `description` properties. Only add explicit `Semantics` wrappers when absolutely necessary.
+* **Screen Reader Support:** All UI elements must be describable by TalkBack (Android) and VoiceOver (iOS).
+* **Keyboard Navigation:** All interactive elements must be keyboard accessible with proper focus management.
+* **Touch Targets:** Minimum 48×48 logical pixels for all tappable elements (Forui widgets already meet this).
+* **Contrast:** Maintain at least 4.5:1 contrast ratio for text and controls (handled by Forui theme).
+* **String Consistency:** All user-facing text MUST use `Strings.dart` constants (project constraint).
+
+## Semantic Widget Patterns
+
+### 1. Using Semantics Widget (When Needed)
+
+**Pattern:** Trust Forui's built-in accessibility. Only add explicit `Semantics` wrappers when:
+- Building custom widgets that don't use Forui components
+- You need additional context beyond what Forui provides automatically
+- The widget's automatic semantics don't capture the full interaction model
+
+```dart
+// ✅ Correct: Rely on Forui's automatic accessibility
+FButton(
+  onPress: () => performSearch(),
+  child: const Text(Strings.search), // Text content provides semantic label automatically
+)
+
+// ✅ Correct: Add explicit Semantics only when needed for additional context
+Semantics(
+  hint: Strings.complexActionHint, // Additional hint beyond what title provides
+  child: FButton(
+    onPress: () => performComplexAction(),
+    child: const Text(Strings.advancedAction),
+  ),
+)
+
+// ✅ Correct: Always exclude decorative icons from semantics
+Row(
+  children: [
+    ExcludeSemantics(
+      child: Icon(FIcons.info), // Decorative only
+    ),
+    Text(Strings.information),
+  ],
+)
+```
+
+### 2. Forui Widget Accessibility (2025 Standard)
+
+**Key Principle:** Forui widgets automatically extract semantic information from their properties (`title`, `label`, `description`, `subtitle`). Explicit `Semantics` wrappers are **ONLY** needed for:
+1. Custom widgets that don't use Forui components
+2. Complex interactions where additional context is needed
+3. When you need to override Forui's automatic semantics
+
+**Pattern:** Rely on Forui's built-in accessibility. Use explicit `Semantics` wrappers sparingly.
+
+```dart
+// ✅ Correct: Forui widgets provide accessibility automatically
+FButton(
+  onPress: () {},
+  child: const Text(Strings.confirm), // Text content provides semantic label
+)
+
+FTile(
+  onPress: onTap,
+  title: Text(name), // Title provides semantic label automatically
+  subtitle: Text(subtitle), // Subtitle provides additional context
+  suffix: ExcludeSemantics(
+    child: const Icon(FIcons.chevronRight), // Decorative only
+  ),
+)
+
+// ✅ Correct: Only add explicit Semantics when you need additional context
+Semantics(
+  hint: Strings.complexActionHint, // Additional hint beyond what title provides
+  child: FButton(
+    onPress: performComplexAction,
+    child: const Text(Strings.advancedAction),
+  ),
+)
+```
+
+### 3. MergeSemantics Pattern
+
+**Pattern:** Use `MergeSemantics` when adding test identifiers without overriding existing semantics.
+
+```dart
+// ✅ Correct: Preserve existing semantics
+MergeSemantics(
+  child: Semantics(
+    identifier: TestTags.medicationTile,
+    child: MedicamentTile(...),
+  ),
+)
+```
+
+## Widget-Specific Guidelines
+
+### FButton
+
+* **Accessibility:** Automatic from `child` Text content. No explicit `Semantics` wrapper needed in most cases.
+* **Pattern:** Use `Strings` constants in button text. Add explicit `Semantics` only for additional context.
+
+```dart
+// ✅ Correct: Automatic accessibility from Text content
+FButton(
+  onPress: confirmReset,
+  child: const Text(Strings.confirm), // Text provides semantic label
+)
+
+// ✅ Correct: Add Semantics only when you need additional hint
+Semantics(
+  hint: Strings.confirmResetHint, // Additional context beyond button text
+  child: FButton(
+    onPress: confirmReset,
+    child: const Text(Strings.confirm),
+  ),
+)
+```
+
+### FTile
+
+* **Accessibility:** Automatic from `title`, `subtitle`, and `details` properties.
+* **Pattern:** Use descriptive titles and subtitles. Only add explicit `Semantics` when you need to override or enhance the automatic semantics.
+
+```dart
+// ✅ Correct: Automatic accessibility from title/subtitle
+FTile(
+  onPress: onTap,
+  title: Text(medication.name), // Provides semantic label
+  subtitle: Text(medication.description), // Adds context
+  suffix: ExcludeSemantics(
+    child: const Icon(FIcons.chevronRight), // Decorative only
+  ),
+)
+
+// ✅ Correct: Add explicit Semantics only when you need custom label
+Semantics(
+  label: Strings.medicationTileSemantics( // Custom comprehensive label
+    name: medication.name,
+    type: MedicationType.princeps,
+    genericsCount: 5,
+  ),
+  hint: Strings.tapToViewDetails,
+  child: FTile(
+    onPress: onTap,
+    title: Text(medication.name),
+  ),
+)
+```
+
+### FTextField / FTextFormField
+
+* **Requirement:** Use `label` property (already accessible) and provide `hint` via `Semantics` if needed.
+* **Pattern:** Label should describe the field purpose, hint should describe expected input.
+
+```dart
+// ✅ Correct
+FTextFormField(
+  controller: cipController,
+  label: const Text(Strings.cipCodeLabel),
+  hint: Strings.cipPlaceholder,
+  // Semantic hint is automatically provided by label
+)
+```
+
+### FSelect / FSelectTile / FSelectMenuTile
+
+* **Accessibility:** Automatic from `title` and `detailsBuilder`/`details` properties.
+* **Pattern:** Use descriptive titles. Don't wrap with `Semantics` if it breaks type constraints (e.g., `FTileMixin`).
+
+```dart
+// ✅ Correct: Automatic accessibility from title and details
+FSelectMenuTile<String>(
+  title: const Text(Strings.themeSelector), // Provides semantic label
+  detailsBuilder: (_, values, _) => Text(values.first ?? Strings.none), // Provides value
+  menu: [...],
+)
+
+// ❌ INCORRECT: Don't wrap if it breaks FTileMixin type constraint
+Semantics(
+  child: FSelectMenuTile(...), // Breaks type!
+) as FTileMixin
+
+// ✅ CORRECT: Trust Forui's built-in accessibility for FTileMixin widgets
+FSelectMenuTile(
+  title: const Text(Strings.filterLabel),
+  detailsBuilder: (_, values, _) => Text(values.first ?? Strings.all),
+)
+```
+
+### Decorative Icons
+
+* **Requirement:** Wrap decorative-only icons with `ExcludeSemantics`.
+* **Pattern:** Icons that don't convey information should be excluded.
+
+```dart
+// ✅ Correct: Decorative chevron
+FTile(
+  suffix: ExcludeSemantics(
+    child: const Icon(FIcons.chevronRight),
+  ),
+)
+
+// ❌ Incorrect: Informative icon should have semantics
+FTile(
+  prefix: Icon(FIcons.alert), // Should have semantic label
+)
+```
+
+## Focus Management
+
+### FocusTraversalGroup
+
+**Pattern:** Group related form fields for logical keyboard navigation.
+
+```dart
+// ✅ Correct: Form with grouped fields
+FocusTraversalGroup(
+  child: Column(
+    children: [
+      FTextFormField(label: const Text(Strings.nameLabel)),
+      FTextFormField(label: const Text(Strings.emailLabel)),
+    ],
+  ),
+)
+```
+
+### FocusableActionDetector
+
+**Pattern:** Use for custom interactive widgets that need keyboard support.
+
+```dart
+// ✅ Correct: Custom widget with keyboard support
+FocusableActionDetector(
+  onFocusChange: (hasFocus) => setState(() => _isFocused = hasFocus),
+  actions: {
+    ActivateIntent: CallbackAction<Intent>(
+      onInvoke: (_) {
+        onTap();
+        return null;
+      },
+    ),
+  },
+  child: CustomButton(),
+)
+```
+
+## Testing Guidelines
+
+### Automated Testing
+
+**Pattern (2025 Best Practice):** Test widget behavior and content, not explicit semantic labels. Forui widgets provide accessibility automatically from their properties.
+
+```dart
+// ✅ Correct: Test widget content and behavior
+testWidgets('filter tile displays selected value correctly', (tester) async {
+  await tester.pumpWidget(MyFilterTile(value: 'Test'));
+  
+  // Verify the widget renders correctly
+  expect(find.text(Strings.filterLabel), findsOneWidget);
+  expect(find.text('Test'), findsOneWidget);
+  
+  // Forui widgets provide accessibility automatically - no need to test explicit Semantics
+});
+
+// ✅ Correct: Test custom widgets that add explicit Semantics for additional context
+testWidgets('custom button has additional semantic hint', (tester) async {
+  await tester.pumpWidget(MyCustomButton());
+  
+  final semantics = tester.getSemantics(find.byType(MyCustomButton));
+  expect(semantics.hint, Strings.complexActionHint);
+});
+```
+
+### Manual Testing Checklist
+
+1. **Screen Reader Testing:**
+   - Test with TalkBack (Android) and VoiceOver (iOS)
+   - Verify all interactive elements are announced correctly
+   - Check that labels are clear and descriptive
+
+2. **Keyboard Navigation:**
+   - Tab through all interactive elements
+   - Verify focus indicators are visible
+   - Test that all actions are keyboard accessible
+
+3. **Touch Targets:**
+   - Verify all tappable elements are at least 48×48 pixels
+   - Check spacing between interactive elements
+
+4. **Contrast:**
+   - Verify text meets 4.5:1 contrast ratio
+   - Test in both light and dark themes
+
+## WCAG 2.1 Level AA Compliance
+
+### Requirements
+
+* **Perceivable:** All content must be perceivable (semantic labels, contrast)
+* **Operable:** All functionality must be operable (keyboard navigation, touch targets)
+* **Understandable:** UI must be understandable (clear labels, consistent patterns)
+* **Robust:** Content must be robust (semantic HTML, proper roles)
+
+### Implementation Checklist
+
+- [ ] All interactive widgets have semantic labels
+- [ ] All form fields have labels
+- [ ] Keyboard navigation works throughout app
+- [ ] Focus indicators are visible
+- [ ] Decorative elements are excluded from semantics
+- [ ] Error messages are announced to screen readers
+- [ ] Loading states are announced
+- [ ] Dynamic content changes are announced
+
+## Common Patterns
+
+### Medication Tile Semantics
+
+```dart
+// ✅ Correct: Comprehensive medication tile semantics
+Semantics(
+  label: item.map(
+    princepsResult: (data) => Strings.searchResultSemanticsForPrinceps(
+      data.princeps.nomCanonique,
+      data.generics.length,
+    ),
+    genericResult: (data) => Strings.searchResultSemanticsForGeneric(
+      data.generic.nomCanonique,
+      data.princeps.length,
+    ),
+    standaloneResult: (data) => Strings.standaloneSemantics(
+      data.summary.nomCanonique,
+      data.commonPrinciples.isNotEmpty,
+      data.commonPrinciples,
+    ),
+    groupResult: (data) => Strings.groupSemantics(
+      data.group.princepsReferenceName,
+      data.group.memberCount,
+    ),
+  ),
+  hint: Strings.tapToViewDetails,
+  child: MedicamentTile(item: item, onTap: onTap),
+)
+```
+
+### Button Semantics
+
+```dart
+// ✅ Correct: Action button with clear semantics
+Semantics(
+  label: Strings.confirm,
+  hint: Strings.confirmResetHint,
+  button: true,
+  enabled: !isLoading,
+  child: FButton(
+    onPress: isLoading ? null : confirmAction,
+    child: Text(isLoading ? Strings.loading : Strings.confirm),
+  ),
+)
+```
+
+### Form Field Semantics
+
+```dart
+// ✅ Correct: Form field with proper labeling
+FTextFormField(
+  controller: controller,
+  label: const Text(Strings.cipCodeLabel),
+  hint: Strings.cipPlaceholder,
+  validator: (value) => value?.isEmpty ?? true ? Strings.cipRequired : null,
+  // Semantic label is automatically provided by label property
+)
+```
+
+## Integration with Strings.dart
+
+**CRITICAL:** All semantic labels MUST use `Strings.dart` constants.
+
+```dart
+// ✅ Correct: Using Strings constants
+Semantics(
+  label: Strings.searchButton,
+  child: FButton(...),
+)
+
+// ❌ Forbidden: Hardcoded strings
+Semantics(
+  label: 'Search', // FORBIDDEN
+  child: FButton(...),
+)
+```
+
+## Forui Widget Accessibility (2025 Best Practices)
+
+**Key Insight:** Forui widgets automatically provide semantic information from their `title`, `label`, `description`, `subtitle`, and `hint` properties. Flutter's accessibility system extracts this information automatically.
+
+**When to Add Explicit Semantics:**
+
+1. **Custom Widgets:** Only for widgets you build yourself that don't use Forui components
+2. **Additional Context:** When you need to provide hints or labels beyond what Forui provides
+3. **Complex Interactions:** When the automatic semantics don't capture the full interaction model
+
+**When NOT to Add Explicit Semantics:**
+
+1. **Forui Widgets with Title/Label:** `FButton`, `FTile`, `FSelectTile` etc. already provide accessibility
+2. **Type Constraints:** Don't wrap widgets in `Semantics` if it breaks type constraints (e.g., `FTileMixin`)
+3. **Redundant Information:** Don't duplicate what the widget already announces
+
+**Implementation Pattern:**
+```dart
+// ✅ CORRECT: Rely on Forui's automatic accessibility
+FButton(
+  onPress: () {},
+  child: const Text(Strings.confirm), // Semantic label comes from Text
+)
+
+FTile(
+  title: const Text(Strings.settingTitle), // Title provides semantics
+  subtitle: const Text(Strings.settingDescription), // Subtitle adds context
+  onPress: () {},
+)
+
+// ✅ CORRECT: Only add Semantics when needed for additional context
+Semantics(
+  hint: Strings.complexActionHint, // Additional hint not in title
+  child: FButton(
+    onPress: performAction,
+    child: const Text(Strings.action),
+  ),
+)
+
+// ❌ INCORRECT: Don't wrap if it breaks type constraints
+Semantics(
+  child: FSelectMenuTile(...), // This breaks FTileMixin type!
+) as FTileMixin // ❌ Unsafe cast
+
+// ✅ CORRECT: Trust Forui's built-in accessibility
+FSelectMenuTile(
+  title: const Text(Strings.filterLabel), // Provides semantics automatically
+  detailsBuilder: (_, values, _) => Text(values.first ?? Strings.none),
+)
+
+// ✅ CORRECT: Decorative icons should be excluded
+FTile(
+  suffix: ExcludeSemantics(
+    child: const Icon(FIcons.chevronRight), // Decorative only
+  ),
+)
+```
+
+## Performance Considerations
+
+* Semantics widgets have minimal performance impact
+* Use `ExcludeSemantics` judiciously to reduce semantics tree size
+* Avoid nested `Semantics` widgets when possible (use `MergeSemantics`)
+
+## Resources
+
+* [Flutter Accessibility Documentation](https://docs.flutter.dev/ui/accessibility)
+* [WCAG 2.1 Guidelines](https://www.w3.org/WAI/WCAG21/quickref/)
+* [Flutter Semantics Widget](https://api.flutter.dev/flutter/widgets/Semantics-class.html)
+* [TalkBack Testing Guide](https://support.google.com/accessibility/android/answer/6283677)
+* [VoiceOver Testing Guide](https://support.apple.com/guide/iphone/learn-voiceover-gestures-iph3e2e3c2d/ios)

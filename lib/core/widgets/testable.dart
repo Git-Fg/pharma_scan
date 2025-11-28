@@ -21,12 +21,8 @@ import 'package:flutter/material.dart';
 /// When `merge` is false, the identifier is set directly on a `Semantics`
 /// widget, which may override existing semantics.
 class Testable extends StatelessWidget {
-  const Testable({
-    required this.id,
-    required this.child,
-    this.merge = true,
-    super.key,
-  });
+  Testable({required this.id, required this.child, this.merge = true, Key? key})
+    : super(key: key ?? ValueKey(id));
 
   /// The test identifier to use for E2E matching.
   ///

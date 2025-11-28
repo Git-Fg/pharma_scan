@@ -1,8 +1,6 @@
 ---
-description: Rules for testing, quality gates, and continuous integration steps.
-globs: test/**/*, integration_test/**/*
+alwaysApply: true
 ---
-
 # QA & Testing Protocols
 
 ## 1. The Quality Gate

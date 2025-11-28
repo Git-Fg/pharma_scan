@@ -44,6 +44,13 @@ This project is developed by a **single developer**. The architecture prioritize
 - **State Management**: Local `StatefulWidget` state for UI plus targeted Riverpod providers (e.g., background sync status, user preferences) where cross-layer coordination is required.
 - **Architecture**: Clean Two-Layer (UI / Services)
 
+## Privacy & Telemetry
+
+- The `mobile_scanner` plugin embeds Google ML Kit on Android, which in turn depends on Google Play Services’ [common logging transport](https://github.com/juliansteenbakker/mobile_scanner/blob/develop/README.md#configuration--android). That stack emits `TransportRuntime.CctTransportBackend` logcat lines when it attempts to post anonymized health metrics to `https://firebaselogging.googleapis.com`.
+- PharmaScan explicitly opts out of every Firebase/Analytics data stream. The Android manifest disables analytics collection, performance monitoring, and Advertising ID telemetry via `<meta-data>` flags so **no external telemetry leaves the device**.
+- To double-check on a device build, run `adb logcat | grep TransportRuntime` while scanning; the log should stay silent after the opt-out flags are compiled in.
+- When re-adding a Google SDK, replicate the manifest flags (and add the matching iOS Info.plist keys) to preserve the zero-telemetry stance before shipping builds.
+
 ## Getting Started
 
 ### Prerequisites
@@ -97,6 +104,28 @@ The application uses a **deterministic data model** based on official relational
   1. **Staging** – TXT data is parsed into the normalized tables (`specialites`, `medicaments`, `principes_actifs`, `generique_groups`, `group_members`).
   2. **Aggregation** – `_aggregateDataForSummary()` computes one `MedicamentSummary` row per CIS using the parsing strategy described above.
   Subsequent launches are instant as both layers persist locally.
+
+## Accessibility
+
+PharmaScan is committed to providing an accessible experience for all users. The application implements comprehensive accessibility features following Flutter best practices and WCAG 2.1 Level AA guidelines.
+
+### Features
+
+- **Screen Reader Support**: All interactive elements have semantic labels that are announced by TalkBack (Android) and VoiceOver (iOS)
+- **Keyboard Navigation**: All interactive elements are keyboard accessible with proper focus management
+- **Semantic Labels**: Buttons, tiles, form fields, and other interactive widgets use descriptive semantic labels from `Strings.dart`
+- **Focus Management**: Form sections use `FocusTraversalGroup` for logical keyboard navigation
+- **Decorative Elements**: Decorative icons are excluded from the accessibility tree using `ExcludeSemantics`
+
+### Testing
+
+- **Automated Tests**: Widget tests verify that semantic labels exist and are meaningful
+- **Manual Testing**: Test with TalkBack (Android) and VoiceOver (iOS) to ensure proper announcements
+- **Analysis Script**: Run `dart run tool/check_accessibility.dart` to detect missing accessibility properties
+
+### Guidelines
+
+For detailed accessibility implementation guidelines, see `.cursor/rules/accessibility.mdc`.
 
 ## Project Mantras
 

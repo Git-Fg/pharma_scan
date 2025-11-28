@@ -30,18 +30,6 @@ void main() async {
   Animate.defaultDuration = 300.ms;
   Animate.defaultCurve = Curves.easeOutCubic;
 
-  // Configure SystemUI for Android (status bar and navigation bar)
-  SystemChrome.setSystemUIOverlayStyle(
-    const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.dark,
-      statusBarBrightness: Brightness.light,
-      systemNavigationBarColor: Colors.transparent,
-      systemNavigationBarIconBrightness: Brightness.dark,
-      systemNavigationBarDividerColor: Colors.transparent,
-    ),
-  );
-
   // Enable edge-to-edge display on Android
   unawaited(SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge));
 
@@ -116,26 +104,7 @@ class PharmaScanApp extends HookConsumerWidget {
       supportedLocales: FLocalizations.supportedLocales,
       localizationsDelegates: const [...FLocalizations.localizationsDelegates],
       builder: (context, child) {
-        // WHY: Update SystemUI overlay style based on theme brightness
-        // This ensures status bar and navigation bar icons match the current theme
         final brightness = Theme.of(context).brightness;
-        SystemChrome.setSystemUIOverlayStyle(
-          SystemUiOverlayStyle(
-            statusBarColor: Colors.transparent,
-            statusBarIconBrightness: brightness == Brightness.dark
-                ? Brightness.light
-                : Brightness.dark,
-            statusBarBrightness: brightness == Brightness.dark
-                ? Brightness.dark
-                : Brightness.light,
-            systemNavigationBarColor: Colors.transparent,
-            systemNavigationBarIconBrightness: brightness == Brightness.dark
-                ? Brightness.light
-                : Brightness.dark,
-            systemNavigationBarDividerColor: Colors.transparent,
-          ),
-        );
-        // WHY: Wrap with FAnimatedTheme to provide Forui theme context
         final activeForuiTheme = brightness == Brightness.dark
             ? foruiDarkTheme
             : foruiLightTheme;

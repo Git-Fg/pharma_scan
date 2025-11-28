@@ -2,6 +2,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:diacritic/diacritic.dart';
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:path/path.dart' as p;
@@ -216,6 +217,26 @@ class AppDatabase extends _$AppDatabase {
   }
 }
 
+void _registerNormalizeTextFunction(Database database) {
+  database.createFunction(
+    functionName: 'normalize_text',
+    argumentCount: const AllowedArgumentCount(1),
+    deterministic: true,
+    directOnly: false,
+    function: (args) {
+      final source = (args.isEmpty ? '' : args.first) as String?;
+      if (source == null || source.isEmpty) return '';
+      return removeDiacritics(source).toLowerCase();
+    },
+  );
+}
+
+void configureAppSQLite(Database database) {
+  database.execute('PRAGMA journal_mode=WAL');
+  database.execute('PRAGMA busy_timeout=30000');
+  _registerNormalizeTextFunction(database);
+}
+
 LazyDatabase _openConnection() {
   return LazyDatabase(() async {
     final dbFolder = await getApplicationDocumentsDirectory();
@@ -233,18 +254,11 @@ LazyDatabase _openConnection() {
     sqlite3.tempDirectory = cachebase;
 
     LoggerService.db('SQLite Database Opened at ${file.path}');
-    // WHY: Enable WAL mode to support concurrent access from multiple isolates
-    // This prevents "database is locked" exceptions when background isolate
-    // performs aggregation while main isolate reads/writes
+    // WHY: Enable WAL mode and custom SQL helpers before drift migrations run
     return NativeDatabase.createInBackground(
       file,
       logStatements: false,
-      setup: (database) {
-        database.execute('PRAGMA journal_mode=WAL');
-        // WHY: Set busy timeout to allow main thread to wait for locks to release
-        // This gives SQLite up to 30 seconds to wait instead of failing immediately
-        database.execute('PRAGMA busy_timeout=30000');
-      },
+      setup: configureAppSQLite,
     );
   });
 }

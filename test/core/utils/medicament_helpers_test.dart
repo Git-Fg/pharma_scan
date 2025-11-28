@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pharma_scan/core/utils/medicament_helpers.dart';
+import 'package:pharma_scan/core/logic/sanitizer.dart';
 
 void main() {
   group('extractPrincepsLabel', () {

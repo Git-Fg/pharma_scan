@@ -22,7 +22,9 @@ void main() {
 
     // For each test, create a fresh in-memory database
     final dbFile = File(p.join(documentsDir.path, 'medicaments.db'));
-    database = AppDatabase.forTesting(NativeDatabase(dbFile));
+    database = AppDatabase.forTesting(
+      NativeDatabase(dbFile, setup: configureAppSQLite),
+    );
 
     dataInitializationService = DataInitializationService(database: database);
   });

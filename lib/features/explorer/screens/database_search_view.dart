@@ -8,32 +8,31 @@ import 'package:gap/gap.dart';
 import 'package:pharma_scan/core/router/routes.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/utils/adaptive_overlay.dart';
-import 'package:pharma_scan/core/utils/medicament_helpers.dart';
+import 'package:pharma_scan/core/logic/sanitizer.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/utils/test_tags.dart';
 import 'package:pharma_scan/core/widgets/testable.dart';
-import 'package:pharma_scan/features/explorer/widgets/search_results/generic_result_card.dart';
-import 'package:pharma_scan/features/explorer/widgets/search_results/group_result_card.dart';
-import 'package:pharma_scan/features/explorer/widgets/search_results/princeps_result_card.dart';
+import 'package:pharma_scan/features/explorer/widgets/medicament_tile.dart';
+import 'package:pharma_scan/features/explorer/widgets/filters/administration_route_filter_tile.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/detail_item.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/pharma_sheet_layout.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/status_view.dart';
 import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/features/explorer/models/search_filters_model.dart';
 import 'package:pharma_scan/features/explorer/models/search_result_item_model.dart';
-import 'package:pharma_scan/core/widgets/ui_kit/product_card.dart';
 import 'package:forui/forui.dart';
 import 'package:pharma_scan/features/explorer/providers/database_stats_provider.dart';
 import 'package:pharma_scan/features/explorer/providers/generic_groups_provider.dart';
-import 'package:pharma_scan/features/explorer/providers/pharmaceutical_forms_provider.dart';
 import 'package:pharma_scan/features/explorer/providers/search_provider.dart';
 import 'package:pharma_scan/features/home/providers/initialization_provider.dart';
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
+import 'package:pharma_scan/theme/card_style.dart';
+import 'package:pharma_scan/theme/badge_styles.dart';
 
 class DatabaseSearchView extends HookConsumerWidget {
   const DatabaseSearchView({super.key});
 
-  static const double _searchHeaderHeight = 68;
+  static const double _searchHeaderHeight = 52;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -83,7 +82,6 @@ class DatabaseSearchView extends HookConsumerWidget {
       };
     }, [searchController]);
 
-    final filters = ref.watch(searchFiltersProvider);
     final groups = ref.watch(genericGroupsProvider);
     // WHY: Watch provider with debounced query to avoid rebuilds on every keystroke
     final currentQuery = debouncedQuery.value;
@@ -91,7 +89,6 @@ class DatabaseSearchView extends HookConsumerWidget {
     final databaseStats = ref.watch(databaseStatsProvider);
     final hasSearchText = currentQuery.isNotEmpty;
     final isSearching = hasSearchText;
-    final showFiltersBar = filters.hasActiveFilters;
     final initStepAsync = ref.watch(initializationStepProvider);
 
     // WHY: Show initialization placeholder if database is not ready
@@ -114,84 +111,69 @@ class DatabaseSearchView extends HookConsumerWidget {
     }
 
     return FScaffold(
-      child: SafeArea(
-        child: Stack(
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppDimens.spacingMd,
-              ),
-              child: CustomScrollView(
-                controller: scrollController,
-                slivers: [
-                  databaseStats.when(
-                    data: (stats) => SliverToBoxAdapter(
-                      child: Column(
-                        children: [
-                          _buildStatsHeader(context, stats),
-                          const Gap(AppDimens.spacingMd),
-                        ],
-                      ),
-                    ),
-                    loading: () =>
-                        const SliverToBoxAdapter(child: SizedBox.shrink()),
-                    error: (_, _) =>
-                        const SliverToBoxAdapter(child: SizedBox.shrink()),
+      childPad: false, // Disable default pagePadding to remove lateral padding
+      child: Stack(
+        children: [
+          CustomScrollView(
+            controller: scrollController,
+            slivers: [
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: _SearchBarHeaderDelegate(
+                  height: _searchHeaderHeight,
+                  child: _buildSearchBarWithFilters(
+                    context,
+                    ref,
+                    searchController,
+                    debouncedQuery,
                   ),
-                  SliverPersistentHeader(
-                    pinned: true,
-                    delegate: _SearchBarHeaderDelegate(
-                      height: _searchHeaderHeight,
-                      child: _buildSearchBarWithFilters(
-                        context,
-                        ref,
-                        searchController,
-                        debouncedQuery,
-                      ),
-                    ),
-                  ),
-                  const SliverToBoxAdapter(child: Gap(AppDimens.spacingXs)),
-                  if (!hasSearchText)
-                    _buildGenericGroupsSliver(
-                      groups,
-                      ref,
-                      key: const ValueKey('generic_groups_sliver'),
-                    )
-                  else if (!isSearching)
-                    _buildSkeletonSliver(
-                      key: const ValueKey('search_skeleton_sliver'),
-                    )
-                  else
-                    searchResults.when(
-                      skipLoadingOnReload: true,
-                      data: (items) => _buildSearchResultsSliver(
-                        context,
-                        items,
-                        ref,
-                        key: const ValueKey('search_results_sliver'),
-                      ),
-                      loading: () => _buildSkeletonSliver(
-                        key: const ValueKey('search_loading_sliver'),
-                      ),
-                      error: (error, _) =>
-                          _buildSearchErrorSliver(error, currentQuery, ref),
-                    ),
-                  // Espaceur pour scroller au-dessus de la barre de filtre
-                  SliverToBoxAdapter(
-                    child: SizedBox(height: showFiltersBar ? 100 : 20),
-                  ),
-                ],
+                ),
               ),
-            ),
-            if (showFiltersBar)
-              Positioned(
-                left: 16,
-                right: 16,
-                bottom: 16,
-                child: _buildActiveFiltersBar(filters, ref),
+              databaseStats.when(
+                data: (stats) => SliverToBoxAdapter(
+                  child: Column(
+                    children: [
+                      const Gap(AppDimens.spacing2xs),
+                      _buildStatsHeader(context, stats),
+                      const Gap(AppDimens.spacingMd),
+                    ],
+                  ),
+                ),
+                loading: () =>
+                    const SliverToBoxAdapter(child: SizedBox.shrink()),
+                error: (_, _) =>
+                    const SliverToBoxAdapter(child: SizedBox.shrink()),
               ),
-          ],
-        ),
+              if (!hasSearchText)
+                _buildGenericGroupsSliver(
+                  groups,
+                  ref,
+                  key: const ValueKey('generic_groups_sliver'),
+                )
+              else if (!isSearching)
+                _buildSkeletonSliver(
+                  key: const ValueKey('search_skeleton_sliver'),
+                )
+              else
+                searchResults.when(
+                  skipLoadingOnReload: true,
+                  data: (items) => _buildSearchResultsSliver(
+                    context,
+                    items,
+                    ref,
+                    key: const ValueKey('search_results_sliver'),
+                  ),
+                  loading: () => _buildSkeletonSliver(
+                    key: const ValueKey('search_loading_sliver'),
+                  ),
+                  error: (error, _) =>
+                      _buildSearchErrorSliver(error, currentQuery, ref),
+                ),
+              // Espaceur en bas
+              const SliverToBoxAdapter(child: SizedBox(height: 20)),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -203,69 +185,157 @@ class DatabaseSearchView extends HookConsumerWidget {
       (FIcons.activity, Strings.totalPrinciples, '${stats['total_principes']}'),
     ];
 
-    return SizedBox(
-      height: 110,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.only(
-          top: AppDimens.spacingMd,
-          right: AppDimens.spacingSm,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isSmallScreen = constraints.maxWidth < 360;
+        final iconSize = isSmallScreen ? AppDimens.iconSm : AppDimens.iconMd;
+        final valueTextStyle = isSmallScreen
+            ? context.theme.typography.xl
+            : context.theme.typography.xl2;
+        final labelTextStyle = isSmallScreen
+            ? context.theme.typography.xs
+            : context.theme.typography.sm;
+
+        return FCard.raw(
+          style: context.theme.cardStyles.borderless.call,
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+              vertical: AppDimens.spacingXs,
+              horizontal: AppDimens.spacingSm,
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                for (final config in statsConfig)
+                  Expanded(
+                    child: _buildStatItem(
+                      context,
+                      icon: config.$1,
+                      label: config.$2,
+                      value: config.$3,
+                      iconSize: iconSize,
+                      valueTextStyle: valueTextStyle,
+                      labelTextStyle: labelTextStyle,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildStatItem(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required String value,
+    required double iconSize,
+    required TextStyle valueTextStyle,
+    required TextStyle labelTextStyle,
+  }) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: iconSize, color: context.theme.colors.primary),
+        const Gap(AppDimens.spacing2xs),
+        Text(
+          value,
+          style: valueTextStyle.copyWith(fontWeight: FontWeight.bold),
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
-        itemBuilder: (context, index) {
-          final config = statsConfig[index];
-          return ConstrainedBox(
-            constraints: const BoxConstraints(minWidth: 140),
-            child: FCard.raw(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  vertical: AppDimens.spacingSm,
-                  horizontal: AppDimens.spacingSm,
+        const Gap(AppDimens.spacing2xs),
+        Flexible(
+          child: Text(
+            label,
+            style: labelTextStyle.copyWith(
+              color: context.theme.colors.mutedForeground,
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildGroupSection(
+    BuildContext context, {
+    required Widget badge,
+    required String label,
+    String? name,
+    required String principles,
+    bool isMuted = false,
+    bool showPrinciples = false,
+    bool principlesAsMain = false,
+  }) {
+    final theme = context.theme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Badge + Label row
+        Row(
+          children: [
+            badge,
+            const Gap(AppDimens.spacing2xs),
+            Expanded(
+              child: Text(
+                label,
+                style: theme.typography.xs.copyWith(
+                  color: theme.colors.mutedForeground,
+                  fontWeight: FontWeight.w500,
                 ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Container(
-                      width: 32,
-                      height: 32,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: context.theme.colors.primary.withValues(
-                          alpha: 0.15,
-                        ),
-                        borderRadius: BorderRadius.circular(AppDimens.radiusSm),
-                      ),
-                      child: Icon(
-                        config.$1,
-                        size: AppDimens.iconSm,
-                        color: context.theme.colors.primary,
-                      ),
-                    ),
-                    const Gap(AppDimens.spacingSm),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          config.$2,
-                          style: context.theme.typography.sm.copyWith(
-                            color: context.theme.colors.mutedForeground,
-                          ),
-                        ),
-                        const Gap(AppDimens.spacing2xs),
-                        Text(
-                          config.$3,
-                          style: context.theme.typography.xl2, // h4 equivalent
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
-          );
-        },
-        separatorBuilder: (_, index) => const Gap(AppDimens.spacingSm),
-        itemCount: statsConfig.length,
-      ),
+          ],
+        ),
+        const Gap(AppDimens.spacing2xs),
+        // Medication name or principles (as main content)
+        if (principlesAsMain && principles.isNotEmpty)
+          Text(
+            principles,
+            style: theme.typography.base.copyWith(
+              fontWeight: FontWeight.w600,
+              color: isMuted
+                  ? theme.colors.mutedForeground
+                  : theme.colors.foreground,
+            ),
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+          )
+        else if (name != null)
+          Text(
+            name,
+            style: theme.typography.base.copyWith(
+              fontWeight: FontWeight.w600,
+              color: isMuted
+                  ? theme.colors.mutedForeground
+                  : theme.colors.foreground,
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        // Principles (molécule) - only shown if not as main and showPrinciples is true
+        if (!principlesAsMain && showPrinciples && principles.isNotEmpty) ...[
+          const Gap(AppDimens.spacing2xs),
+          Text(
+            principles,
+            style: theme.typography.sm.copyWith(
+              color: theme.colors.mutedForeground,
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ],
     );
   }
 
@@ -311,69 +381,43 @@ class DatabaseSearchView extends HookConsumerWidget {
         value: searchController.text,
         child: ValueListenableBuilder<TextEditingValue>(
           valueListenable: searchController,
-          builder: (context, value, _) {
-            final hasText = value.text.isNotEmpty;
+          builder: (context, _, child) {
             final backgroundColor = context.theme.colors.muted.withValues(
               alpha: 0.08,
             );
-            return ClipRRect(
-              borderRadius: BorderRadius.circular(AppDimens.radiusLg),
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: backgroundColor,
-                  borderRadius: BorderRadius.circular(AppDimens.radiusLg),
+            return DecoratedBox(
+              decoration: BoxDecoration(
+                color: backgroundColor,
+                borderRadius: BorderRadius.circular(AppDimens.radiusSm),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppDimens.spacingSm,
                 ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppDimens.spacingSm,
+                child: FTextField(
+                  controller: searchController,
+                  hint: Strings.searchPlaceholder,
+                  clearable: (value) => !isFetching && value.text.isNotEmpty,
+                  onChange: (_) {
+                    // WHY: Provider handles debouncing - just trigger rebuild
+                    // The searchResultsProvider will debounce internally via Future.delayed
+                  },
+                  prefixBuilder: (context, style, states) => Icon(
+                    FIcons.search,
+                    size: AppDimens.iconSm,
+                    color: context.theme.colors.mutedForeground,
                   ),
-                  child: FTextField(
-                    controller: searchController,
-                    hint: Strings.searchPlaceholder,
-                    onChange: (_) {
-                      // WHY: Provider handles debouncing - just trigger rebuild
-                      // The searchResultsProvider will debounce internally via Future.delayed
-                    },
-                    prefixBuilder: (context, style, states) => Icon(
-                      FIcons.search,
-                      size: AppDimens.iconSm,
-                      color: context.theme.colors.mutedForeground,
-                    ),
-                    suffixBuilder: isFetching
-                        ? (context, style, states) => Semantics(
-                            label: Strings.searchingInProgress,
-                            liveRegion: true,
-                            child: SizedBox(
-                              width: AppDimens.iconSm,
-                              height: AppDimens.iconSm,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  context.theme.colors.mutedForeground,
-                                ),
-                              ),
-                            ),
-                          )
-                        : hasText
-                        ? (context, style, states) => Testable(
-                            id: TestTags.searchClearBtn,
-                            child: Semantics(
-                              button: true,
-                              label: Strings.clearSearch,
-                              child: FButton.icon(
-                                style: FButtonStyle.ghost(),
-                                onPress: () {
-                                  searchController.clear();
-                                },
-                                child: const Icon(
-                                  FIcons.x,
-                                  size: AppDimens.iconLg,
-                                ),
-                              ),
-                            ),
-                          )
-                        : null,
-                  ),
+                  suffixBuilder: isFetching
+                      ? (context, style, states) => Semantics(
+                          label: Strings.searchingInProgress,
+                          liveRegion: true,
+                          child: const SizedBox(
+                            width: AppDimens.iconSm,
+                            height: AppDimens.iconSm,
+                            child: FCircularProgress.loader(),
+                          ),
+                        )
+                      : null,
                 ),
               ),
             );
@@ -406,21 +450,18 @@ class DatabaseSearchView extends HookConsumerWidget {
         label: filterLabel,
         value: filterValue,
         hint: Strings.filterHint,
-        child: SizedBox(
-          width: 56,
-          height: 48,
-          child: Material(
-            color: Colors.transparent,
-            clipBehavior: Clip.antiAlias,
-            borderRadius: BorderRadius.circular(AppDimens.radiusSm),
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                InkWell(
-                  onTap: () => _openFiltersSheet(context, filters, ref),
-                  child: Container(
+        child: GestureDetector(
+          onTap: () => _openFiltersSheet(context, filters, ref),
+          child: SizedBox(
+            width: 56,
+            height: 48,
+            child: Material(
+              color: Colors.transparent,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Container(
                     decoration: BoxDecoration(
-                      border: Border.all(color: context.theme.colors.border),
                       borderRadius: BorderRadius.circular(AppDimens.radiusSm),
                     ),
                     alignment: Alignment.center,
@@ -430,23 +471,25 @@ class DatabaseSearchView extends HookConsumerWidget {
                       color: context.theme.colors.foreground,
                     ),
                   ),
-                ),
-                if (hasActiveFilters)
-                  Positioned(
-                    top: 4,
-                    right: 4,
-                    child: Semantics(
-                      label: Strings.activeFilterCount(filterCount),
-                      child: FBadge(
-                        style: FBadgeStyle.primary(),
-                        child: Text(
-                          '$filterCount',
-                          style: context.theme.typography.sm,
+                  if (hasActiveFilters)
+                    Positioned(
+                      top: 4,
+                      right: 4,
+                      child: IgnorePointer(
+                        child: Semantics(
+                          label: Strings.activeFilterCount(filterCount),
+                          child: FBadge(
+                            style: FBadgeStyle.primary(),
+                            child: Text(
+                              '$filterCount',
+                              style: context.theme.typography.sm,
+                            ),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -466,76 +509,13 @@ class DatabaseSearchView extends HookConsumerWidget {
     );
   }
 
-  Widget _buildActiveFiltersBar(SearchFilters filters, WidgetRef ref) {
-    return Builder(
-      builder: (context) {
-        final chips = <Widget>[];
-        if (filters.voieAdministration != null) {
-          chips.add(
-            FBadge(
-              style: FBadgeStyle.primary(),
-              child: Text(
-                filters.voieAdministration!,
-                style: context.theme.typography.sm,
-              ),
-            ),
-          );
-        }
-        if (filters.atcClass != null) {
-          final atcLabel =
-              Strings.getAtcLevel1Label(filters.atcClass) ?? filters.atcClass!;
-          chips.add(
-            FBadge(
-              style: FBadgeStyle.primary(),
-              child: Text(atcLabel, style: context.theme.typography.sm),
-            ),
-          );
-        }
-
-        final hasChips = chips.isNotEmpty;
-
-        return FCard.raw(
-          child: Padding(
-            padding: const EdgeInsets.all(AppDimens.spacingMd),
-            child: Row(
-              children: [
-                Expanded(
-                  child: hasChips
-                      ? Wrap(spacing: 8, runSpacing: 8, children: chips)
-                      : Text(
-                          Strings.noActiveFilters,
-                          style: context.theme.typography.sm.copyWith(
-                            color: context.theme.colors.mutedForeground,
-                          ),
-                        ),
-                ),
-                const Gap(AppDimens.spacingSm),
-                Semantics(
-                  button: true,
-                  label: Strings.resetAllFilters,
-                  enabled: hasChips,
-                  child: FButton(
-                    style: FButtonStyle.ghost(),
-                    onPress: hasChips
-                        ? ref.read(searchFiltersProvider.notifier).clearFilters
-                        : null,
-                    child: const Text(Strings.resetFilters),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
   Widget _buildFiltersPanel(
     BuildContext context,
     SearchFilters currentFilters,
     WidgetRef ref,
   ) {
     return FCard.raw(
+      style: context.theme.cardStyles.borderless.call,
       child: Padding(
         padding: const EdgeInsets.all(AppDimens.spacingMd),
         child: Column(
@@ -559,100 +539,24 @@ class DatabaseSearchView extends HookConsumerWidget {
               ],
             ),
             const Gap(AppDimens.spacingMd),
-            Text(
-              Strings.administrationRouteFilter,
-              style: context.theme.typography.sm,
+            FTileGroup(
+              divider: FItemDivider.indented,
+              children: [
+                buildAdministrationRouteFilterTile(
+                  context,
+                  ref,
+                  currentFilters,
+                ),
+                _buildTherapeuticClassFilter(context, currentFilters, ref),
+              ],
             ),
-            const Gap(AppDimens.spacingXs),
-            _buildPharmaceuticalFormFilter(context, currentFilters, ref),
-            const Gap(AppDimens.spacingMd),
-            Text(
-              Strings.therapeuticClassFilter,
-              style: context.theme.typography.sm,
-            ),
-            const Gap(AppDimens.spacingXs),
-            _buildTherapeuticClassFilter(context, currentFilters, ref),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildPharmaceuticalFormFilter(
-    BuildContext context,
-    SearchFilters currentFilters,
-    WidgetRef ref,
-  ) {
-    final routesAsync = ref.watch(administrationRoutesProvider);
-
-    return routesAsync.when(
-      data: (routes) {
-        if (routes.isEmpty) {
-          return Text(
-            Strings.noRoutesAvailable,
-            style: context.theme.typography.sm.copyWith(
-              color: context.theme.colors.mutedForeground,
-            ),
-          );
-        }
-
-        return ConstrainedBox(
-          constraints: const BoxConstraints(minWidth: double.infinity),
-          child: FSelect<String?>.rich(
-            hint: Strings.allRoutes,
-            format: (value) => value ?? Strings.allRoutes,
-            initialValue: currentFilters.voieAdministration,
-            onChange: (value) {
-              ref
-                  .read(searchFiltersProvider.notifier)
-                  .updateFilters(
-                    currentFilters.copyWith(voieAdministration: value),
-                  );
-              Navigator.of(context).maybePop();
-            },
-            children: [
-              FSelectItem<String?>(
-                title: Text(
-                  Strings.allRoutes,
-                  style: context.theme.typography.base,
-                ),
-                value: null,
-              ),
-              ...routes.map(
-                (route) => FSelectItem<String?>(
-                  title: Text(route, style: context.theme.typography.base),
-                  value: route,
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-      loading: () => SizedBox(
-        height: 40,
-        child: Center(
-          child: SizedBox(
-            width: 16,
-            height: 16,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              valueColor: AlwaysStoppedAnimation<Color>(
-                context.theme.colors.mutedForeground,
-              ),
-            ),
-          ),
-        ),
-      ),
-      error: (error, stackTrace) => Text(
-        Strings.errorLoadingRoutes,
-        style: context.theme.typography.sm.copyWith(
-          color: context.theme.colors.mutedForeground,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTherapeuticClassFilter(
+  FTileMixin _buildTherapeuticClassFilter(
     BuildContext context,
     SearchFilters currentFilters,
     WidgetRef ref,
@@ -675,34 +579,53 @@ class DatabaseSearchView extends HookConsumerWidget {
       ('V', 'Divers'),
     ];
 
-    return ConstrainedBox(
-      constraints: const BoxConstraints(minWidth: double.infinity),
-      child: FSelect<String?>.rich(
-        hint: Strings.allClasses,
-        format: (value) => value ?? Strings.allClasses,
-        initialValue: currentFilters.atcClass,
-        onChange: (value) {
-          ref
-              .read(searchFiltersProvider.notifier)
-              .updateFilters(currentFilters.copyWith(atcClass: value));
-          Navigator.of(context).maybePop();
-        },
-        children: [
-          FSelectItem<String?>(
-            title: Text(
-              Strings.allClasses,
-              style: context.theme.typography.base,
-            ),
-            value: null,
-          ),
-          ...atcOptions.map(
-            (option) => FSelectItem<String?>(
-              title: Text(option.$2, style: context.theme.typography.base),
-              value: option.$1,
-            ),
-          ),
-        ],
+    final menu = [
+      FSelectTile<String?>(
+        title: Text(Strings.allClasses, style: context.theme.typography.base),
+        value: null,
       ),
+      ...atcOptions.map(
+        (option) => FSelectTile<String?>(
+          title: Text(option.$2, style: context.theme.typography.base),
+          subtitle: Text(option.$1),
+          value: option.$1,
+        ),
+      ),
+    ];
+
+    return FSelectMenuTile<String?>(
+      initialValue: currentFilters.atcClass,
+      title: Text(
+        Strings.therapeuticClassFilter,
+        style: context.theme.typography.base,
+      ),
+      detailsBuilder: (tileContext, values, _) {
+        final value = values.isNotEmpty ? values.first : null;
+        if (value == null) {
+          return Text(
+            Strings.allClasses,
+            style: tileContext.theme.typography.sm.copyWith(
+              color: tileContext.theme.colors.mutedForeground,
+            ),
+          );
+        }
+        final label = Strings.getAtcLevel1Label(value) ?? value;
+        return Text(
+          label,
+          style: tileContext.theme.typography.sm.copyWith(
+            color: tileContext.theme.colors.mutedForeground,
+          ),
+        );
+      },
+      maxHeight: 320,
+      menu: menu,
+      onChange: (values) {
+        final nextValue = values.isNotEmpty ? values.first : null;
+        ref
+            .read(searchFiltersProvider.notifier)
+            .updateFilters(currentFilters.copyWith(atcClass: nextValue));
+        Navigator.of(context).maybePop();
+      },
     );
   }
 
@@ -741,110 +664,107 @@ class DatabaseSearchView extends HookConsumerWidget {
           child: StatusView(type: StatusType.empty, title: Strings.noResults),
         );
       } else {
-        sliver = SliverList.separated(
-          itemCount: data.items.length + (data.isLoadingMore ? 1 : 0),
-          separatorBuilder: (context, index) {
+        final itemCount = data.items.length + (data.isLoadingMore ? 1 : 0);
+        sliver = SliverList(
+          delegate: SliverChildBuilderDelegate((context, index) {
             if (index == data.items.length) {
-              return const SizedBox.shrink();
-            }
-            return const Gap(AppDimens.spacingSm);
-          },
-          itemBuilder: (context, index) {
-            if (index == data.items.length) {
-              return Padding(
-                padding: const EdgeInsets.all(AppDimens.spacingMd),
+              return const Padding(
+                padding: EdgeInsets.all(AppDimens.spacingMd),
                 child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 300),
-                    child: CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        context.theme.colors.primary,
-                      ),
-                    ),
+                  child: SizedBox(
+                    width: 40,
+                    height: 40,
+                    child: FCircularProgress.loader(),
                   ),
                 ),
               );
             }
+
             final group = data.items[index];
-            return Semantics(
-              button: true,
-              label:
-                  'Groupe ${group.groupId}, princeps ${group.princepsReferenceName}, principes actifs ${group.commonPrincipes.isEmpty ? "non déterminé" : group.commonPrincipes}',
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: () => GroupDetailRoute(
-                    groupId: group.groupId,
-                  ).push<void>(context),
-                  borderRadius: BorderRadius.circular(AppDimens.radiusMd),
-                  splashColor: context.theme.colors.primary.withValues(
-                    alpha: 0.1,
-                  ),
-                  highlightColor: context.theme.colors.primary.withValues(
-                    alpha: 0.05,
-                  ),
-                  child: FCard.raw(
+            final hasPrinciples = group.commonPrincipes.isNotEmpty;
+            final principles = hasPrinciples
+                ? group.commonPrincipes
+                : Strings.notDetermined;
+            final badgeStyles = context.theme.badgeStyles;
+            final princepsBadgeStyle = badgeStyles is PharmaBadgeStyles
+                ? badgeStyles.princeps
+                : badgeStyles.secondary;
+            final genericBadgeStyle = badgeStyles is PharmaBadgeStyles
+                ? badgeStyles.generic
+                : badgeStyles.primary;
+
+            return Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppDimens.spacingMd,
+                vertical: AppDimens.spacing2xs,
+              ),
+              child: Semantics(
+                button: true,
+                label:
+                    'Groupe ${group.groupId}, princeps ${group.princepsReferenceName}, principes actifs $principles',
+                child: FCard.raw(
+                  style: context.theme.cardStyles.borderless.call,
+                  child: GestureDetector(
+                    onTap: () => GroupDetailRoute(
+                      groupId: group.groupId,
+                    ).push<void>(context),
                     child: Padding(
-                      padding: const EdgeInsets.all(AppDimens.spacingLg),
+                      padding: const EdgeInsets.all(AppDimens.spacingMd),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          // Princeps section (left)
                           Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  Strings.princepsLabel,
-                                  style: context.theme.typography.sm.copyWith(
-                                    color: context.theme.colors.mutedForeground,
-                                  ),
+                            child: _buildGroupSection(
+                              context,
+                              badge: FBadge(
+                                style: princepsBadgeStyle,
+                                child: Text(
+                                  Strings.princeps.substring(0, 1),
+                                  style: context.theme.typography.xs,
                                 ),
-                                const Gap(AppDimens.spacingXs),
-                                Text(
-                                  group.princepsReferenceName,
-                                  style: context.theme.typography.base,
-                                  overflow: TextOverflow.ellipsis,
-                                  maxLines: 2,
-                                ),
-                              ],
+                              ),
+                              label: Strings.princeps,
+                              name: group.princepsReferenceName,
+                              principles: principles,
+                              showPrinciples:
+                                  false, // Don't show principles on left
                             ),
                           ),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(
+                          // Divider
+                          Container(
+                            width: 1,
+                            margin: const EdgeInsets.symmetric(
                               horizontal: AppDimens.spacingMd,
                             ),
+                            color: context.theme.colors.border,
+                          ),
+                          // Generics section (right)
+                          Expanded(
+                            child: _buildGroupSection(
+                              context,
+                              badge: FBadge(
+                                style: genericBadgeStyle,
+                                child: Text(
+                                  Strings.generics.substring(0, 1),
+                                  style: context.theme.typography.xs,
+                                ),
+                              ),
+                              label: Strings.generics,
+                              principles: principles,
+                              principlesAsMain:
+                                  true, // Show principles as main content
+                              isMuted: true,
+                            ),
+                          ),
+                          // Chevron icon - centered vertically and compact
+                          const Gap(AppDimens.spacing2xs),
+                          Center(
                             child: Icon(
-                              FIcons.arrowRightLeft,
+                              FIcons.chevronRight,
+                              size: AppDimens.iconXs,
                               color: context.theme.colors.mutedForeground,
                             ),
-                          ),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  Strings.activePrinciplesLabel,
-                                  style: context.theme.typography.sm.copyWith(
-                                    color: context.theme.colors.mutedForeground,
-                                  ),
-                                ),
-                                const Gap(AppDimens.spacingXs),
-                                Text(
-                                  group.commonPrincipes.isEmpty
-                                      ? Strings.notDetermined
-                                      : group.commonPrincipes,
-                                  style: context.theme.typography.base,
-                                  overflow: TextOverflow.ellipsis,
-                                  maxLines: 3,
-                                ),
-                              ],
-                            ),
-                          ),
-                          const Gap(AppDimens.spacingXs),
-                          Icon(
-                            FIcons.chevronRight,
-                            size: AppDimens.iconSm,
-                            color: context.theme.colors.mutedForeground,
                           ),
                         ],
                       ),
@@ -853,7 +773,7 @@ class DatabaseSearchView extends HookConsumerWidget {
                 ),
               ),
             );
-          },
+          }, childCount: itemCount),
         );
       }
     }
@@ -872,6 +792,7 @@ class DatabaseSearchView extends HookConsumerWidget {
           separatorBuilder: (context, index) => const Gap(AppDimens.spacingSm),
           itemBuilder: (context, index) {
             return FCard.raw(
+              style: context.theme.cardStyles.borderless.call,
               child: Padding(
                 padding: const EdgeInsets.all(AppDimens.spacingLg),
                 child: Row(
@@ -959,136 +880,25 @@ class DatabaseSearchView extends HookConsumerWidget {
       );
     }
 
-    final sliver = SliverList.separated(
-      itemCount: results.length,
-      separatorBuilder: (context, index) => const Gap(AppDimens.spacingSm),
-      itemBuilder: (context, index) {
-        final result = results[index];
-        final child = result.when(
-          groupResult: (group) => Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: () =>
-                  GroupDetailRoute(groupId: group.groupId).push<void>(context),
-              borderRadius: BorderRadius.circular(AppDimens.radiusMd),
-              splashColor: context.theme.colors.primary.withValues(alpha: 0.1),
-              highlightColor: context.theme.colors.primary.withValues(
-                alpha: 0.05,
-              ),
-              child: GroupResultCard(group: group),
+    final tileGroup = SliverToBoxAdapter(
+      child: FTileGroup.builder(
+        divider: FItemDivider.indented,
+        count: results.length,
+        tileBuilder: (context, index) {
+          final result = results[index];
+          return Semantics(
+            button: true,
+            label: _searchResultSemantics(result),
+            child: MedicamentTile(
+              item: result,
+              onTap: () => _handleSearchResultTap(context, result),
             ),
-          ),
-          princepsResult: (princeps, generics, groupId, unusedPrinciples) =>
-              Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: () =>
-                      GroupDetailRoute(groupId: groupId).push<void>(context),
-                  borderRadius: BorderRadius.circular(AppDimens.radiusMd),
-                  splashColor: context.theme.colors.primary.withValues(
-                    alpha: 0.1,
-                  ),
-                  highlightColor: context.theme.colors.primary.withValues(
-                    alpha: 0.05,
-                  ),
-                  child: PrincepsResultCard(
-                    princeps: princeps,
-                    generics: generics,
-                  ),
-                ),
-              ),
-          genericResult: (generic, princepsList, groupId, unusedPrinciples) =>
-              Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: () =>
-                      GroupDetailRoute(groupId: groupId).push<void>(context),
-                  borderRadius: BorderRadius.circular(AppDimens.radiusMd),
-                  splashColor: context.theme.colors.primary.withValues(
-                    alpha: 0.1,
-                  ),
-                  highlightColor: context.theme.colors.primary.withValues(
-                    alpha: 0.05,
-                  ),
-                  child: GenericResultCard(
-                    generic: generic,
-                    princeps: princepsList,
-                  ),
-                ),
-              ),
-          standaloneResult:
-              (cisCode, summary, representativeCip, unusedPrinciples) {
-                final sanitizedPrinciples = summary.principesActifsCommuns
-                    .map(sanitizeActivePrinciple)
-                    .toList();
-                final description =
-                    summary.formePharmaceutique != null &&
-                        sanitizedPrinciples.isNotEmpty
-                    ? '${summary.formePharmaceutique} - ${sanitizedPrinciples.join(' + ')}'
-                    : summary.formePharmaceutique ??
-                          (sanitizedPrinciples.isNotEmpty
-                              ? sanitizedPrinciples.join(' + ')
-                              : null);
-
-                return ProductCard(
-                  summary: summary,
-                  cip: representativeCip,
-                  groupLabel: summary.groupId != null
-                      ? summary.princepsBrandName
-                      : null,
-                  subtitle: description != null ? [description] : null,
-                  badges: [
-                    FBadge(
-                      style: FBadgeStyle.primary(),
-                      child: Text(
-                        Strings.uniqueMedicationBadge,
-                        style: context.theme.typography.sm,
-                      ),
-                    ),
-                  ],
-                  trailing: Icon(
-                    FIcons.chevronRight,
-                    size: AppDimens.iconSm,
-                    color: context.theme.colors.mutedForeground,
-                  ),
-                  onTap: () {
-                    showAdaptiveOverlay<void>(
-                      context: context,
-                      builder: (overlayContext) =>
-                          _buildStandaloneDetailOverlay(
-                            overlayContext,
-                            summary,
-                            representativeCip,
-                          ),
-                    );
-                  },
-                );
-              },
-        );
-        return Semantics(
-          button: true,
-          label: result.when(
-            groupResult: (group) =>
-                'Groupe ${group.groupId}, princeps ${group.princepsReferenceName}, principes actifs ${group.commonPrincipes.isEmpty ? "non déterminé" : group.commonPrincipes}',
-            princepsResult: (princeps, generics, groupId, unusedPrinciples) =>
-                Strings.searchResultSemanticsForPrinceps(
-                  princeps.nomCanonique,
-                  generics.length,
-                ),
-            genericResult: (generic, princepsList, groupId, unusedPrinciples) =>
-                Strings.searchResultSemanticsForGeneric(
-                  generic.nomCanonique,
-                  princepsList.length,
-                ),
-            standaloneResult:
-                (cisCode, summary, representativeCip, unusedPrinciples) =>
-                    '${Strings.medication} ${summary.nomCanonique}',
-          ),
-          child: child,
-        );
-      },
+          );
+        },
+      ),
     );
-    return _wrapSliverWithKey(sliver, key);
+
+    return _wrapSliverWithKey(tileGroup, key);
   }
 
   Widget _buildSearchErrorSliver(
@@ -1115,6 +925,45 @@ class DatabaseSearchView extends HookConsumerWidget {
     return SliverPadding(key: key, padding: EdgeInsets.zero, sliver: sliver);
   }
 
+  String _searchResultSemantics(SearchResultItem result) {
+    return result.when(
+      groupResult: (group) =>
+          'Groupe ${group.groupId}, princeps ${group.princepsReferenceName}, principes actifs ${group.commonPrincipes.isEmpty ? "non déterminé" : group.commonPrincipes}',
+      princepsResult: (princeps, generics, groupId, _) =>
+          Strings.searchResultSemanticsForPrinceps(
+            princeps.nomCanonique,
+            generics.length,
+          ),
+      genericResult: (generic, princepsList, groupId, _) =>
+          Strings.searchResultSemanticsForGeneric(
+            generic.nomCanonique,
+            princepsList.length,
+          ),
+      standaloneResult: (cisCode, summary, representativeCip, _) =>
+          '${Strings.medication} ${summary.nomCanonique}',
+    );
+  }
+
+  void _handleSearchResultTap(BuildContext context, SearchResultItem result) {
+    result.when(
+      groupResult: (group) =>
+          GroupDetailRoute(groupId: group.groupId).push<void>(context),
+      princepsResult: (princeps, generics, groupId, _) =>
+          GroupDetailRoute(groupId: groupId).push<void>(context),
+      genericResult: (generic, princepsList, groupId, _) =>
+          GroupDetailRoute(groupId: groupId).push<void>(context),
+      standaloneResult: (cisCode, summary, representativeCip, _) =>
+          showAdaptiveOverlay<void>(
+            context: context,
+            builder: (overlayContext) => _buildStandaloneDetailOverlay(
+              overlayContext,
+              summary,
+              representativeCip,
+            ),
+          ),
+    );
+  }
+
   // WHY: Detail overlay for standalone products (replaces StandaloneSearchResult detail)
   Widget _buildStandaloneDetailOverlay(
     BuildContext context,
@@ -1127,6 +976,7 @@ class DatabaseSearchView extends HookConsumerWidget {
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 480, maxHeight: 520),
       child: FCard.raw(
+        style: context.theme.cardStyles.borderless.call,
         child: PharmaSheetLayout(
           title: Strings.medicationDetails,
           onClose: () => Navigator.of(context).maybePop(),
@@ -1199,8 +1049,13 @@ class _SearchBarHeaderDelegate extends SliverPersistentHeaderDelegate {
   ) {
     return Container(
       height: height,
-      color: context.theme.colors.background,
       alignment: Alignment.center,
+      padding: EdgeInsets.only(
+        left: AppDimens.spacingMd,
+        right: AppDimens.spacingMd,
+        top: AppDimens.spacing2xs,
+        bottom: AppDimens.spacing2xs,
+      ),
       child: child,
     );
   }

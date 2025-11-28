@@ -125,6 +125,7 @@ class CameraScreen extends HookConsumerWidget {
       childPad: false, // Disable default padding for full-screen camera
       // WHY: Use SafeArea to ensure camera controls don't overlap with navigation bar
       child: SafeArea(
+        top: false, // Don't add top padding - let parent Scaffold handle it
         bottom:
             false, // Don't add bottom padding - let parent Scaffold handle it
         child: Stack(
@@ -192,20 +193,84 @@ class CameraScreen extends HookConsumerWidget {
               ),
             if (isCameraActive.value && !isInitializing)
               const ScanWindowOverlay(),
+            // WHY: Torch button only visible when camera is active (scanner mode)
+            if (isCameraActive.value && !isInitializing)
+              Positioned(
+                top: MediaQuery.of(context).padding.top + 16,
+                right: 16,
+                child: ValueListenableBuilder<bool>(
+                  valueListenable: isTorchOn,
+                  builder: (context, torchState, _) {
+                    return Semantics(
+                      button: true,
+                      label: torchState
+                          ? Strings.turnOffTorch
+                          : Strings.turnOnTorch,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(AppDimens.radiusLg),
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: context.theme.colors.background.withValues(
+                                alpha: 0.85,
+                              ),
+                              border: Border.all(
+                                color: context.theme.colors.border.withValues(
+                                  alpha: 0.3,
+                                ),
+                              ),
+                              borderRadius: BorderRadius.circular(
+                                AppDimens.radiusLg,
+                              ),
+                            ),
+                            child: FButton.icon(
+                              style: FButtonStyle.ghost(),
+                              onPress: toggleTorch,
+                              child: Icon(
+                                FIcons.zap,
+                                size: AppDimens.iconLg,
+                                color: torchState
+                                    ? context.theme.colors.primary
+                                    : context.theme.colors.foreground,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
             Positioned(
               top: MediaQuery.of(context).padding.top + 20,
-              left: 16,
-              right: 16,
-              child: Consumer(
-                builder: (context, ref, child) {
-                  final scannerState = ref.watch(scannerProvider);
-                  return Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      for (var i = 0; i < scannerState.bubbles.length; i++)
-                        buildBubbleItem(scannerState.bubbles[i], i),
-                    ],
-                  ).animate(effects: AppAnimations.bubbleEnter);
+              left: 0,
+              right: 0,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  // WHY: Adapt margins for scan bubbles based on screen width
+                  final isSmallScreen = constraints.maxWidth < 360;
+                  final horizontalMargin = isSmallScreen ? 12.0 : 16.0;
+
+                  return Padding(
+                    padding: EdgeInsets.symmetric(horizontal: horizontalMargin),
+                    child: Consumer(
+                      builder: (context, ref, child) {
+                        final scannerState = ref.watch(scannerProvider);
+                        return Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            for (
+                              var i = 0;
+                              i < scannerState.bubbles.length;
+                              i++
+                            )
+                              buildBubbleItem(scannerState.bubbles[i], i),
+                          ],
+                        ).animate(effects: AppAnimations.bubbleEnter);
+                      },
+                    ),
+                  );
                 },
               ),
             ),
@@ -216,11 +281,11 @@ class CameraScreen extends HookConsumerWidget {
               right: 0,
               child:
                   AdaptiveBottomPanel(
-                        padding: const EdgeInsets.only(
-                          left: AppDimens.spacingLg,
-                          right: AppDimens.spacingLg,
-                          top: AppDimens.spacingMd,
-                          bottom: AppDimens.spacingLg,
+                        padding: EdgeInsets.only(
+                          left: AppDimens.spacingLg * 0.85,
+                          right: AppDimens.spacingLg * 0.85,
+                          top: AppDimens.spacingMd * 0.85,
+                          bottom: AppDimens.spacingLg * 0.85,
                         ),
                         children: [
                           ClipRRect(
@@ -230,15 +295,19 @@ class CameraScreen extends HookConsumerWidget {
                             child: BackdropFilter(
                               filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
                               child: Container(
-                                padding: const EdgeInsets.all(
-                                  AppDimens.spacingLg,
+                                padding: EdgeInsets.all(
+                                  AppDimens.spacingLg * 0.85,
                                 ),
                                 decoration: BoxDecoration(
                                   color: context.theme.colors.secondary
-                                      .withValues(alpha: 0.92),
+                                      .withValues(
+                                        alpha: isCameraActive.value
+                                            ? 0.2
+                                            : 0.92,
+                                      ),
                                   border: Border.all(
                                     color: context.theme.colors.border
-                                        .withValues(alpha: 0.4),
+                                        .withValues(alpha: 0.5),
                                   ),
                                 ),
                                 child: Column(
@@ -262,8 +331,8 @@ class CameraScreen extends HookConsumerWidget {
                                                 ? null
                                                 : toggleCamera,
                                             child: Container(
-                                              width: 88,
-                                              height: 88,
+                                              width: 88 * 0.85,
+                                              height: 88 * 0.85,
                                               decoration: BoxDecoration(
                                                 shape: BoxShape.circle,
                                                 gradient: LinearGradient(
@@ -292,110 +361,102 @@ class CameraScreen extends HookConsumerWidget {
                                                   ),
                                                 ],
                                               ),
-                                              child: Icon(
-                                                isCameraActive.value
-                                                    ? FIcons.cameraOff
-                                                    : FIcons.scanLine,
-                                                size: AppDimens.iconXl,
-                                                color: context
-                                                    .theme
-                                                    .colors
-                                                    .primaryForeground,
+                                              child: Center(
+                                                child: Icon(
+                                                  isCameraActive.value
+                                                      ? FIcons.cameraOff
+                                                      : FIcons.scanLine,
+                                                  size: AppDimens.iconXl * 0.85,
+                                                  color: context
+                                                      .theme
+                                                      .colors
+                                                      .primaryForeground,
+                                                ),
                                               ),
                                             ),
                                           ),
                                         ),
                                       ),
                                     ),
-                                    const Gap(AppDimens.spacingLg),
-                                    SizedBox(
-                                      width: double.infinity,
-                                      child: Row(
-                                        children: [
-                                          Expanded(
-                                            child: Testable(
-                                              id: TestTags.scanGalleryBtn,
-                                              child: Semantics(
-                                                button: true,
-                                                label: Strings
-                                                    .importBarcodeFromGallery,
-                                                child: FButton(
-                                                  onPress: isInitializing
-                                                      ? null
-                                                      : openGallerySheet,
-                                                  prefix: Icon(
-                                                    FIcons.image,
-                                                    size: AppDimens.iconMd,
-                                                    color: context
-                                                        .theme
-                                                        .colors
-                                                        .primary,
-                                                  ),
-                                                  child: const Text(
-                                                    Strings.gallery,
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                          const Gap(AppDimens.spacingSm),
-                                          Expanded(
-                                            child: Testable(
-                                              id: TestTags.scanManualBtn,
-                                              child: Semantics(
-                                                button: true,
-                                                label: Strings
-                                                    .manuallyEnterCipCode,
-                                                child: FButton(
-                                                  onPress: isInitializing
-                                                      ? null
-                                                      : openManualEntrySheet,
-                                                  prefix: Icon(
-                                                    FIcons.keyboard,
-                                                    size: AppDimens.iconMd,
-                                                    color: context
-                                                        .theme
-                                                        .colors
-                                                        .primary,
-                                                  ),
-                                                  child: const Text(
-                                                    Strings.manualEntry,
+                                    Gap(AppDimens.spacingLg * 0.85),
+                                    LayoutBuilder(
+                                      builder: (context, constraints) {
+                                        // WHY: Use Expanded to allow buttons to take full width.
+                                        // Reduce spacing on very small screens.
+                                        final isSmallScreen =
+                                            constraints.maxWidth < 360;
+                                        final buttonSpacing = isSmallScreen
+                                            ? AppDimens.spacingXs
+                                            : AppDimens.spacingSm;
+
+                                        return Row(
+                                          children: [
+                                            Expanded(
+                                              child: Testable(
+                                                id: TestTags.scanGalleryBtn,
+                                                child: Semantics(
+                                                  button: true,
+                                                  label: Strings
+                                                      .importBarcodeFromGallery,
+                                                  child: FButton(
+                                                    onPress: isInitializing
+                                                        ? null
+                                                        : openGallerySheet,
+                                                    prefix: Icon(
+                                                      FIcons.image,
+                                                      size:
+                                                          AppDimens.iconMd *
+                                                          0.85,
+                                                      color: context
+                                                          .theme
+                                                          .colors
+                                                          .primaryForeground,
+                                                    ),
+                                                    child: const Text(
+                                                      Strings.gallery,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                      maxLines: 1,
+                                                    ),
                                                   ),
                                                 ),
                                               ),
                                             ),
-                                          ),
-                                          const Gap(AppDimens.spacingSm),
-                                          Semantics(
-                                            button: true,
-                                            label: isTorchOn.value
-                                                ? Strings.turnOffTorch
-                                                : Strings.turnOnTorch,
-                                            child: SizedBox(
-                                              width: 52,
-                                              height: 52,
-                                              child: FButton.icon(
-                                                onPress: isInitializing
-                                                    ? null
-                                                    : toggleTorch,
-                                                child: Icon(
-                                                  FIcons.zap,
-                                                  size: AppDimens.iconMd,
-                                                  color: isTorchOn.value
-                                                      ? context
-                                                            .theme
-                                                            .colors
-                                                            .primary
-                                                      : context
-                                                            .theme
-                                                            .colors
-                                                            .foreground,
+                                            Gap(buttonSpacing),
+                                            Expanded(
+                                              child: Testable(
+                                                id: TestTags.scanManualBtn,
+                                                child: Semantics(
+                                                  button: true,
+                                                  label: Strings
+                                                      .manuallyEnterCipCode,
+                                                  child: FButton(
+                                                    onPress: isInitializing
+                                                        ? null
+                                                        : openManualEntrySheet,
+                                                    prefix: Icon(
+                                                      FIcons.keyboard,
+                                                      size:
+                                                          AppDimens.iconMd *
+                                                          0.85,
+                                                      color: context
+                                                          .theme
+                                                          .colors
+                                                          .primaryForeground,
+                                                    ),
+                                                    child: const Text(
+                                                      Strings.manualEntry,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                      maxLines: 1,
+                                                    ),
+                                                  ),
                                                 ),
                                               ),
                                             ),
-                                          ),
-                                        ],
-                                      ),
+                                          ],
+                                        );
+                                      },
                                     ),
                                   ],
                                 ),
@@ -576,8 +637,11 @@ Widget _buildBubbleContent(
   if (summary.groupId != null) {
     if (summary.isPrinceps) {
       badges.add(
-        Tooltip(
-          message: Strings.badgePrincepsTooltip,
+        FTooltip(
+          hover: true,
+          longPress: true,
+          tipBuilder: (context, controller) =>
+              const Text(Strings.badgePrincepsTooltip),
           child: FBadge(
             style: FBadgeStyle.secondary(),
             child: Text(
@@ -589,8 +653,11 @@ Widget _buildBubbleContent(
       );
     } else {
       badges.add(
-        Tooltip(
-          message: Strings.badgeGenericTooltip,
+        FTooltip(
+          hover: true,
+          longPress: true,
+          tipBuilder: (context, controller) =>
+              const Text(Strings.badgeGenericTooltip),
           child: FBadge(
             style: FBadgeStyle.primary(),
             child: Text(Strings.generic, style: context.theme.typography.sm),
@@ -600,8 +667,11 @@ Widget _buildBubbleContent(
     }
   } else {
     badges.add(
-      Tooltip(
-        message: Strings.badgeStandaloneTooltip,
+      FTooltip(
+        hover: true,
+        longPress: true,
+        tipBuilder: (context, controller) =>
+            const Text(Strings.badgeStandaloneTooltip),
         child: FBadge(
           style: FBadgeStyle.primary(),
           child: Text(
@@ -685,52 +755,68 @@ class _GallerySheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return PharmaSheetLayout(
-      title: Strings.importFromGallery,
-      description: Strings.pharmascanAnalyzesOnly,
-      onClose: () => Navigator.of(context).maybePop(),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(
-                FIcons.shieldCheck,
-                color: context.theme.colors.primary,
-                size: 20,
-              ),
-              const Gap(12),
-              Expanded(
-                child: Text(
-                  Strings.noPhotoStoredMessage,
-                  style: context.theme.typography.sm,
+    return ClipRRect(
+      borderRadius: BorderRadius.vertical(
+        top: Radius.circular(AppDimens.radiusLg),
+      ),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+        child: Container(
+          decoration: BoxDecoration(
+            color: context.theme.colors.secondary.withValues(alpha: 0.6),
+            borderRadius: BorderRadius.vertical(
+              top: Radius.circular(AppDimens.radiusLg),
+            ),
+          ),
+          child: PharmaSheetLayout(
+            title: Strings.importFromGallery,
+            description: Strings.pharmascanAnalyzesOnly,
+            onClose: () => Navigator.of(context).maybePop(),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      FIcons.shieldCheck,
+                      color: context.theme.colors.primary,
+                      size: 20,
+                    ),
+                    const Gap(12),
+                    Expanded(
+                      child: Text(
+                        Strings.noPhotoStoredMessage,
+                        style: context.theme.typography.sm,
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
-          ),
-          const Gap(16),
-          Semantics(
-            button: true,
-            label: Strings.choosePhotoFromGallery,
-            child: FButton(
-              onPress: () =>
-                  Navigator.of(context).pop(_GallerySheetResult.pick),
-              child: const Text(Strings.choosePhoto),
+                const Gap(16),
+                Semantics(
+                  button: true,
+                  label: Strings.choosePhotoFromGallery,
+                  child: FButton(
+                    onPress: () =>
+                        Navigator.of(context).pop(_GallerySheetResult.pick),
+                    child: const Text(Strings.choosePhoto),
+                  ),
+                ),
+                const Gap(8),
+                Semantics(
+                  button: true,
+                  label: Strings.cancelPhotoSelection,
+                  child: FButton(
+                    style: FButtonStyle.outline(),
+                    onPress: () => Navigator.of(context).maybePop(),
+                    child: const Text(Strings.cancel),
+                  ),
+                ),
+              ],
             ),
           ),
-          const Gap(8),
-          Semantics(
-            button: true,
-            label: Strings.cancelPhotoSelection,
-            child: FButton(
-              style: FButtonStyle.outline(),
-              onPress: () => Navigator.of(context).maybePop(),
-              child: const Text(Strings.cancel),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -786,68 +872,93 @@ class _ManualCipSheet extends HookConsumerWidget {
 
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 480),
-      child: PharmaSheetLayout(
-        title: Strings.manualCipEntry,
-        description: Strings.manualCipDescription,
-        onClose: () => Navigator.of(context).maybePop(),
-        child: Form(
-          key: formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              FTextFormField(
-                controller: cipController,
-                focusNode: focusNode,
-                label: const Text(Strings.cipCodeLabel),
-                hint: Strings.cipPlaceholder,
-                keyboardType: TextInputType.number,
-                inputFormatters: [
-                  FilteringTextInputFormatter.digitsOnly,
-                  LengthLimitingTextInputFormatter(AppConfig.cipLength),
-                ],
-                validator: (String? v) {
-                  if (v == null || v.isEmpty) {
-                    return Strings.cipMustBe13Digits;
-                  }
-                  if (v.length != AppConfig.cipLength) {
-                    return Strings.cipMustBe13Digits;
-                  }
-                  return null;
-                },
-                onChange: (String value) {
-                  // WHY: Auto-submit when 13 digits are entered
-                  if (value.length == AppConfig.cipLength) {
-                    unawaited(submit());
-                  }
-                },
-                autofocus: true,
+      child: ClipRRect(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppDimens.radiusLg),
+        ),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+          child: Container(
+            decoration: BoxDecoration(
+              color: context.theme.colors.secondary.withValues(alpha: 0.6),
+              borderRadius: BorderRadius.vertical(
+                top: Radius.circular(AppDimens.radiusLg),
               ),
-              const Gap(16),
-              Text(
-                Strings.searchStartsAutomatically,
-                style: context.theme.typography.sm,
-              ),
-              const Gap(16),
-              Semantics(
-                button: true,
-                label: isSubmitting.value
-                    ? Strings.searchingInProgress
-                    : Strings.searchMedicamentWithCip,
-                enabled: !isSubmitting.value,
-                child: FButton(
-                  onPress: isSubmitting.value ? null : submit,
-                  prefix: isSubmitting.value
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : null,
-                  child: const Text(Strings.search),
+            ),
+            child: PharmaSheetLayout(
+              title: Strings.manualCipEntry,
+              description: Strings.manualCipDescription,
+              onClose: () => Navigator.of(context).maybePop(),
+              child: FocusTraversalGroup(
+                child: Form(
+                  key: formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Semantics(
+                        textField: true,
+                        label: Strings.manualEntryFieldLabel,
+                        hint: Strings.manualEntryFieldHint,
+                        child: FTextFormField(
+                          controller: cipController,
+                          focusNode: focusNode,
+                          label: const Text(Strings.cipCodeLabel),
+                          hint: Strings.cipPlaceholder,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            LengthLimitingTextInputFormatter(
+                              AppConfig.cipLength,
+                            ),
+                          ],
+                          validator: (String? v) {
+                            if (v == null || v.isEmpty) {
+                              return Strings.cipMustBe13Digits;
+                            }
+                            if (v.length != AppConfig.cipLength) {
+                              return Strings.cipMustBe13Digits;
+                            }
+                            return null;
+                          },
+                          onChange: (String value) {
+                            // WHY: Auto-submit when 13 digits are entered
+                            if (value.length == AppConfig.cipLength) {
+                              unawaited(submit());
+                            }
+                          },
+                          autofocus: true,
+                        ),
+                      ),
+                      const Gap(16),
+                      Text(
+                        Strings.searchStartsAutomatically,
+                        style: context.theme.typography.sm,
+                      ),
+                      const Gap(16),
+                      Semantics(
+                        button: true,
+                        label: isSubmitting.value
+                            ? Strings.searchingInProgress
+                            : Strings.searchMedicamentWithCip,
+                        enabled: !isSubmitting.value,
+                        child: FButton(
+                          onPress: isSubmitting.value ? null : submit,
+                          prefix: isSubmitting.value
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: FCircularProgress.loader(),
+                                )
+                              : null,
+                          child: const Text(Strings.search),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ],
+            ),
           ),
         ),
       ),

@@ -1,8 +1,10 @@
-// lib/core/utils/medicament_helpers.dart
+// lib/core/logic/sanitizer.dart
 
 import 'dart:convert';
+
 import 'package:diacritic/diacritic.dart';
 import 'package:pharma_scan/core/constants/dosage_constants.dart';
+import 'package:pharma_scan/core/constants/parsing_constants.dart';
 import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 
@@ -11,10 +13,8 @@ String findCommonPrincepsName(List<String> names) {
 
   if (names.length == 1) return names.first;
 
-  // Split the first name into words to create the initial prefix
   final List<String> prefixWords = names.first.split(' ');
 
-  // Compare with other names to shorten the prefix
   for (int i = 1; i < names.length; i++) {
     final currentWords = names[i].split(' ');
     int commonLength = 0;
@@ -24,24 +24,18 @@ String findCommonPrincepsName(List<String> names) {
       commonLength++;
     }
 
-    // Shrink the prefix to the new common length
     if (commonLength < prefixWords.length) {
       prefixWords.removeRange(commonLength, prefixWords.length);
     }
   }
 
   if (prefixWords.isEmpty) {
-    // Fallback to the shortest name if no common prefix is found
     return names.reduce((a, b) => a.length < b.length ? a : b);
   }
 
-  // Join the words and clean up trailing characters like commas or dots
   return prefixWords.join(' ').trim().replaceAll(RegExp(r'[,.]\s*$'), '');
 }
 
-// WHY: Derive a concise display title from an already cleaned medication name by
-// trimming trailing dosage information. This keeps UI titles deterministic and
-// consistent with BDPM naming conventions.
 List<String> decodePrincipesFromJson(String? jsonString) {
   if (jsonString == null || jsonString.isEmpty) return const <String>[];
   try {
@@ -74,33 +68,22 @@ String formatCommonPrincipes(String? rawJson) {
   return formatCommonPrincipesFromList(principles);
 }
 
-/// WHY: Extract a clean princeps label from BDPM group labels.
-/// - For generic group labels (format: "Generic - Brand"), we want the Brand part.
-/// - Otherwise we just trim and return the raw label.
 String extractPrincepsLabel(String rawLabel) {
   final trimmed = rawLabel.trim();
   if (trimmed.isEmpty) return trimmed;
 
-  // Step 1: Group Split - BDPM convention "Generic - Brand"
   if (trimmed.contains(' - ')) {
     final parts = trimmed.split(' - ');
     return parts.last.trim();
   }
 
-  // Fallback to trimmed label when there is no group separator
   return trimmed;
 }
 
-// WHY: Derive a concise display title from an already cleaned medication name by
-// trimming trailing dosage information. Handles combination products (e.g., "A 50 + B 20")
-// by processing each segment separately before rejoining, ensuring all molecules are preserved.
 String deriveGroupTitleFromName(String name) {
-  // Check if this is a combination product (contains " + " separator)
   if (name.contains(' + ')) {
-    // Split into segments (e.g., ["ATENOLOL 50 mg", "NIFEDIPINE 20 mg"])
     final segments = name.split(' + ');
 
-    // Process each segment individually to remove dosage
     final cleanedSegments = segments
         .map((segment) {
           return _deriveSingleMoleculeName(segment.trim());
@@ -108,16 +91,12 @@ String deriveGroupTitleFromName(String name) {
         .where((cleaned) => cleaned.isNotEmpty)
         .toList();
 
-    // Rejoin with " + " separator
     return cleanedSegments.join(' + ');
   }
 
-  // For mono-products, use the existing logic
   return _deriveSingleMoleculeName(name);
 }
 
-// WHY: Helper function to derive name from a single molecule segment.
-// Stops at the first numeric value (dosage) and returns the molecule name.
 String _deriveSingleMoleculeName(String name) {
   final parts = name.split(' ');
   final stopIndex = parts.indexWhere(
@@ -131,94 +110,38 @@ String _deriveSingleMoleculeName(String name) {
         .replaceAll(RegExp(r'\s*,$'), '');
   }
 
-  // Fallback for names without a clear dosage number
   return name.split(',').first.trim();
 }
 
-// WHY: Derive a clean display title from MedicamentSummaryData based on medication type.
-// For generics in groups, splits the canonical name to remove princeps reference.
-// For princeps (grouped or standalone), uses the princepsDeReference parsed via extractPrincepsLabel.
-// For standalone non-princeps (theoretical), uses the already-cleaned canonical name.
 String getDisplayTitle(MedicamentSummaryData summary) {
-  // Any princeps (grouped or standalone): use princepsDeReference via shared parser
   if (summary.isPrinceps) {
     return extractPrincepsLabel(summary.princepsDeReference);
   }
 
-  // Generic in group: split nomCanonique by " - " and take first part
   if (!summary.isPrinceps && summary.groupId != null) {
     final parts = summary.nomCanonique.split(' - ');
     return parts.first.trim();
   }
 
-  // Standalone non-princeps fallback: use nomCanonique (already cleaned)
   return summary.nomCanonique;
 }
 
-// WHY: Sanitize active principle names by removing dosage, units, formulation keywords,
-// and parenthetical content. This ensures clean display of active ingredient lists.
-// Raw denomination_substance from BDPM can contain contaminated strings like
-// "ESOMEPRAZOLE MAGNESIUM TRIHYDRATE équivalant à ESOMEPRAZOLE 40 mg".
-// This logic ensures deterministic, contamination-free results for active principle names.
-// Pre-compiled Regex patterns for sanitizeActivePrinciple
-final _regexParentheses = RegExp(r'\s*\([^)]*\)');
-final _regexEquivalent = RegExp(r'équivalant à', caseSensitive: false);
-// WHY: Regex patterns for dosage units used in sanitization.
-// Simple inline patterns matching common dosage units (mg, g, ml, UI, %, etc.).
-final _regexDosageUnits = [
-  RegExp(r'\b\d+([.,]\d+)?\s*mg\b', caseSensitive: false),
-  RegExp(r'\b\d+([.,]\d+)?\s*g\b', caseSensitive: false),
-  RegExp(r'\b\d+([.,]\d+)?\s*ml\b', caseSensitive: false),
-  RegExp(r'\b\d+([.,]\d+)?\s*mL\b', caseSensitive: false),
-  RegExp(r'\b\d+([.,]\d+)?\s*µg\b', caseSensitive: false),
-  RegExp(r'\b\d+([.,]\d+)?\s*mcg\b', caseSensitive: false),
-  RegExp(r'\b\d+([.,]\d+)?\s*ui\b', caseSensitive: false),
-  RegExp(r'\b\d+([.,]\d+)?\s*UI\b', caseSensitive: false),
-  RegExp(r'\b\d+([.,]\d+)?\s*U\.I\.\b', caseSensitive: false),
-  RegExp(r'\b\d+([.,]\d+)?\s*M\.U\.I\.\b', caseSensitive: false),
-  RegExp(r'\b\d+([.,]\d+)?\s*%', caseSensitive: false),
-  RegExp(r'\b\d+([.,]\d+)?\s*meq\b', caseSensitive: false),
-  RegExp(r'\b\d+([.,]\d+)?\s*mol\b', caseSensitive: false),
-  RegExp(r'\b\d+([.,]\d+)?\s*gbq\b', caseSensitive: false),
-  RegExp(r'\b\d+([.,]\d+)?\s*mbq\b', caseSensitive: false),
-  RegExp(r'\b\d+([.,]\d+)?\s*CH\b', caseSensitive: false), // Homéopathie
-  RegExp(r'\b\d+([.,]\d+)?\s*DH\b', caseSensitive: false), // Homéopathie
-];
-final _regexUnitSlash = RegExp(r'\s*/[A-Z]+', caseSensitive: false);
-final _regexTrailingSlash = RegExp(r'\s*/\s*', caseSensitive: false);
-final _regexWhitespace = RegExp(r'\s+');
-final _regexStandaloneNumber = RegExp(r'\b(\d+([.,]\d+)?)\b');
-final _regexSpaceLetter = RegExp(r'^\s+[a-zA-Z]', caseSensitive: false);
-final _regexDeFollows = RegExp(r'^de\b', caseSensitive: false);
-
-// WHY: Sanitize active principle names by removing dosage, units, formulation keywords,
-// and parenthetical content. This ensures clean display of active ingredient lists.
-// Raw denomination_substance from BDPM can contain contaminated strings like
-// "ESOMEPRAZOLE MAGNESIUM TRIHYDRATE équivalant à ESOMEPRAZOLE 40 mg".
-// This logic ensures deterministic, contamination-free results for active principle names.
 String sanitizeActivePrinciple(String principle) {
   if (principle.isEmpty) return principle;
 
   var sanitized = principle;
 
-  // Step 1: Remove text in parentheses (often clarifications or salts)
-  sanitized = sanitized.replaceAll(_regexParentheses, '');
+  sanitized = sanitized.replaceAll(ParsingConstants.parentheses, '');
 
-  // Step 2: Remove text after "équivalant à" (case-insensitive)
-  final equivalentMatch = _regexEquivalent.firstMatch(sanitized);
+  final equivalentMatch = ParsingConstants.equivalentTo.firstMatch(sanitized);
   if (equivalentMatch != null) {
     sanitized = sanitized.substring(0, equivalentMatch.start).trim();
   }
 
-  // Step 3: Known molecules with numbers in their names (must preserve)
-  // WHY: Use shared constant from DosageConstants to prevent logic drift between parser and sanitizer
   final knownNumberedMolecules = DosageConstants.knownNumberedMolecules;
 
-  // Step 4: Remove dosage/unit patterns, but preserve known molecule numbers
-  // First, handle known molecules that might appear with dosage units (e.g., "4000 UI/ML")
   for (final knownNumber in knownNumberedMolecules) {
     final numberUpper = knownNumber.toUpperCase();
-    // Remove dosage units following known numbers (e.g., "4000 UI/ML" -> "4000")
     sanitized = sanitized.replaceAll(
       RegExp(
         r'\b' + RegExp.escape(knownNumber) + r'\s+(ui|UI)/?(ml|ML)\b',
@@ -235,23 +158,20 @@ String sanitizeActivePrinciple(String principle) {
     );
   }
 
-  // Step 5: Remove other dosage/unit patterns (e.g., "40 mg", "5 g", "0.5 %")
-  for (final pattern in _regexDosageUnits) {
+  for (final pattern in ParsingConstants.dosageUnits) {
     sanitized = sanitized.replaceAll(pattern, '');
   }
 
-  // Step 6: Remove remaining unit separators like "/ML" or "/ml" that may remain
-  sanitized = sanitized.replaceAll(_regexUnitSlash, '');
-  sanitized = sanitized.replaceAll(_regexTrailingSlash, '');
+  sanitized = sanitized.replaceAll(ParsingConstants.unitSlash, '');
+  sanitized = sanitized.replaceAll(ParsingConstants.trailingSlash, '');
 
-  // Step 7: Remove standalone numbers (except known molecule names and hyphenated numbers)
-  // Normalize whitespace before processing
-  sanitized = sanitized.trim().replaceAll(_regexWhitespace, ' ');
+  sanitized = sanitized.trim().replaceAll(ParsingConstants.whitespace, ' ');
 
-  sanitized = sanitized.replaceAllMapped(_regexStandaloneNumber, (match) {
+  sanitized = sanitized.replaceAllMapped(ParsingConstants.standaloneNumber, (
+    match,
+  ) {
     final number = match.group(1) ?? '';
 
-    // Check if it's a known molecule name (check in context like Python does)
     final matchStart = match.start;
     final matchEnd = match.end;
     final snippetStart = matchStart > 2 ? matchStart - 2 : 0;
@@ -267,99 +187,59 @@ String sanitizeActivePrinciple(String principle) {
     );
 
     if (isKnownMolecule) {
-      return number; // Keep the number if it's a known molecule
+      return number;
     }
 
-    // Check if number is preceded by hyphen (likely part of molecule name)
     if (matchStart > 0 && sanitized[matchStart - 1] == '-') {
-      return number; // Keep if preceded by hyphen
+      return number;
     }
 
-    // Check if number is followed by space + letter (likely dosage, remove it)
-    // This matches the Dart auditor pattern for detecting dosage numbers
     if (matchEnd < sanitized.length) {
       final afterNumber = sanitized.substring(matchEnd);
-      if (_regexSpaceLetter.hasMatch(afterNumber)) {
-        return ''; // Remove if followed by space + letter
+      if (ParsingConstants.spaceLetter.hasMatch(afterNumber)) {
+        return '';
       }
     }
 
-    return ''; // Remove standalone numbers
+    return '';
   });
 
-  // Normalize whitespace after number removal
-  sanitized = sanitized.trim().replaceAll(_regexWhitespace, ' ');
+  sanitized = sanitized.trim().replaceAll(ParsingConstants.whitespace, ' ');
 
-  // Step 8: Remove formulation keywords (as whole words to avoid false positives)
-  // This matches the Dart auditor approach: check exceptions per keyword, not globally
-  final formulationKeywords = {
-    'comprimé',
-    'gélule',
-    'solution',
-    'injectable',
-    'poudre',
-    'sirop',
-    'suspension',
-    'crème',
-    'pommade',
-    'gel',
-    'collyre',
-    'inhalation',
-  };
-
-  // Process each keyword with its specific exception pattern
-  // Use a pattern that captures spaces around the keyword for proper removal
-  for (final keyword in formulationKeywords) {
-    // Pattern: (start or space) + keyword + (space or end)
-    // This allows us to remove the keyword and its trailing space, but preserve leading space if needed
+  for (final keyword in ParsingConstants.formulationKeywords) {
     final keywordPattern = RegExp(
       '(^|\\s)${RegExp.escape(keyword)}(\\s|\$)',
       caseSensitive: false,
     );
 
     sanitized = sanitized.replaceAllMapped(keywordPattern, (match) {
-      // Check exception for this specific keyword (like the Dart auditor does per keyword)
       if (keyword == 'solution') {
-        // Exception: "solution de" should be preserved
-        // The pattern matches " solution " so we need to check what comes after
         final matchEnd = match.end;
         if (matchEnd < sanitized.length) {
           final afterMatch = sanitized.substring(matchEnd);
-          // Check if "de" follows (the pattern already consumed the trailing space)
-          if (_regexDeFollows.hasMatch(afterMatch)) {
-            return match.group(0) ??
-                ''; // Preserve "solution " in "solution de"
+          if (ParsingConstants.deFollows.hasMatch(afterMatch)) {
+            return match.group(0) ?? '';
           }
         }
       }
-      // Remove the keyword and its trailing space, but preserve leading space if it exists
       final prefix = match.group(1) ?? '';
-      return prefix == ' '
-          ? ' '
-          : ''; // Keep space if keyword was preceded by space
+      return prefix == ' ' ? ' ' : '';
     });
   }
 
-  // Final trim and normalize whitespace
-  return sanitized.trim().replaceAll(_regexWhitespace, ' ');
+  return sanitized.trim().replaceAll(ParsingConstants.whitespace, ' ');
 }
 
-// WHY: Parse the main titulaire (laboratory) name from potentially multi-laboratory
-// strings. The titulaire column can contain multiple laboratory names separated
-// by semicolons or slashes. This function returns the first non-empty part.
 String parseMainTitulaire(String? rawTitulaire) {
   if (rawTitulaire == null || rawTitulaire.isEmpty) {
     return Strings.unknownLab;
   }
 
-  // Split by common delimiters (semicolon, slash)
   final parts = rawTitulaire.split(RegExp(r'[;/]'));
 
-  // Find first non-empty part
   for (final part in parts) {
     final trimmed = part.trim();
     if (trimmed.isNotEmpty) {
-      // Remove legal entity suffixes for cleaner matching
       final cleaned = trimmed
           .replaceAll(
             RegExp(r'\s+(SAS|SA|SARL|GMBH|LTD|INC)$', caseSensitive: false),
@@ -373,13 +253,9 @@ String parseMainTitulaire(String? rawTitulaire) {
     }
   }
 
-  // Fallback if all parts were empty
   return Strings.unknownLab;
 }
 
-// WHY: Clean standalone medication name by subtracting official form and lab.
-// Uses official BDPM data (forme_pharmaceutique, titulaire) instead of heuristic parsing.
-// Returns cleaned name with form and lab removed, or original name if subtraction fails.
 String cleanStandaloneName({
   required String rawName,
   String? officialForm,
@@ -419,7 +295,6 @@ String _finalizeStandaloneName(String input) {
 
   value = value.replaceAll(RegExp(r'^,+'), '').replaceAll(RegExp(r',+$'), '');
 
-  // Remove dangling commas or connectors left after subtraction.
   value = value.replaceAll(RegExp(r'\s+,', caseSensitive: false), ', ');
   value = _stripTrailingPrepositions(value).trim();
 
@@ -476,7 +351,6 @@ List<String> _buildFormVariants(String officialForm) {
     }
   }
 
-  // Ensure the root noun (first word) is available as last resort.
   if (partsList.isNotEmpty) {
     variants.add(partsList.first);
   }

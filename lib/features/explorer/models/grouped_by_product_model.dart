@@ -1,5 +1,5 @@
 import 'package:pharma_scan/core/database/database.dart' as db;
-import 'package:pharma_scan/core/utils/medicament_helpers.dart';
+import 'package:pharma_scan/core/logic/sanitizer.dart';
 
 class MedicationItem {
   const MedicationItem({

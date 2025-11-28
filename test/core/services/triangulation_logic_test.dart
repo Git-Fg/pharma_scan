@@ -3,13 +3,15 @@ import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pharma_scan/core/database/database.dart';
-import 'package:pharma_scan/core/utils/medicament_helpers.dart';
+import 'package:pharma_scan/core/logic/sanitizer.dart';
 
 void main() {
   late AppDatabase database;
 
   setUp(() {
-    database = AppDatabase.forTesting(NativeDatabase.memory());
+    database = AppDatabase.forTesting(
+      NativeDatabase.memory(setup: configureAppSQLite),
+    );
   });
 
   tearDown(() async {

@@ -1,14 +1,11 @@
 // lib/core/widgets/ui_kit/product_card.dart
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:gap/gap.dart';
 import 'package:pharma_scan/core/database/database.dart';
-import 'package:pharma_scan/core/utils/app_animations.dart';
 import 'package:pharma_scan/core/theme/app_colors.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
-import 'package:pharma_scan/core/utils/medicament_helpers.dart';
-import 'package:pharma_scan/core/widgets/accessible_touch.dart';
+import 'package:pharma_scan/core/logic/sanitizer.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/info_label.dart';
 import 'package:forui/forui.dart';
 
@@ -173,21 +170,19 @@ class ProductCard extends StatelessWidget {
       ),
     );
 
-    final primaryColor = context.theme.colors.primary;
     final wrappedCard = onTap != null
-        ? AccessibleTouch(
+        ? Semantics(
             label: _buildSemanticsLabel(),
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(AppDimens.radiusMd),
-            splashColor: primaryColor.withValues(alpha: 0.08),
-            highlightColor: primaryColor.withValues(alpha: 0.04),
-            child: card,
+            hint: Strings.tapToViewDetails,
+            child: InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(AppDimens.radiusMd),
+              child: card,
+            ),
           )
         : card;
 
-    return animation
-        ? wrappedCard.animate(effects: AppAnimations.bubbleEnter)
-        : wrappedCard;
+    return wrappedCard;
   }
 
   List<Widget> _buildDetails(BuildContext context) {
@@ -239,7 +234,8 @@ class ProductCard extends StatelessWidget {
         if (onExplore != null)
           Semantics(
             button: true,
-            label: Strings.exploreMedicationGroup,
+            label: Strings.exploreGroupLabel,
+            hint: Strings.exploreGroupHint,
             child: FButton(
               style: FButtonStyle.outline(),
               onPress: onExplore,
@@ -252,7 +248,8 @@ class ProductCard extends StatelessWidget {
         if (onClose != null)
           Semantics(
             button: true,
-            label: Strings.closeMedicationCard,
+            label: Strings.closeCardLabel,
+            hint: Strings.closeCardHint,
             child: FButton(
               style: FButtonStyle.ghost(),
               onPress: onClose,
@@ -325,7 +322,7 @@ class ProductCard extends StatelessWidget {
       return null;
     }
     return FAlert(
-      style: FAlertStyle.destructive(),
+      style: context.theme.alertStyles.destructive.call,
       title: Text(
         Strings.stockAlert(availabilityStatus!.trim()),
         style: context.theme.typography.sm,
@@ -340,12 +337,22 @@ class ProductCard extends StatelessWidget {
     final destructiveColor = context.theme.colors.destructive;
     final icons = <Widget>[];
 
+    Widget buildTooltip(String message, Icon icon) {
+      return FTooltip(
+        hover: true,
+        longPress: true,
+        tipBuilder: (context, controller) =>
+            Text(message, style: context.theme.typography.sm),
+        child: icon,
+      );
+    }
+
     // Hospital icon
     if (isHospitalOnly) {
       icons.add(
-        Tooltip(
-          message: Strings.hospitalTooltip,
-          child: Icon(FIcons.building2, size: 16, color: primaryColor),
+        buildTooltip(
+          Strings.hospitalTooltip,
+          Icon(FIcons.building2, size: 16, color: primaryColor),
         ),
       );
     }
@@ -353,9 +360,9 @@ class ProductCard extends StatelessWidget {
     // Shortage/Tension icon
     if (availabilityStatus != null && availabilityStatus!.isNotEmpty) {
       icons.add(
-        Tooltip(
-          message: availabilityStatus!,
-          child: Icon(FIcons.triangleAlert, size: 16, color: destructiveColor),
+        buildTooltip(
+          availabilityStatus!,
+          Icon(FIcons.triangleAlert, size: 16, color: destructiveColor),
         ),
       );
     }
@@ -367,9 +374,9 @@ class ProductCard extends StatelessWidget {
           normalized.contains('arret') || normalized.contains('abroge');
       if (isStopped) {
         icons.add(
-          Tooltip(
-            message: Strings.stoppedTooltip,
-            child: Icon(FIcons.ban, size: 16, color: destructiveColor),
+          buildTooltip(
+            Strings.stoppedTooltip,
+            Icon(FIcons.ban, size: 16, color: destructiveColor),
           ),
         );
       }

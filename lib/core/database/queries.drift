@@ -7,6 +7,44 @@ getAllMedicamentSummaries: SELECT * FROM medicament_summary ORDER BY nom_canoniq
 getMedicamentSummariesByGroup: SELECT * FROM medicament_summary WHERE group_id = ? ORDER BY is_princeps DESC, nom_canonique;
 getDistinctPrincipesActifsCommuns: SELECT DISTINCT principes_actifs_communs FROM medicament_summary WHERE principes_actifs_communs != '' ORDER BY principes_actifs_communs;
 
+-- Virtual table for trigram-enabled FTS search, defined in schema for drift awareness
+CREATE VIRTUAL TABLE search_index USING fts5(
+  cis_code UNINDEXED,
+  canonical_name,
+  princeps_name,
+  active_principles,
+  tokenize='trigram'
+);
+
+-- Helpers to manage the search index directly from SQL
+deleteSearchIndex: DELETE FROM search_index;
+
+insertSearchIndexFromSummary:
+INSERT INTO search_index (
+  cis_code,
+  canonical_name,
+  princeps_name,
+  active_principles
+)
+SELECT
+  ms.cis_code,
+  normalize_text(COALESCE(ms.nom_canonique, '')),
+  normalize_text(COALESCE(ms.princeps_de_reference, '')),
+  normalize_text(
+    COALESCE(
+      (
+        SELECT GROUP_CONCAT(value, ' ')
+        FROM json_each(ms.principes_actifs_communs)
+        WHERE value IS NOT NULL AND TRIM(value) != ''
+      ),
+      ''
+    )
+  ) AS normalized_actives
+FROM medicament_summary ms
+WHERE ms.principes_actifs_communs IS NOT NULL
+  AND ms.principes_actifs_communs != '[]'
+  AND ms.principes_actifs_communs != '';
+
 CREATE VIEW detailed_scan_results AS
 SELECT
   m.code_cip,

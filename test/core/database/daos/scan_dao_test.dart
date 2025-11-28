@@ -9,7 +9,9 @@ void main() {
   late ScanDao scanDao;
 
   setUp(() {
-    db = AppDatabase.forTesting(NativeDatabase.memory());
+    db = AppDatabase.forTesting(
+      NativeDatabase.memory(setup: configureAppSQLite),
+    );
     scanDao = db.scanDao;
   });
 

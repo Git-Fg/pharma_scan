@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/providers/core_providers.dart';
-import 'package:pharma_scan/core/utils/medicament_helpers.dart';
+import 'package:pharma_scan/core/logic/sanitizer.dart';
 import 'package:pharma_scan/features/explorer/models/generic_group_entity.dart';
 import 'package:pharma_scan/features/explorer/models/search_filters_model.dart';
 import 'package:pharma_scan/features/explorer/models/search_result_item_model.dart';

@@ -1,21 +1,77 @@
 ---
-description: Standards for UI development using Forui directly. Best practices 2025.
-globs: lib/**/*.dart
-alwaysApply: false
+alwaysApply: true
 ---
+# Forui Design System (2025 Professional Standard)
 
-# Forui Design System (Direct Integration - 2025 Best Practices)
+**Context:** You use the `forui` library directly. Optimize for touch-first interaction, professional density, and CLI-driven styling.
 
-**Context:** You use the `forui` library directly. **Do NOT create generic wrapper widgets** (e.g., `AppButton`, `BaseCard`). Follow the 2025 standard patterns for optimal performance and maintainability.
+## Core Philosophy: Density & Clarity
 
-## 1. Core Directives
+* **Simplicity:** Avoid decorative containers (`Container` with shadows) where `FTile` suffices.
+* **Density:** Strive for information density without clutter; trim excess padding and redundant wrappers.
+* **Hierarchy:** Use typography weight, spacing, and `FTile` sections to show hierarchy instead of stacking cards.
 
-* **Direct Imports:** Import `package:forui/forui.dart` in feature files.
-* **No Wrappers:** Use `FButton`, `FCard`, `FScaffold` directly in your widget trees.
-* **Theme Access:** Use `context.theme` to access colors, typography, and styles.
-* **Material Compatibility:** Use `toApproximateMaterialTheme()` for Material widgets integration.
+## The "No Card Soup" Rule
 
-## 2. Application Setup (main.dart)
+**Context:** Stacking multiple `FCard` widgets in a list creates visual noise and wastes space.
+
+* **❌ Forbidden:** Using `FCard`/`FCard.raw` for list items such as search results, history entries, settings, or explorer results.
+* **✅ Mandatory:** Use `FTile`, `FTileGroup`, or domain tiles (`MedicamentTile`) for lists. `FTileGroup.builder` handles dividers automatically and keeps scroll performance at 60fps.
+
+## Widget Selection Matrix
+
+| Scenario | ❌ Old Pattern | ✅ Modern Forui Pattern |
+| :--- | :--- | :--- |
+| List of Items | `ListView` + `FCard` | `FTileGroup` or `CustomScrollView` + `SliverList` + `FTile` |
+| Settings / Options | `Column` + `FCard` | `FSelectTileGroup` or `FTileGroup` |
+| Search Result | Custom `Container` | `FTile` with `prefix` (Badge) and `suffix` (Chevron) |
+| Detail Key/Value | `Row` + `Text` pairs | `FTile` (title = Key, details = Value) |
+| Screen Root | `Scaffold` | `FScaffold` (always) |
+
+## Responsive Layouts
+
+Use `context.theme.breakpoints` to branch between stacked (mobile) and split (tablet/desktop) layouts—never hardcode widths.
+
+```dart
+final bp = context.theme.breakpoints;
+final width = MediaQuery.sizeOf(context).width;
+
+if (width < bp.sm) {
+  return MobileLayout();
+} else {
+  return DesktopLayout();
+}
+```
+
+## Touch Targets
+
+* All interactive elements must be at least **48×48** logical pixels.
+* `FTile`, `FButton`, and `FSelectTile` already meet this requirement—reuse them instead of custom `GestureDetector`.
+* If you must use `GestureDetector`, wrap child widgets in `SizedBox`/`Padding` to meet the touch target minimum.
+
+## Accessibility Requirements
+
+**2025 Best Practice:** Forui widgets automatically provide accessibility from their `title`, `label`, `description`, `subtitle`, and `hint` properties. Flutter's accessibility system extracts this information automatically.
+
+* **FButton:** Accessibility comes from `child` Text content automatically
+* **FTile:** Accessibility comes from `title`, `subtitle`, and `details` automatically
+* **FSelectTile / FSelectMenuTile:** Accessibility comes from `title` and `detailsBuilder` automatically
+* **FTextFormField:** Accessibility comes from `label` and `hint` properties automatically
+* **Decorative Icons:** Wrap chevrons and decorative-only icons with `ExcludeSemantics`
+* **All user-facing text MUST use `Strings.dart` constants** (project constraint)
+* **Explicit Semantics:** Only add explicit `Semantics` wrappers when you need additional context beyond what Forui provides, or for custom widgets
+
+**Important:** Don't wrap Forui widgets with `Semantics` if it breaks type constraints (e.g., `FTileMixin`). Trust Forui's built-in accessibility instead.
+
+See `.cursor/rules/accessibility.mdc` for detailed patterns and examples.
+
+## Theming & Colors
+
+* **Never** hardcode colors (e.g., `Colors.red`). Use `context.theme.colors...`.
+* Use CLI-generated styles (`dart run forui style create ...`) and access them via `context.theme`.
+* Semantic colors (Princeps/Generic) live in `AppColors`, but layout primitives must read from the theme tokens.
+
+## Application Setup (main.dart)
 
 **CRITICAL:** Follow this exact pattern for root application setup:
 
@@ -108,7 +164,26 @@ FScaffold(
 
 **Important:** `FScaffold` automatically provides `FToaster` context for `showFToast`.
 
-## 4. Toast Notifications
+## 4. CLI-Driven Styling Pattern
+
+When a component needs a specific look (e.g., a "Princeps" badge or a muted card), do not subclass widgets.
+
+1. **Generate:** `dart run forui style create badge` (or `card`, `button`, etc.).
+2. **Define:** Add strongly-typed getters in `lib/theme/<component>_styles.dart`.
+3. **Use:** Pass the generated style directly to the target widget.
+
+```dart
+final styles = context.theme.badgeStyles;
+
+FBadge(
+  style: styles.princeps,
+  child: Text(Strings.princepsLabel),
+)
+```
+
+**Interactive States:** Prefer `FWidgetStateMap` and CLI scaffolding for hover/pressed/focus styling instead of manual `copyWith`.
+
+## 5. Toast Notifications
 
 **Pattern:** Use `showFToast` (automatically works with `FScaffold`):
 
@@ -147,7 +222,7 @@ showFToast(
 * Use `FIcons` for icons (from `forui_assets`)
 * `suffixBuilder` receives `(context, entry)` - use `entry.dismiss()` to close
 
-## 5. Dialog Pattern
+## 6. Dialog Pattern
 
 **Pattern:** Use `showFDialog` with `FDialog` widget:
 
@@ -184,15 +259,15 @@ showFDialog(
 * `actions` is required (use empty list `[]` if no actions)
 * Use `Navigator.of(context).pop()` to close
 
-## 6. Sheet Pattern (Mobile/Desktop Adaptive)
+## 7. Sheet & Overlay Pattern (Mobile-First)
 
-**Pattern:** Use `showFSheet` for bottom sheets (mobile) or side sheets (desktop):
+**Pattern:** Prefer `showFSheet` with `FLayout.btt` for mobile; read breakpoints from `context.theme.breakpoints` (e.g., `bp.sm`) instead of hardcoded widths when you need to branch between sheet and dialog behavior. Rely on sheet `constraints` to naturally adapt to wider screens instead of manual `if (width < 640)` checks.
 
 ```dart
-// Mobile: Bottom Sheet
 showFSheet(
   context: context,
-  side: FLayout.btt, // Bottom to Top
+  side: FLayout.btt,
+  constraints: const BoxConstraints(maxWidth: 520),
   barrierDismissible: true,
   draggable: true,
   builder: (context) => Padding(
@@ -200,22 +275,12 @@ showFSheet(
     child: YourContent(),
   ),
 );
-
-// Desktop: Side Sheet
-showFSheet(
-  context: context,
-  side: FLayout.ltr, // Left to Right
-  builder: (context) => YourContent(),
-);
 ```
 
-**Key Points:**
+* Use `FDialog.adaptive` only for blocking confirmations.
+* Remove custom `AdaptiveOverlay` helpers; rely on the built-in APIs.
 
-* `FLayout.btt` for mobile bottom sheets
-* `FLayout.ltr` or `FLayout.rtl` for desktop side sheets
-* `draggable: true` enables swipe-to-dismiss on mobile
-
-## 7. Controller Pattern (Hooks)
+## 8. Controller Pattern (Hooks)
 
 **Mandate:** Always use `forui_hooks` for component controllers.
 
@@ -283,14 +348,11 @@ class MySelectWidget extends HookWidget {
 * `useFTabController()` - For `FTabs`
 * `useFPaginationController()` - For `FPagination`
 
-## 8. Text Replacement Pattern
+## 9. Text Pattern
 
-Replace `BaseText` with standard Flutter `Text` widget using theme typography:
+Use standard Flutter `Text` widget using theme typography:
 
 ```dart
-// ❌ Old (Wrapper)
-BaseText('Title', variant: TextVariant.h1)
-
 // ✅ New (Direct)
 Text('Title', style: context.theme.typography.h1)
 
@@ -310,16 +372,9 @@ Text('Description', style: context.theme.typography.sm.copyWith(
 * `small` → `context.theme.typography.sm`
 * `muted` → `context.theme.typography.sm.copyWith(color: context.theme.colors.mutedForeground)`
 
-## 9. Button Replacement Pattern
+## 10. Button Pattern
 
 ```dart
-// ❌ Old (Wrapper)
-BaseButton(
-  label: 'Click',
-  variant: ButtonVariant.outline,
-  onPressed: () {},
-)
-
 // ✅ New (Direct)
 FButton(
   style: FButtonStyle.outline(),
@@ -343,15 +398,9 @@ FButton.icon(
 * `ghost` → `style: FButtonStyle.ghost()`
 * `destructive` → `style: FButtonStyle.destructive()`
 
-## 10. Card Replacement Pattern
+## 11. Card Pattern
 
 ```dart
-// ❌ Old (Wrapper)
-BaseCard(
-  padding: EdgeInsets.all(16),
-  child: ...,
-)
-
 // ✅ New (Direct) - For generic containers
 FCard.raw(
   child: Padding(
@@ -366,68 +415,32 @@ FCard(
   subtitle: const Text('Subtitle'),
   child: ...,
 )
+```
 
-// ✅ Custom styling
-final customStyle = context.theme.cardStyle.copyWith(
-  decoration: BoxDecoration(
-    color: context.theme.colors.secondary.withValues(alpha: 0.08),
-    border: Border.all(
-      color: context.theme.colors.secondary.withValues(alpha: 0.2),
-      width: 1.2,
-    ),
-  ),
-);
-FCard.raw(
-  style: customStyle,
-  child: ...,
+## 12. Badge Pattern
+
+```dart
+final badgeStyles = context.theme.badgeStyles;
+
+FBadge(
+  style: badgeStyles.generic,
+  child: Text(Strings.genericLabel),
 )
 ```
 
-## 11. Badge Replacement Pattern
+* No wrapper widgets (e.g., `PrincepsBadge`) allowed.
+* Add every badge style via the CLI-generated files in `lib/theme/`.
+
+## 13. Input Field Pattern
 
 ```dart
-// ❌ Old (Wrapper)
-BaseBadge(
-  label: 'Status',
-  variant: BadgeVariant.outline,
-)
-
-// ✅ New (Direct)
-FBadge(
-  style: FBadgeStyle.outline(),
-  child: const Text('Status'),
-)
-
-// Custom colored badge
-FBadge(
-  style: FBadgeStyle.primary().copyWith(
-    color: context.theme.colors.primary,
-    labelTextStyle: (state) => context.theme.typography.sm.copyWith(
-      color: context.theme.colors.primaryForeground,
-    ),
-  ),
-  child: const Text('Custom'),
-)
-```
-
-**Badge Styles:**
-
-* `FBadgeStyle.primary()` - Default filled badge
-* `FBadgeStyle.secondary()` - Secondary color
-* `FBadgeStyle.outline()` - Outlined badge
-* `FBadgeStyle.destructive()` - Error/destructive badge
-
-## 12. Input Field Pattern
-
-```dart
-// ✅ Standard Text Field
+// ✅ Standard Text Field (Modern)
 FTextField(
-  label: const Text('Email'),
-  hint: 'Enter your email',
   controller: emailController,
+  hint: 'Enter your email',
+  clearable: (value) => value.text.isNotEmpty, // Native clear button
   keyboardType: TextInputType.emailAddress,
   prefixBuilder: (context, style, states) => const Icon(FIcons.mail),
-  suffixBuilder: (context, style, states) => const Icon(FIcons.x),
 )
 
 // ✅ Form Field (with validation)
@@ -460,7 +473,7 @@ FTextFormField.password(
 * `prefixBuilder` and `suffixBuilder` receive `(context, style, states)`
 * Convenience constructors: `.email()`, `.password()`, `.multiline()`
 
-## 13. Select/Dropdown Pattern
+## 14. Select/Dropdown Pattern
 
 ```dart
 // ✅ Select with Controller (HookWidget)
@@ -491,7 +504,7 @@ FSelect.rich(
 )
 ```
 
-## 14. Alert Pattern
+## 15. Alert Pattern
 
 ```dart
 // ✅ Destructive Alert
@@ -509,10 +522,10 @@ FAlert(
 )
 ```
 
-## 15. Progress Indicator Pattern
+## 16. Progress Indicator Pattern
 
 ```dart
-// ✅ Indeterminate Progress
+// ✅ Indeterminate Linear Progress
 SizedBox(
   height: 4.0,
   child: LinearProgressIndicator(
@@ -524,7 +537,7 @@ SizedBox(
   ),
 )
 
-// ✅ Determinate Progress
+// ✅ Determinate Linear Progress
 SizedBox(
   height: 4.0,
   child: LinearProgressIndicator(
@@ -536,19 +549,27 @@ SizedBox(
     minHeight: 4.0,
   ),
 )
+
+// ✅ Native Circular Loader
+FCircularProgress.loader(
+  style: FCircularProgressStyle(size: 24),
+)
 ```
 
-## 16. Tooltip Pattern
+## 17. Tooltip Pattern
 
 ```dart
-// ✅ Use Material Tooltip (Forui doesn't have native tooltip)
-Tooltip(
-  message: 'Tooltip text',
+// ✅ Use native Forui tooltip with hover + long-press
+FTooltip(
+  tipBuilder: (context, controller) => const Text('Tooltip text'),
   child: Icon(FIcons.info),
 )
 ```
 
-## 17. Responsive Layout
+* Prefer `hover: true, longPress: true` for desktop/mobile parity.
+* Use `tipAnchor` / `childAnchor` to align tooltips instead of manual padding.
+
+## 18. Responsive Layout
 
 ```dart
 final width = MediaQuery.sizeOf(context).width;
@@ -563,48 +584,28 @@ if (width < bp.sm) {
 }
 ```
 
-**Breakpoints:**
+**Breakpoints (always read from `context.theme.breakpoints`):**
 
-* `bp.sm` - Small (typically 640px)
-* `bp.md` - Medium (typically 768px)
-* `bp.lg` - Large (typically 1024px)
-* `bp.xl` - Extra Large (typically 1280px)
+* `bp.sm` - Small
+* `bp.md` - Medium
+* `bp.lg` - Large
+* `bp.xl` - Extra Large
 
-## 18. Customization Workflow
+## 19. Customization Workflow
 
 If a component requires heavy customization:
 
-1. **Do NOT** subclass `FButton`, `FCard`, etc.
-2. **Do** use `dart run forui style create [component]` to generate a local style file.
-3. **Do** apply that style via the `style:` parameter.
-4. **Do** use `copyWith()` for minor tweaks.
+1. **Generate** the style via CLI (`dart run forui style create card`).
+2. **Edit** the generated file under `lib/theme/`.
+3. **Reference** the style through `context.theme`.
+4. **Use** `copyWith()` only for minor per-instance tweaks.
 
 ```dart
-// Generate style: dart run forui style create button
-// Then use:
-FButton(
-  style: customButtonStyle(
-    colors: context.theme.colors,
-    typography: context.theme.typography,
-    style: context.theme.style,
-  ),
-  child: const Text('Custom Button'),
-)
-```
+final cardStyle = context.theme.cardStyles.alert;
 
-## 19. Style Object Call Function
-
-All Forui styles implement the `call` function, allowing direct passing:
-
-```dart
-// Long-form
-FButton(
-  style: (style) => FButtonStyle(...),
-)
-
-// Short-form (preferred)
-FButton(
-  style: FButtonStyle(...),
+FCard.raw(
+  style: cardStyle,
+  child: ...,
 )
 ```
 
@@ -699,47 +700,3 @@ extension PumpApp on WidgetTester {
   }
 }
 ```
-
-## 23. Common Anti-Patterns to Avoid
-
-**❌ DON'T:**
-
-* Create wrapper widgets (`AppButton`, `BaseCard`, etc.)
-* Use `MixScope` or `Mix` styling
-* Use `LucideIcons` directly
-* Use `AppTokens` for colors/typography
-* Put `FAnimatedTheme` directly in MaterialApp (must be in builder)
-* Use Material `Scaffold` when `FScaffold` is available
-* Use `StatefulWidget` for controllers (use hooks instead)
-
-**✅ DO:**
-
-* Use Forui components directly
-* Use `context.theme` for all styling
-* Use `FIcons` from `forui_assets`
-* Use `FAnimatedTheme` in MaterialApp builder
-* Use `FScaffold` for main layouts
-* Use `forui_hooks` for all controllers
-* Use `HookWidget` or `HookConsumerWidget` for stateful UI
-
-## 24. Migration Checklist
-
-When migrating from Mix/Shadcn to Forui:
-
-* [ ] Replace `MixScope` with `FAnimatedTheme` in `main.dart`
-* [ ] Replace `Scaffold` with `FScaffold` in main screens
-* [ ] Replace `BaseButton` with `FButton`
-* [ ] Replace `BaseCard` with `FCard` or `FCard.raw`
-* [ ] Replace `BaseText` with `Text` + `context.theme.typography`
-* [ ] Replace `BaseBadge` with `FBadge`
-* [ ] Replace `BaseInput` with `FTextField` or `FTextFormField`
-* [ ] Replace `BaseDialog` with `FDialog` + `showFDialog`
-* [ ] Replace `BaseToast` with `showFToast`
-* [ ] Replace `BaseAccordion` with `FAccordion` + `useFAccordionController`
-* [ ] Replace `BaseSelect` with `FSelect` + `useFSelectController`
-* [ ] Replace `BaseRadioGroup` with `FSelectGroup` + `useFSelectGroupController`
-* [ ] Replace `LucideIcons` with `FIcons`
-* [ ] Replace `AppTokens` with `context.theme.colors` / `context.theme.typography`
-* [ ] Remove `mix` and `lucide_icons_flutter` dependencies
-* [ ] Delete all `Base*` wrapper files
-* [ ] Update test helpers to use `FAnimatedTheme`

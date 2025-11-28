@@ -1,0 +1,99 @@
+---
+alwaysApply: true
+---
+# Layout Safety & Constraint Protocol
+
+## 1. The Golden Rule of Constraints
+
+**"Constraints go down. Sizes go up. Parent sets position."**
+
+* **Constraint:** You generally cannot size a widget larger than its parent allows.
+* **Overflow:** Occurs when a child demands more space than the parent allows.
+
+## 2. Flex Layout Safety (Column/Row)
+
+**Context:** The most common source of overflows.
+
+### Rule 2.1: Unbounded Children
+
+**NEVER** place a widget with infinite size (e.g., `ListView`, `GridView`, `TextField` with `maxLines: null`) inside a `Column` or `Row` without constraints.
+
+* **❌ BAD:**
+
+    ```dart
+    Column(
+      children: [
+        Text('Header'),
+        ListView(...), // CRASH: Unbounded vertical height
+      ],
+    )
+    ```
+
+* **✅ GOOD (The Fix):** Wrap in `Expanded` or `Flexible`.
+
+    ```dart
+    Column(
+      children: [
+        Text('Header'),
+        Expanded(child: ListView(...)), // OK: Takes remaining space
+      ],
+    )
+    ```
+
+### Rule 2.2: Text Overflow
+
+**ALWAYS** assume text will be longer than expected (localization, dynamic data).
+
+* **❌ BAD:** `Text(data.title)` inside a Row.
+* **✅ GOOD:** Wrap in `Expanded` or `Flexible` and handle overflow.
+
+    ```dart
+    Row(
+      children: [
+        Icon(...),
+        Expanded(
+          child: Text(
+            data.title,
+            overflow: TextOverflow.ellipsis, // Critical
+            maxLines: 1,
+          ),
+        ),
+      ],
+    )
+    ```
+
+## 3. Scrolling & Viewports
+
+### Rule 3.1: The Scrollable Wrapper
+
+If a screen contains a form or variable content, it **MUST** be scrollable to prevent bottom overflow (especially on small screens).
+
+* **Pattern:** `FScaffold` > `SingleChildScrollView` > `Column`.
+* **Exception:** If using `FScaffold` with `resizeToAvoidBottomInset: true` (default), ensure body is scrollable so content pushes up when keyboard opens.
+
+### Rule 3.2: List Nesting
+
+**NEVER** nest a `ListView` inside a `ListView` or `SingleChildScrollView` with `shrinkWrap: true` unless absolutely necessary for a tiny list. It destroys performance.
+
+* **Solution:** Use **Slivers** (Refer to `forui-sliver-guidelines.mdc`) or `CustomScrollView`.
+
+## 4. Keyboard Handling
+
+**Context:** Keyboards cause bottom overflow errors in Forms.
+
+* **Requirement:** All forms must be wrapped in a scroll view.
+* **Spacer Ban:** Do not use `Spacer()` inside a `SingleChildScrollView` (it throws an error). Use `SizedBox(height: ...)` or `LayoutBuilder` if you need to push content to the bottom.
+
+## 5. Intrinsic Dimensions (Performance Warning)
+
+Avoid `IntrinsicHeight` and `IntrinsicWidth` whenever possible. They force an expensive double-layout pass.
+
+* **Alternative:** Use `Row(crossAxisAlignment: CrossAxisAlignment.stretch)` to make children match heights.
+
+## 6. Safe Area
+
+`FScaffold` handles `SafeArea` by default.
+
+* **Do NOT** double-wrap content in `SafeArea` inside `FScaffold`.
+* **DO** use `SafeArea` if you are using a raw `showModalBottomSheet` (though `showFSheet` handles this).
+

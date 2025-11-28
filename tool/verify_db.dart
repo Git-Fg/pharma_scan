@@ -44,7 +44,9 @@ Future<void> main(List<String> args) async {
   print('   Size: $fileSizeMB MB\n');
 
   // Open database
-  final database = AppDatabase.forTesting(NativeDatabase(dbFile));
+  final database = AppDatabase.forTesting(
+    NativeDatabase(dbFile, setup: configureAppSQLite),
+  );
 
   try {
     // Action 1: Count rows in medicament_summary

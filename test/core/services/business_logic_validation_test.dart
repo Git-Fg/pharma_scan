@@ -23,7 +23,9 @@ void main() {
         documentsDir.path,
       );
       final dbFile = File(p.join(documentsDir.path, 'medicaments.db'));
-      database = AppDatabase.forTesting(NativeDatabase(dbFile));
+      database = AppDatabase.forTesting(
+        NativeDatabase(dbFile, setup: configureAppSQLite),
+      );
       dataInitializationService = DataInitializationService(database: database);
     });
 

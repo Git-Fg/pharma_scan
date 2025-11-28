@@ -1,5 +1,7 @@
 // lib/core/services/ingestion/bdpm_file_parser.dart
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:decimal/decimal.dart';
 import 'package:fpdart/fpdart.dart';
@@ -26,23 +28,42 @@ class InvalidFormatError extends ParseError {
 class BdpmFileParser {
   BdpmFileParser._(); // Private constructor to prevent instantiation
 
+  // WHY: Expose a reusable helper to decode BDPM files line-by-line using
+  // latin1 to match legacy behavior, while avoiding loading full files in memory.
+  static Stream<String>? openLineStream(String? path) {
+    if (path == null || path.isEmpty) {
+      return null;
+    }
+    final file = File(path);
+    if (!file.existsSync()) {
+      return null;
+    }
+    return file
+        .openRead()
+        .transform(latin1.decoder)
+        .transform(const LineSplitter());
+  }
+
   // WHY: Parse BDPM specialites file and return structured data.
   // Allows every form and filters only on BOIRON noise.
   // Returns Either for Railway Oriented Programming - explicit error handling.
-  static Either<ParseError, SpecialitesParseResult> parseSpecialites(
-    String? content,
+  static Future<Either<ParseError, SpecialitesParseResult>> parseSpecialites(
+    Stream<String>? lines,
     Map<String, String> conditionsByCis,
     Map<String, String> mitmMap,
-  ) {
+  ) async {
     final specialites = <Map<String, dynamic>>[];
     final namesByCis = <String, String>{};
     final seenCis = <String>{};
 
-    if (content == null || content.isEmpty) {
+    if (lines == null) {
       return const Left(EmptyContentError('specialites'));
     }
 
-    for (final line in content.split('\n')) {
+    var hasData = false;
+    await for (final line in lines) {
+      hasData = true;
+      if (line.trim().isEmpty) continue;
       final parts = line.split('\t');
       switch (parts) {
         case [
@@ -100,6 +121,10 @@ class BdpmFileParser {
       }
     }
 
+    if (!hasData) {
+      return const Left(EmptyContentError('specialites'));
+    }
+
     return Right((
       specialites: specialites,
       namesByCis: namesByCis,
@@ -109,21 +134,24 @@ class BdpmFileParser {
 
   // WHY: Parse BDPM medicaments file and return structured data.
   // Returns Either for Railway Oriented Programming.
-  static Either<ParseError, MedicamentsParseResult> parseMedicaments(
-    String? content,
+  static Future<Either<ParseError, MedicamentsParseResult>> parseMedicaments(
+    Stream<String>? lines,
     SpecialitesParseResult specialitesResult,
-  ) {
+  ) async {
     final cisToCip13 = <String, List<String>>{};
     final medicaments = <Map<String, dynamic>>[];
     final medicamentCips = <String>{};
     final seenCis = specialitesResult.seenCis;
     final namesByCis = specialitesResult.namesByCis;
 
-    if (content == null || content.isEmpty) {
+    if (lines == null) {
       return const Left(EmptyContentError('medicaments'));
     }
 
-    for (final line in content.split('\n')) {
+    var hasData = false;
+    await for (final line in lines) {
+      hasData = true;
+      if (line.trim().isEmpty) continue;
       final parts = line.split('\t');
       switch (parts) {
         case [
@@ -177,6 +205,10 @@ class BdpmFileParser {
       }
     }
 
+    if (!hasData) {
+      return const Left(EmptyContentError('medicaments'));
+    }
+
     return Right((
       medicaments: medicaments,
       cisToCip13: cisToCip13,
@@ -186,19 +218,21 @@ class BdpmFileParser {
 
   // WHY: Parse BDPM compositions file and extract active principles with dosages.
   // Returns Either for Railway Oriented Programming.
-  static Either<ParseError, List<Map<String, dynamic>>> parseCompositions(
-    String? content,
+  static Future<Either<ParseError, List<Map<String, dynamic>>>>
+  parseCompositions(
+    Stream<String>? lines,
     Map<String, List<String>> cisToCip13,
-  ) {
+  ) async {
     final principes = <Map<String, dynamic>>[];
 
-    if (content == null || content.isEmpty) {
+    if (lines == null) {
       return Right(principes);
     }
 
     final rowsByKey = <String, _CompositionGroup>{};
 
-    for (final line in content.split('\n')) {
+    await for (final line in lines) {
+      if (line.trim().isEmpty) continue;
       final parts = line.split('\t');
       if (parts.length < 8) continue;
 
@@ -250,23 +284,24 @@ class BdpmFileParser {
 
   // WHY: Parse BDPM generiques file and return group data.
   // Returns Either for Railway Oriented Programming.
-  static Either<ParseError, GeneriquesParseResult> parseGeneriques(
-    String? content,
+  static Future<Either<ParseError, GeneriquesParseResult>> parseGeneriques(
+    Stream<String>? lines,
     Map<String, List<String>> cisToCip13,
     Set<String> medicamentCips,
-  ) {
+  ) async {
     final generiqueGroups = <Map<String, dynamic>>[];
     final groupMembers = <Map<String, dynamic>>[];
     final seenGroups = <String>{};
 
-    if (content == null || content.isEmpty) {
+    if (lines == null) {
       return Right((
         generiqueGroups: generiqueGroups,
         groupMembers: groupMembers,
       ));
     }
 
-    for (final line in content.split('\n')) {
+    await for (final line in lines) {
+      if (line.trim().isEmpty) continue;
       final parts = line.split('\t');
       switch (parts) {
         case [
@@ -311,12 +346,15 @@ class BdpmFileParser {
   }
 
   // WHY: Parse BDPM conditions file and return CIS-to-condition mapping.
-  static Map<String, String> parseConditions(String? content) {
+  static Future<Map<String, String>> parseConditions(
+    Stream<String>? lines,
+  ) async {
     final conditions = <String, String>{};
 
-    if (content == null) return conditions;
+    if (lines == null) return conditions;
 
-    for (final line in content.split('\n')) {
+    await for (final line in lines) {
+      if (line.trim().isEmpty) continue;
       final parts = line.split('\t');
       if (parts.length >= 2) {
         final cis = parts[0].trim();
@@ -385,11 +423,12 @@ class BdpmFileParser {
   }
 
   // WHY: Parse BDPM MITM file and return CIS-to-ATC mapping.
-  static Map<String, String> parseMitm(String? content) {
+  static Future<Map<String, String>> parseMitm(Stream<String>? lines) async {
     final mitmMap = <String, String>{};
-    if (content == null) return mitmMap;
+    if (lines == null) return mitmMap;
 
-    for (final line in content.split('\n')) {
+    await for (final line in lines) {
+      if (line.trim().isEmpty) continue;
       final parts = line.split('\t');
       if (parts.length >= 2) {
         final cis = parts[0].trim();
@@ -405,16 +444,17 @@ class BdpmFileParser {
   // WHY: Parse BDPM availability file and keep only actionable shortage/tension rows.
   // Expands CIS-level shortages (empty CIP) to every known CIP for that CIS.
   // Returns Either for Railway Oriented Programming.
-  static Either<ParseError, List<Map<String, dynamic>>> parseAvailability(
-    String? content,
+  static Future<Either<ParseError, List<Map<String, dynamic>>>>
+  parseAvailability(
+    Stream<String>? lines,
     Map<String, List<String>> cisToCip13,
-  ) {
+  ) async {
     final availability = <Map<String, dynamic>>[];
-    if (content == null || content.isEmpty) {
+    if (lines == null) {
       return Right(availability);
     }
 
-    for (final line in content.split('\n')) {
+    await for (final line in lines) {
       if (line.trim().isEmpty) continue;
       final parts = line.split('\t');
       if (parts.length < 4) continue;
@@ -458,16 +498,6 @@ class BdpmFileParser {
     }
 
     return Right(availability);
-  }
-
-  // WHY: Decode file content, handling both latin1 and utf8 encodings.
-  static String? decodeContent(List<int>? bytes) {
-    if (bytes == null) return null;
-    try {
-      return latin1.decode(bytes);
-    } catch (_) {
-      return utf8.decode(bytes, allowMalformed: true);
-    }
   }
 }
 

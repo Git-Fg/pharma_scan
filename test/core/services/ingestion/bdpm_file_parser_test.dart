@@ -1,16 +1,22 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pharma_scan/core/services/ingestion/bdpm_file_parser.dart';
 
+Stream<String> _streamFromContent(String content) =>
+    Stream<String>.value(content).transform(const LineSplitter());
+
 void main() {
   group('BdpmFileParser.parseSpecialites', () {
-    test('keeps all statuses including archived/suspended', () {
+    test('keeps all statuses including archived/suspended', () async {
       const content = '''
 123456\tSPECIALITE ACTIVE\tComprimé\torale\tAutorisation active\tProcédure A\tCommercialisé\t01/01/2024\tstatutbdm\tEU9999\tLab Active\tNon
 654321\tSPECIALITE ARCHIVE\tComprimé\torale\tAutorisation suspendue\tProcédure B\tCommercialisé\t01/02/2024\tstatutbdm\tEU8888\tLab Old\tNon
 ''';
 
-      final resultEither = BdpmFileParser.parseSpecialites(
-        content,
+      final resultEither = await BdpmFileParser.parseSpecialites(
+        _streamFromContent(content),
         const <String, String>{},
         const <String, String>{},
       );
@@ -33,13 +39,13 @@ void main() {
       );
     });
 
-    test('should exclude products from BOIRON laboratory', () {
+    test('should exclude products from BOIRON laboratory', () async {
       const content = '''
 123456\tSPECIALITE BOIRON\tComprimé\torale\tAutorisation active\tProcédure A\tCommercialisé\t01/01/2024\tstatutbdm\tEU9999\tLABORATOIRES BOIRON\tNon
 ''';
 
-      final resultEither = BdpmFileParser.parseSpecialites(
-        content,
+      final resultEither = await BdpmFileParser.parseSpecialites(
+        _streamFromContent(content),
         const <String, String>{},
         const <String, String>{},
       );
@@ -53,13 +59,13 @@ void main() {
       expect(result.seenCis, isEmpty);
     });
 
-    test('should include previously excluded forms such as Gaz', () {
+    test('should include previously excluded forms such as Gaz', () async {
       const content = '''
 123456\tGAZ MEDICINAL\tGaz médicinal\tinhalation\tAutorisation active\tProcédure Gaz\tCommercialisé\t01/01/2024\tstatutbdm\tEU7777\tAIR LIQUIDE\tNon
 ''';
 
-      final resultEither = BdpmFileParser.parseSpecialites(
-        content,
+      final resultEither = await BdpmFileParser.parseSpecialites(
+        _streamFromContent(content),
         const <String, String>{},
         const <String, String>{},
       );
@@ -77,13 +83,13 @@ void main() {
       );
     });
 
-    test('accepts homéopathique procedure when titulaire not BOIRON', () {
+    test('accepts homéopathique procedure when titulaire not BOIRON', () async {
       const content = '''
 123456\tSPECIALITE HOMEOPATHIQUE\tComprimé\torale\tAutorisation active\tProcédure homéopathique\tCommercialisé\t01/01/2024\tstatutbdm\tEU9999\tLab Homeo\tNon
 ''';
 
-      final resultEither = BdpmFileParser.parseSpecialites(
-        content,
+      final resultEither = await BdpmFileParser.parseSpecialites(
+        _streamFromContent(content),
         const <String, String>{},
         const <String, String>{},
       );
@@ -100,7 +106,7 @@ void main() {
   });
 
   group('BdpmFileParser.parseCompositions', () {
-    test('uses FT rows to resolve principle name and dosage', () {
+    test('uses FT rows to resolve principle name and dosage', () async {
       const content = '''
 123456\tfield1\tfield2\tMetformine chlorhydrate\t500 mg\tfield5\tSA\tL1
 123456\tfield1\tfield2\tMetformine\t500 mg base\tfield5\tFT\tL1
@@ -109,8 +115,8 @@ void main() {
         '123456': ['987654321'],
       };
 
-      final resultEither = BdpmFileParser.parseCompositions(
-        content,
+      final resultEither = await BdpmFileParser.parseCompositions(
+        _streamFromContent(content),
         cisToCip13,
       );
 
@@ -126,7 +132,7 @@ void main() {
       expect(entry['dosage_unit'], equals('mg base'));
     });
 
-    test('falls back to SA data when FT row missing', () {
+    test('falls back to SA data when FT row missing', () async {
       const content = '''
 123456\tfield1\tfield2\tMetformine chlorhydrate\t850 mg\tfield5\tSA\tL2
 ''';
@@ -134,8 +140,8 @@ void main() {
         '123456': ['111111111'],
       };
 
-      final resultEither = BdpmFileParser.parseCompositions(
-        content,
+      final resultEither = await BdpmFileParser.parseCompositions(
+        _streamFromContent(content),
         cisToCip13,
       );
 
@@ -153,7 +159,7 @@ void main() {
   });
 
   group('BdpmFileParser.parseMedicaments', () {
-    test('captures agrement collectivites in lowercase', () {
+    test('captures agrement collectivites in lowercase', () async {
       const content = '''
 123456\tcode7\tlibelle\tstatut admin\tDéclaration de commercialisation\t19/09/2011\t3400949497706\tOui\t65%\t1 226,20
 ''';
@@ -165,8 +171,8 @@ void main() {
         seenCis: {'123456'},
       );
 
-      final resultEither = BdpmFileParser.parseMedicaments(
-        content,
+      final resultEither = await BdpmFileParser.parseMedicaments(
+        _streamFromContent(content),
         specialitesResult,
       );
 
@@ -184,14 +190,17 @@ void main() {
   });
 
   group('BdpmFileParser.parseAvailability', () {
-    test('retains rupture/tension rows and parses dates', () {
+    test('retains rupture/tension rows and parses dates', () async {
       const content = '''
 123456\t3400933333333\t1\tRupture de stock\t12/02/2024\t15/02/2024
 123456\t3400944444444\t3\tArrêt\t01/01/2024
 123456\t\t1\tRupture sans CIP\t01/02/2024
 ''';
 
-      final resultEither = BdpmFileParser.parseAvailability(content, const {});
+      final resultEither = await BdpmFileParser.parseAvailability(
+        _streamFromContent(content),
+        const {},
+      );
 
       final result = resultEither.fold(
         (error) => fail('Expected success but got error: $error'),
@@ -206,7 +215,7 @@ void main() {
       expect(entry['date_fin'], equals(DateTime.utc(2024, 2, 15)));
     });
 
-    test('expands CIS-level shortages to every CIP', () {
+    test('expands CIS-level shortages to every CIP', () async {
       const content = '''
 123456\t\t2\tTension nationale\t05/03/2024\t
 ''';
@@ -214,8 +223,8 @@ void main() {
         '123456': ['3400911111111', '3400922222222'],
       };
 
-      final resultEither = BdpmFileParser.parseAvailability(
-        content,
+      final resultEither = await BdpmFileParser.parseAvailability(
+        _streamFromContent(content),
         cisToCip13,
       );
 
