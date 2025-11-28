@@ -78,18 +78,24 @@ class ProductCard extends StatelessWidget {
     final card = FCard.raw(
       child: Padding(
         padding: EdgeInsets.all(
-          compact ? AppDimens.spacingSm : AppDimens.spacingMd,
+          compact
+              ? AppDimens.spacing2xs
+              : AppDimens.spacingMd, // Reduced from spacingSm to spacing2xs
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (exactMatchBanner != null) ...[
               exactMatchBanner,
-              Gap(compact ? AppDimens.spacing2xs : AppDimens.spacingSm),
+              Gap(
+                compact ? 2.0 : AppDimens.spacingSm,
+              ), // Reduced from spacing2xs to 2.0
             ],
             if (availabilityAlert != null) ...[
               availabilityAlert,
-              Gap(compact ? AppDimens.spacing2xs : AppDimens.spacingSm),
+              Gap(
+                compact ? 2.0 : AppDimens.spacingSm,
+              ), // Reduced from spacing2xs to 2.0
             ],
             // Title row with badges and status icons
             Row(
@@ -97,72 +103,106 @@ class ProductCard extends StatelessWidget {
                 if (computedBadges.isNotEmpty) ...[
                   ...computedBadges.map(
                     (badge) => Padding(
-                      padding: const EdgeInsets.only(
-                        right: AppDimens.spacingXs,
+                      padding: EdgeInsets.only(
+                        right: compact
+                            ? 4.0
+                            : AppDimens
+                                  .spacingXs, // Reduced from spacingXs to 4.0
                       ),
                       child: badge,
                     ),
                   ),
-                  const Gap(AppDimens.spacingXs),
+                  Gap(
+                    compact ? 4.0 : AppDimens.spacingXs,
+                  ), // Reduced from spacingXs to 4.0
                 ],
                 Expanded(
                   child: Text(
                     displayTitle,
-                    style: context.theme.typography.xl2, // h4 equivalent
+                    style: compact
+                        ? context.theme.typography.base
+                        : context.theme.typography.xl2, // h4 equivalent
                     overflow: TextOverflow.ellipsis,
-                    maxLines: 2,
+                    maxLines: compact ? 1 : 2,
                   ),
                 ),
                 if (statusIcons is! SizedBox) ...[
-                  const Gap(AppDimens.spacingXs),
+                  Gap(
+                    compact ? 4.0 : AppDimens.spacingXs,
+                  ), // Reduced from spacingXs to 4.0
                   statusIcons,
                 ],
                 if (trailing != null) ...[
-                  const Gap(AppDimens.spacingXs),
+                  Gap(
+                    compact ? 4.0 : AppDimens.spacingXs,
+                  ), // Reduced from spacingXs to 4.0
                   trailing!,
                 ],
               ],
             ),
+            // Equivalence - highlighted and prominent (most important information)
             if (princepsReference != null) ...[
-              Gap(compact ? AppDimens.spacing2xs : AppDimens.spacingXs),
+              Gap(
+                compact ? 4.0 : AppDimens.spacingSm,
+              ), // More space to make it stand out
               princepsReference,
             ],
             // Subtitle
             if (displaySubtitle.isNotEmpty) ...[
-              Gap(compact ? AppDimens.spacing2xs : AppDimens.spacingXs),
+              Gap(
+                compact ? 2.0 : AppDimens.spacingXs,
+              ), // Reduced from spacing2xs to 2.0
               ...displaySubtitle.map(
                 (line) => Padding(
                   padding: EdgeInsets.only(
                     bottom: compact
-                        ? AppDimens.spacing2xs
-                        : AppDimens.spacingXs / 2,
+                        ? 2.0
+                        : AppDimens.spacingXs /
+                              2, // Reduced from spacing2xs to 2.0
                   ),
                   child: Text(
                     line,
-                    style: context.theme.typography.sm.copyWith(
-                      color: context.theme.colors.mutedForeground,
-                    ),
+                    style:
+                        (compact
+                                ? context.theme.typography.xs
+                                : context.theme.typography.sm)
+                            .copyWith(
+                              color: context.theme.colors.mutedForeground,
+                            ),
                     overflow: TextOverflow.ellipsis,
+                    maxLines: compact
+                        ? 1
+                        : null, // Single line for compact mode
                   ),
                 ),
               ),
             ],
             if (regulatoryBadges.isNotEmpty) ...[
-              Gap(compact ? AppDimens.spacing2xs : AppDimens.spacingXs),
+              Gap(
+                compact ? 2.0 : AppDimens.spacingXs,
+              ), // Reduced from spacing2xs to 2.0
               Wrap(
-                spacing: AppDimens.spacing2xs,
-                runSpacing: AppDimens.spacing2xs / 2,
+                spacing: compact
+                    ? 2.0
+                    : AppDimens.spacing2xs, // Reduced spacing
+                runSpacing: compact
+                    ? 1.0
+                    : AppDimens.spacing2xs / 2, // Reduced runSpacing
                 children: regulatoryBadges,
               ),
             ],
             // Details section
             if (showDetails) ...[
-              Gap(compact ? AppDimens.spacing2xs : AppDimens.spacingSm),
+              Gap(
+                compact ? 2.0 : AppDimens.spacingSm,
+              ), // Reduced from spacing2xs to 2.0
               ..._buildDetails(context),
             ],
             // Actions
             if (showActions) ...[
-              Gap(compact ? AppDimens.spacing2xs : AppDimens.spacingMd),
+              Gap(
+                compact ? 2.0 : AppDimens.spacingMd,
+              ), // Reduced from spacing2xs to 2.0
               _buildActions(context),
             ],
           ],
@@ -186,9 +226,9 @@ class ProductCard extends StatelessWidget {
   }
 
   List<Widget> _buildDetails(BuildContext context) {
-    final mutedStyle = context.theme.typography.sm.copyWith(
-      color: context.theme.colors.mutedForeground,
-    );
+    final mutedStyle =
+        (compact ? context.theme.typography.xs : context.theme.typography.sm)
+            .copyWith(color: context.theme.colors.mutedForeground);
     final widgets = <Widget>[];
 
     if (summary.titulaire != null && summary.titulaire!.isNotEmpty) {
@@ -199,7 +239,7 @@ class ProductCard extends StatelessWidget {
           style: mutedStyle,
         ),
       );
-      widgets.add(const Gap(AppDimens.spacingXs));
+      widgets.add(Gap(compact ? 2.0 : AppDimens.spacingXs)); // Reduced gap
     }
 
     widgets.add(
@@ -214,7 +254,7 @@ class ProductCard extends StatelessWidget {
     // Financial details are "details", not "identity" - declutter the preview card
 
     if (summary.principesActifsCommuns.isNotEmpty) {
-      widgets.add(const Gap(AppDimens.spacingXs));
+      widgets.add(Gap(compact ? 2.0 : AppDimens.spacingXs)); // Reduced gap
       widgets.add(
         InfoLabel(
           text: summary.principesActifsCommuns.join(', '),
@@ -239,12 +279,20 @@ class ProductCard extends StatelessWidget {
             child: FButton(
               style: FButtonStyle.outline(),
               onPress: onExplore,
-              prefix: const Icon(FIcons.search, size: 16),
-              child: const Text(Strings.exploreGroup),
+              prefix: Icon(
+                FIcons.search,
+                size: compact ? 12 : 16,
+              ), // Reduced icon size
+              child: Text(
+                Strings.exploreGroup,
+                style: compact
+                    ? context.theme.typography.xs
+                    : null, // Smaller text for compact
+              ),
             ),
           ),
         if (onExplore != null && onClose != null)
-          const Gap(AppDimens.spacingXs),
+          Gap(compact ? 4.0 : AppDimens.spacingXs), // Reduced gap
         if (onClose != null)
           Semantics(
             button: true,
@@ -253,7 +301,12 @@ class ProductCard extends StatelessWidget {
             child: FButton(
               style: FButtonStyle.ghost(),
               onPress: onClose,
-              child: const Text(Strings.close),
+              child: Text(
+                Strings.close,
+                style: compact
+                    ? context.theme.typography.xs
+                    : null, // Smaller text for compact
+              ),
             ),
           ),
       ],
@@ -325,7 +378,9 @@ class ProductCard extends StatelessWidget {
       style: context.theme.alertStyles.destructive.call,
       title: Text(
         Strings.stockAlert(availabilityStatus!.trim()),
-        style: context.theme.typography.sm,
+        style: compact
+            ? context.theme.typography.xs
+            : context.theme.typography.sm,
       ),
     );
   }
@@ -418,39 +473,42 @@ class ProductCard extends StatelessWidget {
   }
 
   Widget _buildPrincepsReference(BuildContext context) {
-    final mutedColor = context.theme.colors.muted;
-    final princepsColor = context.theme.colors.secondaryForeground;
-    final radiusSm = 8.0; // Standard small radius
-    return Container(
-      padding: EdgeInsets.all(
-        compact ? AppDimens.spacingXs : AppDimens.spacingSm,
-      ),
-      decoration: BoxDecoration(
-        color: mutedColor,
-        borderRadius: BorderRadius.circular(radiusSm),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.max,
-        children: [
-          Icon(
-            FIcons.arrowRightLeft,
-            size: AppDimens.iconSm,
-            color: princepsColor,
-          ),
-          const Gap(AppDimens.spacingXs),
-          Expanded(
-            child: Text(
-              '${Strings.equivalentTo}${extractPrincepsLabel(summary.princepsDeReference)}',
+    final equivalentColor = context.theme.colors.destructive;
+    final equivalentText = extractPrincepsLabel(summary.princepsDeReference);
+
+    return Row(
+      mainAxisSize: MainAxisSize.max,
+      children: [
+        Icon(
+          FIcons.arrowRightLeft,
+          size: compact ? AppDimens.iconXs : AppDimens.iconSm,
+          color: equivalentColor,
+        ),
+        Gap(compact ? 4.0 : AppDimens.spacingXs),
+        Expanded(
+          child: RichText(
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
+            text: TextSpan(
               style:
                   (compact
-                          ? context.theme.typography.sm
+                          ? context.theme.typography.xs
                           : context.theme.typography.base)
-                      .copyWith(color: princepsColor),
-              overflow: TextOverflow.ellipsis,
+                      .copyWith(color: context.theme.colors.foreground),
+              children: [
+                const TextSpan(text: Strings.equivalentTo),
+                TextSpan(
+                  text: equivalentText,
+                  style: TextStyle(
+                    color: equivalentColor,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -462,9 +520,9 @@ class ProductCard extends StatelessWidget {
     final mutedForeground = context.theme.colors.mutedForeground;
     final radiusSm = 8.0; // Standard small radius
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppDimens.spacingSm,
-        vertical: AppDimens.spacingXs,
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 6.0 : AppDimens.spacingSm, // Reduced padding
+        vertical: compact ? 2.0 : AppDimens.spacingXs, // Reduced padding
       ),
       decoration: BoxDecoration(
         color: mutedColor,
@@ -475,18 +533,22 @@ class ProductCard extends StatelessWidget {
         children: [
           Icon(
             FIcons.scanBarcode,
-            size: AppDimens.iconSm,
+            size: compact
+                ? AppDimens.iconXs
+                : AppDimens.iconSm, // Reduced icon size
             color: mutedForeground,
           ),
-          const Gap(AppDimens.spacingXs),
+          Gap(compact ? 4.0 : AppDimens.spacingXs), // Reduced gap
           Expanded(
             child: Text(
               exactMatchLabel!,
-              style: context.theme.typography.sm.copyWith(
-                color: mutedForeground,
-              ),
+              style:
+                  (compact
+                          ? context.theme.typography.xs
+                          : context.theme.typography.sm)
+                      .copyWith(color: mutedForeground),
               overflow: TextOverflow.ellipsis,
-              maxLines: 2,
+              maxLines: compact ? 1 : 2, // Single line for compact
             ),
           ),
         ],

@@ -36,10 +36,8 @@ class CameraScreen extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isCameraActive = useState(false);
     final isTorchOn = useState(false);
-    final scannerController = useMobileScanner(autoStart: false);
+    final scannerController = useMobileScanner(enabled: isCameraActive.value);
     final picker = useMemoized(ImagePicker.new);
-
-    // Lifecycle handling for the scanner is now encapsulated in useMobileScanner.
 
     Future<void> openManualEntrySheet() async {
       await showAdaptiveOverlay<void>(
@@ -70,21 +68,8 @@ class CameraScreen extends HookConsumerWidget {
         return;
       }
 
-      if (isCameraActive.value) {
-        await _stopScanner(
-          context,
-          scannerController,
-          isCameraActive,
-          preserveCameraState: false,
-        );
-      } else {
-        await _startScannerWhenReady(
-          ref,
-          context,
-          scannerController,
-          isCameraActive,
-        );
-      }
+      // Toggle state - hook handles start/stop automatically based on enabled and lifecycle
+      isCameraActive.value = !isCameraActive.value;
     }
 
     Future<void> toggleTorch() async {
@@ -102,9 +87,9 @@ class CameraScreen extends HookConsumerWidget {
 
       return Padding(
         padding: EdgeInsets.only(
-          bottom: 12,
+          bottom: AppDimens.spacing2xs / 2, // Small gap between bubbles
           // WHY: Primary bubble (index 0) has no top padding, history bubbles are smaller.
-          top: isPrimary ? 0 : 8,
+          top: isPrimary ? 0 : AppDimens.spacing2xs / 2,
         ),
         child: Dismissible(
           key: ValueKey(bubble.cip),
@@ -145,12 +130,12 @@ class CameraScreen extends HookConsumerWidget {
                           size: 64,
                           color: context.theme.colors.destructive,
                         ),
-                        const Gap(16),
+                        const Gap(AppDimens.spacingMd),
                         Text(
                           Strings.cameraUnavailable,
                           style: context.theme.typography.xl2,
                         ),
-                        const Gap(8),
+                        const Gap(AppDimens.spacingXs),
                         Text(
                           Strings.checkPermissionsMessage,
                           style: context.theme.typography.sm.copyWith(
@@ -181,7 +166,7 @@ class CameraScreen extends HookConsumerWidget {
                       size: 80,
                       color: context.theme.colors.muted,
                     ),
-                    const Gap(24),
+                    const Gap(AppDimens.spacingXl),
                     Text(
                       Strings.readyToScan,
                       style: context.theme.typography.xl2.copyWith(
@@ -243,14 +228,16 @@ class CameraScreen extends HookConsumerWidget {
                 ),
               ),
             Positioned(
-              top: MediaQuery.of(context).padding.top + 20,
+              top: 0,
               left: 0,
               right: 0,
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   // WHY: Adapt margins for scan bubbles based on screen width
                   final isSmallScreen = constraints.maxWidth < 360;
-                  final horizontalMargin = isSmallScreen ? 12.0 : 16.0;
+                  final horizontalMargin = isSmallScreen
+                      ? 8.0
+                      : 12.0; // Reduced margins
 
                   return Padding(
                     padding: EdgeInsets.symmetric(horizontal: horizontalMargin),
@@ -281,7 +268,7 @@ class CameraScreen extends HookConsumerWidget {
               right: 0,
               child:
                   AdaptiveBottomPanel(
-                        padding: EdgeInsets.only(
+                        padding: const EdgeInsets.only(
                           left: AppDimens.spacingLg * 0.85,
                           right: AppDimens.spacingLg * 0.85,
                           top: AppDimens.spacingMd * 0.85,
@@ -295,7 +282,7 @@ class CameraScreen extends HookConsumerWidget {
                             child: BackdropFilter(
                               filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
                               child: Container(
-                                padding: EdgeInsets.all(
+                                padding: const EdgeInsets.all(
                                   AppDimens.spacingLg * 0.85,
                                 ),
                                 decoration: BoxDecoration(
@@ -378,82 +365,123 @@ class CameraScreen extends HookConsumerWidget {
                                         ),
                                       ),
                                     ),
-                                    Gap(AppDimens.spacingLg * 0.85),
+                                    const Gap(AppDimens.spacingLg * 0.85),
                                     LayoutBuilder(
                                       builder: (context, constraints) {
                                         // WHY: Use Expanded to allow buttons to take full width.
-                                        // Reduce spacing on very small screens.
+                                        // Reduce spacing and icon size on very small screens.
                                         final isSmallScreen =
                                             constraints.maxWidth < 360;
                                         final buttonSpacing = isSmallScreen
                                             ? AppDimens.spacingXs
                                             : AppDimens.spacingSm;
+                                        final iconSize = isSmallScreen
+                                            ? AppDimens.iconSm * 0.85
+                                            : AppDimens.iconMd * 0.85;
+
+                                        Widget buildGalleryButton({
+                                          required bool expanded,
+                                        }) {
+                                          final button = Testable(
+                                            id: TestTags.scanGalleryBtn,
+                                            child: Semantics(
+                                              button: true,
+                                              label: Strings
+                                                  .importBarcodeFromGallery,
+                                              child: FButton(
+                                                onPress: isInitializing
+                                                    ? null
+                                                    : openGallerySheet,
+                                                prefix: Icon(
+                                                  FIcons.image,
+                                                  size: iconSize,
+                                                  color: context
+                                                      .theme
+                                                      .colors
+                                                      .primaryForeground,
+                                                ),
+                                                child: Text(
+                                                  Strings.gallery,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  maxLines: 1,
+                                                  style: isSmallScreen
+                                                      ? context
+                                                            .theme
+                                                            .typography
+                                                            .xs
+                                                      : null,
+                                                ),
+                                              ),
+                                            ),
+                                          );
+                                          return expanded
+                                              ? Expanded(child: button)
+                                              : button;
+                                        }
+
+                                        Widget buildManualButton({
+                                          required bool expanded,
+                                        }) {
+                                          final button = Testable(
+                                            id: TestTags.scanManualBtn,
+                                            child: Semantics(
+                                              button: true,
+                                              label:
+                                                  Strings.manuallyEnterCipCode,
+                                              child: FButton(
+                                                onPress: isInitializing
+                                                    ? null
+                                                    : openManualEntrySheet,
+                                                prefix: Icon(
+                                                  FIcons.keyboard,
+                                                  size: iconSize,
+                                                  color: context
+                                                      .theme
+                                                      .colors
+                                                      .primaryForeground,
+                                                ),
+                                                child: Text(
+                                                  Strings.manualEntry,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  maxLines: 1,
+                                                  style: isSmallScreen
+                                                      ? context
+                                                            .theme
+                                                            .typography
+                                                            .xs
+                                                      : null,
+                                                ),
+                                              ),
+                                            ),
+                                          );
+                                          return expanded
+                                              ? Expanded(child: button)
+                                              : button;
+                                        }
+
+                                        if (isSmallScreen) {
+                                          return Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.stretch,
+                                            children: [
+                                              buildGalleryButton(
+                                                expanded: false,
+                                              ),
+                                              SizedBox(height: buttonSpacing),
+                                              buildManualButton(
+                                                expanded: false,
+                                              ),
+                                            ],
+                                          );
+                                        }
 
                                         return Row(
                                           children: [
-                                            Expanded(
-                                              child: Testable(
-                                                id: TestTags.scanGalleryBtn,
-                                                child: Semantics(
-                                                  button: true,
-                                                  label: Strings
-                                                      .importBarcodeFromGallery,
-                                                  child: FButton(
-                                                    onPress: isInitializing
-                                                        ? null
-                                                        : openGallerySheet,
-                                                    prefix: Icon(
-                                                      FIcons.image,
-                                                      size:
-                                                          AppDimens.iconMd *
-                                                          0.85,
-                                                      color: context
-                                                          .theme
-                                                          .colors
-                                                          .primaryForeground,
-                                                    ),
-                                                    child: const Text(
-                                                      Strings.gallery,
-                                                      overflow:
-                                                          TextOverflow.ellipsis,
-                                                      maxLines: 1,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
+                                            buildGalleryButton(expanded: true),
                                             Gap(buttonSpacing),
-                                            Expanded(
-                                              child: Testable(
-                                                id: TestTags.scanManualBtn,
-                                                child: Semantics(
-                                                  button: true,
-                                                  label: Strings
-                                                      .manuallyEnterCipCode,
-                                                  child: FButton(
-                                                    onPress: isInitializing
-                                                        ? null
-                                                        : openManualEntrySheet,
-                                                    prefix: Icon(
-                                                      FIcons.keyboard,
-                                                      size:
-                                                          AppDimens.iconMd *
-                                                          0.85,
-                                                      color: context
-                                                          .theme
-                                                          .colors
-                                                          .primaryForeground,
-                                                    ),
-                                                    child: const Text(
-                                                      Strings.manualEntry,
-                                                      overflow:
-                                                          TextOverflow.ellipsis,
-                                                      maxLines: 1,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
+                                            buildManualButton(expanded: true),
                                           ],
                                         );
                                       },
@@ -477,57 +505,6 @@ class CameraScreen extends HookConsumerWidget {
 }
 
 // Helper functions
-Future<void> _startScannerWhenReady(
-  WidgetRef ref,
-  BuildContext context,
-  MobileScannerController scannerController,
-  ValueNotifier<bool> isCameraActive, {
-  bool force = false,
-}) async {
-  if (!context.mounted) return;
-  if (!isCameraActive.value) {
-    isCameraActive.value = true;
-  } else if (!force) {
-    return;
-  }
-
-  final binding = WidgetsBinding.instance;
-  await binding.endOfFrame;
-
-  if (!context.mounted) return;
-
-  try {
-    await scannerController.start();
-  } on MobileScannerException catch (error, stack) {
-    LoggerService.error(
-      '[CameraScreen] Failed to start MobileScannerController',
-      error,
-      stack,
-    );
-  }
-}
-
-Future<void> _stopScanner(
-  BuildContext context,
-  MobileScannerController scannerController,
-  ValueNotifier<bool> isCameraActive, {
-  required bool preserveCameraState,
-}) async {
-  try {
-    await scannerController.stop();
-  } on MobileScannerException catch (error, stack) {
-    LoggerService.error(
-      '[CameraScreen] Failed to stop MobileScannerController',
-      error,
-      stack,
-    );
-  }
-
-  if (!context.mounted || preserveCameraState) return;
-
-  isCameraActive.value = false;
-}
-
 Future<void> _pickAndScanImage(
   WidgetRef ref,
   BuildContext context,
@@ -646,7 +623,7 @@ Widget _buildBubbleContent(
             style: FBadgeStyle.secondary(),
             child: Text(
               Strings.badgePrinceps,
-              style: context.theme.typography.sm,
+              style: context.theme.typography.xs,
             ),
           ),
         ),
@@ -660,7 +637,7 @@ Widget _buildBubbleContent(
               const Text(Strings.badgeGenericTooltip),
           child: FBadge(
             style: FBadgeStyle.primary(),
-            child: Text(Strings.generic, style: context.theme.typography.sm),
+            child: Text(Strings.generic, style: context.theme.typography.xs),
           ),
         ),
       );
@@ -676,7 +653,7 @@ Widget _buildBubbleContent(
           style: FBadgeStyle.primary(),
           child: Text(
             Strings.uniqueMedicationBadge,
-            style: context.theme.typography.sm,
+            style: context.theme.typography.xs,
           ),
         ),
       ),
@@ -691,7 +668,7 @@ Widget _buildBubbleContent(
         style: FBadgeStyle.outline(),
         child: Text(
           summary.conditionsPrescription!,
-          style: context.theme.typography.sm,
+          style: context.theme.typography.xs,
         ),
       ),
     );
@@ -756,15 +733,15 @@ class _GallerySheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
-      borderRadius: BorderRadius.vertical(
+      borderRadius: const BorderRadius.vertical(
         top: Radius.circular(AppDimens.radiusLg),
       ),
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-        child: Container(
+        child: DecoratedBox(
           decoration: BoxDecoration(
             color: context.theme.colors.secondary.withValues(alpha: 0.6),
-            borderRadius: BorderRadius.vertical(
+            borderRadius: const BorderRadius.vertical(
               top: Radius.circular(AppDimens.radiusLg),
             ),
           ),
@@ -873,15 +850,15 @@ class _ManualCipSheet extends HookConsumerWidget {
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 480),
       child: ClipRRect(
-        borderRadius: BorderRadius.vertical(
+        borderRadius: const BorderRadius.vertical(
           top: Radius.circular(AppDimens.radiusLg),
         ),
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-          child: Container(
+          child: DecoratedBox(
             decoration: BoxDecoration(
               color: context.theme.colors.secondary.withValues(alpha: 0.6),
-              borderRadius: BorderRadius.vertical(
+              borderRadius: const BorderRadius.vertical(
                 top: Radius.circular(AppDimens.radiusLg),
               ),
             ),

@@ -38,9 +38,9 @@ Future<T?> showAdaptiveOverlay<T>({
         // WHY: Make barrier completely transparent so camera is visible
         barrierFilter: (animation) => ImageFilter.compose(
           outer: ImageFilter.blur(sigmaX: animation * 5, sigmaY: animation * 5),
-          inner: ColorFilter.mode(Colors.transparent, BlendMode.srcOver),
+          inner: const ColorFilter.mode(Colors.transparent, BlendMode.srcOver),
         ),
-      ),
+      ).call,
       builder: (sheetContext) {
         return Padding(
           padding: EdgeInsets.only(

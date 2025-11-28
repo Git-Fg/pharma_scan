@@ -158,7 +158,15 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    // Verify ExcludeSemantics is present (wrapping the chevron)
-    expect(find.byType(ExcludeSemantics), findsOneWidget);
+    // Verify chevron icon is wrapped in ExcludeSemantics
+    final chevronFinder = find.byWidgetPredicate(
+      (widget) => widget is Icon && widget.icon == FIcons.chevronRight,
+    );
+    expect(chevronFinder, findsOneWidget);
+    final semanticsWrapper = find.ancestor(
+      of: chevronFinder,
+      matching: find.byType(ExcludeSemantics),
+    );
+    expect(semanticsWrapper, findsOneWidget);
   });
 }

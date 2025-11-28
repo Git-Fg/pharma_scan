@@ -23,10 +23,8 @@ class SettingsScreen extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final themeController =
-        useFRadioSelectMenuTileGroupController<ThemeSetting>();
-    final frequencyController =
-        useFRadioSelectMenuTileGroupController<UpdateFrequency>();
+    final themeController = useFSelectGroupController<ThemeSetting>();
+    final frequencyController = useFSelectGroupController<UpdateFrequency>();
 
     final themeState = ref.watch(themeProvider);
     final frequencyState = ref.watch(appPreferencesProvider);
@@ -101,7 +99,7 @@ class SettingsScreen extends HookConsumerWidget {
           builder: (overlayContext) {
             return FCard.raw(
               child: Padding(
-                padding: const EdgeInsets.all(24),
+                padding: const EdgeInsets.all(AppDimens.spacingXl),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -110,14 +108,14 @@ class SettingsScreen extends HookConsumerWidget {
                       Strings.resetDatabaseTitle,
                       style: context.theme.typography.xl2, // h4 equivalent
                     ),
-                    const Gap(12),
+                    const Gap(AppDimens.spacingSm),
                     Text(
                       Strings.resetDatabaseDescription,
                       style: context.theme.typography.sm.copyWith(
                         color: context.theme.colors.mutedForeground,
                       ),
                     ),
-                    const Gap(24),
+                    const Gap(AppDimens.spacingXl),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
@@ -131,7 +129,7 @@ class SettingsScreen extends HookConsumerWidget {
                             child: const Text(Strings.cancel),
                           ),
                         ),
-                        const Gap(8),
+                        const Gap(AppDimens.spacingXs),
                         Semantics(
                           button: true,
                           label: Strings.confirmButtonLabel,
@@ -465,7 +463,7 @@ class _SyncProgressDialog extends StatelessWidget {
               Strings.checkUpdates,
               style: context.theme.typography.xl2, // h4 equivalent
             ),
-            const Gap(16),
+            const Gap(AppDimens.spacingMd),
             SizedBox(
               height: 4.0,
               child: LinearProgressIndicator(

@@ -1,6 +1,5 @@
 // lib/features/explorer/screens/database_search_view.dart
 import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -12,12 +11,12 @@ import 'package:pharma_scan/core/logic/sanitizer.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/utils/test_tags.dart';
 import 'package:pharma_scan/core/widgets/testable.dart';
-import 'package:pharma_scan/features/explorer/widgets/medicament_tile.dart';
 import 'package:pharma_scan/features/explorer/widgets/filters/administration_route_filter_tile.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/detail_item.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/pharma_sheet_layout.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/status_view.dart';
 import 'package:pharma_scan/core/database/database.dart';
+import 'package:pharma_scan/features/explorer/models/explorer_enums.dart';
 import 'package:pharma_scan/features/explorer/models/search_filters_model.dart';
 import 'package:pharma_scan/features/explorer/models/search_result_item_model.dart';
 import 'package:forui/forui.dart';
@@ -32,12 +31,11 @@ import 'package:pharma_scan/theme/badge_styles.dart';
 class DatabaseSearchView extends HookConsumerWidget {
   const DatabaseSearchView({super.key});
 
-  static const double _searchHeaderHeight = 52;
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final searchController = useTextEditingController();
     final scrollController = useScrollController();
+    final searchFocusNode = useFocusNode();
     final debouncedQuery = useState('');
     final debounceTimer = useRef<Timer?>(null);
 
@@ -112,66 +110,64 @@ class DatabaseSearchView extends HookConsumerWidget {
 
     return FScaffold(
       childPad: false, // Disable default pagePadding to remove lateral padding
-      child: Stack(
+      resizeToAvoidBottomInset:
+          false, // Prevent automatic resizing; we manually offset the sticky bar
+      child: Column(
         children: [
-          CustomScrollView(
-            controller: scrollController,
-            slivers: [
-              SliverPersistentHeader(
-                pinned: true,
-                delegate: _SearchBarHeaderDelegate(
-                  height: _searchHeaderHeight,
-                  child: _buildSearchBarWithFilters(
-                    context,
+          Expanded(
+            child: CustomScrollView(
+              controller: scrollController,
+              slivers: [
+                databaseStats.when(
+                  data: (stats) => SliverToBoxAdapter(
+                    child: Column(
+                      children: [
+                        const Gap(AppDimens.spacing2xs),
+                        _buildStatsHeader(context, stats),
+                        const Gap(AppDimens.spacingMd),
+                      ],
+                    ),
+                  ),
+                  loading: () =>
+                      const SliverToBoxAdapter(child: SizedBox.shrink()),
+                  error: (_, _) =>
+                      const SliverToBoxAdapter(child: SizedBox.shrink()),
+                ),
+                if (!hasSearchText)
+                  _buildGenericGroupsSliver(
+                    groups,
                     ref,
-                    searchController,
-                    debouncedQuery,
+                    key: const ValueKey('generic_groups_sliver'),
+                  )
+                else if (!isSearching)
+                  _buildSkeletonSliver(
+                    key: const ValueKey('search_skeleton_sliver'),
+                  )
+                else
+                  searchResults.when(
+                    skipLoadingOnReload: true,
+                    data: (items) => _buildSearchResultsSliver(
+                      context,
+                      items,
+                      ref,
+                      key: const ValueKey('search_results_sliver'),
+                    ),
+                    loading: () => _buildSkeletonSliver(
+                      key: const ValueKey('search_loading_sliver'),
+                    ),
+                    error: (error, _) =>
+                        _buildSearchErrorSliver(error, currentQuery, ref),
                   ),
-                ),
-              ),
-              databaseStats.when(
-                data: (stats) => SliverToBoxAdapter(
-                  child: Column(
-                    children: [
-                      const Gap(AppDimens.spacing2xs),
-                      _buildStatsHeader(context, stats),
-                      const Gap(AppDimens.spacingMd),
-                    ],
-                  ),
-                ),
-                loading: () =>
-                    const SliverToBoxAdapter(child: SizedBox.shrink()),
-                error: (_, _) =>
-                    const SliverToBoxAdapter(child: SizedBox.shrink()),
-              ),
-              if (!hasSearchText)
-                _buildGenericGroupsSliver(
-                  groups,
-                  ref,
-                  key: const ValueKey('generic_groups_sliver'),
-                )
-              else if (!isSearching)
-                _buildSkeletonSliver(
-                  key: const ValueKey('search_skeleton_sliver'),
-                )
-              else
-                searchResults.when(
-                  skipLoadingOnReload: true,
-                  data: (items) => _buildSearchResultsSliver(
-                    context,
-                    items,
-                    ref,
-                    key: const ValueKey('search_results_sliver'),
-                  ),
-                  loading: () => _buildSkeletonSliver(
-                    key: const ValueKey('search_loading_sliver'),
-                  ),
-                  error: (error, _) =>
-                      _buildSearchErrorSliver(error, currentQuery, ref),
-                ),
-              // Espaceur en bas
-              const SliverToBoxAdapter(child: SizedBox(height: 20)),
-            ],
+              ],
+            ),
+          ),
+          _buildSearchFooter(
+            context,
+            ref,
+            searchController,
+            debouncedQuery,
+            ValueNotifier(debounceTimer.value),
+            searchFocusNode,
           ),
         ],
       ),
@@ -199,7 +195,7 @@ class DatabaseSearchView extends HookConsumerWidget {
         return FCard.raw(
           style: context.theme.cardStyles.borderless.call,
           child: Padding(
-            padding: EdgeInsets.symmetric(
+            padding: const EdgeInsets.symmetric(
               vertical: AppDimens.spacingXs,
               horizontal: AppDimens.spacingSm,
             ),
@@ -344,6 +340,8 @@ class DatabaseSearchView extends HookConsumerWidget {
     WidgetRef ref,
     TextEditingController searchController,
     ValueNotifier<String> debouncedQuery,
+    ValueNotifier<Timer?> debounceTimer,
+    FocusNode focusNode,
   ) {
     final filters = ref.watch(searchFiltersProvider);
     return Row(
@@ -354,6 +352,8 @@ class DatabaseSearchView extends HookConsumerWidget {
             ref,
             searchController,
             debouncedQuery,
+            debounceTimer,
+            focusNode,
           ),
         ),
         const Gap(AppDimens.spacingXs),
@@ -362,11 +362,60 @@ class DatabaseSearchView extends HookConsumerWidget {
     );
   }
 
+  Widget _buildSearchFooter(
+    BuildContext context,
+    WidgetRef ref,
+    TextEditingController searchController,
+    ValueNotifier<String> debouncedQuery,
+    ValueNotifier<Timer?> debounceTimer,
+    FocusNode focusNode,
+  ) {
+    final viewInsets = MediaQuery.viewInsetsOf(context).bottom;
+    final safePadding = MediaQuery.viewPaddingOf(context).bottom;
+    final keyboardInset = (viewInsets - safePadding).clamp(
+      0.0,
+      double.infinity,
+    );
+    return AnimatedPadding(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOut,
+      padding: EdgeInsets.only(bottom: keyboardInset),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppDimens.spacingMd,
+            vertical: AppDimens.spacing2xs,
+          ),
+          child: FCard.raw(
+            style: context.theme.cardStyles.borderless.call,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppDimens.spacingSm,
+                vertical: AppDimens.spacing2xs,
+              ),
+              child: _buildSearchBarWithFilters(
+                context,
+                ref,
+                searchController,
+                debouncedQuery,
+                debounceTimer,
+                focusNode,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildSearchBar(
     BuildContext context,
     WidgetRef ref,
     TextEditingController searchController,
     ValueNotifier<String> debouncedQuery,
+    ValueNotifier<Timer?> debounceTimer,
+    FocusNode focusNode,
   ) {
     // WHY: Watch the provider to see if it's actually fetching data
     // Debouncing is handled via debouncedQuery, so we only show loading when actively fetching
@@ -395,13 +444,20 @@ class DatabaseSearchView extends HookConsumerWidget {
                   horizontal: AppDimens.spacingSm,
                 ),
                 child: FTextField(
+                  focusNode: focusNode,
                   controller: searchController,
                   hint: Strings.searchPlaceholder,
                   clearable: (value) => !isFetching && value.text.isNotEmpty,
+                  textInputAction: TextInputAction.search,
                   onChange: (_) {
                     // WHY: Provider handles debouncing - just trigger rebuild
                     // The searchResultsProvider will debounce internally via Future.delayed
                   },
+                  onSubmit: (_) => _commitSearchQuery(
+                    searchController.text,
+                    debouncedQuery,
+                    debounceTimer,
+                  ),
                   prefixBuilder: (context, style, states) => Icon(
                     FIcons.search,
                     size: AppDimens.iconSm,
@@ -497,6 +553,15 @@ class DatabaseSearchView extends HookConsumerWidget {
     );
   }
 
+  void _commitSearchQuery(
+    String rawValue,
+    ValueNotifier<String> debouncedQuery,
+    ValueNotifier<Timer?> debounceTimer,
+  ) {
+    debounceTimer.value?.cancel();
+    debouncedQuery.value = rawValue.trim();
+  }
+
   Future<void> _openFiltersSheet(
     BuildContext context,
     SearchFilters currentFilters,
@@ -561,39 +626,21 @@ class DatabaseSearchView extends HookConsumerWidget {
     SearchFilters currentFilters,
     WidgetRef ref,
   ) {
-    // ATC Level 1 codes and their labels
-    const atcOptions = [
-      ('A', 'Système digestif'),
-      ('B', 'Sang'),
-      ('C', 'Système cardio-vasculaire'),
-      ('D', 'Dermatologie'),
-      ('G', 'Système génito-urinaire'),
-      ('H', 'Hormones'),
-      ('J', 'Anti-infectieux'),
-      ('L', 'Antinéoplasiques'),
-      ('M', 'Muscles et Squelette'),
-      ('N', 'Système nerveux'),
-      ('P', 'Antiparasitaires'),
-      ('R', 'Système respiratoire'),
-      ('S', 'Organes sensoriels'),
-      ('V', 'Divers'),
-    ];
-
     final menu = [
-      FSelectTile<String?>(
+      FSelectTile<AtcLevel1?>(
         title: Text(Strings.allClasses, style: context.theme.typography.base),
         value: null,
       ),
-      ...atcOptions.map(
-        (option) => FSelectTile<String?>(
-          title: Text(option.$2, style: context.theme.typography.base),
-          subtitle: Text(option.$1),
-          value: option.$1,
+      ...AtcLevel1.values.map(
+        (atcClass) => FSelectTile<AtcLevel1?>(
+          title: Text(atcClass.label, style: context.theme.typography.base),
+          subtitle: Text(atcClass.code),
+          value: atcClass,
         ),
       ),
     ];
 
-    return FSelectMenuTile<String?>(
+    return FSelectMenuTile<AtcLevel1?>(
       initialValue: currentFilters.atcClass,
       title: Text(
         Strings.therapeuticClassFilter,
@@ -609,9 +656,8 @@ class DatabaseSearchView extends HookConsumerWidget {
             ),
           );
         }
-        final label = Strings.getAtcLevel1Label(value) ?? value;
         return Text(
-          label,
+          value.label,
           style: tileContext.theme.typography.sm.copyWith(
             color: tileContext.theme.colors.mutedForeground,
           ),
@@ -718,7 +764,7 @@ class DatabaseSearchView extends HookConsumerWidget {
                             child: _buildGroupSection(
                               context,
                               badge: FBadge(
-                                style: princepsBadgeStyle,
+                                style: princepsBadgeStyle.call,
                                 child: Text(
                                   Strings.princeps.substring(0, 1),
                                   style: context.theme.typography.xs,
@@ -744,7 +790,7 @@ class DatabaseSearchView extends HookConsumerWidget {
                             child: _buildGroupSection(
                               context,
                               badge: FBadge(
-                                style: genericBadgeStyle,
+                                style: genericBadgeStyle.call,
                                 child: Text(
                                   Strings.generics.substring(0, 1),
                                   style: context.theme.typography.xs,
@@ -880,25 +926,27 @@ class DatabaseSearchView extends HookConsumerWidget {
       );
     }
 
-    final tileGroup = SliverToBoxAdapter(
-      child: FTileGroup.builder(
-        divider: FItemDivider.indented,
-        count: results.length,
-        tileBuilder: (context, index) {
-          final result = results[index];
-          return Semantics(
-            button: true,
-            label: _searchResultSemantics(result),
-            child: MedicamentTile(
-              item: result,
-              onTap: () => _handleSearchResultTap(context, result),
-            ),
-          );
-        },
+    return _wrapSliverWithKey(
+      SliverPadding(
+        padding: const EdgeInsets.symmetric(horizontal: AppDimens.spacingMd),
+        sliver: SliverList(
+          delegate: SliverChildBuilderDelegate((context, index) {
+            final result = results[index];
+            return Padding(
+              padding: const EdgeInsets.symmetric(
+                vertical: AppDimens.spacing2xs,
+              ),
+              child: Semantics(
+                button: true,
+                label: _searchResultSemantics(result),
+                child: _buildSearchResultCard(context, result, ref),
+              ),
+            );
+          }, childCount: results.length),
+        ),
       ),
+      key,
     );
-
-    return _wrapSliverWithKey(tileGroup, key);
   }
 
   Widget _buildSearchErrorSliver(
@@ -923,6 +971,287 @@ class DatabaseSearchView extends HookConsumerWidget {
   Widget _wrapSliverWithKey(Widget sliver, Key? key) {
     if (key == null) return sliver;
     return SliverPadding(key: key, padding: EdgeInsets.zero, sliver: sliver);
+  }
+
+  Widget _buildSearchResultCard(
+    BuildContext context,
+    SearchResultItem result,
+    WidgetRef ref,
+  ) {
+    return result.when(
+      groupResult: (group) {
+        final principles = group.commonPrincipes.isNotEmpty
+            ? group.commonPrincipes
+            : Strings.notDetermined;
+        final badgeStyles = context.theme.badgeStyles;
+        final princepsBadgeStyle = badgeStyles is PharmaBadgeStyles
+            ? badgeStyles.princeps.call
+            : badgeStyles.secondary.call;
+
+        return FCard.raw(
+          style: context.theme.cardStyles.borderless.call,
+          child: GestureDetector(
+            onTap: () =>
+                GroupDetailRoute(groupId: group.groupId).push<void>(context),
+            child: Padding(
+              padding: const EdgeInsets.all(AppDimens.spacingMd),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // Princeps section (left)
+                  Expanded(
+                    child: _buildGroupSection(
+                      context,
+                      badge: FBadge(
+                        style: princepsBadgeStyle,
+                        child: Text(
+                          Strings.princeps.substring(0, 1),
+                          style: context.theme.typography.xs,
+                        ),
+                      ),
+                      label: Strings.princeps,
+                      name: extractPrincepsLabel(group.princepsReferenceName),
+                      principles: principles,
+                      showPrinciples: false,
+                    ),
+                  ),
+                  // Divider
+                  Container(
+                    width: 1,
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: AppDimens.spacingMd,
+                    ),
+                    color: context.theme.colors.border,
+                  ),
+                  // Principles section (right) - show principles as main (no generic badge/label)
+                  Expanded(
+                    child: _buildGroupSection(
+                      context,
+                      badge: const SizedBox.shrink(),
+                      label: '',
+                      principles: principles,
+                      principlesAsMain: true,
+                      isMuted: true,
+                    ),
+                  ),
+                  // Chevron icon
+                  const Gap(AppDimens.spacing2xs),
+                  Icon(
+                    FIcons.chevronRight,
+                    size: AppDimens.iconXs,
+                    color: context.theme.colors.mutedForeground,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+      princepsResult: (princeps, generics, groupId, commonPrinciples) {
+        final principles = commonPrinciples.isNotEmpty
+            ? commonPrinciples
+            : Strings.notDetermined;
+        final badgeStyles = context.theme.badgeStyles;
+        final princepsBadgeStyle = badgeStyles is PharmaBadgeStyles
+            ? badgeStyles.princeps.call
+            : badgeStyles.secondary.call;
+
+        return FCard.raw(
+          style: context.theme.cardStyles.borderless.call,
+          child: GestureDetector(
+            onTap: () => GroupDetailRoute(groupId: groupId).push<void>(context),
+            child: Padding(
+              padding: const EdgeInsets.all(AppDimens.spacingMd),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // Princeps section (left)
+                  Expanded(
+                    child: _buildGroupSection(
+                      context,
+                      badge: FBadge(
+                        style: princepsBadgeStyle,
+                        child: Text(
+                          Strings.princeps.substring(0, 1),
+                          style: context.theme.typography.xs,
+                        ),
+                      ),
+                      label: Strings.princeps,
+                      name: princeps.princepsDeReference.isNotEmpty
+                          ? extractPrincepsLabel(princeps.princepsDeReference)
+                          : getDisplayTitle(princeps),
+                      principles: principles,
+                      showPrinciples: false,
+                    ),
+                  ),
+                  // Divider
+                  Container(
+                    width: 1,
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: AppDimens.spacingMd,
+                    ),
+                    color: context.theme.colors.border,
+                  ),
+                  // Principles section (right) - show principles as main (no generic badge/label)
+                  Expanded(
+                    child: _buildGroupSection(
+                      context,
+                      badge: const SizedBox.shrink(),
+                      label: '',
+                      principles: principles,
+                      principlesAsMain: true,
+                      isMuted: true,
+                    ),
+                  ),
+                  // Chevron icon
+                  const Gap(AppDimens.spacing2xs),
+                  Icon(
+                    FIcons.chevronRight,
+                    size: AppDimens.iconXs,
+                    color: context.theme.colors.mutedForeground,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+      genericResult: (generic, princepsList, groupId, commonPrinciples) {
+        final principles = commonPrinciples.isNotEmpty
+            ? commonPrinciples
+            : Strings.notDetermined;
+        final badgeStyles = context.theme.badgeStyles;
+        final princepsBadgeStyle = badgeStyles is PharmaBadgeStyles
+            ? badgeStyles.princeps.call
+            : badgeStyles.secondary.call;
+
+        return FCard.raw(
+          style: context.theme.cardStyles.borderless.call,
+          child: GestureDetector(
+            onTap: () => GroupDetailRoute(groupId: groupId).push<void>(context),
+            child: Padding(
+              padding: const EdgeInsets.all(AppDimens.spacingMd),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // Princeps section (left) - show first princeps name
+                  Expanded(
+                    child: _buildGroupSection(
+                      context,
+                      badge: FBadge(
+                        style: princepsBadgeStyle,
+                        child: Text(
+                          Strings.princeps.substring(0, 1),
+                          style: context.theme.typography.xs,
+                        ),
+                      ),
+                      label: Strings.princeps,
+                      name: princepsList.isNotEmpty
+                          ? getDisplayTitle(princepsList.first)
+                          : null,
+                      principles: principles,
+                      showPrinciples: false,
+                    ),
+                  ),
+                  // Divider
+                  Container(
+                    width: 1,
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: AppDimens.spacingMd,
+                    ),
+                    color: context.theme.colors.border,
+                  ),
+                  // Principles section (right) - show principles as main (no generic badge)
+                  Expanded(
+                    child: _buildGroupSection(
+                      context,
+                      badge: const SizedBox.shrink(),
+                      label: '',
+                      principles: principles,
+                      principlesAsMain: true,
+                      isMuted: true,
+                    ),
+                  ),
+                  // Chevron icon
+                  const Gap(AppDimens.spacing2xs),
+                  Icon(
+                    FIcons.chevronRight,
+                    size: AppDimens.iconXs,
+                    color: context.theme.colors.mutedForeground,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+      standaloneResult:
+          (cisCode, summary, representativeCip, commonPrinciples) {
+            final principles = commonPrinciples.isNotEmpty
+                ? commonPrinciples
+                : Strings.notDetermined;
+            final badgeStyles = context.theme.badgeStyles;
+            final standaloneBadgeStyle = badgeStyles.primary.call;
+
+            return FCard.raw(
+              style: context.theme.cardStyles.borderless.call,
+              child: GestureDetector(
+                onTap: () => _handleSearchResultTap(context, result),
+                child: Padding(
+                  padding: const EdgeInsets.all(AppDimens.spacingMd),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      // Standalone section (left) - show medication name
+                      Expanded(
+                        child: _buildGroupSection(
+                          context,
+                          badge: FBadge(
+                            style: standaloneBadgeStyle,
+                            child: Text(
+                              Strings.uniqueMedicationBadge.substring(0, 1),
+                              style: context.theme.typography.xs,
+                            ),
+                          ),
+                          label: Strings.uniqueMedicationBadge,
+                          name: summary.nomCanonique,
+                          principles: principles,
+                          showPrinciples: false,
+                        ),
+                      ),
+                      // Divider
+                      Container(
+                        width: 1,
+                        margin: const EdgeInsets.symmetric(
+                          horizontal: AppDimens.spacingMd,
+                        ),
+                        color: context.theme.colors.border,
+                      ),
+                      // Principles section (right) - show principles as main
+                      Expanded(
+                        child: _buildGroupSection(
+                          context,
+                          badge: const SizedBox.shrink(),
+                          label: '',
+                          principles: principles,
+                          principlesAsMain: true,
+                          isMuted: true,
+                        ),
+                      ),
+                      // Chevron icon
+                      const Gap(AppDimens.spacing2xs),
+                      Icon(
+                        FIcons.chevronRight,
+                        size: AppDimens.iconXs,
+                        color: context.theme.colors.mutedForeground,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+    );
   }
 
   String _searchResultSemantics(SearchResultItem result) {
@@ -989,28 +1318,28 @@ class DatabaseSearchView extends HookConsumerWidget {
                   value: summary.nomCanonique,
                 ),
                 if (sanitizedPrinciples.isNotEmpty) ...[
-                  const Gap(16),
+                  const Gap(AppDimens.spacingMd),
                   DetailItem(
                     label: Strings.activePrinciplesLabel,
                     value: sanitizedPrinciples.join(', '),
                   ),
                 ],
-                const Gap(16),
+                const Gap(AppDimens.spacingMd),
                 DetailItem(label: Strings.cip, value: representativeCip),
                 if (summary.titulaire != null &&
                     summary.titulaire!.isNotEmpty) ...[
-                  const Gap(16),
+                  const Gap(AppDimens.spacingMd),
                   DetailItem(label: Strings.holder, value: summary.titulaire!),
                 ],
                 if (summary.formePharmaceutique != null &&
                     summary.formePharmaceutique!.isNotEmpty) ...[
-                  const Gap(16),
+                  const Gap(AppDimens.spacingMd),
                   DetailItem(
                     label: Strings.pharmaceuticalFormLabel,
                     value: summary.formePharmaceutique!,
                   ),
                 ],
-                const Gap(16),
+                const Gap(AppDimens.spacingMd),
                 FBadge(
                   style: FBadgeStyle.outline(),
                   child: Text(
@@ -1026,43 +1355,6 @@ class DatabaseSearchView extends HookConsumerWidget {
         ),
       ),
     );
-  }
-}
-
-class _SearchBarHeaderDelegate extends SliverPersistentHeaderDelegate {
-  _SearchBarHeaderDelegate({required this.child, required this.height});
-
-  final Widget child;
-  final double height;
-
-  @override
-  double get minExtent => height;
-
-  @override
-  double get maxExtent => height;
-
-  @override
-  Widget build(
-    BuildContext context,
-    double shrinkOffset,
-    bool overlapsContent,
-  ) {
-    return Container(
-      height: height,
-      alignment: Alignment.center,
-      padding: EdgeInsets.only(
-        left: AppDimens.spacingMd,
-        right: AppDimens.spacingMd,
-        top: AppDimens.spacing2xs,
-        bottom: AppDimens.spacing2xs,
-      ),
-      child: child,
-    );
-  }
-
-  @override
-  bool shouldRebuild(_SearchBarHeaderDelegate oldDelegate) {
-    return child != oldDelegate.child || height != oldDelegate.height;
   }
 }
 

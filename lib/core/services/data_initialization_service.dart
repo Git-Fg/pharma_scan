@@ -7,6 +7,7 @@ import 'package:drift/native.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:pharma_scan/core/config/app_config.dart';
 import 'package:pharma_scan/core/config/data_sources.dart';
 import 'package:pharma_scan/core/database/database.dart' as drift_db;
 import 'package:pharma_scan/core/database/database.dart';
@@ -20,7 +21,6 @@ typedef ParseAndInsertArgs = ({
   String dbPath,
   String tempPath,
   Map<String, String> filePaths,
-  bool clearTables,
 });
 
 enum InitializationStep {
@@ -28,7 +28,6 @@ enum InitializationStep {
   downloading,
   parsing,
   aggregating,
-  cleaning,
   ready,
   error,
 }
@@ -91,7 +90,7 @@ class DataInitializationService {
       final filePaths = await _downloadAllFilesWithCacheCheck();
 
       _stepController.add(InitializationStep.parsing);
-      await _parseAndInsertData(filePaths, clearTables: true);
+      await _parseAndInsertData(filePaths);
 
       _stepController.add(InitializationStep.aggregating);
       // WHY: Add delay before aggregation to ensure isolate database operations complete
@@ -197,12 +196,10 @@ class DataInitializationService {
   }
 
   Future<void> _parseAndInsertData(
-    Map<String, String> filePaths, {
-    bool clearTables = true,
-  }) async {
+    Map<String, String> filePaths,
+  ) async {
     LoggerService.info(
-      '[DataInit] Parsing BDPM files: ${filePaths.keys.join(', ')}. '
-      'clearTables: $clearTables',
+      '[DataInit] Parsing BDPM files: ${filePaths.keys.join(', ')}.',
     );
 
     // WHY: Pass only database path and temp path to isolate (~1KB) instead of large data structures
@@ -223,7 +220,6 @@ class DataInitializationService {
       dbPath: dbPath,
       tempPath: tempPath,
       filePaths: filePaths,
-      clearTables: false,
     );
 
     final result = await compute(_parseAndInsertDataInBackground, args);
@@ -397,6 +393,30 @@ Future<AppDatabase> _openDatabaseInIsolate(
   return AppDatabase.forTesting(database);
 }
 
+// WHY: Helper function to insert data in chunks to reduce memory pressure
+// Splits large lists into batches of AppConfig.batchSize and inserts each batch separately
+Future<void> _insertChunked<T>(
+  AppDatabase db,
+  void Function(Batch batch, List<T> chunk, InsertMode mode) inserter,
+  Iterable<T> items, {
+  InsertMode mode = InsertMode.insert,
+}) async {
+  final itemsList = items.toList();
+  if (itemsList.isEmpty) return;
+
+  // Process in chunks to reduce memory usage
+  for (var i = 0; i < itemsList.length; i += AppConfig.batchSize) {
+    final end = (i + AppConfig.batchSize < itemsList.length)
+        ? i + AppConfig.batchSize
+        : itemsList.length;
+    final chunk = itemsList.sublist(i, end);
+
+    await db.batch((batch) {
+      inserter(batch, chunk, mode);
+    });
+  }
+}
+
 // WHY: Parse files and insert data entirely in isolate to avoid large data transfer
 // Returns only counts/status instead of full data structures to minimize serialization overhead
 Future<_ParseAndInsertResult> _parseAndInsertDataInBackground(
@@ -495,114 +515,137 @@ Future<_ParseAndInsertResult> _parseAndInsertDataInBackground(
   // WHY: Wrap database operations in try/finally to ensure database is always closed
   // This prevents database locks from persisting after isolate completes
   try {
-    // WHY: Insert data directly in isolate using batch operations
+    // WHY: Insert data directly in isolate using chunked batch operations
     // This avoids serialization cost of passing large data structures to main thread
+    // and prevents OOM on low-end devices by processing records in batches
     // WHY: Retry logic with exponential backoff to handle transient database lock errors
     const maxRetries = 5;
     var retryCount = 0;
     while (retryCount < maxRetries) {
       try {
+        // WHY: Process each table type independently with chunked insertion
+        // This reduces memory pressure by inserting in smaller batches
+        final specialitesCompanions = specialitesResult.specialites.map(
+          (row) => drift_db.SpecialitesCompanion(
+            cisCode: Value(row['cis_code'] as String),
+            nomSpecialite: Value(row['nom_specialite'] as String),
+            procedureType: Value(row['procedure_type'] as String),
+            statutAdministratif: Value(
+              row['statut_administratif'] as String?,
+            ),
+            formePharmaceutique: Value(
+              row['forme_pharmaceutique'] as String?,
+            ),
+            voiesAdministration: Value(
+              row['voies_administration'] as String?,
+            ),
+            etatCommercialisation: Value(
+              row['etat_commercialisation'] as String?,
+            ),
+            titulaire: Value(row['titulaire'] as String?),
+            conditionsPrescription: Value(
+              row['conditions_prescription'] as String?,
+            ),
+            atcCode: Value(row['atc_code'] as String?),
+            isSurveillance: Value(row['is_surveillance'] as bool? ?? false),
+          ),
+        );
+        await _insertChunked(
+          db,
+          (batch, chunk, mode) => batch.insertAll(db.specialites, chunk, mode: mode),
+          specialitesCompanions,
+          mode: InsertMode.replace,
+        );
+
+        final medicamentsCompanions = medicamentsResult.medicaments.map(
+          (row) => drift_db.MedicamentsCompanion(
+            codeCip: Value(row['code_cip'] as String),
+            cisCode: Value(row['cis_code'] as String),
+            presentationLabel: Value(row['presentation_label'] as String?),
+            commercialisationStatut: Value(
+              row['commercialisation_statut'] as String?,
+            ),
+            tauxRemboursement: Value(row['taux_remboursement'] as String?),
+            prixPublic: Value(row['prix_public'] as double?),
+            agrementCollectivites: Value(
+              row['agrement_collectivites'] as String?,
+            ),
+          ),
+        );
+        await _insertChunked(
+          db,
+          (batch, chunk, mode) => batch.insertAll(db.medicaments, chunk, mode: mode),
+          medicamentsCompanions,
+          mode: InsertMode.replace,
+        );
+
+        final principesCompanions = principes.map(
+          (row) => drift_db.PrincipesActifsCompanion(
+            codeCip: Value(row['code_cip'] as String),
+            principe: Value(row['principe'] as String),
+            dosage: Value(row['dosage'] as String?),
+            dosageUnit: Value(row['dosage_unit'] as String?),
+          ),
+        );
+        await _insertChunked(
+          db,
+          (batch, chunk, mode) => batch.insertAll(db.principesActifs, chunk, mode: mode),
+          principesCompanions,
+        );
+
+        final generiqueGroupsCompanions = generiqueResult.generiqueGroups.map(
+          (row) => drift_db.GeneriqueGroupsCompanion(
+            groupId: Value(row['group_id'] as String),
+            libelle: Value(row['libelle'] as String),
+          ),
+        );
+        await _insertChunked(
+          db,
+          (batch, chunk, mode) => batch.insertAll(db.generiqueGroups, chunk, mode: mode),
+          generiqueGroupsCompanions,
+          mode: InsertMode.replace,
+        );
+
+        final groupMembersCompanions = generiqueResult.groupMembers.map(
+          (row) => drift_db.GroupMembersCompanion(
+            codeCip: Value(row['code_cip'] as String),
+            groupId: Value(row['group_id'] as String),
+            type: Value(row['type'] as int),
+          ),
+        );
+        await _insertChunked(
+          db,
+          (batch, chunk, mode) => batch.insertAll(db.groupMembers, chunk, mode: mode),
+          groupMembersCompanions,
+          mode: InsertMode.replace,
+        );
+
+        // Clear availability table before inserting new data
         await db.batch((batch) {
-          batch.insertAll(
-            db.specialites,
-            specialitesResult.specialites.map(
-              (row) => drift_db.SpecialitesCompanion(
-                cisCode: Value(row['cis_code'] as String),
-                nomSpecialite: Value(row['nom_specialite'] as String),
-                procedureType: Value(row['procedure_type'] as String),
-                statutAdministratif: Value(
-                  row['statut_administratif'] as String?,
-                ),
-                formePharmaceutique: Value(
-                  row['forme_pharmaceutique'] as String?,
-                ),
-                voiesAdministration: Value(
-                  row['voies_administration'] as String?,
-                ),
-                etatCommercialisation: Value(
-                  row['etat_commercialisation'] as String?,
-                ),
-                titulaire: Value(row['titulaire'] as String?),
-                conditionsPrescription: Value(
-                  row['conditions_prescription'] as String?,
-                ),
-                atcCode: Value(row['atc_code'] as String?),
-                isSurveillance: Value(row['is_surveillance'] as bool? ?? false),
-              ),
-            ),
-            mode: InsertMode.replace,
-          );
-          batch.insertAll(
-            db.medicaments,
-            medicamentsResult.medicaments.map(
-              (row) => drift_db.MedicamentsCompanion(
-                codeCip: Value(row['code_cip'] as String),
-                cisCode: Value(row['cis_code'] as String),
-                presentationLabel: Value(row['presentation_label'] as String?),
-                commercialisationStatut: Value(
-                  row['commercialisation_statut'] as String?,
-                ),
-                tauxRemboursement: Value(row['taux_remboursement'] as String?),
-                prixPublic: Value(row['prix_public'] as double?),
-                agrementCollectivites: Value(
-                  row['agrement_collectivites'] as String?,
-                ),
-              ),
-            ),
-            mode: InsertMode.replace,
-          );
-          batch.insertAll(
-            db.principesActifs,
-            principes.map(
-              (row) => drift_db.PrincipesActifsCompanion(
-                codeCip: Value(row['code_cip'] as String),
-                principe: Value(row['principe'] as String),
-                dosage: Value(row['dosage'] as String?),
-                dosageUnit: Value(row['dosage_unit'] as String?),
-              ),
-            ),
-          );
-          batch.insertAll(
-            db.generiqueGroups,
-            generiqueResult.generiqueGroups.map(
-              (row) => drift_db.GeneriqueGroupsCompanion(
-                groupId: Value(row['group_id'] as String),
-                libelle: Value(row['libelle'] as String),
-              ),
-            ),
-            mode: InsertMode.replace,
-          );
-          batch.insertAll(
-            db.groupMembers,
-            generiqueResult.groupMembers.map(
-              (row) => drift_db.GroupMembersCompanion(
-                codeCip: Value(row['code_cip'] as String),
-                groupId: Value(row['group_id'] as String),
-                type: Value(row['type'] as int),
-              ),
-            ),
-            mode: InsertMode.replace,
-          );
           batch.deleteWhere(
             db.medicamentAvailability,
             (_) => const Constant(true),
           );
-          if (availabilityRows.isNotEmpty) {
-            batch.insertAll(
-              db.medicamentAvailability,
-              availabilityRows.map(
-                (row) => drift_db.MedicamentAvailabilityCompanion(
-                  codeCip: Value(row['code_cip'] as String),
-                  statut: Value(row['statut'] as String),
-                  dateDebut: Value(row['date_debut'] as DateTime?),
-                  dateFin: Value(row['date_fin'] as DateTime?),
-                  lien: Value(row['lien'] as String?),
-                ),
-              ),
-              mode: InsertMode.replace,
-            );
-          }
         });
+
+        if (availabilityRows.isNotEmpty) {
+          final availabilityCompanions = availabilityRows.map(
+            (row) => drift_db.MedicamentAvailabilityCompanion(
+              codeCip: Value(row['code_cip'] as String),
+              statut: Value(row['statut'] as String),
+              dateDebut: Value(row['date_debut'] as DateTime?),
+              dateFin: Value(row['date_fin'] as DateTime?),
+              lien: Value(row['lien'] as String?),
+            ),
+          );
+          await _insertChunked(
+            db,
+            (batch, chunk, mode) => batch.insertAll(db.medicamentAvailability, chunk, mode: mode),
+            availabilityCompanions,
+            mode: InsertMode.replace,
+          );
+        }
+
         // Success - break out of retry loop
         break;
       } catch (e) {

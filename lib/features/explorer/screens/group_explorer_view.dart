@@ -13,6 +13,7 @@ import 'package:pharma_scan/core/widgets/ui_kit/section_header.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/status_view.dart';
 import 'package:pharma_scan/features/explorer/models/grouped_by_product_model.dart';
 import 'package:pharma_scan/features/explorer/providers/group_classification_provider.dart';
+import 'package:pharma_scan/core/services/logger_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class GroupExplorerView extends HookConsumerWidget {
@@ -108,7 +109,7 @@ class GroupExplorerView extends HookConsumerWidget {
       },
       loading: () => FScaffold(
         header: FHeader.nested(
-          title: const Text(''),
+          title: const Text(Strings.loading),
           prefixes: [FHeaderAction.back(onPress: () => context.pop())],
         ),
         child: const StatusView(type: StatusType.loading),
@@ -318,7 +319,9 @@ class GroupExplorerView extends HookConsumerWidget {
                     Container(
                       decoration: BoxDecoration(
                         color: context.theme.colors.muted,
-                        borderRadius: BorderRadius.circular(4),
+                        borderRadius: BorderRadius.circular(
+                          AppDimens.radiusSm / 2,
+                        ),
                       ),
                       padding: const EdgeInsets.symmetric(
                         horizontal: 8,
@@ -616,9 +619,12 @@ class GroupExplorerView extends HookConsumerWidget {
         Container(
           decoration: BoxDecoration(
             border: Border.all(color: AppColors.regulatoryRed),
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(AppDimens.radiusSm / 2),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppDimens.spacingXs,
+            vertical: AppDimens.spacing2xs,
+          ),
           child: Text(
             Strings.badgeList1,
             style: context.theme.typography.sm.copyWith(
@@ -634,9 +640,12 @@ class GroupExplorerView extends HookConsumerWidget {
         Container(
           decoration: BoxDecoration(
             border: Border.all(color: AppColors.regulatoryGreen),
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(AppDimens.radiusSm / 2),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppDimens.spacingXs,
+            vertical: AppDimens.spacing2xs,
+          ),
           child: Text(
             Strings.badgeList2,
             style: context.theme.typography.sm.copyWith(
@@ -652,9 +661,12 @@ class GroupExplorerView extends HookConsumerWidget {
         Container(
           decoration: BoxDecoration(
             color: AppColors.regulatoryPurple,
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(AppDimens.radiusSm / 2),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppDimens.spacingXs,
+            vertical: AppDimens.spacing2xs,
+          ),
           child: Text(
             Strings.badgeException,
             style: context.theme.typography.sm.copyWith(color: Colors.white),
@@ -668,9 +680,12 @@ class GroupExplorerView extends HookConsumerWidget {
         Container(
           decoration: BoxDecoration(
             border: Border.all(color: AppColors.regulatoryAmber),
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(AppDimens.radiusSm / 2),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppDimens.spacingXs,
+            vertical: AppDimens.spacing2xs,
+          ),
           child: Text(
             Strings.badgeRestricted,
             style: context.theme.typography.sm.copyWith(
@@ -686,9 +701,12 @@ class GroupExplorerView extends HookConsumerWidget {
         Container(
           decoration: BoxDecoration(
             color: AppColors.regulatoryGray,
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(AppDimens.radiusSm / 2),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppDimens.spacingXs,
+            vertical: AppDimens.spacing2xs,
+          ),
           child: Text(
             Strings.hospitalBadge,
             style: context.theme.typography.sm.copyWith(color: Colors.white),
@@ -702,9 +720,12 @@ class GroupExplorerView extends HookConsumerWidget {
         Container(
           decoration: BoxDecoration(
             color: context.theme.colors.secondary,
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(AppDimens.radiusSm / 2),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppDimens.spacingXs,
+            vertical: AppDimens.spacing2xs,
+          ),
           child: Text(
             Strings.badgeDental,
             style: context.theme.typography.sm.copyWith(
@@ -720,9 +741,12 @@ class GroupExplorerView extends HookConsumerWidget {
         Container(
           decoration: BoxDecoration(
             color: AppColors.regulatoryGreen.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(AppDimens.radiusSm / 2),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppDimens.spacingXs,
+            vertical: AppDimens.spacing2xs,
+          ),
           child: Text(
             Strings.badgeOtc,
             style: context.theme.typography.sm.copyWith(
@@ -738,9 +762,12 @@ class GroupExplorerView extends HookConsumerWidget {
         Container(
           decoration: BoxDecoration(
             color: AppColors.regulatoryYellow,
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(AppDimens.radiusSm / 2),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppDimens.spacingXs,
+            vertical: AppDimens.spacing2xs,
+          ),
           child: Text(
             Strings.badgeSurveillance,
             style: context.theme.typography.sm.copyWith(color: Colors.black),
@@ -766,7 +793,7 @@ class GroupExplorerView extends HookConsumerWidget {
     final ficheUrl =
         'https://base-donnees-publique.medicaments.gouv.fr/extrait.php?specid=$cisCode';
     final rcpUrl =
-        'https://base-donnees-publique.medicaments.gouv.fr/affichageDoc.php?specid=$cisCode&typedoc=R';
+        'https://base-donnees-publique.medicaments.gouv.fr/medicament/$cisCode/extrait#tab-rcp';
 
     return Padding(
       padding: const EdgeInsets.only(top: AppDimens.spacingMd),
@@ -816,7 +843,7 @@ class GroupExplorerView extends HookConsumerWidget {
                 ),
               ),
             ),
-            const Gap(8),
+            const Gap(AppDimens.spacingXs),
           ],
           Expanded(
             child: FButton(
@@ -830,7 +857,7 @@ class GroupExplorerView extends HookConsumerWidget {
               child: const Text(Strings.ficheInfo),
             ),
           ),
-          const Gap(8),
+          const Gap(AppDimens.spacingXs),
           Expanded(
             child: FButton(
               style: FButtonStyle.outline(),
@@ -849,18 +876,22 @@ class GroupExplorerView extends HookConsumerWidget {
   }
 
   Future<void> _launchUrl(BuildContext context, String url) async {
-    final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } else {
+    try {
+      final uri = Uri.parse(url);
+      // WHY: Try to launch directly - canLaunchUrl can return false for valid URLs
+      // Better to attempt launch and handle exceptions
+      await launchUrl(uri, mode: LaunchMode.platformDefault);
+    } on Exception catch (e) {
+      // WHY: Handle specific exceptions with user-friendly messages
       if (context.mounted) {
         showFToast(
           context: context,
           title: const Text(Strings.error),
-          description: Text('Impossible d\'ouvrir l\'URL: $url'),
+          description: Text('${Strings.unableToOpenUrl}: $url'),
           icon: const Icon(FIcons.triangleAlert),
         );
       }
+      LoggerService.error('Failed to launch URL: $url', e);
     }
   }
 }

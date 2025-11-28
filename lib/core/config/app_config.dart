@@ -21,4 +21,7 @@ class AppConfig {
   // Pagination & Limits
   static const int defaultPageSize = 40;
   static const int searchMaxResults = 50;
+
+  // Data Ingestion
+  static const int batchSize = 2000; // Records per batch for database insertion
 }

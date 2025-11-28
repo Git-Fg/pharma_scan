@@ -16,9 +16,9 @@
 ### 1. Using Semantics Widget (When Needed)
 
 **Pattern:** Trust Forui's built-in accessibility. Only add explicit `Semantics` wrappers when:
-- Building custom widgets that don't use Forui components
-- You need additional context beyond what Forui provides automatically
-- The widget's automatic semantics don't capture the full interaction model
+* Building custom widgets that don't use Forui components
+* You need additional context beyond what Forui provides automatically
+* The widget's automatic semantics don't capture the full interaction model
 
 ```dart
 // ✅ Correct: Rely on Forui's automatic accessibility
@@ -50,6 +50,7 @@ Row(
 ### 2. Forui Widget Accessibility (2025 Standard)
 
 **Key Principle:** Forui widgets automatically extract semantic information from their properties (`title`, `label`, `description`, `subtitle`). Explicit `Semantics` wrappers are **ONLY** needed for:
+
 1. Custom widgets that don't use Forui components
 2. Complex interactions where additional context is needed
 3. When you need to override Forui's automatic semantics
@@ -278,22 +279,22 @@ testWidgets('custom button has additional semantic hint', (tester) async {
 ### Manual Testing Checklist
 
 1. **Screen Reader Testing:**
-   - Test with TalkBack (Android) and VoiceOver (iOS)
-   - Verify all interactive elements are announced correctly
-   - Check that labels are clear and descriptive
+   * Test with TalkBack (Android) and VoiceOver (iOS)
+   * Verify all interactive elements are announced correctly
+   * Check that labels are clear and descriptive
 
 2. **Keyboard Navigation:**
-   - Tab through all interactive elements
-   - Verify focus indicators are visible
-   - Test that all actions are keyboard accessible
+   * Tab through all interactive elements
+   * Verify focus indicators are visible
+   * Test that all actions are keyboard accessible
 
 3. **Touch Targets:**
-   - Verify all tappable elements are at least 48×48 pixels
-   - Check spacing between interactive elements
+   * Verify all tappable elements are at least 48×48 pixels
+   * Check spacing between interactive elements
 
 4. **Contrast:**
-   - Verify text meets 4.5:1 contrast ratio
-   - Test in both light and dark themes
+   * Verify text meets 4.5:1 contrast ratio
+   * Test in both light and dark themes
 
 ## WCAG 2.1 Level AA Compliance
 
@@ -306,14 +307,14 @@ testWidgets('custom button has additional semantic hint', (tester) async {
 
 ### Implementation Checklist
 
-- [ ] All interactive widgets have semantic labels
-- [ ] All form fields have labels
-- [ ] Keyboard navigation works throughout app
-- [ ] Focus indicators are visible
-- [ ] Decorative elements are excluded from semantics
-- [ ] Error messages are announced to screen readers
-- [ ] Loading states are announced
-- [ ] Dynamic content changes are announced
+* [ ] All interactive widgets have semantic labels
+* [ ] All form fields have labels
+* [ ] Keyboard navigation works throughout app
+* [ ] Focus indicators are visible
+* [ ] Decorative elements are excluded from semantics
+* [ ] Error messages are announced to screen readers
+* [ ] Loading states are announced
+* [ ] Dynamic content changes are announced
 
 ## Common Patterns
 
@@ -410,6 +411,7 @@ Semantics(
 3. **Redundant Information:** Don't duplicate what the widget already announces
 
 **Implementation Pattern:**
+
 ```dart
 // ✅ CORRECT: Rely on Forui's automatic accessibility
 FButton(

@@ -1,6 +1,7 @@
 // lib/features/explorer/providers/generic_groups_provider.dart
 
 import 'package:pharma_scan/core/providers/core_providers.dart';
+import 'package:pharma_scan/core/services/logger_service.dart';
 import 'package:pharma_scan/features/explorer/models/generic_group_entity.dart';
 import 'package:pharma_scan/features/explorer/providers/search_provider.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -69,6 +70,11 @@ class GenericGroupsNotifier extends _$GenericGroupsNotifier {
     result.when(
       data: (data) => state = AsyncValue.data(data),
       error: (error, stackTrace) {
+        LoggerService.error(
+          '[GenericGroupsNotifier] Failed to load more groups',
+          error,
+          stackTrace,
+        );
         state = AsyncValue.data(currentState.copyWith(isLoadingMore: false));
       },
       loading: () {},
@@ -84,9 +90,12 @@ class GenericGroupsNotifier extends _$GenericGroupsNotifier {
         ? [filters.voieAdministration!]
         : null;
 
+    // Convert enum to code string for database query
+    final atcClassCode = filters.atcClass?.code;
+
     final groups = await libraryDao.getGenericGroupSummaries(
       routeKeywords: routeKeywords,
-      atcClass: filters.atcClass,
+      atcClass: atcClassCode,
       limit: _pageSize,
       offset: reset ? 0 : _offset,
     );

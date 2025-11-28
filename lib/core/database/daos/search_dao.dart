@@ -38,25 +38,16 @@ String _escapeFts5Query(String query) {
 class SearchDao extends DatabaseAccessor<AppDatabase> with _$SearchDaoMixin {
   SearchDao(super.db);
 
-  // WHY: Search medicaments using FTS5 full-text search directly in SQLite
-  // This eliminates memory-heavy client-side indexing and provides fast, native search
-  // Returns MedicamentSummaryData rows that match the query, ordered by relevance (BM25 rank)
-  // WHY: Optimized for approximate molecule name matching across both princeps and generics
-  Future<List<MedicamentSummaryData>> searchMedicaments(
-    String query, {
+  // WHY: Build shared FTS5 search query with filter support
+  // Extracted to eliminate duplication between searchMedicaments and watchMedicaments
+  // Returns SQL string and variables for use in customSelect queries
+  ({String sql, List<Variable<Object>> variables}) _buildSearchQuery(
+    String sanitizedQuery,
     SearchFilters? filters,
-  }) async {
-    final sanitizedQuery = _escapeFts5Query(query);
-    if (sanitizedQuery.isEmpty) {
-      LoggerService.db('Empty search query, returning empty results');
-      return [];
-    }
-
-    LoggerService.db('Searching medicaments with FTS5 query: $sanitizedQuery');
-
+  ) {
     // WHY: Build WHERE clause and variables for filters
     final routeFilter = filters?.voieAdministration;
-    final atcFilter = filters?.atcClass;
+    final atcFilter = filters?.atcClass?.code;
 
     final filterClauses = <String>[];
     if (routeFilter != null) {
@@ -79,9 +70,7 @@ class SearchDao extends DatabaseAccessor<AppDatabase> with _$SearchDaoMixin {
     // Use BM25 ranking for relevance ordering - better than simple rank for molecule searches
     // BM25 gives higher scores to documents where query terms appear in multiple fields
     // This ensures molecule names in active_principles field rank well alongside brand names
-    final rows = await db
-        .customSelect(
-          '''
+    final sql = '''
       SELECT ms.*,
              bm25(search_index) AS rank
       FROM medicament_summary ms
@@ -89,14 +78,40 @@ class SearchDao extends DatabaseAccessor<AppDatabase> with _$SearchDaoMixin {
       WHERE search_index MATCH ? $filterClause
       ORDER BY rank ASC, ms.nom_canonique
       LIMIT 50
-      ''',
-          variables: variables,
-          readsFrom: {db.medicamentSummary},
-        )
-        .get();
+      ''';
+
+    return (sql: sql, variables: variables);
+  }
+
+  // WHY: Search medicaments using FTS5 full-text search directly in SQLite
+  // This eliminates memory-heavy client-side indexing and provides fast, native search
+  // Returns MedicamentSummaryData rows that match the query, ordered by relevance (BM25 rank)
+  // WHY: Optimized for approximate molecule name matching across both princeps and generics
+  Future<List<MedicamentSummaryData>> searchMedicaments(
+    String query, {
+    SearchFilters? filters,
+  }) async {
+    final sanitizedQuery = _escapeFts5Query(query);
+    if (sanitizedQuery.isEmpty) {
+      LoggerService.db('Empty search query, returning empty results');
+      return [];
+    }
+
+    LoggerService.db('Searching medicaments with FTS5 query: $sanitizedQuery');
+
+    final queryData = _buildSearchQuery(sanitizedQuery, filters);
 
     // WHY: Map query rows to MedicamentSummaryData using the table's mapper
-    return Future.wait(rows.map(db.medicamentSummary.mapFromRow));
+    // FIX: Use .asyncMap() on Selectable, then .get() to get List<MedicamentSummaryData>
+    // The .asyncMap() handles Future-returning mapFromRow correctly
+    return db
+        .customSelect(
+          queryData.sql,
+          variables: queryData.variables,
+          readsFrom: {db.medicamentSummary},
+        )
+        .asyncMap((row) => db.medicamentSummary.mapFromRow(row))
+        .get();
   }
 
   Stream<List<MedicamentSummaryData>> watchMedicaments(
@@ -113,42 +128,17 @@ class SearchDao extends DatabaseAccessor<AppDatabase> with _$SearchDaoMixin {
 
     LoggerService.db('Watching medicament search for query: $sanitizedQuery');
 
-    final routeFilter = filters?.voieAdministration;
-    final atcFilter = filters?.atcClass;
+    final queryData = _buildSearchQuery(sanitizedQuery, filters);
 
-    final filterClauses = <String>[];
-    if (routeFilter != null) {
-      filterClauses.add('AND ms.voies_administration LIKE ?');
-    }
-    if (atcFilter != null) {
-      filterClauses.add('AND ms.atc_code LIKE ?');
-    }
-    final filterClause = filterClauses.join(' ');
-
-    final variables = <Variable<Object>>[Variable<String>(sanitizedQuery)];
-    if (routeFilter != null) {
-      variables.add(Variable<String>('%$routeFilter%'));
-    }
-    if (atcFilter != null) {
-      variables.add(Variable<String>('$atcFilter%'));
-    }
-
-    final statement = db.customSelect(
-      '''
-      SELECT ms.*,
-             bm25(search_index) AS rank
-      FROM medicament_summary ms
-      INNER JOIN search_index si ON ms.cis_code = si.cis_code
-      WHERE search_index MATCH ? $filterClause
-      ORDER BY rank ASC, ms.nom_canonique
-      LIMIT 50
-      ''',
-      variables: variables,
-      readsFrom: {db.medicamentSummary},
-    );
-
-    return statement.watch().asyncMap(
-      (rows) => Future.wait(rows.map(db.medicamentSummary.mapFromRow)),
-    );
+    // WHY: Map query rows to MedicamentSummaryData using the table's mapper
+    // FIX: Use .asyncMap() on Selectable to handle Future-returning mapFromRow
+    return db
+        .customSelect(
+          queryData.sql,
+          variables: queryData.variables,
+          readsFrom: {db.medicamentSummary},
+        )
+        .asyncMap((row) => db.medicamentSummary.mapFromRow(row))
+        .watch();
   }
 }

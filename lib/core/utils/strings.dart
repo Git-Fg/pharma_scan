@@ -61,6 +61,7 @@ class Strings {
   static const String unknown = 'Inconnu';
   static const String unknownLab = 'Laboratoire Inconnu';
   static const String group = 'Groupe';
+  static const String unableToOpenUrl = 'Impossible d\'ouvrir l\'URL';
 
   // Settings & Actions
   static const String openSettings = 'Ouvrir les réglages';

@@ -143,6 +143,7 @@ class DatabaseDao extends DatabaseAccessor<AppDatabase>
     });
 
     // Return count of inserted records
+    // NOTE: getMedicamentSummaryCount already maps to int via .map() in generated code
     final result = await attachedDatabase
         .getMedicamentSummaryCount()
         .getSingle();

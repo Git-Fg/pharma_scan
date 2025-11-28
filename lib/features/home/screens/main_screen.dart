@@ -135,7 +135,6 @@ class MainScreen extends HookConsumerWidget {
         InitializationStep.downloading,
         InitializationStep.parsing,
         InitializationStep.aggregating,
-        InitializationStep.cleaning,
       ];
       final currentStage = initStep ?? InitializationStep.downloading;
       double? initProgress;
@@ -160,11 +159,6 @@ class MainScreen extends HookConsumerWidget {
           Strings.initializationAggregatingTitle,
           Strings.initializationAggregatingDescription,
           FIcons.database,
-        ),
-        InitializationStep.cleaning => (
-          Strings.initializationInProgress,
-          Strings.initializationDescription,
-          FIcons.loader,
         ),
         _ => (
           Strings.initializationInProgress,
@@ -281,14 +275,20 @@ class MainScreen extends HookConsumerWidget {
         footer: FBottomNavigationBar(
           index: navigationShell.currentIndex,
           onChange: onTabChanged,
-          children: const [
-            FBottomNavigationBarItem(
-              icon: Icon(FIcons.scan),
-              label: Text(Strings.scanner),
+          children: [
+            Testable(
+              id: TestTags.navScanner,
+              child: const FBottomNavigationBarItem(
+                icon: Icon(FIcons.scan),
+                label: Text(Strings.scanner),
+              ),
             ),
-            FBottomNavigationBarItem(
-              icon: Icon(FIcons.database),
-              label: Text(Strings.explorer),
+            Testable(
+              id: TestTags.navExplorer,
+              child: const FBottomNavigationBarItem(
+                icon: Icon(FIcons.database),
+                label: Text(Strings.explorer),
+              ),
             ),
           ],
         ),

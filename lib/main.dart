@@ -8,6 +8,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:pharma_scan/core/providers/theme_provider.dart';
 import 'package:pharma_scan/core/router/app_router.dart';
 import 'package:pharma_scan/core/services/logger_service.dart';
+import 'package:pharma_scan/core/theme/pharma_theme_wrapper.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/features/home/providers/initialization_provider.dart';
 import 'package:talker_riverpod_logger/talker_riverpod_logger.dart';
@@ -94,7 +95,7 @@ class PharmaScanApp extends HookConsumerWidget {
 
     // WHY: Always show the router - initialization happens in background
     // with reactive feedback via toasts and placeholders
-    // WHY: Wrap with FAnimatedTheme to provide Forui theme globally
+    // WHY: Use PharmaThemeWrapper to provide Forui theme globally and handle system UI
     return MaterialApp.router(
       title: Strings.appName,
       debugShowCheckedModeBanner: false,
@@ -103,13 +104,11 @@ class PharmaScanApp extends HookConsumerWidget {
       darkTheme: darkTheme,
       supportedLocales: FLocalizations.supportedLocales,
       localizationsDelegates: const [...FLocalizations.localizationsDelegates],
-      builder: (context, child) {
-        final brightness = Theme.of(context).brightness;
-        final activeForuiTheme = brightness == Brightness.dark
-            ? foruiDarkTheme
-            : foruiLightTheme;
-        return FAnimatedTheme(data: activeForuiTheme, child: child!);
-      },
+      builder: (context, child) => PharmaThemeWrapper(
+        themeMode: themeMode,
+        updateSystemUi: true,
+        child: child!,
+      ),
       routerConfig: goRouter,
     );
   }
