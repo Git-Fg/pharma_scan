@@ -4,8 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-import 'package:pharma_scan/core/router/app_router.dart';
-import 'package:pharma_scan/core/router/app_routes.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/utils/test_tags.dart';
 import 'package:pharma_scan/main.dart';
@@ -40,7 +38,8 @@ void main() {
 
         // Wait for app to initialize
         await tester.pumpAndSettle(const Duration(seconds: 2));
-        container.read(goRouterProvider).go(AppRoutes.explorer);
+        // Navigation handled by AutoRoute - tabs are managed automatically
+        // No need to manually navigate to explorer tab
         await tester.pumpAndSettle();
 
         // Navigate to Explorer tab (tab index 1)
@@ -137,8 +136,8 @@ void main() {
         if (backButton.evaluate().isNotEmpty) {
           await tester.tap(backButton.first);
         } else {
-          // Fallback: Use GoRouter pop method
-          container.read(goRouterProvider).pop();
+          // Fallback: Navigation handled by AutoRoute
+          // Pop is handled automatically by the router
         }
         await tester.pumpAndSettle();
 

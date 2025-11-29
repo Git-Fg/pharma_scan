@@ -1,0 +1,53 @@
+---
+description: Functional error handling and UI feedback protocols.
+alwaysApply: true
+---
+
+# Error Handling Protocols
+
+## 1. Service Layer: Functional approach
+
+* **Library:** Use `fpdart`.
+
+* **Pattern:** Return `Future<Either<Failure, Success>>` for operations that can fail (parsing, network).
+
+* **Exceptions:** Catch exceptions at the lowest level (datasource) and map them to domain `Failure` objects.
+
+```dart
+Future<Either<DataError, Medicament>> fetchMedication() async {
+  try {
+    final result = await api.get();
+    return Right(result);
+  } catch (e) {
+    return Left(DataError.from(e));
+  }
+}
+```
+
+**Reference Implementation:** See `lib/core/services/ingestion/bdpm_file_parser.dart` for Railway Oriented Programming patterns using `Either<ParseError, T>`.
+
+## 2. UI Layer: Visual Feedback
+
+* **Toasts:** Use `showFToast` (Forui) for transient errors (network fail, save success).
+
+* **Alerts:** Use `FAlert` for inline error states within content.
+
+* **Dialogs:** Use `FDialog` for critical errors requiring user acknowledgement.
+
+**Reference Implementation:** See `lib/features/scanner/screens/camera_screen.dart` for `showFToast` error patterns.
+
+## 3. Logging (Talker)
+
+* **Usage:** Use `LoggerService` (wrapping Talker).
+
+* **Levels:**
+
+  * `info`: Normal flow events (Screen navigation, DB init).
+
+  * `error`: Exceptions with stack traces.
+
+  * `debug`: Payload details (GS1 codes).
+
+* **Sanitization:** Ensure no PII enters logs.
+
+**Reference Implementation:** See `lib/core/services/logger_service.dart` for logging patterns.

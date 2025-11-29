@@ -30,14 +30,14 @@ This project is developed by a **single developer**. The architecture prioritize
 - **Algorithmic Princeps Grouping**: Advanced word-based algorithm that identifies common base names for princeps within the same group, providing a clean "Generic Principle ↔ Princeps Reference" mapping in the explorer view.
 - **On-Device, Type-Safe Database**: Uses `drift` ORM for a fully offline, compile-time safe database built from official French public health data (BDPM).
 - **Deterministic Data Model**: All relationships and data extraction are derived directly from official BDPM data files, ensuring 100% accuracy and eliminating all heuristic approximations.
-- **Clean & Responsive UI**: Built with a minimalistic design system (`forui`) for an efficient user experience.
+- **Clean & Responsive UI**: Built with a minimalistic design system (`shadcn_ui`) for an efficient user experience.
 - **Resilient Initialization & Recovery**: Startup initialization relies on versioned data checks inside `DataInitializationService`; when connectivity fails, the app surfaces a non-blocking banner with retry and Settings shortcuts.
 - **Automatic BDPM Sync**: A background `SyncService` tracks per-file SHA-256 hashes, honors user-defined frequencies (`none/daily/weekly/monthly`), retries until connectivity is available, and exposes progress via Riverpod so the UI can display Shad banners, manual "check now" actions, and toast notifications.
 
 ## Technology Stack
 
 - **Framework**: Flutter
-- **UI Toolkit**: [forui](https://pub.dev/packages/forui)
+- **UI Toolkit**: [shadcn_ui](https://pub.dev/packages/shadcn_ui)
 - **Scanning**: [mobile_scanner](https://pub.dev/packages/mobile_scanner)
 - **Local Database**: [drift](https://pub.dev/packages/drift) - Type-safe ORM with compile-time query validation
 - **Data Sources**: Official BDPM TXT files (direct downloads, no ZIP archives)

@@ -43,7 +43,7 @@ void main() {
       () async {
         // GIVEN: Sample TXT content with CIS codes and clean medication names
         // Column order: [0]=CIS, [1]=Dénomination
-        final testContent = '''
+        const testContent = '''
 60002283	ARIMIDEX 1 mg, comprimé
 60004932	GLUCOPHAGE 500 mg, comprimé
 60009111	RANITIDINE BIOGARAN 150 mg, comprimé
@@ -95,7 +95,7 @@ void main() {
     test('should correctly parse procedure type from CIS_bdpm.txt', () async {
       // GIVEN: Sample TXT content with procedure type in column 5 (index 5)
       // Column order: [0]=CIS, [1]=Dénomination, [2]=Forme pharm, [3]=Voies admin, [4]=Statut, [5]=Type de procédure
-      final testContent = '''
+      const testContent = '''
 60002283	ARIMIDEX 1 mg, comprimé	Comprimé	Orale	Commercialisée	Enreg homéo (Proc. Nat.)
 60004932	GLUCOPHAGE 500 mg, comprimé	Comprimé	Orale	Commercialisée	Autorisation
 ''';
@@ -148,7 +148,7 @@ void main() {
       () async {
         // GIVEN: Sample TXT content matching real-world BDPM structure
         // Column order: [0]=CIS, [1]=CIP7, [2]=Libellé, [3-5]=..., [6]=CIP13
-        final testContent = '''
+        const testContent = '''
 60002283	4949729	plaquette(s) PVC... de 30 comprimé(s)	Présentation active	Déclaration de commercialisation	16/03/2011	3400949497294
 60002283	4949770	autre présentation...	Présentation active	Déclaration	20/05/2011	3400949497706
 60004932	1234567	comprimé...	Présentation active	Déclaration	01/01/2020	3400912345678
@@ -175,7 +175,7 @@ void main() {
 
             if (cis.isNotEmpty && cip13.isNotEmpty && nom.isNotEmpty) {
               cisToCip13.putIfAbsent(cis, () => []).add(cip13);
-              medicaments.add({'code_cip': cip13, 'nom': nom, 'cis_code': cis});
+              medicaments.add({'code_cip': cip13, 'cis_code': cis});
             }
           }
         }
@@ -202,7 +202,7 @@ void main() {
       () async {
         // GIVEN: Sample TXT content with SA (active) and FT (fraction) substances
         // Column order: [0]=CIS, [1]=Element, [2]=Code, [3]=Dénomination, [6]=Nature
-        final testContent = '''
+        const testContent = '''
 60002283	comprimé	42215	ANASTROZOLE	1,00 mg	un comprimé	SA	1
 60004932	comprimé	12345	METFORMINE	500,00 mg	un comprimé	FT	1
 60004932	comprimé	67890	CHLORHYDRATE DE METFORMINE	500,00 mg	un comprimé	SA	1
@@ -259,7 +259,7 @@ void main() {
       () async {
         // GIVEN: Sample TXT content with generic groups
         // Column order: [0]=Group ID, [1]=Libelle, [2]=CIS, [3]=Type (0=princeps, 1=generic)
-        final testContent = '''
+        const testContent = '''
 1	CIMETIDINE 200 mg	60001234	0	1
 1	CIMETIDINE 200 mg	60005678	1	2
 7	RANITIDINE 150 mg	60009111	0	1
@@ -357,7 +357,7 @@ void main() {
       'should correctly parse generic types 2 and 4 from CIS_GENER_bdpm.txt',
       () async {
         // GIVEN: Sample TXT content with generics of types 2 and 4
-        final testContent = '''
+        const testContent = '''
 10	MEDICAMENT TEST	60001000	0	1
 10	MEDICAMENT TEST	60001001	1	2
 10	MEDICAMENT TEST	60001002	2	3
@@ -454,19 +454,18 @@ void main() {
 
         // Simulate parsing where same CIS appears with different CIP13s
         final testData = [
-          {'cis': '60002283', 'cip13': '3400949497294', 'nom': 'Package 1'},
-          {'cis': '60002283', 'cip13': '3400949497706', 'nom': 'Package 2'},
-          {'cis': '60002283', 'cip13': '3400949497890', 'nom': 'Package 3'},
+          {'cis': '60002283', 'cip13': '3400949497294'},
+          {'cis': '60002283', 'cip13': '3400949497706'},
+          {'cis': '60002283', 'cip13': '3400949497890'},
         ];
 
         for (final entry in testData) {
           final cis = entry['cis']!;
           final cip13 = entry['cip13']!;
-          final nom = entry['nom']!;
 
           cisToCip13.putIfAbsent(cis, () => []).add(cip13);
           if (medicamentCips.add(cip13)) {
-            medicaments.add({'code_cip': cip13, 'nom': nom});
+            medicaments.add({'code_cip': cip13});
           }
         }
 

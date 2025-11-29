@@ -4,17 +4,15 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:pharma_scan/core/providers/theme_provider.dart';
-import 'package:pharma_scan/core/router/app_router.dart';
+import 'package:pharma_scan/core/router/router_provider.dart';
 import 'package:pharma_scan/core/services/logger_service.dart';
-import 'package:pharma_scan/core/theme/pharma_theme_wrapper.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/features/home/providers/initialization_provider.dart';
+import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:talker_riverpod_logger/talker_riverpod_logger.dart';
-import 'package:flutter_animate/flutter_animate.dart';
-import 'package:forui/forui.dart';
-import 'package:pharma_scan/theme/theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,9 +25,9 @@ void main() async {
     }),
   );
 
-  // Configure global animation defaults for consistency
-  Animate.defaultDuration = 300.ms;
-  Animate.defaultCurve = Curves.easeOutCubic;
+  // Configure global animation defaults for consistency (if needed in future)
+  // Animate.defaultDuration = 300.ms;
+  // Animate.defaultCurve = Curves.easeOutCubic;
 
   // Enable edge-to-edge display on Android
   unawaited(SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge));
@@ -51,11 +49,9 @@ void main() async {
         TalkerRiverpodObserver(
           talker: LoggerService().talker,
           settings: const TalkerRiverpodLoggerSettings(
-            enabled: true,
             printStateFullData: false,
             printProviderAdded: false,
             printProviderDisposed: true,
-            printProviderFailed: true,
           ),
         ),
       ],
@@ -81,35 +77,41 @@ class PharmaScanApp extends HookConsumerWidget {
       );
       return null;
     }, []);
-    final goRouter = ref.watch(goRouterProvider);
+    final appRouter = ref.watch(appRouterProvider);
     final themeAsync = ref.watch(themeProvider);
     final themeMode = themeAsync.value ?? ThemeMode.system;
 
-    // WHY: Use Forui Green themes with Material compatibility
-    final foruiLightTheme = greenLight;
-    final foruiDarkTheme = greenDark;
-
-    // WHY: Convert Forui themes to Material themes for system UI and Material widgets
-    final lightTheme = foruiLightTheme.toApproximateMaterialTheme();
-    final darkTheme = foruiDarkTheme.toApproximateMaterialTheme();
-
-    // WHY: Always show the router - initialization happens in background
-    // with reactive feedback via toasts and placeholders
-    // WHY: Use PharmaThemeWrapper to provide Forui theme globally and handle system UI
-    return MaterialApp.router(
-      title: Strings.appName,
-      debugShowCheckedModeBanner: false,
+    // WHY: Use Shadcn Green color scheme for consistent theming
+    // ShadApp.custom with MaterialApp.router provides Material integration for Scaffold/AppBar/NavigationBar
+    // while maintaining Shadcn theme context and AutoRoute integration
+    return ShadApp.custom(
       themeMode: themeMode,
-      theme: lightTheme,
-      darkTheme: darkTheme,
-      supportedLocales: FLocalizations.supportedLocales,
-      localizationsDelegates: const [...FLocalizations.localizationsDelegates],
-      builder: (context, child) => PharmaThemeWrapper(
-        themeMode: themeMode,
-        updateSystemUi: true,
-        child: child!,
+      theme: ShadThemeData(
+        brightness: Brightness.light,
+        colorScheme: const ShadGreenColorScheme.light(),
       ),
-      routerConfig: goRouter,
+      darkTheme: ShadThemeData(
+        brightness: Brightness.dark,
+        colorScheme: const ShadGreenColorScheme.dark(),
+      ),
+      appBuilder: (BuildContext shadContext) {
+        return MaterialApp.router(
+          title: Strings.appName,
+          debugShowCheckedModeBanner: false,
+          theme: Theme.of(shadContext),
+          darkTheme: Theme.of(shadContext),
+          routerConfig: appRouter.config(),
+          supportedLocales: const [Locale('fr', '')],
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          builder: (BuildContext materialContext, Widget? child) {
+            return ShadAppBuilder(child: child);
+          },
+        );
+      },
     );
   }
 }

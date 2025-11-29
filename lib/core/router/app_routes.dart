@@ -11,7 +11,7 @@ class AppRoutes {
   // Path parameter identifiers
   static const pidGroup = 'groupId';
 
-  // Relative paths for GoRouter configuration
+  // Relative paths for AutoRoute configuration
   static const groupDetailPath = 'group/:$pidGroup';
 
   // Computed navigation targets

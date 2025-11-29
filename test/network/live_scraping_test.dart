@@ -1,11 +1,11 @@
 import 'dart:developer' as developer;
 
-import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
 import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/providers/core_providers.dart';
 import 'package:pharma_scan/features/home/providers/sync_provider.dart';
-import 'package:mocktail/mocktail.dart';
 
 import '../mocks.dart';
 
@@ -70,7 +70,7 @@ void main() {
         reason: 'Failed to find date for CIS_GENER_bdpm.txt',
       );
 
-      final sanityDate = DateTime(2020, 1, 1);
+      final sanityDate = DateTime(2020);
       for (final date in dates.values) {
         expect(
           date.isAfter(sanityDate),

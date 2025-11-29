@@ -1,0 +1,207 @@
+---
+description: CONSTANTLY APPLIED. Explicit list of forbidden architectural patterns and over-engineering hazards.
+alwaysApply: true
+---
+
+# Architectural Anti-Patterns & Prohibitions
+
+## 1. The "Smart Wrapper" Anti-Pattern (Strictly Forbidden)
+
+**Definition:** Creating a custom widget or utility function that wraps a library widget (like `FSheet`, `FDialog`) just to apply default padding, scrolling, or layout logic.
+
+**Why it fails:** It couples *presentation* (the sheet) with *layout* (scrolling/padding), causing issues like "white blocs" behind keyboards and making the underlying API inaccessible.
+
+**❌ BAD (Forbidden):**
+
+```dart
+// Hides the underlying API, enforces scrolling where it might not be needed
+Future<void> showMySheet(Widget child) {
+  return showFSheet(
+    builder: (_) => SingleChildScrollView( // <--- FORBIDDEN: Enforced layout
+      padding: EdgeInsets.all(16),         // <--- FORBIDDEN: Enforced padding
+      child: child,
+    ),
+  );
+}
+```
+
+**✅ GOOD (Allowed):**
+
+```dart
+// Pure dispatcher. The caller handles layout.
+Future<void> showSheet(WidgetBuilder builder) {
+  return showFSheet(
+    builder: builder, // Direct pass-through
+  );
+}
+
+// Caller usage:
+showSheet(
+  (context) => SingleChildScrollView(child: MyContent()),
+);
+```
+
+## 2. The "Layout Manager" Anti-Pattern
+
+**Definition:** A parent widget calculating padding based on `MediaQuery` for its children, instead of letting children handle their own safe areas or insets.
+
+**Rule:** **Content owns Layout.**
+
+*   A `Sheet` should not know about the keyboard. The `Form` inside the sheet should handle the keyboard.
+
+*   A `Card` should not handle scrolling. The `ListView` containing the card handles scrolling.
+
+### 2.1. The "Layout Manager" Overlay
+
+**Definition:** Creating a custom function (e.g., `showMySheet`) that wraps `showModalBottomSheet` or `showFSheet` and inserts `LayoutBuilder`, `ConstrainedBox`, or `DraggableScrollableSheet` automatically.
+
+**Why it fails:**
+
+*   It hides the native `constraints` and `style` parameters of the library.
+
+*   It forces a specific scrolling behavior (e.g., `Draggable`) that conflicts with simple content (e.g., `Dialog`).
+
+*   It creates "Superposition" artifacts where the wrapper's layout logic fights the library's layout logic. For example, wrapping `showFSheet` content in `DraggableScrollableSheet` with `initialChildSize: 1.0` forces the child to expand to a specific ratio of the screen, disregarding natural content size. When the keyboard opens, the `Draggable` sheet tries to maintain its ratio calculation relative to the visible screen (which shrank), causing a conflict with the `FSheet`'s own layout logic. This results in the sheet visual background detaching from the content or the content being forced into a layout window that doesn't match the `FSheet`'s modal barrier.
+
+**Rule:**
+
+*   Use `showFSheet` / `showFDialog` directly in the UI code.
+
+*   If you need a dispatcher (mobile vs desktop), it must pass properties through *transparently* without adding layout widgets.
+
+*   **Exception:** Only use `DraggableScrollableSheet` when you specifically need a drag handle that snaps to percentages (e.g., a resizable bottom panel). For standard forms, use `SingleChildScrollView` with keyboard padding.
+
+**❌ BAD (Forbidden):**
+
+```dart
+// Wrapper that forces DraggableScrollableSheet on all sheets
+Future<void> showMySheet(Widget child) {
+  return showFSheet(
+    builder: (_) => DraggableScrollableSheet(
+      initialChildSize: 1.0, // <--- FORBIDDEN: Forces layout
+      builder: (context, controller) => child, // <--- FORBIDDEN: Hides API
+    ),
+  );
+}
+```
+
+**✅ GOOD (Allowed):**
+
+```dart
+// Pure dispatcher. The caller handles layout.
+Future<void> showAdaptiveSheet(WidgetBuilder builder) {
+  return showFSheet(
+    builder: builder, // Direct pass-through
+  );
+}
+
+// Caller usage:
+showAdaptiveSheet(
+  (context) => Padding(
+    padding: EdgeInsets.only(
+      bottom: MediaQuery.viewInsetsOf(context).bottom,
+    ),
+    child: SingleChildScrollView(child: MyFormContent()),
+  ),
+);
+```
+
+## 3. The "Premature Abstraction" Anti-Pattern
+
+**Definition:** Creating a generic class/function for code that is used only once or twice, "just in case" it's needed later.
+
+**Rule:**
+
+*   **Rule of Three:** Do not extract logic into a shared service/utility until it is duplicated in **three** distinct places.
+
+*   **YAGNI:** You Aren't Gonna Need It. Do not build for hypothetical future requirements.
+
+## 4. The "Pseudo-Domain" Anti-Pattern
+
+**Definition:** Creating mapped "Domain Entities" that mirror Database Rows 1:1 without adding behavior.
+
+**Rule:**
+
+*   Use Drift-generated classes directly in the UI.
+
+*   Do not create `MedicamentDto` if it is identical to `Medicament`.
+
+## 5. Legacy Grouping Anti-Pattern (Strictly Forbidden)
+
+**Definition:** Using `GroupSummaryNotifier` or `FormCategory` enum-based filtering for Explorer group listings.
+
+**Why it fails:**
+
+*   The current Explorer implementation uses `GenericGroupsNotifier` with dynamic SQL string filtering via `searchFiltersProvider`.
+*   `GroupSummaryNotifier` relied on `FormCategory` enum logic which is no longer exposed in the UI.
+*   Enum-based categorization creates rigid filtering that doesn't match the flexible database-driven approach.
+
+**Rule:**
+
+*   **FORBIDDEN:** Do not reintroduce `GroupSummaryNotifier` or use `FormCategory` enum for Explorer filtering.
+*   **REQUIRED:** Use `GenericGroupsNotifier` and dynamic SQL string filtering via `searchFiltersProvider`.
+*   The `FormCategory` enum remains in `domain_constants.dart` for other purposes, but Explorer filtering must use string-based routes from the database.
+
+## 5. The "Manual Form State" Anti-Pattern
+
+**Definition:** Manually creating `TextEditingController`s, `FocusNode`s, and `setState` variables for standard form fields when using `ShadInput`.
+
+**Why it fails:** It adds unnecessary boilerplate and defeats the purpose of `ShadForm`'s automatic data aggregation and validation. `ShadForm` with `ShadInputFormField` handles all of this automatically through the `id`-based value system and `saveAndValidate()` method.
+
+**❌ BAD (Forbidden):**
+
+```dart
+// Manual controller management defeats ShadForm's purpose
+class BadForm extends HookConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final controller = useTextEditingController(); // FORBIDDEN
+    final focusNode = useFocusNode(); // FORBIDDEN
+    final value = useState(''); // FORBIDDEN
+    
+    return ShadInput(
+      controller: controller, // FORBIDDEN
+      focusNode: focusNode, // FORBIDDEN
+      onChanged: (v) => value.value = v, // FORBIDDEN: Manual state management
+    );
+    // Manual validation logic...
+  }
+}
+```
+
+**✅ GOOD (Allowed):**
+
+```dart
+// Let ShadForm handle everything automatically
+class GoodForm extends HookConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final formKey = useMemoized(() => GlobalKey<ShadFormState>());
+    
+    return ShadForm(
+      key: formKey,
+      child: Column(
+        children: [
+          ShadInputFormField(
+            id: 'field_id', // Critical: Unique ID
+            label: Text(Strings.fieldLabel),
+            validator: (v) => v.isEmpty ? Strings.errorRequired : null,
+          ),
+          ShadButton(
+            onPressed: () {
+              if (formKey.currentState!.saveAndValidate()) {
+                final data = formKey.currentState!.value;
+                final fieldValue = data['field_id'] as String;
+                // Process data
+              }
+            },
+            child: Text(Strings.submit),
+          ),
+        ],
+      ),
+    );
+  }
+}
+```
+
+**Exception:** `TextEditingController` is acceptable for non-form inputs (e.g., search bars with real-time filtering) where you need direct access to the text value for debouncing or live updates. However, if the search is part of a form submission, use `ShadInputFormField` instead.

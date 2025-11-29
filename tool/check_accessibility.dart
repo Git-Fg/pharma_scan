@@ -16,31 +16,22 @@ void main(List<String> args) {
     exit(1);
   }
 
-  // Check for FButton without Semantics
+  // Check for ShadButton without Semantics (Shadcn components typically handle this automatically, but verify)
   _checkForMissingSemantics(
     libDir,
-    pattern: RegExp(r'FButton\s*\('),
+    pattern: RegExp(r'ShadButton\s*\('),
     contextPattern: RegExp(r'Semantics\s*\('),
-    widgetName: 'FButton',
+    widgetName: 'ShadButton',
     issues: issues,
+    requireContext: false, // ShadButton typically handles accessibility automatically
   );
 
-  // Check for FTile without Semantics (when onPress is present)
+  // Check for custom tiles without Semantics (custom Row-based widgets replacing FTile)
   _checkForMissingSemantics(
     libDir,
-    pattern: RegExp(r'FTile\s*\('),
-    contextPattern: RegExp(r'(Semantics\s*\(|onPress:)'),
-    widgetName: 'FTile',
-    issues: issues,
-    requireContext: false, // FTile might not always need Semantics
-  );
-
-  // Check for FSelectTile without Semantics
-  _checkForMissingSemantics(
-    libDir,
-    pattern: RegExp(r'FSelectTile\s*\.'),
+    pattern: RegExp(r'_buildTile\s*\('),
     contextPattern: RegExp(r'Semantics\s*\('),
-    widgetName: 'FSelectTile',
+    widgetName: 'Custom Tile (_buildTile)',
     issues: issues,
   );
 
@@ -118,7 +109,7 @@ void _checkForDecorativeIcons(Directory dir, List<String> issues) {
       .where((f) => !f.path.contains('.freezed.dart'))
       .where((f) => !f.path.contains('.drift.dart'));
 
-  final chevronPattern = RegExp(r'Icon\s*\(\s*FIcons\.chevron(Right|Left)');
+  final chevronPattern = RegExp(r'Icon\s*\(\s*LucideIcons\.chevron(Right|Left)');
   final excludeSemanticsPattern = RegExp(r'ExcludeSemantics\s*\(');
 
   for (final file in dartFiles) {

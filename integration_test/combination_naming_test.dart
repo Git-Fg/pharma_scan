@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/providers/core_providers.dart';
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
 import 'package:pharma_scan/features/explorer/models/grouped_by_product_model.dart';
 import 'package:pharma_scan/features/explorer/providers/group_classification_provider.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'test_bootstrap.dart';
+
 import '../test/fixtures/seed_builder.dart';
+import 'test_bootstrap.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();

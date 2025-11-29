@@ -245,9 +245,12 @@ class BdpmFileParser {
       if (cis.isEmpty || denomination.isEmpty) continue;
       if (!cisToCip13.containsKey(cis)) continue;
 
+      // WHY: Normalize salt prefixes to fix alphabetical sorting
+      final normalizedDenomination = _normalizeSaltPrefix(denomination);
+
       final row = _CompositionRow(
         cis: cis,
-        denomination: denomination,
+        denomination: normalizedDenomination,
         dosage: dosageRaw,
       );
       final key = '${cis}_$linkId';
@@ -321,7 +324,12 @@ class BdpmFileParser {
 
           if (cip13s != null && (isPrinceps || isGeneric)) {
             if (seenGroups.add(groupId)) {
-              generiqueGroups.add({'group_id': groupId, 'libelle': libelle});
+              // WHY: Normalize salt prefixes to fix alphabetical sorting
+              final normalizedLibelle = _normalizeSaltPrefix(libelle);
+              generiqueGroups.add({
+                'group_id': groupId,
+                'libelle': normalizedLibelle,
+              });
             }
 
             for (final cip13 in cip13s) {
@@ -408,7 +416,7 @@ class BdpmFileParser {
         hasNarcotic ||
         hasException ||
         hasRestricted;
-    final isOtc = normalized.isEmpty ? true : !hasAny;
+    final isOtc = normalized.isEmpty || !hasAny;
     return (
       isHospitalOnly: hasHospital,
       isDental: hasDental,
@@ -541,6 +549,30 @@ String _normalizeConditionText(String? raw) {
     text = text.replaceAll(entry.key, entry.value);
   }
   return text;
+}
+
+// WHY: Normalize salt prefixes by moving them to the end in parentheses.
+// Transforms "CHLORHYDRATE DE METFORMINE" -> "METFORMINE (CHLORHYDRATE DE)"
+// This fixes alphabetical sorting while preserving FTS5 searchability.
+String _normalizeSaltPrefix(String label) {
+  if (label.isEmpty) return label;
+
+  // Match salt prefix at start of string: "SALT DE MOLECULE" or "SALT D'MOLECULE"
+  // Case-insensitive matching for all common French salt types
+  const saltPattern =
+      r'^((?:CHLORHYDRATE|SULFATE|MALEATE|MALÉATE|TARTRATE|BESILATE|BÉSILATE|MESILATE|MÉSILATE|SUCCINATE|FUMARATE|OXALATE|CITRATE|ACETATE|ACÉTATE|LACTATE|VALERATE|VALÉRATE|PROPIONATE|BUTYRATE|PHOSPHATE|NITRATE|BROMHYDRATE)\s+(?:DE\s+|D[\u0027\u2019]))(.+)$';
+  final pattern = RegExp(saltPattern, caseSensitive: false);
+
+  final match = pattern.firstMatch(label);
+  if (match != null) {
+    final saltPrefix = match
+        .group(1)!
+        .trim(); // e.g., "CHLORHYDRATE DE" or "CHLORHYDRATE D'"
+    final molecule = match.group(2)!; // e.g., "METFORMINE"
+    return '$molecule ($saltPrefix)';
+  }
+
+  return label;
 }
 
 typedef SpecialitesParseResult = ({

@@ -2,21 +2,19 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 import 'package:pharma_scan/core/database/database.dart';
-import 'package:pharma_scan/core/theme/app_colors.dart';
+import 'package:pharma_scan/core/logic/sanitizer.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
-import 'package:pharma_scan/core/logic/sanitizer.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/info_label.dart';
-import 'package:forui/forui.dart';
+import 'package:pharma_scan/theme/pharma_colors.dart';
+import 'package:shadcn_ui/shadcn_ui.dart';
 
 /// WHY: Universal ProductCard that handles all product display states.
 /// Replaces MedicamentCard, InfoBubble variants, and StandaloneSearchResult.
 /// "Trust the SQL" - displays Drift `MedicamentSummaryData` directly without transformation.
 class ProductCard extends StatelessWidget {
   const ProductCard({
-    super.key,
-    required this.summary,
-    required this.cip,
+    required this.summary, required this.cip, super.key,
     this.title,
     this.subtitle,
     this.badges = const [],
@@ -60,6 +58,7 @@ class ProductCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = ShadTheme.of(context);
     final displayTitle = title ?? getDisplayTitle(summary);
     final displaySubtitle = subtitle ?? _buildDefaultSubtitle();
     final availabilityAlert = _buildAvailabilityAlert(context);
@@ -75,7 +74,7 @@ class ProductCard extends StatelessWidget {
         ? _buildPrincepsReference(context)
         : null;
 
-    final card = FCard.raw(
+    final card = ShadCard(
       child: Padding(
         padding: EdgeInsets.all(
           compact
@@ -119,9 +118,7 @@ class ProductCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     displayTitle,
-                    style: compact
-                        ? context.theme.typography.base
-                        : context.theme.typography.xl2, // h4 equivalent
+                    style: compact ? theme.textTheme.p : theme.textTheme.h4,
                     overflow: TextOverflow.ellipsis,
                     maxLines: compact ? 1 : 2,
                   ),
@@ -164,11 +161,9 @@ class ProductCard extends StatelessWidget {
                     line,
                     style:
                         (compact
-                                ? context.theme.typography.xs
-                                : context.theme.typography.sm)
-                            .copyWith(
-                              color: context.theme.colors.mutedForeground,
-                            ),
+                                ? theme.textTheme.small
+                                : theme.textTheme.small)
+                            .copyWith(color: theme.colorScheme.mutedForeground),
                     overflow: TextOverflow.ellipsis,
                     maxLines: compact
                         ? 1
@@ -226,16 +221,16 @@ class ProductCard extends StatelessWidget {
   }
 
   List<Widget> _buildDetails(BuildContext context) {
-    final mutedStyle =
-        (compact ? context.theme.typography.xs : context.theme.typography.sm)
-            .copyWith(color: context.theme.colors.mutedForeground);
+    final theme = ShadTheme.of(context);
+    final mutedStyle = (compact ? theme.textTheme.small : theme.textTheme.small)
+        .copyWith(color: theme.colorScheme.mutedForeground);
     final widgets = <Widget>[];
 
     if (summary.titulaire != null && summary.titulaire!.isNotEmpty) {
       widgets.add(
         InfoLabel(
           text: summary.titulaire!,
-          icon: FIcons.building2,
+          icon: LucideIcons.building2,
           style: mutedStyle,
         ),
       );
@@ -245,7 +240,7 @@ class ProductCard extends StatelessWidget {
     widgets.add(
       InfoLabel(
         text: '${Strings.cip} $cip',
-        icon: FIcons.barcode,
+        icon: LucideIcons.barcode,
         style: mutedStyle,
       ),
     );
@@ -258,7 +253,7 @@ class ProductCard extends StatelessWidget {
       widgets.add(
         InfoLabel(
           text: summary.principesActifsCommuns.join(', '),
-          icon: FIcons.flaskConical,
+          icon: LucideIcons.flaskConical,
           style: mutedStyle,
         ),
       );
@@ -276,17 +271,16 @@ class ProductCard extends StatelessWidget {
             button: true,
             label: Strings.exploreGroupLabel,
             hint: Strings.exploreGroupHint,
-            child: FButton(
-              style: FButtonStyle.outline(),
-              onPress: onExplore,
-              prefix: Icon(
-                FIcons.search,
+            child: ShadButton.outline(
+              onPressed: onExplore,
+              leading: Icon(
+                LucideIcons.search,
                 size: compact ? 12 : 16,
               ), // Reduced icon size
               child: Text(
                 Strings.exploreGroup,
                 style: compact
-                    ? context.theme.typography.xs
+                    ? ShadTheme.of(context).textTheme.small
                     : null, // Smaller text for compact
               ),
             ),
@@ -298,13 +292,12 @@ class ProductCard extends StatelessWidget {
             button: true,
             label: Strings.closeCardLabel,
             hint: Strings.closeCardHint,
-            child: FButton(
-              style: FButtonStyle.ghost(),
-              onPress: onClose,
+            child: ShadButton.ghost(
+              onPressed: onClose,
               child: Text(
                 Strings.close,
                 style: compact
-                    ? context.theme.typography.xs
+                    ? ShadTheme.of(context).textTheme.small
                     : null, // Smaller text for compact
               ),
             ),
@@ -374,13 +367,11 @@ class ProductCard extends StatelessWidget {
     if (availabilityStatus == null || availabilityStatus!.isEmpty) {
       return null;
     }
-    return FAlert(
-      style: context.theme.alertStyles.destructive.call,
+    final theme = ShadTheme.of(context);
+    return ShadAlert.destructive(
       title: Text(
         Strings.stockAlert(availabilityStatus!.trim()),
-        style: compact
-            ? context.theme.typography.xs
-            : context.theme.typography.sm,
+        style: compact ? theme.textTheme.small : theme.textTheme.small,
       ),
     );
   }
@@ -388,16 +379,15 @@ class ProductCard extends StatelessWidget {
   // WHY: Build status icons with tooltips instead of text badges to save vertical space
   // Icons are more compact and provide the same information via tooltips
   Widget _buildStatusIcons(BuildContext context) {
-    final primaryColor = context.theme.colors.primary;
-    final destructiveColor = context.theme.colors.destructive;
+    final theme = ShadTheme.of(context);
+    final primaryColor = theme.colorScheme.primary;
+    final destructiveColor = theme.colorScheme.destructive;
     final icons = <Widget>[];
 
     Widget buildTooltip(String message, Icon icon) {
-      return FTooltip(
-        hover: true,
-        longPress: true,
-        tipBuilder: (context, controller) =>
-            Text(message, style: context.theme.typography.sm),
+      return ShadTooltip(
+        builder: (BuildContext tooltipContext) =>
+            Text(message, style: theme.textTheme.small),
         child: icon,
       );
     }
@@ -407,7 +397,7 @@ class ProductCard extends StatelessWidget {
       icons.add(
         buildTooltip(
           Strings.hospitalTooltip,
-          Icon(FIcons.building2, size: 16, color: primaryColor),
+          Icon(LucideIcons.building2, size: 16, color: primaryColor),
         ),
       );
     }
@@ -417,7 +407,7 @@ class ProductCard extends StatelessWidget {
       icons.add(
         buildTooltip(
           availabilityStatus!,
-          Icon(FIcons.triangleAlert, size: 16, color: destructiveColor),
+          Icon(LucideIcons.triangleAlert, size: 16, color: destructiveColor),
         ),
       );
     }
@@ -431,7 +421,7 @@ class ProductCard extends StatelessWidget {
         icons.add(
           buildTooltip(
             Strings.stoppedTooltip,
-            Icon(FIcons.ban, size: 16, color: destructiveColor),
+            Icon(LucideIcons.ban, size: 16, color: destructiveColor),
           ),
         );
       }
@@ -473,14 +463,14 @@ class ProductCard extends StatelessWidget {
   }
 
   Widget _buildPrincepsReference(BuildContext context) {
-    final equivalentColor = context.theme.colors.destructive;
+    final theme = ShadTheme.of(context);
+    final equivalentColor = theme.colorScheme.destructive;
     final equivalentText = extractPrincepsLabel(summary.princepsDeReference);
 
     return Row(
-      mainAxisSize: MainAxisSize.max,
       children: [
         Icon(
-          FIcons.arrowRightLeft,
+          LucideIcons.arrowRightLeft,
           size: compact ? AppDimens.iconXs : AppDimens.iconSm,
           color: equivalentColor,
         ),
@@ -490,11 +480,8 @@ class ProductCard extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             maxLines: 1,
             text: TextSpan(
-              style:
-                  (compact
-                          ? context.theme.typography.xs
-                          : context.theme.typography.base)
-                      .copyWith(color: context.theme.colors.foreground),
+              style: (compact ? theme.textTheme.small : theme.textTheme.p)
+                  .copyWith(color: theme.colorScheme.foreground),
               children: [
                 const TextSpan(text: Strings.equivalentTo),
                 TextSpan(
@@ -516,9 +503,10 @@ class ProductCard extends StatelessWidget {
     if (exactMatchLabel == null || exactMatchLabel!.isEmpty) {
       return null;
     }
-    final mutedColor = context.theme.colors.muted;
-    final mutedForeground = context.theme.colors.mutedForeground;
-    final radiusSm = 8.0; // Standard small radius
+    final theme = ShadTheme.of(context);
+    final mutedColor = theme.colorScheme.muted;
+    final mutedForeground = theme.colorScheme.mutedForeground;
+    const radiusSm = 8.0; // Standard small radius
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: compact ? 6.0 : AppDimens.spacingSm, // Reduced padding
@@ -529,10 +517,9 @@ class ProductCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(radiusSm),
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.max,
         children: [
           Icon(
-            FIcons.scanBarcode,
+            LucideIcons.scanBarcode,
             size: compact
                 ? AppDimens.iconXs
                 : AppDimens.iconSm, // Reduced icon size
@@ -542,11 +529,8 @@ class ProductCard extends StatelessWidget {
           Expanded(
             child: Text(
               exactMatchLabel!,
-              style:
-                  (compact
-                          ? context.theme.typography.xs
-                          : context.theme.typography.sm)
-                      .copyWith(color: mutedForeground),
+              style: (compact ? theme.textTheme.small : theme.textTheme.small)
+                  .copyWith(color: mutedForeground),
               overflow: TextOverflow.ellipsis,
               maxLines: compact ? 1 : 2, // Single line for compact
             ),
@@ -557,16 +541,18 @@ class ProductCard extends StatelessWidget {
   }
 
   List<Widget> _buildRegulatoryBadges(BuildContext context) {
+    // WHY: PharmaColors is always registered in theme extensions (see lib/theme/theme.dart)
+    // Flow analysis confirms this is non-null, so we can safely assert
+    final pharmaColors = Theme.of(context).extension<PharmaColors>()!;
     final badges = <Widget>[];
     void addBadge(Widget badge) => badges.add(badge);
 
     if (summary.isNarcotic) {
       addBadge(
-        FBadge(
-          style: FBadgeStyle.destructive(),
+        ShadBadge.destructive(
           child: Text(
             Strings.badgeNarcotic,
-            style: context.theme.typography.sm,
+            style: ShadTheme.of(context).textTheme.small,
           ),
         ),
       );
@@ -576,15 +562,18 @@ class ProductCard extends StatelessWidget {
       addBadge(
         Container(
           decoration: BoxDecoration(
-            border: Border.all(color: AppColors.regulatoryRed),
-            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: pharmaColors.regulatoryRed),
+            borderRadius: BorderRadius.circular(AppDimens.radiusSm / 2),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppDimens.spacingXs,
+            vertical: AppDimens.spacing2xs,
+          ),
           child: Text(
             Strings.badgeList1,
-            style: context.theme.typography.sm.copyWith(
-              color: AppColors.regulatoryRed,
-            ),
+            style: ShadTheme.of(
+              context,
+            ).textTheme.small.copyWith(color: pharmaColors.regulatoryRed),
           ),
         ),
       );
@@ -594,15 +583,18 @@ class ProductCard extends StatelessWidget {
       addBadge(
         Container(
           decoration: BoxDecoration(
-            border: Border.all(color: AppColors.regulatoryGreen),
-            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: pharmaColors.regulatoryGreen),
+            borderRadius: BorderRadius.circular(AppDimens.radiusSm / 2),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppDimens.spacingXs,
+            vertical: AppDimens.spacing2xs,
+          ),
           child: Text(
             Strings.badgeList2,
-            style: context.theme.typography.sm.copyWith(
-              color: AppColors.regulatoryGreen,
-            ),
+            style: ShadTheme.of(
+              context,
+            ).textTheme.small.copyWith(color: pharmaColors.regulatoryGreen),
           ),
         ),
       );
@@ -612,13 +604,18 @@ class ProductCard extends StatelessWidget {
       addBadge(
         Container(
           decoration: BoxDecoration(
-            color: AppColors.regulatoryPurple,
-            borderRadius: BorderRadius.circular(4),
+            color: pharmaColors.regulatoryPurple,
+            borderRadius: BorderRadius.circular(AppDimens.radiusSm / 2),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppDimens.spacingXs,
+            vertical: AppDimens.spacing2xs,
+          ),
           child: Text(
             Strings.badgeException,
-            style: context.theme.typography.sm.copyWith(color: Colors.white),
+            style: ShadTheme.of(
+              context,
+            ).textTheme.small.copyWith(color: Colors.white),
           ),
         ),
       );
@@ -628,15 +625,18 @@ class ProductCard extends StatelessWidget {
       addBadge(
         Container(
           decoration: BoxDecoration(
-            border: Border.all(color: AppColors.regulatoryAmber),
-            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: pharmaColors.regulatoryAmber),
+            borderRadius: BorderRadius.circular(AppDimens.radiusSm / 2),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppDimens.spacingXs,
+            vertical: AppDimens.spacing2xs,
+          ),
           child: Text(
             Strings.badgeRestricted,
-            style: context.theme.typography.sm.copyWith(
-              color: AppColors.regulatoryAmber,
-            ),
+            style: ShadTheme.of(
+              context,
+            ).textTheme.small.copyWith(color: pharmaColors.regulatoryAmber),
           ),
         ),
       );
@@ -646,33 +646,42 @@ class ProductCard extends StatelessWidget {
       addBadge(
         Container(
           decoration: BoxDecoration(
-            color: AppColors.regulatoryGray,
-            borderRadius: BorderRadius.circular(4),
+            color: pharmaColors.regulatoryGray,
+            borderRadius: BorderRadius.circular(AppDimens.radiusSm / 2),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppDimens.spacingXs,
+            vertical: AppDimens.spacing2xs,
+          ),
           child: Text(
             Strings.hospitalBadge,
-            style: context.theme.typography.sm.copyWith(color: Colors.white),
+            style: ShadTheme.of(
+              context,
+            ).textTheme.small.copyWith(color: Colors.white),
           ),
         ),
       );
     }
 
     if (summary.isDental) {
-      final secondaryColor = context.theme.colors.secondary;
-      final secondaryForeground = context.theme.colors.secondaryForeground;
+      final theme = ShadTheme.of(context);
+      final secondaryColor = theme.colorScheme.secondary;
+      final secondaryForeground = theme.colorScheme.secondaryForeground;
       addBadge(
         Container(
           decoration: BoxDecoration(
             color: secondaryColor,
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(AppDimens.radiusSm / 2),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppDimens.spacingXs,
+            vertical: AppDimens.spacing2xs,
+          ),
           child: Text(
             Strings.badgeDental,
-            style: context.theme.typography.sm.copyWith(
-              color: secondaryForeground,
-            ),
+            style: ShadTheme.of(
+              context,
+            ).textTheme.small.copyWith(color: secondaryForeground),
           ),
         ),
       );
@@ -682,13 +691,18 @@ class ProductCard extends StatelessWidget {
       addBadge(
         Container(
           decoration: BoxDecoration(
-            color: AppColors.regulatoryYellow,
-            borderRadius: BorderRadius.circular(4),
+            color: pharmaColors.regulatoryYellow,
+            borderRadius: BorderRadius.circular(AppDimens.radiusSm / 2),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppDimens.spacingXs,
+            vertical: AppDimens.spacing2xs,
+          ),
           child: Text(
             Strings.badgeSurveillance,
-            style: context.theme.typography.sm.copyWith(color: Colors.black),
+            style: ShadTheme.of(
+              context,
+            ).textTheme.small.copyWith(color: Colors.black),
           ),
         ),
       );
@@ -698,15 +712,18 @@ class ProductCard extends StatelessWidget {
       addBadge(
         Container(
           decoration: BoxDecoration(
-            color: AppColors.regulatoryGreen.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(4),
+            color: pharmaColors.regulatoryGreen.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(AppDimens.radiusSm / 2),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppDimens.spacingXs,
+            vertical: AppDimens.spacing2xs,
+          ),
           child: Text(
             Strings.badgeOtc,
-            style: context.theme.typography.sm.copyWith(
-              color: AppColors.regulatoryGreen,
-            ),
+            style: ShadTheme.of(
+              context,
+            ).textTheme.small.copyWith(color: pharmaColors.regulatoryGreen),
           ),
         ),
       );

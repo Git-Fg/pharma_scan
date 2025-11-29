@@ -3,14 +3,11 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:gap/gap.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
-import 'package:forui/forui.dart';
+import 'package:shadcn_ui/shadcn_ui.dart';
 
 class UnifiedActivityBanner extends HookWidget {
   const UnifiedActivityBanner({
-    super.key,
-    required this.icon,
-    required this.title,
-    required this.status,
+    required this.icon, required this.title, required this.status, super.key,
     this.secondaryStatus,
     this.progressValue,
     this.progressLabel,
@@ -62,7 +59,7 @@ class UnifiedActivityBanner extends HookWidget {
         AppDimens.spacingMd,
         AppDimens.spacingXs,
       ),
-      child: FCard.raw(
+      child: ShadCard(
         child: Padding(
           padding: const EdgeInsets.all(AppDimens.spacingMd),
           child: Column(
@@ -74,17 +71,17 @@ class UnifiedActivityBanner extends HookWidget {
                   Icon(
                     icon,
                     color: isError
-                        ? context.theme.colors.destructive
-                        : context.theme.colors.primary,
+                        ? ShadTheme.of(context).colorScheme.destructive
+                        : ShadTheme.of(context).colorScheme.primary,
                   ),
                   const Gap(AppDimens.spacingXs),
                   Expanded(
                     child: Text(
                       title,
-                      style: context.theme.typography.xl2.copyWith(
+                      style: ShadTheme.of(context).textTheme.h4.copyWith(
                         color: isError
-                            ? context.theme.colors.destructive
-                            : context.theme.colors.foreground,
+                            ? ShadTheme.of(context).colorScheme.destructive
+                            : ShadTheme.of(context).colorScheme.foreground,
                       ),
                     ),
                   ),
@@ -93,13 +90,16 @@ class UnifiedActivityBanner extends HookWidget {
               const Gap(AppDimens.spacingSm),
               Text(
                 status,
-                style: context.theme.typography.sm.copyWith(
-                  color: context.theme.colors.mutedForeground,
+                style: ShadTheme.of(context).textTheme.small.copyWith(
+                  color: ShadTheme.of(context).colorScheme.mutedForeground,
                 ),
               ),
               if (secondaryStatus != null) ...[
                 const Gap(AppDimens.spacing2xs),
-                Text(secondaryStatus!, style: context.theme.typography.sm),
+                Text(
+                  secondaryStatus!,
+                  style: ShadTheme.of(context).textTheme.small,
+                ),
               ],
               const Gap(AppDimens.spacingSm),
               if (effectiveProgress != null || indeterminate)
@@ -107,16 +107,18 @@ class UnifiedActivityBanner extends HookWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     SizedBox(
-                      height: 4.0,
+                      height: 4,
                       child: LinearProgressIndicator(
                         value: indeterminate && effectiveProgress == null
                             ? null
                             : effectiveProgress ?? 0,
-                        backgroundColor: context.theme.colors.muted,
+                        backgroundColor: ShadTheme.of(
+                          context,
+                        ).colorScheme.muted,
                         valueColor: AlwaysStoppedAnimation<Color>(
-                          context.theme.colors.primary,
+                          ShadTheme.of(context).colorScheme.primary,
                         ),
-                        minHeight: 4.0,
+                        minHeight: 4,
                       ),
                     ),
                     const Gap(AppDimens.spacing2xs),
@@ -125,14 +127,16 @@ class UnifiedActivityBanner extends HookWidget {
                         Expanded(
                           child: Text(
                             progressSummary,
-                            style: context.theme.typography.sm,
+                            style: ShadTheme.of(context).textTheme.small,
                           ),
                         ),
                         Text(
                           '${Strings.dataOperationsElapsed}: '
                           '${elapsed != null ? _formatDuration(elapsed) : '--:--'}',
-                          style: context.theme.typography.sm.copyWith(
-                            color: context.theme.colors.mutedForeground,
+                          style: ShadTheme.of(context).textTheme.small.copyWith(
+                            color: ShadTheme.of(
+                              context,
+                            ).colorScheme.mutedForeground,
                           ),
                         ),
                       ],
@@ -141,8 +145,10 @@ class UnifiedActivityBanner extends HookWidget {
                     Text(
                       '${Strings.dataOperationsEta}: '
                       '${eta != null ? _formatDuration(eta) : Strings.dataOperationsEtaPending}',
-                      style: context.theme.typography.sm.copyWith(
-                        color: context.theme.colors.mutedForeground,
+                      style: ShadTheme.of(context).textTheme.small.copyWith(
+                        color: ShadTheme.of(
+                          context,
+                        ).colorScheme.mutedForeground,
                       ),
                     ),
                   ],
@@ -151,9 +157,8 @@ class UnifiedActivityBanner extends HookWidget {
                 const Gap(AppDimens.spacingMd),
                 Align(
                   alignment: Alignment.centerRight,
-                  child: FButton(
-                    style: FButtonStyle.primary(),
-                    onPress: onRetry,
+                  child: ShadButton(
+                    onPressed: onRetry,
                     child: const Text(Strings.retry),
                   ),
                 ),

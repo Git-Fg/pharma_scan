@@ -24,6 +24,63 @@ class FileDownloadService {
   final Dio _dio;
   final Talker _talker;
 
+  // WHY: Detect DNS resolution failures specifically (errno 7) to provide
+  // actionable error messages for Android emulator DNS configuration issues.
+  static bool _isDnsError(Object error) {
+    if (error is SocketException) {
+      // errno 7 = "No address associated with hostname" (DNS lookup failure)
+      return error.osError?.errorCode == 7;
+    }
+    if (error is DioException) {
+      final innerError = error.error;
+      if (innerError is SocketException) {
+        return innerError.osError?.errorCode == 7;
+      }
+    }
+    return false;
+  }
+
+  // WHY: Extract hostname from URL for DNS-specific error messages.
+  static String? _extractHostname(String url) {
+    try {
+      final uri = Uri.parse(url);
+      return uri.host;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // WHY: Get user-friendly DNS error message with actionable fixes.
+  static String _getDnsErrorMessage(String url) {
+    final hostname = _extractHostname(url) ?? 'the server';
+    return 'DNS resolution failed for $hostname. This typically indicates an '
+        'Android emulator DNS configuration issue.\n\n'
+        'Possible fixes:\n'
+        '1. Restart the Android emulator\n'
+        '2. Configure DNS servers via ADB:\n'
+        '   adb shell settings put global private_dns_mode off\n'
+        '   adb shell settings put global private_dns_specifier "8.8.8.8"\n'
+        '3. Check emulator network connectivity\n'
+        '4. Use a physical device instead of emulator';
+  }
+
+  // WHY: Optional pre-flight connectivity check using DNS lookup.
+  // This helps identify DNS issues before attempting the full download.
+  Future<bool> checkConnectivity(String url) async {
+    try {
+      final hostname = _extractHostname(url);
+      if (hostname == null) return false;
+
+      final addresses = await InternetAddress.lookup(hostname);
+      return addresses.isNotEmpty;
+    } catch (e) {
+      LoggerService.debug(
+        '[FileDownloadService] Connectivity check failed for ${_extractHostname(url)}: $e',
+      );
+      return false;
+    }
+  }
+
   /// Downloads a text file directly to application documents directory.
   /// Returns the saved file or null if the transfer failed.
   Future<File?> downloadTextFile({
@@ -42,7 +99,6 @@ class FileDownloadService {
         url,
         savePath,
         cancelToken: cancelToken,
-        deleteOnError: true,
         onReceiveProgress: (received, total) {
           if (total <= 0) return;
           final bucket = ((received / total) * 4).floor();
@@ -97,6 +153,22 @@ class FileDownloadService {
       }
       throw Exception('Failed to download file: HTTP ${response.statusCode}');
     } on DioException catch (error, stackTrace) {
+      // WHY: Detect DNS errors specifically and provide actionable error messages
+      if (_isDnsError(error)) {
+        final dnsMessage = _getDnsErrorMessage(url);
+        _talker.error('❌ [FileDownloadService] DNS Resolution Error');
+        _talker.error(dnsMessage);
+        _talker.handle(
+          error,
+          stackTrace,
+          '[FileDownloadService] DNS error while downloading $url',
+        );
+        // Re-throw with enhanced message for upstream handling
+        throw SocketException(
+          'DNS resolution failed: ${_extractHostname(url) ?? url}\n\n$dnsMessage',
+          address: InternetAddress(_extractHostname(url) ?? ''),
+        );
+      }
       _talker.handle(
         error,
         stackTrace,
@@ -104,6 +176,24 @@ class FileDownloadService {
       );
       rethrow;
     } catch (error, stackTrace) {
+      // WHY: Check for DNS errors in non-Dio exceptions (e.g., SocketException)
+      if (_isDnsError(error)) {
+        final dnsMessage = _getDnsErrorMessage(url);
+        _talker.error('❌ [FileDownloadService] DNS Resolution Error');
+        _talker.error(dnsMessage);
+        _talker.handle(
+          error,
+          stackTrace,
+          '[FileDownloadService] DNS error while downloading $url',
+        );
+        // Re-throw with enhanced message if it's a SocketException
+        if (error is SocketException) {
+          throw SocketException(
+            'DNS resolution failed: ${_extractHostname(url) ?? url}\n\n$dnsMessage',
+            address: error.address,
+          );
+        }
+      }
       _talker.handle(
         error,
         stackTrace,
@@ -150,7 +240,6 @@ class FileDownloadService {
     await _dio.download(
       url,
       tempFile.path,
-      deleteOnError: true,
       onReceiveProgress: onReceiveProgress,
     );
     return tempFile;

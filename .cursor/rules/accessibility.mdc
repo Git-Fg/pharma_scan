@@ -1,37 +1,37 @@
 # Accessibility Guidelines (2025 Standard)
 
-**Context:** Flutter accessibility best practices for PharmaScan using Forui widgets and semantic widgets.
+**Context:** Flutter accessibility best practices for PharmaScan using Shadcn UI widgets and semantic widgets.
 
 ## Core Principles
 
-* **Trust Forui's Built-in Accessibility:** Forui widgets automatically provide semantic information from their `title`, `label`, and `description` properties. Only add explicit `Semantics` wrappers when absolutely necessary.
+* **Trust Shadcn's Built-in Accessibility:** Shadcn widgets automatically provide semantic information from their `title`, `label`, and `description` properties. Only add explicit `Semantics` wrappers when absolutely necessary.
 * **Screen Reader Support:** All UI elements must be describable by TalkBack (Android) and VoiceOver (iOS).
 * **Keyboard Navigation:** All interactive elements must be keyboard accessible with proper focus management.
-* **Touch Targets:** Minimum 48×48 logical pixels for all tappable elements (Forui widgets already meet this).
-* **Contrast:** Maintain at least 4.5:1 contrast ratio for text and controls (handled by Forui theme).
+* **Touch Targets:** Minimum 48×48 logical pixels for all tappable elements (Shadcn widgets already meet this).
+* **Contrast:** Maintain at least 4.5:1 contrast ratio for text and controls (handled by Shadcn theme).
 * **String Consistency:** All user-facing text MUST use `Strings.dart` constants (project constraint).
 
 ## Semantic Widget Patterns
 
 ### 1. Using Semantics Widget (When Needed)
 
-**Pattern:** Trust Forui's built-in accessibility. Only add explicit `Semantics` wrappers when:
-* Building custom widgets that don't use Forui components
-* You need additional context beyond what Forui provides automatically
+**Pattern:** Trust Shadcn's built-in accessibility. Only add explicit `Semantics` wrappers when:
+* Building custom widgets that don't use Shadcn components
+* You need additional context beyond what Shadcn provides automatically
 * The widget's automatic semantics don't capture the full interaction model
 
 ```dart
-// ✅ Correct: Rely on Forui's automatic accessibility
-FButton(
-  onPress: () => performSearch(),
+// ✅ Correct: Rely on Shadcn's automatic accessibility
+ShadButton(
+  onPressed: () => performSearch(),
   child: const Text(Strings.search), // Text content provides semantic label automatically
 )
 
 // ✅ Correct: Add explicit Semantics only when needed for additional context
 Semantics(
   hint: Strings.complexActionHint, // Additional hint beyond what title provides
-  child: FButton(
-    onPress: () => performComplexAction(),
+  child: ShadButton(
+    onPressed: () => performComplexAction(),
     child: const Text(Strings.advancedAction),
   ),
 )
@@ -40,44 +40,58 @@ Semantics(
 Row(
   children: [
     ExcludeSemantics(
-      child: Icon(FIcons.info), // Decorative only
+      child: Icon(LucideIcons.info), // Decorative only
     ),
     Text(Strings.information),
   ],
 )
 ```
 
-### 2. Forui Widget Accessibility (2025 Standard)
+### 2. Shadcn Widget Accessibility (2025 Standard)
 
-**Key Principle:** Forui widgets automatically extract semantic information from their properties (`title`, `label`, `description`, `subtitle`). Explicit `Semantics` wrappers are **ONLY** needed for:
+**Key Principle:** Shadcn widgets automatically extract semantic information from their properties (`title`, `label`, `description`, `subtitle`). Explicit `Semantics` wrappers are **ONLY** needed for:
 
-1. Custom widgets that don't use Forui components
+1. Custom widgets that don't use Shadcn components
 2. Complex interactions where additional context is needed
-3. When you need to override Forui's automatic semantics
+3. When you need to override Shadcn's automatic semantics
 
-**Pattern:** Rely on Forui's built-in accessibility. Use explicit `Semantics` wrappers sparingly.
+**Pattern:** Rely on Shadcn's built-in accessibility. Use explicit `Semantics` wrappers sparingly.
 
 ```dart
-// ✅ Correct: Forui widgets provide accessibility automatically
-FButton(
-  onPress: () {},
+// ✅ Correct: Shadcn widgets provide accessibility automatically
+ShadButton(
+  onPressed: () {},
   child: const Text(Strings.confirm), // Text content provides semantic label
 )
 
-FTile(
-  onPress: onTap,
-  title: Text(name), // Title provides semantic label automatically
-  subtitle: Text(subtitle), // Subtitle provides additional context
-  suffix: ExcludeSemantics(
-    child: const Icon(FIcons.chevronRight), // Decorative only
+// ✅ Correct: Custom list item pattern (Shadcn doesn't have FTile equivalent)
+GestureDetector(
+  onTap: onTap,
+  child: ShadCard(
+    child: Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(name, style: ShadTheme.of(context).textTheme.base), // Title provides semantic label automatically
+              Text(subtitle, style: ShadTheme.of(context).textTheme.small), // Subtitle provides additional context
+            ],
+          ),
+        ),
+        ExcludeSemantics(
+          child: Icon(LucideIcons.chevronRight), // Decorative only
+        ),
+      ],
+    ),
   ),
 )
 
 // ✅ Correct: Only add explicit Semantics when you need additional context
 Semantics(
   hint: Strings.complexActionHint, // Additional hint beyond what title provides
-  child: FButton(
-    onPress: performComplexAction,
+  child: ShadButton(
+    onPressed: performComplexAction,
     child: const Text(Strings.advancedAction),
   ),
 )
@@ -99,41 +113,48 @@ MergeSemantics(
 
 ## Widget-Specific Guidelines
 
-### FButton
+### ShadButton
 
 * **Accessibility:** Automatic from `child` Text content. No explicit `Semantics` wrapper needed in most cases.
 * **Pattern:** Use `Strings` constants in button text. Add explicit `Semantics` only for additional context.
 
 ```dart
 // ✅ Correct: Automatic accessibility from Text content
-FButton(
-  onPress: confirmReset,
+ShadButton(
+  onPressed: confirmReset,
   child: const Text(Strings.confirm), // Text provides semantic label
 )
 
 // ✅ Correct: Add Semantics only when you need additional hint
 Semantics(
   hint: Strings.confirmResetHint, // Additional context beyond button text
-  child: FButton(
-    onPress: confirmReset,
+  child: ShadButton(
+    onPressed: confirmReset,
     child: const Text(Strings.confirm),
   ),
 )
 ```
 
-### FTile
+### Custom List Items (ShadCard Pattern)
 
-* **Accessibility:** Automatic from `title`, `subtitle`, and `details` properties.
+* **Accessibility:** Automatic from `title`, `description`, and child Text widgets.
 * **Pattern:** Use descriptive titles and subtitles. Only add explicit `Semantics` when you need to override or enhance the automatic semantics.
 
 ```dart
-// ✅ Correct: Automatic accessibility from title/subtitle
-FTile(
-  onPress: onTap,
-  title: Text(medication.name), // Provides semantic label
-  subtitle: Text(medication.description), // Adds context
-  suffix: ExcludeSemantics(
-    child: const Icon(FIcons.chevronRight), // Decorative only
+// ✅ Correct: Automatic accessibility from title/description
+GestureDetector(
+  onTap: onTap,
+  child: ShadCard(
+    title: Text(medication.name), // Provides semantic label
+    description: Text(medication.description), // Adds context
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        ExcludeSemantics(
+          child: Icon(LucideIcons.chevronRight), // Decorative only
+        ),
+      ],
+    ),
   ),
 )
 
@@ -145,50 +166,54 @@ Semantics(
     genericsCount: 5,
   ),
   hint: Strings.tapToViewDetails,
-  child: FTile(
-    onPress: onTap,
-    title: Text(medication.name),
+  child: GestureDetector(
+    onTap: onTap,
+    child: ShadCard(
+      title: Text(medication.name),
+    ),
   ),
 )
 ```
 
-### FTextField / FTextFormField
+### ShadInput / ShadInputFormField
 
 * **Requirement:** Use `label` property (already accessible) and provide `hint` via `Semantics` if needed.
 * **Pattern:** Label should describe the field purpose, hint should describe expected input.
 
 ```dart
 // ✅ Correct
-FTextFormField(
+ShadInputFormField(
+  id: 'cip',
   controller: cipController,
   label: const Text(Strings.cipCodeLabel),
-  hint: Strings.cipPlaceholder,
+  placeholder: const Text(Strings.cipPlaceholder),
   // Semantic hint is automatically provided by label
 )
 ```
 
-### FSelect / FSelectTile / FSelectMenuTile
+### ShadSelect
 
-* **Accessibility:** Automatic from `title` and `detailsBuilder`/`details` properties.
-* **Pattern:** Use descriptive titles. Don't wrap with `Semantics` if it breaks type constraints (e.g., `FTileMixin`).
+* **Accessibility:** Automatic from `label` and selected value display.
+* **Pattern:** Use descriptive labels. Trust Shadcn's built-in accessibility.
 
 ```dart
-// ✅ Correct: Automatic accessibility from title and details
-FSelectMenuTile<String>(
-  title: const Text(Strings.themeSelector), // Provides semantic label
-  detailsBuilder: (_, values, _) => Text(values.first ?? Strings.none), // Provides value
-  menu: [...],
+// ✅ Correct: Automatic accessibility from label and value
+ShadSelect<String>(
+  label: const Text(Strings.themeSelector), // Provides semantic label
+  value: selectedValue,
+  items: [
+    ShadSelectItem(value: 'light', child: Text(Strings.light)),
+    ShadSelectItem(value: 'dark', child: Text(Strings.dark)),
+  ],
+  onChanged: (value) => updateTheme(value),
 )
 
-// ❌ INCORRECT: Don't wrap if it breaks FTileMixin type constraint
-Semantics(
-  child: FSelectMenuTile(...), // Breaks type!
-) as FTileMixin
-
-// ✅ CORRECT: Trust Forui's built-in accessibility for FTileMixin widgets
-FSelectMenuTile(
-  title: const Text(Strings.filterLabel),
-  detailsBuilder: (_, values, _) => Text(values.first ?? Strings.all),
+// ✅ CORRECT: Trust Shadcn's built-in accessibility
+ShadSelect<String>(
+  label: const Text(Strings.filterLabel),
+  value: selectedFilter,
+  items: filterItems,
+  onChanged: (value) => updateFilter(value),
 )
 ```
 
@@ -199,15 +224,25 @@ FSelectMenuTile(
 
 ```dart
 // ✅ Correct: Decorative chevron
-FTile(
-  suffix: ExcludeSemantics(
-    child: const Icon(FIcons.chevronRight),
+ShadCard(
+  child: Row(
+    mainAxisAlignment: MainAxisAlignment.end,
+    children: [
+      ExcludeSemantics(
+        child: const Icon(LucideIcons.chevronRight),
+      ),
+    ],
   ),
 )
 
 // ❌ Incorrect: Informative icon should have semantics
-FTile(
-  prefix: Icon(FIcons.alert), // Should have semantic label
+ShadCard(
+  child: Row(
+    children: [
+      Icon(LucideIcons.alert), // Should have semantic label
+      Text(Strings.alertMessage),
+    ],
+  ),
 )
 ```
 
@@ -222,8 +257,14 @@ FTile(
 FocusTraversalGroup(
   child: Column(
     children: [
-      FTextFormField(label: const Text(Strings.nameLabel)),
-      FTextFormField(label: const Text(Strings.emailLabel)),
+      ShadInputFormField(
+        id: 'name',
+        label: const Text(Strings.nameLabel),
+      ),
+      ShadInputFormField(
+        id: 'email',
+        label: const Text(Strings.emailLabel),
+      ),
     ],
   ),
 )
@@ -253,18 +294,18 @@ FocusableActionDetector(
 
 ### Automated Testing
 
-**Pattern (2025 Best Practice):** Test widget behavior and content, not explicit semantic labels. Forui widgets provide accessibility automatically from their properties.
+**Pattern (2025 Best Practice):** Test widget behavior and content, not explicit semantic labels. Shadcn widgets provide accessibility automatically from their properties.
 
 ```dart
 // ✅ Correct: Test widget content and behavior
-testWidgets('filter tile displays selected value correctly', (tester) async {
-  await tester.pumpWidget(MyFilterTile(value: 'Test'));
+testWidgets('filter select displays selected value correctly', (tester) async {
+  await tester.pumpWidget(MyFilterSelect(value: 'Test'));
   
   // Verify the widget renders correctly
   expect(find.text(Strings.filterLabel), findsOneWidget);
   expect(find.text('Test'), findsOneWidget);
   
-  // Forui widgets provide accessibility automatically - no need to test explicit Semantics
+  // Shadcn widgets provide accessibility automatically - no need to test explicit Semantics
 });
 
 // ✅ Correct: Test custom widgets that add explicit Semantics for additional context
@@ -356,8 +397,8 @@ Semantics(
   hint: Strings.confirmResetHint,
   button: true,
   enabled: !isLoading,
-  child: FButton(
-    onPress: isLoading ? null : confirmAction,
+  child: ShadButton(
+    onPressed: isLoading ? null : confirmAction,
     child: Text(isLoading ? Strings.loading : Strings.confirm),
   ),
 )
@@ -367,10 +408,11 @@ Semantics(
 
 ```dart
 // ✅ Correct: Form field with proper labeling
-FTextFormField(
+ShadInputFormField(
+  id: 'cip',
   controller: controller,
   label: const Text(Strings.cipCodeLabel),
-  hint: Strings.cipPlaceholder,
+  placeholder: const Text(Strings.cipPlaceholder),
   validator: (value) => value?.isEmpty ?? true ? Strings.cipRequired : null,
   // Semantic label is automatically provided by label property
 )
@@ -384,71 +426,79 @@ FTextFormField(
 // ✅ Correct: Using Strings constants
 Semantics(
   label: Strings.searchButton,
-  child: FButton(...),
+  child: ShadButton(...),
 )
 
 // ❌ Forbidden: Hardcoded strings
 Semantics(
   label: 'Search', // FORBIDDEN
-  child: FButton(...),
+  child: ShadButton(...),
 )
 ```
 
-## Forui Widget Accessibility (2025 Best Practices)
+## Shadcn Widget Accessibility (2025 Best Practices)
 
-**Key Insight:** Forui widgets automatically provide semantic information from their `title`, `label`, `description`, `subtitle`, and `hint` properties. Flutter's accessibility system extracts this information automatically.
+**Key Insight:** Shadcn widgets automatically provide semantic information from their `title`, `label`, `description`, `subtitle`, and `placeholder` properties. Flutter's accessibility system extracts this information automatically.
 
 **When to Add Explicit Semantics:**
 
-1. **Custom Widgets:** Only for widgets you build yourself that don't use Forui components
-2. **Additional Context:** When you need to provide hints or labels beyond what Forui provides
+1. **Custom Widgets:** Only for widgets you build yourself that don't use Shadcn components
+2. **Additional Context:** When you need to provide hints or labels beyond what Shadcn provides
 3. **Complex Interactions:** When the automatic semantics don't capture the full interaction model
 
 **When NOT to Add Explicit Semantics:**
 
-1. **Forui Widgets with Title/Label:** `FButton`, `FTile`, `FSelectTile` etc. already provide accessibility
-2. **Type Constraints:** Don't wrap widgets in `Semantics` if it breaks type constraints (e.g., `FTileMixin`)
+1. **Shadcn Widgets with Title/Label:** `ShadButton`, `ShadCard`, `ShadInput`, `ShadSelect` etc. already provide accessibility
+2. **Type Constraints:** Don't wrap widgets in `Semantics` if it breaks type constraints
 3. **Redundant Information:** Don't duplicate what the widget already announces
 
 **Implementation Pattern:**
 
 ```dart
-// ✅ CORRECT: Rely on Forui's automatic accessibility
-FButton(
-  onPress: () {},
+// ✅ CORRECT: Rely on Shadcn's automatic accessibility
+ShadButton(
+  onPressed: () {},
   child: const Text(Strings.confirm), // Semantic label comes from Text
 )
 
-FTile(
+ShadCard(
   title: const Text(Strings.settingTitle), // Title provides semantics
-  subtitle: const Text(Strings.settingDescription), // Subtitle adds context
-  onPress: () {},
+  description: const Text(Strings.settingDescription), // Description adds context
+  child: ShadButton(
+    onPressed: () {},
+    child: const Text(Strings.action),
+  ),
 )
 
 // ✅ CORRECT: Only add Semantics when needed for additional context
 Semantics(
   hint: Strings.complexActionHint, // Additional hint not in title
-  child: FButton(
-    onPress: performAction,
+  child: ShadButton(
+    onPressed: performAction,
     child: const Text(Strings.action),
   ),
 )
 
-// ❌ INCORRECT: Don't wrap if it breaks type constraints
-Semantics(
-  child: FSelectMenuTile(...), // This breaks FTileMixin type!
-) as FTileMixin // ❌ Unsafe cast
-
-// ✅ CORRECT: Trust Forui's built-in accessibility
-FSelectMenuTile(
-  title: const Text(Strings.filterLabel), // Provides semantics automatically
-  detailsBuilder: (_, values, _) => Text(values.first ?? Strings.none),
+// ✅ CORRECT: Trust Shadcn's built-in accessibility
+ShadSelect<String>(
+  label: const Text(Strings.filterLabel), // Provides semantics automatically
+  value: selectedValue,
+  items: [
+    ShadSelectItem(value: 'all', child: Text(Strings.all)),
+    ShadSelectItem(value: 'none', child: Text(Strings.none)),
+  ],
+  onChanged: (value) => updateFilter(value),
 )
 
 // ✅ CORRECT: Decorative icons should be excluded
-FTile(
-  suffix: ExcludeSemantics(
-    child: const Icon(FIcons.chevronRight), // Decorative only
+ShadCard(
+  child: Row(
+    mainAxisAlignment: MainAxisAlignment.end,
+    children: [
+      ExcludeSemantics(
+        child: const Icon(LucideIcons.chevronRight), // Decorative only
+      ),
+    ],
   ),
 )
 ```

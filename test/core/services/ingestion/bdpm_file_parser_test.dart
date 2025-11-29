@@ -156,6 +156,194 @@ void main() {
       expect(entry['dosage'], equals('850'));
       expect(entry['dosage_unit'], equals('mg'));
     });
+
+    test('transforms salt prefix to suffix in parentheses', () async {
+      const content = '''
+123456\tfield1\tfield2\tCHLORHYDRATE DE METFORMINE\t500 mg\tfield5\tSA\tL3
+''';
+      final cisToCip13 = {
+        '123456': ['222222222'],
+      };
+
+      final resultEither = await BdpmFileParser.parseCompositions(
+        _streamFromContent(content),
+        cisToCip13,
+      );
+
+      final result = resultEither.fold(
+        (error) => fail('Expected success but got error: $error'),
+        (value) => value,
+      );
+
+      expect(result, hasLength(1));
+      final entry = result.first;
+      expect(entry['principe'], equals('METFORMINE (CHLORHYDRATE DE)'));
+      expect(entry['dosage'], equals('500'));
+      expect(entry['dosage_unit'], equals('mg'));
+    });
+
+    test('preserves salt suffix unchanged', () async {
+      const content = '''
+123456\tfield1\tfield2\tMETFORMINE CHLORHYDRATE\t850 mg\tfield5\tSA\tL4
+''';
+      final cisToCip13 = {
+        '123456': ['333333333'],
+      };
+
+      final resultEither = await BdpmFileParser.parseCompositions(
+        _streamFromContent(content),
+        cisToCip13,
+      );
+
+      final result = resultEither.fold(
+        (error) => fail('Expected success but got error: $error'),
+        (value) => value,
+      );
+
+      expect(result, hasLength(1));
+      final entry = result.first;
+      expect(entry['principe'], equals('METFORMINE CHLORHYDRATE'));
+      expect(entry['dosage'], equals('850'));
+      expect(entry['dosage_unit'], equals('mg'));
+    });
+
+    test('handles mixed case salt prefixes', () async {
+      const content = '''
+123456\tfield1\tfield2\tChlorhydrate de Metformine\t500 mg\tfield5\tSA\tL5
+''';
+      final cisToCip13 = {
+        '123456': ['444444444'],
+      };
+
+      final resultEither = await BdpmFileParser.parseCompositions(
+        _streamFromContent(content),
+        cisToCip13,
+      );
+
+      final result = resultEither.fold(
+        (error) => fail('Expected success but got error: $error'),
+        (value) => value,
+      );
+
+      expect(result, hasLength(1));
+      final entry = result.first;
+      expect(entry['principe'], equals('Metformine (Chlorhydrate de)'));
+      expect(entry['dosage'], equals('500'));
+      expect(entry['dosage_unit'], equals('mg'));
+    });
+
+    test("transforms salt prefix with elision (D')", () async {
+      const content = '''
+123456\tfield1\tfield2\tCHLORHYDRATE D'ALFUZOSINE\t10 mg\tfield5\tSA\tL6
+''';
+      final cisToCip13 = {
+        '123456': ['999999999'],
+      };
+
+      final resultEither = await BdpmFileParser.parseCompositions(
+        _streamFromContent(content),
+        cisToCip13,
+      );
+
+      final result = resultEither.fold(
+        (error) => fail('Expected success but got error: $error'),
+        (value) => value,
+      );
+
+      expect(result, hasLength(1));
+      final entry = result.first;
+      expect(entry['principe'], equals("ALFUZOSINE (CHLORHYDRATE D')"));
+      expect(entry['dosage'], equals('10'));
+      expect(entry['dosage_unit'], equals('mg'));
+    });
+  });
+
+  group('BdpmFileParser.parseGeneriques', () {
+    test('transforms salt prefix in group libelle', () async {
+      const content = '''
+GROUP1\tCHLORHYDRATE DE METFORMINE\t123456\t0
+''';
+      final cisToCip13 = {
+        '123456': ['555555555'],
+      };
+      final medicamentCips = {'555555555'};
+
+      final resultEither = await BdpmFileParser.parseGeneriques(
+        _streamFromContent(content),
+        cisToCip13,
+        medicamentCips,
+      );
+
+      final result = resultEither.fold(
+        (error) => fail('Expected success but got error: $error'),
+        (value) => value,
+      );
+
+      expect(result.generiqueGroups, hasLength(1));
+      final group = result.generiqueGroups.first;
+      expect(group['group_id'], equals('GROUP1'));
+      expect(group['libelle'], equals('METFORMINE (CHLORHYDRATE DE)'));
+      expect(result.groupMembers, hasLength(1));
+    });
+
+    test('preserves group libelle without salt prefix', () async {
+      const content = '''
+GROUP2\tMETFORMINE\t123456\t0
+''';
+      final cisToCip13 = {
+        '123456': ['666666666'],
+      };
+      final medicamentCips = {'666666666'};
+
+      final resultEither = await BdpmFileParser.parseGeneriques(
+        _streamFromContent(content),
+        cisToCip13,
+        medicamentCips,
+      );
+
+      final result = resultEither.fold(
+        (error) => fail('Expected success but got error: $error'),
+        (value) => value,
+      );
+
+      expect(result.generiqueGroups, hasLength(1));
+      final group = result.generiqueGroups.first;
+      expect(group['group_id'], equals('GROUP2'));
+      expect(group['libelle'], equals('METFORMINE'));
+    });
+
+    test('handles different salt types in group libelle', () async {
+      const content = '''
+GROUP3\tSULFATE DE MORPHINE\t123456\t0
+GROUP4\tMALÉATE DE DIPHENHYDRAMINE\t123456\t1
+''';
+      final cisToCip13 = {
+        '123456': ['777777777'],
+      };
+      final medicamentCips = {'777777777'};
+
+      final resultEither = await BdpmFileParser.parseGeneriques(
+        _streamFromContent(content),
+        cisToCip13,
+        medicamentCips,
+      );
+
+      final result = resultEither.fold(
+        (error) => fail('Expected success but got error: $error'),
+        (value) => value,
+      );
+
+      expect(result.generiqueGroups, hasLength(2));
+      final group1 = result.generiqueGroups.firstWhere(
+        (g) => g['group_id'] == 'GROUP3',
+      );
+      expect(group1['libelle'], equals('MORPHINE (SULFATE DE)'));
+
+      final group2 = result.generiqueGroups.firstWhere(
+        (g) => g['group_id'] == 'GROUP4',
+      );
+      expect(group2['libelle'], equals('DIPHENHYDRAMINE (MALÉATE DE)'));
+    });
   });
 
   group('BdpmFileParser.parseMedicaments', () {
@@ -248,7 +436,7 @@ void main() {
 
   group('BdpmFileParser.parseRegulatoryFlags', () {
     test('detects hospital and list flags with accents removed', () {
-      const raw = 'Réservé à l\'usage hospitalier - Liste I';
+      const raw = "Réservé à l'usage hospitalier - Liste I";
       final flags = BdpmFileParser.parseRegulatoryFlags(raw);
       expect(flags.isHospitalOnly, isTrue);
       expect(flags.isList1, isTrue);

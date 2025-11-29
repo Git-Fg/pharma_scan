@@ -10,22 +10,13 @@ void main() {
       cisCode: '123456',
       nomCanonique: 'Test Médicament',
       isPrinceps: false,
-      groupId: null,
       principesActifsCommuns: ['Test'],
       princepsDeReference: 'Test Princeps',
       formePharmaceutique: 'Comprimé',
       princepsBrandName: 'Test Brand',
       procedureType: 'Procédure',
       titulaire: 'Test Lab',
-      conditionsPrescription: null,
       isSurveillance: false,
-      formattedDosage: null,
-      atcCode: null,
-      status: null,
-      priceMin: null,
-      priceMax: null,
-      aggregatedConditions: null,
-      ansmAlertUrl: null,
       isHospitalOnly: false,
       isDental: false,
       isList1: false,
@@ -48,7 +39,7 @@ void main() {
         ),
       );
 
-      // FAlert renders the text, so we can find it directly
+      // ShadAlert renders the text, so we can find it directly
       expect(find.text(Strings.stockAlert('Rupture de stock')), findsOneWidget);
     },
   );

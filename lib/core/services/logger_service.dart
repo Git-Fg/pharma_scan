@@ -1,12 +1,11 @@
-import 'package:flutter/foundation.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 
 class LoggerService {
+
+  factory LoggerService() => _instance;
   LoggerService._internal();
 
   static final LoggerService _instance = LoggerService._internal();
-
-  factory LoggerService() => _instance;
 
   Talker? _talker;
 
@@ -26,9 +25,7 @@ class LoggerService {
 
     _talker = TalkerFlutter.init(
       settings: TalkerSettings(
-        enabled: true,
-        useConsoleLogs: kDebugMode,
-        maxHistoryItems: 1000,
+        
       ),
     );
   }

@@ -2,7 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:forui/forui.dart';
+import 'package:shadcn_ui/shadcn_ui.dart';
 
 class ScanWindowOverlay extends HookWidget {
   const ScanWindowOverlay({super.key});
@@ -21,7 +21,7 @@ class ScanWindowOverlay extends HookWidget {
       () => CurvedAnimation(parent: controller, curve: Curves.easeInOutSine),
       [controller],
     );
-    final primary = context.theme.colors.primary;
+    final primary = ShadTheme.of(context).colorScheme.primary;
     final scrimColor = Colors.black.withValues(alpha: 0.65);
 
     return IgnorePointer(
@@ -59,13 +59,13 @@ class ScanWindowOverlay extends HookWidget {
                     width: 51.2, // Reduced by 20% (64 * 0.8)
                     height: 51.2, // Reduced by 20% (64 * 0.8)
                     decoration: BoxDecoration(
-                      color: context.theme.colors.background.withValues(
-                        alpha: 0.15,
-                      ),
+                      color: ShadTheme.of(
+                        context,
+                      ).colorScheme.background.withValues(alpha: 0.15),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
-                      FIcons.scanLine,
+                      LucideIcons.scanLine,
                       color: primary.withValues(alpha: 0.9),
                       size: 22.4, // Reduced by 20% (28 * 0.8)
                     ),

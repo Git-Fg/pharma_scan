@@ -1,7 +1,7 @@
 // test/fixtures/seed_builder.dart
-import 'package:pharma_scan/core/database/database.dart';
-
 import 'dart:async';
+
+import 'package:pharma_scan/core/database/database.dart';
 
 /// WHY: Fluent builder pattern for creating test database seed data.
 /// Simplifies test setup by providing a readable API instead of manually constructing Maps.
@@ -96,8 +96,8 @@ class SeedBuilder {
       'cis_code': cisCode,
       'nom_specialite': name,
       'procedure_type': 'Autorisation',
-      if (form != null) 'forme_pharmaceutique': form,
-      if (lab != null) 'titulaire': lab,
+      'forme_pharmaceutique': ?form,
+      'titulaire': ?lab,
     });
 
     // Add medicament entry
@@ -120,7 +120,7 @@ class SeedBuilder {
     if (_currentGroupId != null) {
       _groupMembers.add({
         'code_cip': cip,
-        'group_id': _currentGroupId!,
+        'group_id': _currentGroupId,
         'type': type,
       });
     }

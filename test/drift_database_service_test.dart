@@ -4,9 +4,10 @@ import 'dart:io';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
+import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
-import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
+
 import 'test_utils.dart';
 
 void main() {
@@ -57,10 +58,9 @@ void main() {
         medicaments: [
           {
             'code_cip': 'P1_CIP',
-            'nom': 'PRINCEPS 1',
             'cis_code': 'CIS_PRINCEPS',
           },
-          {'code_cip': 'G1_CIP', 'nom': 'GENERIC 1', 'cis_code': 'CIS_GENERIC'},
+          {'code_cip': 'G1_CIP', 'cis_code': 'CIS_GENERIC'},
         ],
         principes: [
           {'code_cip': 'P1_CIP', 'principe': 'PARACETAMOL'},
@@ -82,7 +82,6 @@ void main() {
 
       final summaries = await database.libraryDao.getGenericGroupSummaries(
         limit: 10,
-        offset: 0,
       );
 
       expect(summaries.length, 1);
@@ -108,8 +107,8 @@ void main() {
             },
           ],
           medicaments: [
-            {'code_cip': 'P2_CIP', 'nom': 'PRINCEPS 2', 'cis_code': 'CIS_P'},
-            {'code_cip': 'G2_CIP', 'nom': 'GENERIC 2', 'cis_code': 'CIS_G'},
+            {'code_cip': 'P2_CIP', 'cis_code': 'CIS_P'},
+            {'code_cip': 'G2_CIP', 'cis_code': 'CIS_G'},
           ],
           principes: [
             {'code_cip': 'P2_CIP', 'principe': 'PRINCIPE_A'},
@@ -126,7 +125,6 @@ void main() {
 
         final summaries = await database.libraryDao.getGenericGroupSummaries(
           limit: 10,
-          offset: 0,
         );
 
         expect(
@@ -166,22 +164,18 @@ void main() {
         medicaments: [
           {
             'code_cip': 'PRINCEPS_1',
-            'nom': 'PRINCEPS 1',
             'cis_code': 'CIS_PRINCEPS_1',
           },
           {
             'code_cip': 'PRINCEPS_2',
-            'nom': 'PRINCEPS 2',
             'cis_code': 'CIS_PRINCEPS_2',
           },
           {
             'code_cip': 'GENERIC_1',
-            'nom': 'GENERIC 1',
             'cis_code': 'CIS_GENERIC_1',
           },
           {
             'code_cip': 'GENERIC_2',
-            'nom': 'GENERIC 2',
             'cis_code': 'CIS_GENERIC_2',
           },
         ],
@@ -230,10 +224,9 @@ void main() {
           },
         ],
         medicaments: [
-          {'code_cip': 'CIP_P', 'nom': 'ELIQUIS 5 mg', 'cis_code': 'CIS_P'},
+          {'code_cip': 'CIP_P', 'cis_code': 'CIS_P'},
           {
             'code_cip': 'CIP_G',
-            'nom': 'APIXABAN ZYDUS 5 mg',
             'cis_code': 'CIS_G',
           },
         ],
@@ -302,12 +295,10 @@ void main() {
         medicaments: [
           {
             'code_cip': 'CIP_CONV',
-            'nom': 'MEDICAMENT CONVENTIONNEL',
             'cis_code': 'CIS_CONV',
           },
           {
             'code_cip': 'CIP_HOMEO',
-            'nom': 'PRODUIT HOMEOPATHIQUE',
             'cis_code': 'CIS_HOMEO',
           },
         ],
@@ -367,8 +358,8 @@ void main() {
           },
         ],
         medicaments: [
-          {'code_cip': 'CIP_B', 'nom': 'BETA MEDIC', 'cis_code': 'CIS_B'},
-          {'code_cip': 'CIP_A', 'nom': 'ALPHA MEDIC', 'cis_code': 'CIS_A'},
+          {'code_cip': 'CIP_B', 'cis_code': 'CIS_B'},
+          {'code_cip': 'CIP_A', 'cis_code': 'CIS_A'},
         ],
         principes: [
           {
@@ -439,27 +430,22 @@ void main() {
         medicaments: [
           {
             'code_cip': 'PRINCEPS_1_CIP',
-            'nom': 'PRINCEPS 1',
             'cis_code': 'CIS_PRINCEPS_1',
           },
           {
             'code_cip': 'PRINCEPS_2_CIP',
-            'nom': 'PRINCEPS 2',
             'cis_code': 'CIS_PRINCEPS_2',
           },
           {
             'code_cip': 'GENERIC_1_CIP',
-            'nom': 'GENERIC TYPE 1',
             'cis_code': 'CIS_GENERIC_1',
           },
           {
             'code_cip': 'GENERIC_2_CIP',
-            'nom': 'GENERIC TYPE 2',
             'cis_code': 'CIS_GENERIC_2',
           },
           {
             'code_cip': 'GENERIC_4_CIP',
-            'nom': 'GENERIC TYPE 4',
             'cis_code': 'CIS_GENERIC_4',
           },
         ],
@@ -552,22 +538,18 @@ void main() {
           medicaments: [
             {
               'code_cip': 'PRINCEPS_A_CIP',
-              'nom': 'PRINCEPS A',
               'cis_code': 'CIS_PRINCEPS_A',
             },
             {
               'code_cip': 'GENERIC_A_CIP',
-              'nom': 'GENERIC A1',
               'cis_code': 'CIS_GENERIC_A',
             },
             {
               'code_cip': 'PRINCEPS_B_CIP',
-              'nom': 'PRINCEPS B',
               'cis_code': 'CIS_PRINCEPS_B',
             },
             {
               'code_cip': 'GENERIC_B_CIP',
-              'nom': 'GENERIC B1',
               'cis_code': 'CIS_GENERIC_B',
             },
           ],
@@ -647,22 +629,18 @@ void main() {
         medicaments: [
           {
             'code_cip': 'CIP_PRINCEPS_MAIN',
-            'nom': 'PARA PRINCEPS 500 mg comprimé',
             'cis_code': 'CIS_PRINCEPS_MAIN',
           },
           {
             'code_cip': 'CIP_GENERIC_A',
-            'nom': 'PARA GENERIC 500 mg comprimé',
             'cis_code': 'CIS_GENERIC_A',
           },
           {
             'code_cip': 'CIP_GENERIC_B',
-            'nom': 'PARA GENERIC 500 mg, comprimé pelliculé',
             'cis_code': 'CIS_GENERIC_B',
           },
           {
             'code_cip': 'CIP_PRINCEPS_SECOND',
-            'nom': 'PARA PRINCEPS B 500 mg comprimé',
             'cis_code': 'CIS_PRINCEPS_SECOND',
           },
         ],

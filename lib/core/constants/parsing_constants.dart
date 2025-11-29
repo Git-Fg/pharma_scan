@@ -6,7 +6,7 @@ class ParsingConstants {
 
   static final RegExp parentheses = RegExp(r'\s*\([^)]*\)');
   static final RegExp equivalentTo = RegExp(
-    r'équivalant à',
+    'équivalant à',
     caseSensitive: false,
   );
 

@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
-import 'package:forui/forui.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
+import 'package:shadcn_ui/shadcn_ui.dart';
 
 class InfoLabel extends StatelessWidget {
   const InfoLabel({
-    super.key,
-    required this.text,
+    required this.text, super.key,
     this.icon,
     this.style,
     this.iconColor,
@@ -14,7 +13,7 @@ class InfoLabel extends StatelessWidget {
     this.maxLines = 1,
   });
 
-  static const double _iconGap = 6.0; // Widget-specific micro spacing
+  static const double _iconGap = 6; // Widget-specific micro spacing
 
   final String text;
   final IconData? icon;
@@ -27,8 +26,8 @@ class InfoLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     final effectiveStyle =
         style ??
-        context.theme.typography.sm.copyWith(
-          color: context.theme.colors.mutedForeground,
+        ShadTheme.of(context).textTheme.small.copyWith(
+          color: ShadTheme.of(context).colorScheme.mutedForeground,
         );
     final effectiveIconColor = iconColor ?? effectiveStyle.color;
 
@@ -45,7 +44,6 @@ class InfoLabel extends StatelessWidget {
 
     return Row(
       mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Icon(icon, size: iconSize, color: effectiveIconColor),
         const Gap(_iconGap),

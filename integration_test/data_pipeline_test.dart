@@ -1,9 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
+import 'package:pharma_scan/core/database/daos/scan_dao.dart';
 import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/providers/core_providers.dart';
+
 import 'test_bootstrap.dart';
-import 'package:pharma_scan/core/database/daos/scan_dao.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();

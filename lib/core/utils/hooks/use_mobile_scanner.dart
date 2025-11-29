@@ -38,7 +38,22 @@ MobileScannerController useMobileScanner({required bool enabled}) {
 
     // Start camera when enabled AND app is resumed
     if (enabled && lifecycleState == AppLifecycleState.resumed) {
-      unawaited(controller.start());
+      // WHY: Check controller readiness before starting to avoid initialization race condition
+      // The controller may still be initializing from a previous call
+      if (controller.value.hasCameraPermission) {
+        // WHY: Wrap in try-catch to handle MobileScannerException gracefully
+        // The exception occurs when controller is still initializing
+        Future<void> startCamera() async {
+          try {
+            await controller.start();
+          } catch (e) {
+            // WHY: Silently ignore initialization errors - controller will retry on next lifecycle change
+            // This prevents unhandled exceptions when controller is still initializing
+          }
+        }
+
+        unawaited(startCamera());
+      }
     } else {
       // Stop camera when disabled OR app is not resumed
       unawaited(controller.stop());

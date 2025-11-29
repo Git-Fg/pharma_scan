@@ -104,6 +104,24 @@ ParsedData parseFile(String content) {
 * `MedicamentSummary` table is pre-aggregated—all Explorer/Search queries read from here
 * All settings/preferences go in Drift `AppSettings` table—no `SharedPreferences`
 
+### BDPM Data Ingestion Constraints (CRITICAL)
+
+The BDPM (Public Meds Database) servers are legacy systems. They do not respect modern HTTP standards.
+
+1. **No Header Trust:** You must **NEVER** rely on HTTP headers (`ETag`, `Last-Modified`, `Content-Length`) to determine if a file has changed. These headers are unreliable, absent, or stale on the official mirror.
+
+2. **No HEAD Requests:** Do not attempt `HEAD` requests to check for updates. They will yield false negatives.
+
+3. **Download & Hash:** The ONLY valid way to check for updates is to:
+
+   * Download the full file (streaming).
+
+   * Compute the SHA-256 hash locally.
+
+   * Compare with the stored hash in `AppSettings`.
+
+4. **No ETA Logic:** Do not attempt to calculate or display "Time Remaining" based on `Content-Length` header, as it is often missing (chunked transfer). Use indeterminate progress indicators or simple "downloaded bytes" counters if size is unknown.
+
 ## State Management (Riverpod)
 
 ### Provider Pattern
@@ -175,29 +193,19 @@ See `.cursor/rules/accessibility.mdc` for detailed patterns and examples.
 * **Exception:** None. If a widget needs state, it needs hooks.
 * **Reference:** See `.cursor/rules/flutter-hooks.mdc` (if available) or standard hooks documentation.
 
-### Mix UI Components
+### Mix UI Components & Theming
 
-* **Use directly:** `BaseCard`, `BaseInput`, `BaseButton`, `BaseText`, `BaseBadge`, etc. from `lib/core/widgets/mix/`
-* **Configure globally:** Use `AppTokens` for all styling values (colors, spacing, radii, text styles)
-* **Don't create:** Wrapper widgets that only add default padding/styling
-* **Exception:** Keep business-specific composites (e.g., `PharmaBackHeader`, `PrincepsBadge`)
+* **Theme Supremacy:** Use `context.theme.colors.*` and `context.theme.typography.*`.
+* **Hardcoding Ban:** `Colors.red` or `TextStyle(fontSize: 14)` are strictly prohibited.
+* **Use directly:** `FCard`, `FButton`, `FBadge`.
+* **Styling:** Generate styles via CLI (`dart run forui style create...`) and access via theme extensions.
 
 ### Layout & Spacing
 
-* **Use `gap` package** for spacing in Flex widgets (`Column`, `Row`, `ListView`)
-* **Don't use** `SizedBox(height: ...)` for spacing
-* **Use `AppDimens`** for all spacing, radius, and icon sizes—no magic numbers
-
-```dart
-// ✅ REQUIRED
-Column(
-  children: [
-    Text('A'),
-    Gap(AppDimens.spacingMd),
-    Text('B'),
-  ],
-)
-```
+* **Protocol:** Follow `.cursor/rules/forui-sliver-guidelines.mdc`.
+* **Root:** `FScaffold` > `CustomScrollView`.
+* **Lists:** `SliverMainAxisGroup` > `SliverList`.
+* **Use `gap` package** for spacing.
 
 ### Constraints Rule (Box Protocol)
 
@@ -206,12 +214,6 @@ Column(
 * Never place infinite widgets (`ListView`, unbounded `Column`) in unbounded parents
 * Use `Expanded` or `Flexible` to break infinity
 * Never use `IntrinsicHeight`/`IntrinsicWidth` in lists—performance killer
-
-### Accessibility & Overflow
-
-* Never assume fixed height for bottom panels
-* Wrap bottom panels in `SingleChildScrollView` + `SafeArea`
-* Root `Column` must have `mainAxisSize: MainAxisSize.min`
 
 ### Agnostic Components
 
@@ -222,62 +224,25 @@ Content widgets (forms, detail lists) must NEVER contain `Scaffold` or call `Nav
 ### Widget Classes (Not Functions)
 
 * ❌ **Forbidden:** Functions returning Widgets (`Widget _buildBadge()`)
-* ✅ **Required:** Dedicated `StatelessWidget` classes
+* ✅ **Required:** Dedicated `StatelessWidget` classes or `HookConsumerWidget`.
 
 ### String Management
 
 * **FORBIDDEN:** Hardcoded strings in `Text()` widgets
 * **REQUIRED:** All user-facing strings in `lib/core/utils/strings.dart`
-* Use `Strings.*` constants everywhere
 
 ### Constants
 
-* **Design tokens:** Use `AppDimens` for spacing, radius, icon sizes
-* **Operational:** Use `AppConfig` for timeouts, debounce durations, limits
+* **Design tokens:** Use `AppDimens` and `context.theme`
+* **Operational:** Use `AppConfig`
 * **Local:** If specific to one widget, use `private static const` in that class
 
-## Constants & Magic Values
+### Linting & Static Analysis
 
-### 1. The Separation of Concerns
-
-* **Strings:** User-facing text -> `lib/core/utils/strings.dart`.
-* **Configuration:** Timeouts, limits, API keys -> `lib/core/config/app_config.dart`.
-* **Domain Knowledge:** Medical facts, ATC codes, categorizations -> `lib/core/constants/domain_constants.dart`.
-* **Parsing Logic:** Regex patterns, separators -> `lib/core/constants/parsing_constants.dart`.
-* **Design Tokens:** Spacing, colors, radius -> `lib/core/theme/`.
-
-### 2. Implementation Rule
-
-**NEVER** define static `const Map` or `final RegExp` inside a logic/helper class if it represents static domain knowledge. Move it to the appropriate `constants/` file and import it. Logic classes should only contain *behavior*, not *data*.
-
-### Logging
-
-* **Never use:** `print()`, `debugPrint()`, `developer.log()`
-* **Always use:** `LoggerService` (Talker integration)
-
-### Defensive Coding
-
-* Check `if (!mounted) return;` after every `await` in `StatefulWidget`
-* Dispose all controllers in `dispose()`
-* Check `list.isNotEmpty` before `list.first` or `list.last`
-* Use enums/sealed classes for state—never string literals for control flow
-
-## UI Kit Reuse
-
-Before creating a widget, check `lib/core/widgets/ui_kit/`:
-
-* `DetailItem` for key-value pairs
-* `InfoLabel` for text with icons
-* Badge widgets: `PrincepsBadge`, `GenericBadge`, `StandaloneBadge`, `ConditionBadge`
-* `PharmaBackHeader`, `PharmaSheetLayout`, and other domain composites
-* `SectionHeader` for section titles
-* `StatusView` for empty/loading/error states
-
-## Navigation
-
-* Use `MediaQuery.sizeOf(context)` for screen size decisions (not `LayoutBuilder`)
-* Dialogs/BottomSheets create new widget tree—pass dependencies explicitly via `Provider.value`
+* **Linter:** `very_good_analysis` is enforced for strict type safety and modern Dart practices.
+* **Documentation:** Javadoc-style comments for every public member are **not** required. The `public_member_api_docs` rule is disabled to reduce noise for solo developers.
+* **Auto-fix:** Run `dart fix --apply` aggressively (up to 3 times) as some fixes expose new opportunities for other fixes.
 
 ## Testing
 
-See `.cursor/rules/qa-testing.mdc` for testing patterns. Robot pattern is optional—use direct finders for simple tests.
+See `.cursor/rules/qa-testing.mdc` for testing patterns.

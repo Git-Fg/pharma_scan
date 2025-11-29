@@ -39,6 +39,9 @@ class ScannerNotifier extends _$ScannerNotifier {
   final Map<String, Timer> _dismissTimers = {};
   Timer? _cleanupTimer;
   String? _lastProcessedCode;
+  // WHY: Track codes currently being processed to prevent duplicate DB queries
+  // during rapid scanning before addBubble adds them to state.scannedCodes
+  final Set<String> _processingCips = {};
 
   @override
   ScannerState build() {
@@ -66,11 +69,18 @@ class ScannerNotifier extends _$ScannerNotifier {
 
       // 1. Parser le code GS1
       // WHY: rawValue is guaranteed non-null after the null check above
-      final parsedData = Gs1Parser.parse(barcode.rawValue!);
+      final parsedData = Gs1Parser.parse(barcode.rawValue);
       final codeCip = parsedData.gtin;
 
       if (codeCip == null) {
         // WHY: Only log parsing failures, not every frame
+        continue;
+      }
+
+      // WHY: Skip if already being processed to prevent duplicate DB queries
+      // This prevents race condition where multiple frames trigger findMedicament
+      // before addBubble adds the code to state.scannedCodes
+      if (_processingCips.contains(codeCip)) {
         continue;
       }
 
@@ -94,6 +104,8 @@ class ScannerNotifier extends _$ScannerNotifier {
 
       // 2. Interroger la base de données
       if (isNewCode) {
+        // WHY: Mark as processing immediately to prevent concurrent lookups
+        _processingCips.add(codeCip);
         LoggerService.db(
           '[ScannerNotifier] Searching for medicament with CIP: $codeCip',
         );
@@ -148,12 +160,19 @@ class ScannerNotifier extends _$ScannerNotifier {
         stackTrace,
       );
       return false;
+    } finally {
+      // WHY: Always remove from processing set, even if error occurs
+      // This ensures the lock is released so the code can be retried
+      _processingCips.remove(codeCip);
     }
   }
 
   void addBubble(ScanBubble bubble) {
     final codeCip = bubble.cip;
-    if (state.scannedCodes.contains(codeCip)) return;
+    // WHY: Only block visual duplicates (items already shown as bubbles),
+    // not items that were dismissed but still in scannedCodes history buffer.
+    // This allows re-entry of dismissed items via manual entry.
+    if (state.bubbles.any((b) => b.cip == codeCip)) return;
 
     final updatedCodes = Set<String>.from(state.scannedCodes)..add(codeCip);
 

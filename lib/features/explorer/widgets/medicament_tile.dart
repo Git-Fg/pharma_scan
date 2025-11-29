@@ -1,14 +1,11 @@
 // lib/features/explorer/widgets/medicament_tile.dart
 
 import 'package:flutter/material.dart';
-import 'package:forui/forui.dart';
-import 'package:gap/gap.dart';
-import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/logic/sanitizer.dart';
+import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
-import 'package:pharma_scan/features/explorer/models/generic_group_entity.dart';
 import 'package:pharma_scan/features/explorer/models/search_result_item_model.dart';
-import 'package:pharma_scan/theme/badge_styles.dart';
+import 'package:shadcn_ui/shadcn_ui.dart';
 
 class MedicamentTile extends StatelessWidget {
   const MedicamentTile({required this.item, required this.onTap, super.key});
@@ -18,119 +15,158 @@ class MedicamentTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = context.theme;
+    final theme = ShadTheme.of(context);
 
     final (
       String title,
       String? subtitle,
-      Widget? prefix,
+      Widget prefix,
       String? details,
-    ) = item.map(
-      groupResult: (groupResult) => (
-        groupResult.group.princepsReferenceName,
-        _buildGroupSubtitle(groupResult.group),
-        _buildGroupPrefix(context),
-        null,
-      ),
-      princepsResult: (data) => (
-        data.princeps.nomCanonique,
-        _buildSubtitle(
-          data.princeps.formePharmaceutique,
-          data.commonPrinciples,
+    ) = switch (item) {
+      GroupResult(group: final group) => (
+          group.commonPrincipes.isNotEmpty
+              ? group.commonPrincipes
+              : Strings.notDetermined,
+          group.princepsReferenceName,
+          _buildGenericBadge(context),
+          null,
         ),
-        _buildBadge(context, Strings.badgePrinceps, isPrinceps: true),
-        Strings.genericCount(data.generics.length),
-      ),
-      genericResult: (data) => (
-        data.generic.nomCanonique,
-        _buildSubtitle(data.generic.formePharmaceutique, data.commonPrinciples),
-        _buildBadge(context, Strings.badgeGeneric, isPrinceps: false),
-        Strings.princepsCount(data.princeps.length),
-      ),
-      standaloneResult: (data) => (
-        data.summary.nomCanonique,
-        _buildSubtitle(data.summary.formePharmaceutique, data.commonPrinciples),
-        _buildBadge(context, Strings.badgeStandalone, isPrinceps: false),
-        null,
-      ),
-    );
+      PrincepsResult(
+        princeps: final princeps,
+        commonPrinciples: final commonPrinciples,
+        generics: final generics,
+      ) => (
+          princeps.nomCanonique,
+          _buildSubtitle(princeps.formePharmaceutique, commonPrinciples),
+          _buildBadge(context, Strings.badgePrinceps, isPrinceps: true),
+          Strings.genericCount(generics.length),
+        ),
+      GenericResult(
+        generic: final generic,
+        commonPrinciples: final commonPrinciples,
+        princeps: final princeps,
+      ) => (
+          generic.nomCanonique,
+          _buildSubtitle(generic.formePharmaceutique, commonPrinciples),
+          _buildBadge(context, Strings.badgeGeneric, isPrinceps: false),
+          Strings.princepsCount(princeps.length),
+        ),
+      StandaloneResult(
+        summary: final summary,
+        commonPrinciples: final commonPrinciples,
+      ) => (
+          summary.nomCanonique,
+          _buildSubtitle(summary.formePharmaceutique, commonPrinciples),
+          _buildBadge(context, Strings.badgeStandalone, isPrinceps: false),
+          null,
+        ),
+    };
 
     // Build semantic label based on medication type
-    final semanticLabel = item.map(
-      princepsResult: (data) => Strings.searchResultSemanticsForPrinceps(
-        data.princeps.nomCanonique,
-        data.generics.length,
-      ),
-      genericResult: (data) => Strings.searchResultSemanticsForGeneric(
-        data.generic.nomCanonique,
-        data.princeps.length,
-      ),
-      standaloneResult: (data) => Strings.standaloneSemantics(
-        data.summary.nomCanonique,
-        data.commonPrinciples.isNotEmpty,
-        data.commonPrinciples,
-      ),
-      groupResult: (groupResult) =>
-          'Groupe: ${groupResult.group.princepsReferenceName}',
-    );
-
-    return Semantics(
-      label: semanticLabel,
-      hint: Strings.medicationTileHint,
-      child: FTile(
-        onPress: onTap,
-        prefix: prefix,
-        title: Text(
-          title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: theme.typography.base.copyWith(fontWeight: FontWeight.w600),
+    final semanticLabel = switch (item) {
+      PrincepsResult(princeps: final princeps, generics: final generics) =>
+        Strings.searchResultSemanticsForPrinceps(
+          princeps.nomCanonique,
+          generics.length,
         ),
-        subtitle: subtitle != null
-            ? Text(
-                subtitle,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.typography.sm.copyWith(
-                  color: theme.colors.mutedForeground,
+      GenericResult(generic: final generic, princeps: final princeps) =>
+        Strings.searchResultSemanticsForGeneric(
+          generic.nomCanonique,
+          princeps.length,
+        ),
+      StandaloneResult(
+        summary: final summary,
+        commonPrinciples: final commonPrinciples,
+      ) =>
+        Strings.standaloneSemantics(
+          summary.nomCanonique,
+          commonPrinciples.isNotEmpty,
+          commonPrinciples,
+        ),
+      GroupResult(group: final group) => () {
+          final principles = group.commonPrincipes.isNotEmpty
+              ? group.commonPrincipes
+              : Strings.notDetermined;
+          return '$principles, référence ${group.princepsReferenceName}';
+        }(),
+    };
+
+    // WHY: Custom Row-based widget matching Shadcn design patterns
+    return MergeSemantics(
+      child: Semantics(
+        label: semanticLabel,
+        hint: Strings.medicationTileHint,
+        child: InkWell(
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppDimens.spacingMd,
+              vertical: AppDimens.spacingSm,
+            ),
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(color: theme.colorScheme.border),
+              ),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ...[
+                prefix,
+                const SizedBox(width: AppDimens.spacingSm),
+              ],
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.p.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      if (subtitle != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          subtitle,
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.small.copyWith(
+                            color: theme.colorScheme.mutedForeground,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
-              )
-            : null,
-        details: details != null
-            ? Text(
-                details,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.typography.sm.copyWith(
-                  color: theme.colors.mutedForeground,
+                if (details != null) ...[
+                  const SizedBox(width: AppDimens.spacingSm),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 140),
+                    child: Text(
+                      details,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.end,
+                      style: theme.textTheme.small.copyWith(
+                        color: theme.colorScheme.mutedForeground,
+                      ),
+                    ),
+                  ),
+                ],
+                const SizedBox(width: AppDimens.spacingXs),
+                const ExcludeSemantics(
+                  child: Icon(LucideIcons.chevronRight, size: 16),
                 ),
-              )
-            : null,
-        suffix: const ExcludeSemantics(child: Icon(FIcons.chevronRight)),
+              ],
+            ),
+          ),
+        ),
       ),
     );
-  }
-
-  Widget? _buildGroupPrefix(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        FBadge(
-          style: _badgeStyleFor(context, isPrinceps: true).call,
-          child: const Text(Strings.badgePrinceps),
-        ),
-        const Gap(AppDimens.spacing2xs),
-        FBadge(
-          style: _badgeStyleFor(context, isPrinceps: false).call,
-          child: const Text(Strings.badgeGeneric),
-        ),
-      ],
-    );
-  }
-
-  String? _buildGroupSubtitle(GenericGroupEntity group) {
-    if (group.commonPrincipes.isEmpty) return Strings.notDetermined;
-    return group.commonPrincipes;
   }
 
   String? _buildSubtitle(String? form, String? principles) {
@@ -150,23 +186,28 @@ class MedicamentTile extends StatelessWidget {
     return segments.join(' • ');
   }
 
+  Widget _buildGenericBadge(BuildContext context) {
+    final theme = ShadTheme.of(context);
+    return ShadBadge.secondary(
+      child: Text(
+        Strings.generics.substring(0, 1),
+        style: theme.textTheme.small,
+      ),
+    );
+  }
+
   Widget _buildBadge(
     BuildContext context,
     String label, {
     required bool isPrinceps,
   }) {
-    return FBadge(
-      style: _badgeStyleFor(context, isPrinceps: isPrinceps).call,
-      child: Text(label.substring(0, 1)),
-    );
-  }
-
-  FBadgeStyle _badgeStyleFor(BuildContext context, {required bool isPrinceps}) {
-    final styles = context.theme.badgeStyles;
-    if (styles is PharmaBadgeStyles) {
-      return isPrinceps ? styles.princeps : styles.generic;
-    }
-
-    return isPrinceps ? styles.secondary : styles.primary;
+    final theme = ShadTheme.of(context);
+    return isPrinceps
+        ? ShadBadge.secondary(
+            child: Text(label.substring(0, 1), style: theme.textTheme.small),
+          )
+        : ShadBadge(
+            child: Text(label.substring(0, 1), style: theme.textTheme.small),
+          );
   }
 }

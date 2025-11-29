@@ -298,7 +298,6 @@ void main() {
       // WHEN: We get generic group summaries
       final summaries = await database.libraryDao.getGenericGroupSummaries(
         limit: 10,
-        offset: 0,
       );
 
       // THEN: Should return both groups with correct common principles
@@ -350,7 +349,6 @@ void main() {
       // WHEN: We get generic group summaries
       final summaries = await database.libraryDao.getGenericGroupSummaries(
         limit: 10,
-        offset: 0,
       );
 
       // THEN: Should filter out groups without shared principles

@@ -1,11 +1,12 @@
 // test/features/scanner/screens/camera_screen_test.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:forui/forui.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/utils/test_tags.dart';
 import 'package:pharma_scan/core/widgets/adaptive_bottom_panel.dart';
 import 'package:pharma_scan/features/scanner/screens/camera_screen.dart';
+import 'package:shadcn_ui/shadcn_ui.dart';
+
 import '../../../helpers/pump_app.dart';
 import '../../../test_utils.dart';
 
@@ -43,7 +44,7 @@ void main() {
         // AND: Torch button should NOT be visible when camera is inactive
         final torchButton = find.descendant(
           of: find.byType(CameraScreen),
-          matching: find.byIcon(FIcons.zap),
+          matching: find.byIcon(LucideIcons.zap),
         );
         expect(torchButton, findsNothing);
       },
@@ -82,7 +83,7 @@ void main() {
         );
         final torchInRow = find.descendant(
           of: bottomPanelRow,
-          matching: find.byIcon(FIcons.zap),
+          matching: find.byIcon(LucideIcons.zap),
         );
         expect(torchInRow, findsNothing);
       },
@@ -213,7 +214,7 @@ void main() {
 
           // THEN: Torch button should NOT be visible initially
           // We check for torch icon anywhere in the widget tree
-          final torchIconAnywhere = find.byIcon(FIcons.zap);
+          final torchIconAnywhere = find.byIcon(LucideIcons.zap);
           expect(torchIconAnywhere, findsNothing);
 
           // NOTE: Testing the active state would require mocking the camera state,
@@ -236,7 +237,7 @@ void main() {
         // AND: Verify torch icon is not a descendant of bottom panel
         final torchInBottomPanel = find.descendant(
           of: bottomPanel,
-          matching: find.byIcon(FIcons.zap),
+          matching: find.byIcon(LucideIcons.zap),
         );
         expect(torchInBottomPanel, findsNothing);
       });

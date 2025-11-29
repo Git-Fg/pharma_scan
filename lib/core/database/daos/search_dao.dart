@@ -18,7 +18,7 @@ String _escapeFts5Query(String query) {
 
   // WHY: Escape special FTS5 characters: ", :, AND, OR, NOT
   // Replace with spaces to prevent syntax errors while preserving search intent
-  var escaped = normalized
+  final escaped = normalized
       .replaceAll('"', ' ')
       .replaceAll(':', ' ')
       .replaceAll(RegExp(r'\s+'), ' ')

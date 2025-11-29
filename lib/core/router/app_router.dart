@@ -1,21 +1,49 @@
 // lib/core/router/app_router.dart
+import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
-import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:pharma_scan/core/router/app_routes.dart';
-import 'package:pharma_scan/core/router/routes.dart';
+import 'package:pharma_scan/features/explorer/screens/database_screen.dart';
+import 'package:pharma_scan/features/explorer/screens/group_explorer_view.dart';
+import 'package:pharma_scan/features/home/screens/main_screen.dart';
+import 'package:pharma_scan/features/scanner/screens/camera_screen.dart';
+import 'package:pharma_scan/features/settings/screens/logs_screen_wrapper.dart';
+import 'package:pharma_scan/features/settings/screens/settings_screen.dart';
 
-part 'app_router.g.dart';
+part 'app_router.gr.dart';
 
-// Private keys to maintain control over the navigator state
-final _rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root');
+@AutoRouterConfig(replaceInRouteName: 'Screen|Page|View,Route')
+class AppRouter extends RootStackRouter {
+  @override
+  RouteType get defaultRouteType => const RouteType.material();
 
-@riverpod
-GoRouter goRouter(Ref ref) {
-  return GoRouter(
-    navigatorKey: _rootNavigatorKey,
-    initialLocation: AppRoutes.scanner,
-    debugLogDiagnostics: true,
-    routes: $appRoutes,
-  );
+  @override
+  List<AutoRoute> get routes => [
+    // Main Shell (Bottom Nav)
+    AutoRoute(
+      page: MainRoute.page,
+      initial: true,
+      path: '/',
+      children: [
+        // Tab 1: Scanner
+        AutoRoute(path: 'scanner', page: ScannerRoute.page),
+        // Tab 2: Explorer (Stack imbriquée)
+        AutoRoute(
+          path: 'explorer',
+          page: ExplorerTabRoute.page, // Wrapper pour la stack
+          children: [
+            AutoRoute(path: '', page: DatabaseRoute.page),
+            AutoRoute(path: 'group/:groupId', page: GroupExplorerRoute.page),
+          ],
+        ),
+      ],
+    ),
+    // Global Routes (Full screen)
+    AutoRoute(path: '/settings', page: SettingsRoute.page),
+    AutoRoute(path: '/logs', page: LogsRoute.page),
+  ];
+}
+
+// Wrapper pour la navigation imbriquée dans l'onglet Explorer
+@RoutePage(name: 'ExplorerTabRoute')
+class ExplorerTabScreen extends AutoRouter {
+  const ExplorerTabScreen({super.key});
 }

@@ -1,23 +1,25 @@
+import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:gap/gap.dart';
-import 'package:go_router/go_router.dart';
-import 'package:forui/forui.dart';
-import 'package:pharma_scan/core/router/routes.dart';
-import 'package:pharma_scan/core/theme/app_colors.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:pharma_scan/core/router/app_router.dart';
+import 'package:pharma_scan/core/services/logger_service.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
-import 'package:pharma_scan/theme/badge_styles.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
-import 'package:pharma_scan/core/widgets/ui_kit/info_label.dart';
-import 'package:pharma_scan/core/widgets/ui_kit/section_header.dart';
+import 'package:pharma_scan/core/widgets/ui_kit/section_header_delegate.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/status_view.dart';
 import 'package:pharma_scan/features/explorer/models/grouped_by_product_model.dart';
 import 'package:pharma_scan/features/explorer/providers/group_classification_provider.dart';
-import 'package:pharma_scan/core/services/logger_service.dart';
+import 'package:pharma_scan/theme/pharma_colors.dart';
+import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+@RoutePage()
 class GroupExplorerView extends HookConsumerWidget {
-  const GroupExplorerView({required this.groupId, super.key});
+  const GroupExplorerView({
+    @PathParam('groupId') required this.groupId,
+    super.key,
+  });
 
   final String groupId;
 
@@ -29,12 +31,15 @@ class GroupExplorerView extends HookConsumerWidget {
     return detailAsync.when(
       data: (viewModel) {
         if (!viewModel.hasMembers) {
-          return FScaffold(
-            header: FHeader.nested(
+          return Scaffold(
+            appBar: AppBar(
               title: const Text(Strings.loadDetailsError),
-              prefixes: [FHeaderAction.back(onPress: () => context.pop())],
+              leading: IconButton(
+                icon: const Icon(LucideIcons.arrowLeft),
+                onPressed: () => context.router.maybePop(),
+              ),
             ),
-            child: StatusView(
+            body: StatusView(
               type: StatusType.error,
               title: Strings.loadDetailsError,
               description: Strings.errorLoadingGroups,
@@ -42,9 +47,8 @@ class GroupExplorerView extends HookConsumerWidget {
                 button: true,
                 label: Strings.backButtonLabel,
                 hint: Strings.backButtonHint,
-                child: FButton(
-                  style: FButtonStyle.outline(),
-                  onPress: () => context.pop(),
+                child: ShadButton.outline(
+                  onPressed: () => context.router.maybePop(),
                   child: const Text(Strings.back),
                 ),
               ),
@@ -59,12 +63,15 @@ class GroupExplorerView extends HookConsumerWidget {
         final shouldShowRelatedSection =
             relatedAsync.isLoading || relatedMembers.isNotEmpty;
 
-        return FScaffold(
-          header: FHeader.nested(
+        return Scaffold(
+          appBar: AppBar(
             title: Text(viewModel.metadata.title),
-            prefixes: [FHeaderAction.back(onPress: () => context.pop())],
+            leading: IconButton(
+              icon: const Icon(LucideIcons.arrowLeft),
+              onPressed: () => context.router.maybePop(),
+            ),
           ),
-          child: CustomScrollView(
+          body: CustomScrollView(
             slivers: [
               SliverToBoxAdapter(
                 child: _buildAppBarContent(
@@ -75,51 +82,52 @@ class GroupExplorerView extends HookConsumerWidget {
                   relatedMembers.length,
                 ),
               ),
-              _buildSectionAccordion(
+              _buildSectionSliver(
                 context,
                 Strings.princeps,
                 princepsMembers.length,
                 princepsMembers,
                 sectionType: _ProductSectionType.princeps,
-                icon: FIcons.star,
+                icon: LucideIcons.star,
               ),
-              _buildSectionAccordion(
+              _buildSectionSliver(
                 context,
                 Strings.generics,
                 genericMembers.length,
                 genericMembers,
                 sectionType: _ProductSectionType.generics,
-                icon: FIcons.copy,
+                icon: LucideIcons.copy,
               ),
-              if (shouldShowRelatedSection) ...[
-                _buildSectionHeader(
-                  Strings.relatedTherapies,
-                  relatedMembers.length,
-                  icon: FIcons.link,
-                ),
-                _buildRelatedList(
+              if (shouldShowRelatedSection)
+                _buildRelatedSectionSliver(
+                  context,
                   relatedMembers,
                   isLoading: relatedAsync.isLoading,
                 ),
-              ],
               const SliverToBoxAdapter(child: Gap(AppDimens.spacingXl)),
             ],
           ),
         );
       },
-      loading: () => FScaffold(
-        header: FHeader.nested(
+      loading: () => Scaffold(
+        appBar: AppBar(
           title: const Text(Strings.loading),
-          prefixes: [FHeaderAction.back(onPress: () => context.pop())],
+          leading: IconButton(
+            icon: const Icon(LucideIcons.arrowLeft),
+            onPressed: () => context.router.maybePop(),
+          ),
         ),
-        child: const StatusView(type: StatusType.loading),
+        body: const StatusView(type: StatusType.loading),
       ),
-      error: (error, stackTrace) => FScaffold(
-        header: FHeader.nested(
+      error: (error, stackTrace) => Scaffold(
+        appBar: AppBar(
           title: const Text(Strings.loadDetailsError),
-          prefixes: [FHeaderAction.back(onPress: () => context.pop())],
+          leading: IconButton(
+            icon: const Icon(LucideIcons.arrowLeft),
+            onPressed: () => context.router.maybePop(),
+          ),
         ),
-        child: StatusView(
+        body: StatusView(
           type: StatusType.error,
           title: Strings.loadDetailsError,
           description: error.toString(),
@@ -127,9 +135,8 @@ class GroupExplorerView extends HookConsumerWidget {
             button: true,
             label: Strings.retryButtonLabel,
             hint: Strings.retryButtonHint,
-            child: FButton(
-              style: FButtonStyle.primary(),
-              onPress: () =>
+            child: ShadButton(
+              onPressed: () =>
                   ref.invalidate(groupDetailViewModelProvider(groupId)),
               child: const Text(Strings.retry),
             ),
@@ -147,25 +154,23 @@ class GroupExplorerView extends HookConsumerWidget {
     int relatedCount,
   ) {
     final metadata = viewModel.metadata;
-    final badgeStyles = context.theme.badgeStyles;
+    final theme = ShadTheme.of(context);
     final metadataBadges = <Widget>[
       if (metadata.distinctDosages.isNotEmpty)
         ...metadata.distinctDosages.map(
-          (dosage) => FBadge(
-            style: badgeStyles.condition,
+          (dosage) => ShadBadge.outline(
             child: Text(
               '${Strings.dosagesLabel} $dosage',
-              style: context.theme.typography.sm,
+              style: theme.textTheme.small,
             ),
           ),
         ),
       if (metadata.distinctFormulations.isNotEmpty)
         ...metadata.distinctFormulations.map(
-          (form) => FBadge(
-            style: badgeStyles.princeps,
+          (form) => ShadBadge.secondary(
             child: Text(
               Strings.formWithValue(form),
-              style: context.theme.typography.sm,
+              style: theme.textTheme.small,
             ),
           ),
         ),
@@ -175,11 +180,10 @@ class GroupExplorerView extends HookConsumerWidget {
         .map((condition) => condition.trim())
         .where((condition) => condition.isNotEmpty)
         .map(
-          (condition) => FBadge(
-            style: badgeStyles.condition,
+          (condition) => ShadBadge.outline(
             child: Text(
               condition,
-              style: context.theme.typography.sm,
+              style: theme.textTheme.small,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -234,8 +238,8 @@ class GroupExplorerView extends HookConsumerWidget {
                 ),
                 child: Text(
                   line,
-                  style: context.theme.typography.sm.copyWith(
-                    color: context.theme.colors.mutedForeground,
+                  style: ShadTheme.of(context).textTheme.small.copyWith(
+                    color: ShadTheme.of(context).colorScheme.mutedForeground,
                   ),
                 ),
               ),
@@ -250,31 +254,84 @@ class GroupExplorerView extends HookConsumerWidget {
     String priceLabel,
     String refundValue,
   ) {
-    return FTileGroup(
-      label: const Text(Strings.regulatoryFinancials),
-      divider: FItemDivider.indented,
+    final theme = ShadTheme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        FTile(
-          prefix: const Icon(FIcons.banknote),
-          title: const Text(Strings.price),
-          details: Text(priceLabel, style: context.theme.typography.base),
+        Padding(
+          padding: const EdgeInsets.only(
+            left: AppDimens.spacingMd,
+            bottom: AppDimens.spacingXs,
+          ),
+          child: Text(Strings.regulatoryFinancials, style: theme.textTheme.h4),
         ),
-        FTile(
-          prefix: const Icon(FIcons.percent),
-          title: const Text(Strings.refundLabel),
-          details: Text(refundValue, style: context.theme.typography.base),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: theme.colorScheme.border)),
+          ),
+          child: InkWell(
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppDimens.spacingMd,
+                vertical: AppDimens.spacingSm,
+              ),
+              child: Row(
+                children: [
+                  const Icon(LucideIcons.banknote),
+                  const SizedBox(width: AppDimens.spacingSm),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(Strings.price, style: theme.textTheme.p),
+                        const SizedBox(height: 4),
+                        Text(priceLabel, style: theme.textTheme.p),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        Divider(height: 1, color: theme.colorScheme.border),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: theme.colorScheme.border)),
+          ),
+          child: InkWell(
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppDimens.spacingMd,
+                vertical: AppDimens.spacingSm,
+              ),
+              child: Row(
+                children: [
+                  const Icon(LucideIcons.percent),
+                  const SizedBox(width: AppDimens.spacingSm),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(Strings.refundLabel, style: theme.textTheme.p),
+                        const SizedBox(height: 4),
+                        Text(refundValue, style: theme.textTheme.p),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildSectionHeader(String title, int count, {IconData? icon}) {
-    return SliverToBoxAdapter(
-      child: SectionHeader(title: title, badgeCount: count, icon: icon),
-    );
-  }
-
-  Widget _buildSectionAccordion(
+  Widget _buildSectionSliver(
     BuildContext context,
     String title,
     int count,
@@ -286,110 +343,71 @@ class GroupExplorerView extends HookConsumerWidget {
       return const SliverToBoxAdapter(child: SizedBox.shrink());
     }
 
-    return SliverToBoxAdapter(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: AppDimens.spacingMd),
-        child: FAccordion(
-          controller: FAccordionController(),
-          children: [
-            FAccordionItem(
-              title: Padding(
-                padding: const EdgeInsets.symmetric(
-                  vertical: AppDimens.spacingXs,
-                ),
-                child: Row(
-                  children: [
-                    if (icon != null) ...[
-                      Icon(
-                        icon,
-                        size: AppDimens.iconSm,
-                        color: context.theme.colors.mutedForeground,
-                      ),
-                      const Gap(AppDimens.spacingXs),
-                    ],
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: context.theme.typography.xl2, // h4 equivalent
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const Gap(AppDimens.spacingXs),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: context.theme.colors.muted,
-                        borderRadius: BorderRadius.circular(
-                          AppDimens.radiusSm / 2,
-                        ),
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      child: Text('$count', style: context.theme.typography.sm),
-                    ),
-                  ],
-                ),
-              ),
-              child: _buildMemberColumn(
-                context,
-                members,
-                sectionType: sectionType,
-              ),
-            ),
-          ],
+    return SliverMainAxisGroup(
+      slivers: [
+        // Sticky Header
+        SliverPersistentHeader(
+          delegate: SectionHeaderDelegate(
+            title: title,
+            badgeCount: count,
+            icon: icon,
+            textScaler: MediaQuery.textScalerOf(context),
+          ),
+          pinned: true,
         ),
-      ),
+        // Member List
+        SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: AppDimens.spacingMd),
+          sliver: SliverList(
+            delegate: SliverChildBuilderDelegate((context, index) {
+              final member = members[index];
+              return Padding(
+                padding: const EdgeInsets.symmetric(
+                  vertical: AppDimens.spacing2xs,
+                ),
+                child: _buildMemberTile(
+                  context,
+                  member,
+                  sectionType: sectionType,
+                  showNavigationIndicator: false,
+                ),
+              );
+            }, childCount: members.length),
+          ),
+        ),
+      ],
     );
   }
 
-  Widget _buildMemberColumn(
+  Widget _buildRelatedSectionSliver(
     BuildContext context,
-    List<MedicationItem> members, {
-    required _ProductSectionType sectionType,
-  }) {
-    if (members.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: members
-          .map(
-            (member) => Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppDimens.spacingMd,
-                vertical: AppDimens.spacing2xs,
-              ),
-              child: _buildMemberAccordion(
-                context,
-                member,
-                sectionType: sectionType,
-                showNavigationIndicator: false,
-              ),
-            ),
-          )
-          .toList(),
-    );
-  }
-
-  Widget _buildRelatedList(
     List<RelatedPrincepsItem> relatedMembers, {
     required bool isLoading,
   }) {
     if (isLoading && relatedMembers.isEmpty) {
-      return const SliverToBoxAdapter(
-        child: Padding(
-          padding: EdgeInsets.all(AppDimens.spacingMd),
-          child: Center(
-            child: SizedBox(
-              width: 24,
-              height: 24,
-              child: FCircularProgress.loader(),
+      return SliverMainAxisGroup(
+        slivers: [
+          SliverPersistentHeader(
+            delegate: SectionHeaderDelegate(
+              title: Strings.relatedTherapies,
+              icon: LucideIcons.link,
+              textScaler: MediaQuery.textScalerOf(context),
+            ),
+            pinned: true,
+          ),
+          const SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.all(AppDimens.spacingMd),
+              child: Center(
+                child: SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
             ),
           ),
-        ),
+        ],
       );
     }
 
@@ -397,42 +415,57 @@ class GroupExplorerView extends HookConsumerWidget {
       return const SliverToBoxAdapter(child: SizedBox.shrink());
     }
 
-    return SliverList(
-      delegate: SliverChildBuilderDelegate((context, index) {
-        final therapy = relatedMembers[index];
-
-        return Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppDimens.spacingMd,
-            vertical: AppDimens.spacing2xs,
+    return SliverMainAxisGroup(
+      slivers: [
+        // Sticky Header
+        SliverPersistentHeader(
+          delegate: SectionHeaderDelegate(
+            title: Strings.relatedTherapies,
+            badgeCount: relatedMembers.length,
+            icon: LucideIcons.link,
+            textScaler: MediaQuery.textScalerOf(context),
           ),
-          child: Semantics(
-            button: true,
-            label: Strings.associatedTherapySemantics(
-              therapy.medication.displayName,
-            ),
-            child: _buildMemberAccordion(
-              context,
-              therapy.medication,
-              sectionType: _ProductSectionType.related,
-              showNavigationIndicator: true,
-              navigationGroupId: therapy.groupId,
-            ),
+          pinned: true,
+        ),
+        // Related List
+        SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: AppDimens.spacingMd),
+          sliver: SliverList(
+            delegate: SliverChildBuilderDelegate((context, index) {
+              final therapy = relatedMembers[index];
+              return Padding(
+                padding: const EdgeInsets.symmetric(
+                  vertical: AppDimens.spacing2xs,
+                ),
+                child: Semantics(
+                  button: true,
+                  label: Strings.associatedTherapySemantics(
+                    therapy.medication.displayName,
+                  ),
+                  child: _buildMemberTile(
+                    context,
+                    therapy.medication,
+                    sectionType: _ProductSectionType.related,
+                    showNavigationIndicator: true,
+                    navigationGroupId: therapy.groupId,
+                  ),
+                ),
+              );
+            }, childCount: relatedMembers.length),
           ),
-        );
-      }, childCount: relatedMembers.length),
+        ),
+      ],
     );
   }
 
-  Widget _buildMemberAccordion(
+  Widget _buildMemberTile(
     BuildContext context,
     MedicationItem member, {
     required _ProductSectionType sectionType,
     required bool showNavigationIndicator,
     String? navigationGroupId,
   }) {
-    final badgeStyles = context.theme.badgeStyles;
-    final typeBadge = _buildTypeBadge(context, sectionType, badgeStyles);
+    final typeBadge = _buildTypeBadge(context, sectionType);
     final regulatoryBadges = _buildRegulatoryBadges(context, member);
     final labDisplay = member.titulaire.isEmpty
         ? Strings.unknownHolder
@@ -443,150 +476,206 @@ class GroupExplorerView extends HookConsumerWidget {
         member.refundRate ?? (hasPrice ? Strings.refundNotAvailable : null);
     final shouldShowRefund = refundLabel != null;
 
-    // Build collapsed header title
+    // Build title text
     final titleText =
         '${member.displayName}${member.dosageLabel != null && member.dosageLabel!.isNotEmpty ? ' • ${member.dosageLabel}' : ''}';
 
-    return FAccordion(
-      controller: FAccordionController(),
+    // Build subtitle with key information
+    final subtitleParts = <String>[];
+    if (member.codeCip.isNotEmpty) {
+      subtitleParts.add('${Strings.cip} ${member.codeCip}');
+    }
+    if (labDisplay.isNotEmpty && labDisplay != Strings.unknownHolder) {
+      subtitleParts.add(labDisplay);
+    }
+    final subtitle = subtitleParts.isNotEmpty
+        ? subtitleParts.join(' • ')
+        : null;
+
+    // Build details (price and refund)
+    final detailsParts = <String>[];
+    if (hasPrice) {
+      detailsParts.add(priceText);
+    }
+    if (shouldShowRefund) {
+      detailsParts.add(refundLabel);
+    }
+    final details = detailsParts.isNotEmpty ? detailsParts.join(' • ') : null;
+
+    // Build enhanced subtitle with availability status if present
+    final enhancedSubtitleParts = <String>[];
+    if (subtitle != null) {
+      enhancedSubtitleParts.add(subtitle);
+    }
+    if (member.availabilityStatus != null) {
+      enhancedSubtitleParts.add(
+        Strings.stockAlert(member.availabilityStatus!.trim()),
+      );
+    }
+    final enhancedSubtitle = enhancedSubtitleParts.isNotEmpty
+        ? enhancedSubtitleParts.join(' • ')
+        : null;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        FAccordionItem(
-          title: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Transform.scale(scale: 0.85, child: typeBadge),
-              const Gap(AppDimens.spacingXs),
-              Expanded(
-                child: Text(
-                  titleText,
-                  style: context.theme.typography.base,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+        MergeSemantics(
+          child: Semantics(
+            button: showNavigationIndicator && navigationGroupId != null,
+            label: _buildMemberSemanticsLabel(member, subtitle, details),
+            child: InkWell(
+              onTap: showNavigationIndicator && navigationGroupId != null
+                  ? () => context.router.push(
+                      GroupExplorerRoute(groupId: navigationGroupId),
+                    )
+                  : null,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppDimens.spacingMd,
+                  vertical: AppDimens.spacingSm,
                 ),
-              ),
-            ],
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(AppDimens.spacingMd),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Gap(AppDimens.spacingSm),
-                InfoLabel(
-                  text: '${Strings.cip} ${member.codeCip}',
-                  icon: FIcons.barcode,
-                  style: context.theme.typography.sm.copyWith(
-                    color: context.theme.colors.mutedForeground,
+                decoration: BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(
+                      color: ShadTheme.of(context).colorScheme.border,
+                    ),
                   ),
                 ),
-                const Gap(AppDimens.spacingSm),
-                InfoLabel(
-                  text: labDisplay,
-                  icon: FIcons.building2,
-                  style: context.theme.typography.sm.copyWith(
-                    color: context.theme.colors.mutedForeground,
-                  ),
-                ),
-                if (hasPrice || shouldShowRefund) ...[
-                  const Gap(AppDimens.spacingSm),
-                  Row(
-                    children: [
-                      if (hasPrice)
-                        Text(
-                          priceText,
-                          style: context.theme.typography.base.copyWith(
-                            fontWeight: FontWeight.w600,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Transform.scale(scale: 0.85, child: typeBadge),
+                    const SizedBox(width: AppDimens.spacingSm),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            titleText,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: ShadTheme.of(
+                              context,
+                            ).textTheme.p.copyWith(fontWeight: FontWeight.w600),
+                          ),
+                          if (enhancedSubtitle != null) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              enhancedSubtitle,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: ShadTheme.of(context).textTheme.small
+                                  .copyWith(
+                                    color: ShadTheme.of(
+                                      context,
+                                    ).colorScheme.mutedForeground,
+                                  ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    if (details != null) ...[
+                      const SizedBox(width: AppDimens.spacingSm),
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 140),
+                        child: Text(
+                          details,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.end,
+                          style: ShadTheme.of(context).textTheme.small.copyWith(
+                            color: ShadTheme.of(
+                              context,
+                            ).colorScheme.mutedForeground,
                           ),
                         ),
-                      if (hasPrice && shouldShowRefund)
-                        const Gap(AppDimens.spacingXs),
-                      if (shouldShowRefund)
-                        member.refundRate != null
-                            ? FBadge(
-                                style: badgeStyles.princeps,
-                                child: Text(
-                                  refundLabel,
-                                  style: context.theme.typography.sm,
-                                ),
-                              )
-                            : FBadge(
-                                style: badgeStyles.condition,
-                                child: Text(
-                                  refundLabel,
-                                  style: context.theme.typography.sm,
-                                ),
-                              ),
+                      ),
                     ],
-                  ),
-                ],
-                if (member.availabilityStatus != null) ...[
-                  const Gap(AppDimens.spacingSm),
-                  FBadge(
-                    style: badgeStyles.alert,
-                    child: Text(
-                      Strings.stockAlert(member.availabilityStatus!.trim()),
-                      style: context.theme.typography.sm,
-                    ),
-                  ),
-                ],
-                if (regulatoryBadges.isNotEmpty) ...[
-                  const Gap(AppDimens.spacingSm),
-                  Wrap(
-                    spacing: AppDimens.spacing2xs,
-                    runSpacing: AppDimens.spacing2xs / 2,
-                    children: regulatoryBadges,
-                  ),
-                ],
-                if (showNavigationIndicator && navigationGroupId != null) ...[
-                  const Gap(AppDimens.spacingMd),
-                  FButton(
-                    style: FButtonStyle.outline(),
-                    onPress: () => GroupDetailRoute(
-                      groupId: navigationGroupId,
-                    ).push<void>(context),
-                    suffix: Icon(
-                      FIcons.arrowRight,
-                      size: AppDimens.iconSm,
-                      color: context.theme.colors.foreground,
-                    ),
-                    child: const Text(Strings.showMedicamentDetails),
-                  ),
-                ],
-              ],
+                    if (showNavigationIndicator &&
+                        navigationGroupId != null) ...[
+                      const SizedBox(width: AppDimens.spacingXs),
+                      const ExcludeSemantics(
+                        child: Icon(LucideIcons.chevronRight, size: 16),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
             ),
           ),
         ),
+        // Regulatory badges below tile (they don't fit in custom tile structure)
+        if (regulatoryBadges.isNotEmpty) ...[
+          const Gap(AppDimens.spacingSm),
+          Wrap(
+            spacing: AppDimens.spacing2xs,
+            runSpacing: AppDimens.spacing2xs / 2,
+            children: regulatoryBadges,
+          ),
+        ],
+        // Navigation button for related therapies
+        if (showNavigationIndicator && navigationGroupId != null) ...[
+          const Gap(AppDimens.spacingSm),
+          ShadButton.outline(
+            onPressed: () => context.router.push(
+              GroupExplorerRoute(groupId: navigationGroupId),
+            ),
+            trailing: Icon(
+              LucideIcons.arrowRight,
+              size: AppDimens.iconSm,
+              color: ShadTheme.of(context).colorScheme.foreground,
+            ),
+            child: const Text(Strings.showMedicamentDetails),
+          ),
+        ],
       ],
     );
+  }
+
+  String _buildMemberSemanticsLabel(
+    MedicationItem member,
+    String? subtitle,
+    String? details,
+  ) {
+    final buffer = StringBuffer(member.displayName);
+    if (subtitle != null) {
+      buffer.write(', $subtitle');
+    }
+    if (details != null) {
+      buffer.write(', $details');
+    }
+    if (member.availabilityStatus != null) {
+      buffer.write(
+        ', ${Strings.stockAlert(member.availabilityStatus!.trim())}',
+      );
+    }
+    return buffer.toString();
   }
 
   Widget _buildTypeBadge(
     BuildContext context,
     _ProductSectionType sectionType,
-    FBadgeStyles badgeStyles,
   ) {
-    final (
-      FBaseBadgeStyle Function(FBadgeStyle) resolver,
-      String label,
-    ) = switch (sectionType) {
-      _ProductSectionType.princeps => (
-        badgeStyles.princeps,
-        Strings.badgePrinceps,
+    final theme = ShadTheme.of(context);
+    final label = switch (sectionType) {
+      _ProductSectionType.princeps => Strings.badgePrinceps,
+      _ProductSectionType.generics => Strings.badgeGeneric,
+      _ProductSectionType.related => Strings.badgePrinceps,
+    };
+    return switch (sectionType) {
+      _ProductSectionType.princeps => ShadBadge.secondary(
+        child: Text(label, style: theme.textTheme.small),
       ),
-      _ProductSectionType.generics => (
-        badgeStyles.generic,
-        Strings.badgeGeneric,
+      _ProductSectionType.generics => ShadBadge(
+        child: Text(label, style: theme.textTheme.small),
       ),
-      _ProductSectionType.related => (
-        badgeStyles.princeps,
-        Strings.badgePrinceps,
+      _ProductSectionType.related => ShadBadge.secondary(
+        child: Text(label, style: theme.textTheme.small),
       ),
     };
-
-    return FBadge(
-      style: resolver,
-      child: Text(label, style: context.theme.typography.sm),
-    );
   }
 
   String _formatEuro(double value) {
@@ -598,18 +687,17 @@ class GroupExplorerView extends HookConsumerWidget {
     BuildContext context,
     MedicationItem member,
   ) {
-    final badgeStyles = context.theme.badgeStyles;
+    // WHY: PharmaColors is always registered in theme extensions (see lib/theme/theme.dart)
+    // Flow analysis confirms this is non-null, so we can safely assert
+    final pharmaColors = Theme.of(context).extension<PharmaColors>()!;
+    final theme = ShadTheme.of(context);
     final badges = <Widget>[];
     void addBadge(Widget badge) => badges.add(badge);
 
     if (member.isNarcotic) {
       addBadge(
-        FBadge(
-          style: badgeStyles.alert,
-          child: Text(
-            Strings.badgeNarcotic,
-            style: context.theme.typography.sm,
-          ),
+        ShadBadge.destructive(
+          child: Text(Strings.badgeNarcotic, style: theme.textTheme.small),
         ),
       );
     }
@@ -618,7 +706,7 @@ class GroupExplorerView extends HookConsumerWidget {
       addBadge(
         Container(
           decoration: BoxDecoration(
-            border: Border.all(color: AppColors.regulatoryRed),
+            border: Border.all(color: pharmaColors.regulatoryRed),
             borderRadius: BorderRadius.circular(AppDimens.radiusSm / 2),
           ),
           padding: const EdgeInsets.symmetric(
@@ -627,9 +715,9 @@ class GroupExplorerView extends HookConsumerWidget {
           ),
           child: Text(
             Strings.badgeList1,
-            style: context.theme.typography.sm.copyWith(
-              color: AppColors.regulatoryRed,
-            ),
+            style: ShadTheme.of(
+              context,
+            ).textTheme.small.copyWith(color: pharmaColors.regulatoryRed),
           ),
         ),
       );
@@ -639,7 +727,7 @@ class GroupExplorerView extends HookConsumerWidget {
       addBadge(
         Container(
           decoration: BoxDecoration(
-            border: Border.all(color: AppColors.regulatoryGreen),
+            border: Border.all(color: pharmaColors.regulatoryGreen),
             borderRadius: BorderRadius.circular(AppDimens.radiusSm / 2),
           ),
           padding: const EdgeInsets.symmetric(
@@ -648,9 +736,9 @@ class GroupExplorerView extends HookConsumerWidget {
           ),
           child: Text(
             Strings.badgeList2,
-            style: context.theme.typography.sm.copyWith(
-              color: AppColors.regulatoryGreen,
-            ),
+            style: ShadTheme.of(
+              context,
+            ).textTheme.small.copyWith(color: pharmaColors.regulatoryGreen),
           ),
         ),
       );
@@ -660,7 +748,7 @@ class GroupExplorerView extends HookConsumerWidget {
       addBadge(
         Container(
           decoration: BoxDecoration(
-            color: AppColors.regulatoryPurple,
+            color: pharmaColors.regulatoryPurple,
             borderRadius: BorderRadius.circular(AppDimens.radiusSm / 2),
           ),
           padding: const EdgeInsets.symmetric(
@@ -669,7 +757,9 @@ class GroupExplorerView extends HookConsumerWidget {
           ),
           child: Text(
             Strings.badgeException,
-            style: context.theme.typography.sm.copyWith(color: Colors.white),
+            style: ShadTheme.of(
+              context,
+            ).textTheme.small.copyWith(color: Colors.white),
           ),
         ),
       );
@@ -679,7 +769,7 @@ class GroupExplorerView extends HookConsumerWidget {
       addBadge(
         Container(
           decoration: BoxDecoration(
-            border: Border.all(color: AppColors.regulatoryAmber),
+            border: Border.all(color: pharmaColors.regulatoryAmber),
             borderRadius: BorderRadius.circular(AppDimens.radiusSm / 2),
           ),
           padding: const EdgeInsets.symmetric(
@@ -688,9 +778,9 @@ class GroupExplorerView extends HookConsumerWidget {
           ),
           child: Text(
             Strings.badgeRestricted,
-            style: context.theme.typography.sm.copyWith(
-              color: AppColors.regulatoryAmber,
-            ),
+            style: ShadTheme.of(
+              context,
+            ).textTheme.small.copyWith(color: pharmaColors.regulatoryAmber),
           ),
         ),
       );
@@ -700,7 +790,7 @@ class GroupExplorerView extends HookConsumerWidget {
       addBadge(
         Container(
           decoration: BoxDecoration(
-            color: AppColors.regulatoryGray,
+            color: pharmaColors.regulatoryGray,
             borderRadius: BorderRadius.circular(AppDimens.radiusSm / 2),
           ),
           padding: const EdgeInsets.symmetric(
@@ -709,7 +799,9 @@ class GroupExplorerView extends HookConsumerWidget {
           ),
           child: Text(
             Strings.hospitalBadge,
-            style: context.theme.typography.sm.copyWith(color: Colors.white),
+            style: ShadTheme.of(
+              context,
+            ).textTheme.small.copyWith(color: Colors.white),
           ),
         ),
       );
@@ -719,7 +811,7 @@ class GroupExplorerView extends HookConsumerWidget {
       addBadge(
         Container(
           decoration: BoxDecoration(
-            color: context.theme.colors.secondary,
+            color: ShadTheme.of(context).colorScheme.secondary,
             borderRadius: BorderRadius.circular(AppDimens.radiusSm / 2),
           ),
           padding: const EdgeInsets.symmetric(
@@ -728,8 +820,8 @@ class GroupExplorerView extends HookConsumerWidget {
           ),
           child: Text(
             Strings.badgeDental,
-            style: context.theme.typography.sm.copyWith(
-              color: context.theme.colors.secondaryForeground,
+            style: ShadTheme.of(context).textTheme.small.copyWith(
+              color: ShadTheme.of(context).colorScheme.secondaryForeground,
             ),
           ),
         ),
@@ -740,7 +832,7 @@ class GroupExplorerView extends HookConsumerWidget {
       addBadge(
         Container(
           decoration: BoxDecoration(
-            color: AppColors.regulatoryGreen.withValues(alpha: 0.15),
+            color: pharmaColors.regulatoryGreen.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(AppDimens.radiusSm / 2),
           ),
           padding: const EdgeInsets.symmetric(
@@ -749,9 +841,9 @@ class GroupExplorerView extends HookConsumerWidget {
           ),
           child: Text(
             Strings.badgeOtc,
-            style: context.theme.typography.sm.copyWith(
-              color: AppColors.regulatoryGreen,
-            ),
+            style: ShadTheme.of(
+              context,
+            ).textTheme.small.copyWith(color: pharmaColors.regulatoryGreen),
           ),
         ),
       );
@@ -761,7 +853,7 @@ class GroupExplorerView extends HookConsumerWidget {
       addBadge(
         Container(
           decoration: BoxDecoration(
-            color: AppColors.regulatoryYellow,
+            color: pharmaColors.regulatoryYellow,
             borderRadius: BorderRadius.circular(AppDimens.radiusSm / 2),
           ),
           padding: const EdgeInsets.symmetric(
@@ -770,7 +862,9 @@ class GroupExplorerView extends HookConsumerWidget {
           ),
           child: Text(
             Strings.badgeSurveillance,
-            style: context.theme.typography.sm.copyWith(color: Colors.black),
+            style: ShadTheme.of(
+              context,
+            ).textTheme.small.copyWith(color: Colors.black),
           ),
         ),
       );
@@ -813,27 +907,28 @@ class GroupExplorerView extends HookConsumerWidget {
                     ),
                     decoration: BoxDecoration(
                       border: Border.all(
-                        color: context.theme.colors.destructive,
-                        width: 1,
+                        color: ShadTheme.of(context).colorScheme.destructive,
                       ),
                       borderRadius: BorderRadius.circular(AppDimens.radiusMd),
-                      color: context.theme.colors.destructive.withValues(
-                        alpha: 0.1,
-                      ),
+                      color: ShadTheme.of(
+                        context,
+                      ).colorScheme.destructive.withValues(alpha: 0.1),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
-                          FIcons.triangleAlert,
+                          LucideIcons.triangleAlert,
                           size: AppDimens.iconSm,
-                          color: context.theme.colors.destructive,
+                          color: ShadTheme.of(context).colorScheme.destructive,
                         ),
                         const Gap(AppDimens.spacingXs),
                         Text(
                           Strings.shortageAlert,
-                          style: context.theme.typography.sm.copyWith(
-                            color: context.theme.colors.destructive,
+                          style: ShadTheme.of(context).textTheme.small.copyWith(
+                            color: ShadTheme.of(
+                              context,
+                            ).colorScheme.destructive,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -846,26 +941,24 @@ class GroupExplorerView extends HookConsumerWidget {
             const Gap(AppDimens.spacingXs),
           ],
           Expanded(
-            child: FButton(
-              style: FButtonStyle.secondary(),
-              onPress: () => _launchUrl(context, ficheUrl),
-              prefix: Icon(
-                FIcons.info,
+            child: ShadButton.secondary(
+              onPressed: () => _launchUrl(context, ficheUrl),
+              leading: Icon(
+                LucideIcons.info,
                 size: AppDimens.iconSm,
-                color: context.theme.colors.secondaryForeground,
+                color: ShadTheme.of(context).colorScheme.secondaryForeground,
               ),
               child: const Text(Strings.ficheInfo),
             ),
           ),
           const Gap(AppDimens.spacingXs),
           Expanded(
-            child: FButton(
-              style: FButtonStyle.outline(),
-              onPress: () => _launchUrl(context, rcpUrl),
-              prefix: Icon(
-                FIcons.fileText,
+            child: ShadButton.outline(
+              onPressed: () => _launchUrl(context, rcpUrl),
+              leading: Icon(
+                LucideIcons.fileText,
                 size: AppDimens.iconSm,
-                color: context.theme.colors.foreground,
+                color: ShadTheme.of(context).colorScheme.foreground,
               ),
               child: const Text(Strings.rcpDocument),
             ),
@@ -880,15 +973,15 @@ class GroupExplorerView extends HookConsumerWidget {
       final uri = Uri.parse(url);
       // WHY: Try to launch directly - canLaunchUrl can return false for valid URLs
       // Better to attempt launch and handle exceptions
-      await launchUrl(uri, mode: LaunchMode.platformDefault);
+      await launchUrl(uri);
     } on Exception catch (e) {
       // WHY: Handle specific exceptions with user-friendly messages
       if (context.mounted) {
-        showFToast(
-          context: context,
-          title: const Text(Strings.error),
-          description: Text('${Strings.unableToOpenUrl}: $url'),
-          icon: const Icon(FIcons.triangleAlert),
+        ShadToaster.of(context).show(
+          ShadToast.destructive(
+            title: const Text(Strings.error),
+            description: Text('${Strings.unableToOpenUrl}: $url'),
+          ),
         );
       }
       LoggerService.error('Failed to launch URL: $url', e);

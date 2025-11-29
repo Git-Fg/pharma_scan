@@ -1,36 +1,65 @@
 // lib/features/explorer/models/search_result_item_model.dart
-import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:dart_mappable/dart_mappable.dart';
 import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/features/explorer/models/generic_group_entity.dart';
 
-part 'search_result_item_model.freezed.dart';
+part 'search_result_item_model.mapper.dart';
 
-@freezed
-sealed class SearchResultItem with _$SearchResultItem {
-  // WHY: Group-level result - returns GenericGroupEntity without hydrating full medication lists
-  // Medications are lazy-loaded when user navigates to group detail view
-  const factory SearchResultItem.groupResult({
-    required GenericGroupEntity group,
-  }) = _GroupResult;
+// WHY: Group-level result - returns GenericGroupEntity without hydrating full medication lists
+// Medications are lazy-loaded when user navigates to group detail view
+@MappableClass(discriminatorKey: 'type')
+sealed class SearchResultItem with SearchResultItemMappable {
+  const SearchResultItem();
+}
 
-  const factory SearchResultItem.princepsResult({
-    required MedicamentSummaryData princeps,
-    required List<MedicamentSummaryData> generics,
-    required String groupId,
-    required String commonPrinciples,
-  }) = _PrincepsResult;
+@MappableClass(discriminatorValue: 'groupResult')
+class GroupResult extends SearchResultItem with GroupResultMappable {
+  const GroupResult({required this.group});
 
-  const factory SearchResultItem.genericResult({
-    required MedicamentSummaryData generic,
-    required List<MedicamentSummaryData> princeps,
-    required String groupId,
-    required String commonPrinciples,
-  }) = _GenericResult;
+  final GenericGroupEntity group;
+}
 
-  const factory SearchResultItem.standaloneResult({
-    required String cisCode,
-    required MedicamentSummaryData summary,
-    required String representativeCip,
-    required String commonPrinciples,
-  }) = _StandaloneResult;
+@MappableClass(discriminatorValue: 'princepsResult')
+class PrincepsResult extends SearchResultItem with PrincepsResultMappable {
+  const PrincepsResult({
+    required this.princeps,
+    required this.generics,
+    required this.groupId,
+    required this.commonPrinciples,
+  });
+
+  final MedicamentSummaryData princeps;
+  final List<MedicamentSummaryData> generics;
+  final String groupId;
+  final String commonPrinciples;
+}
+
+@MappableClass(discriminatorValue: 'genericResult')
+class GenericResult extends SearchResultItem with GenericResultMappable {
+  const GenericResult({
+    required this.generic,
+    required this.princeps,
+    required this.groupId,
+    required this.commonPrinciples,
+  });
+
+  final MedicamentSummaryData generic;
+  final List<MedicamentSummaryData> princeps;
+  final String groupId;
+  final String commonPrinciples;
+}
+
+@MappableClass(discriminatorValue: 'standaloneResult')
+class StandaloneResult extends SearchResultItem with StandaloneResultMappable {
+  const StandaloneResult({
+    required this.cisCode,
+    required this.summary,
+    required this.representativeCip,
+    required this.commonPrinciples,
+  });
+
+  final String cisCode;
+  final MedicamentSummaryData summary;
+  final String representativeCip;
+  final String commonPrinciples;
 }

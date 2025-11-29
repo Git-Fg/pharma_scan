@@ -14,6 +14,8 @@ dart analyze --fatal-infos --fatal-warnings
 flutter test
 ```
 
+**Important:** With `very_good_analysis`, `dart analyze` will be significantly stricter. Run `dart fix --apply` **aggressively** (up to 3 times) before manual review, as Very Good Analysis catches many style issues that are automatable by the CLI. Some fixes expose new opportunities for other fixes, so multiple passes may be necessary.
+
 Whenever the analyzer surfaces auto-fixable warnings or errors, rerun `dart fix --apply` before launching another analysis or test pass.
 
 ## 2. Testing Strategy

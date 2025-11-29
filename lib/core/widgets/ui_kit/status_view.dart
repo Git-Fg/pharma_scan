@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
-import 'package:forui/forui.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
+import 'package:shadcn_ui/shadcn_ui.dart';
 
 enum StatusType { empty, error, loading }
 
 class StatusView extends StatelessWidget {
   const StatusView({
-    super.key,
-    required this.type,
+    required this.type, super.key,
     this.title,
     this.description,
     this.action,
@@ -27,13 +26,13 @@ class StatusView extends StatelessWidget {
       case StatusType.loading:
         return Center(
           child: SizedBox(
-            height: 4.0,
+            height: 4,
             child: LinearProgressIndicator(
-              backgroundColor: context.theme.colors.muted,
+              backgroundColor: ShadTheme.of(context).colorScheme.muted,
               valueColor: AlwaysStoppedAnimation<Color>(
-                context.theme.colors.primary,
+                ShadTheme.of(context).colorScheme.primary,
               ),
-              minHeight: 4.0,
+              minHeight: 4,
             ),
           ),
         );
@@ -41,10 +40,12 @@ class StatusView extends StatelessWidget {
       case StatusType.error:
         final effectiveIcon =
             icon ??
-            (type == StatusType.empty ? FIcons.searchX : FIcons.triangleAlert);
+            (type == StatusType.empty
+                ? LucideIcons.searchX
+                : LucideIcons.triangleAlert);
         final iconColor = type == StatusType.empty
-            ? context.theme.colors.mutedForeground
-            : context.theme.colors.destructive;
+            ? ShadTheme.of(context).colorScheme.mutedForeground
+            : ShadTheme.of(context).colorScheme.destructive;
 
         return Center(
           child: Padding(
@@ -60,16 +61,13 @@ class StatusView extends StatelessWidget {
                 ),
                 const Gap(AppDimens.spacingMd),
                 if (title != null)
-                  Text(
-                    title!,
-                    style: context.theme.typography.xl2, // h4 equivalent
-                  ),
+                  Text(title!, style: ShadTheme.of(context).textTheme.h4),
                 if (description != null) ...[
                   const Gap(AppDimens.spacingXs),
                   Text(
                     description!,
-                    style: context.theme.typography.sm.copyWith(
-                      color: context.theme.colors.mutedForeground,
+                    style: ShadTheme.of(context).textTheme.small.copyWith(
+                      color: ShadTheme.of(context).colorScheme.mutedForeground,
                     ),
                   ),
                 ],

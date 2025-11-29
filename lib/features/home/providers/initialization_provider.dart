@@ -3,8 +3,8 @@ import 'dart:async';
 
 import 'package:pharma_scan/core/providers/core_providers.dart';
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
-import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:pharma_scan/core/services/logger_service.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'initialization_provider.g.dart';
 

@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:forui/forui.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
+import 'package:shadcn_ui/shadcn_ui.dart';
 
 class SectionHeader extends StatelessWidget {
   const SectionHeader({
-    super.key,
-    required this.title,
+    required this.title, super.key,
     this.badgeCount,
     this.icon,
     // Standard padding for list headers in this app
@@ -24,32 +23,28 @@ class SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final iconSize = 16.0; // Standard icon size
-    final iconColor = context.theme.colors.mutedForeground;
-    final gapSize = 8.0; // Standard gap size
+    final theme = ShadTheme.of(context);
+    final iconColor = theme.colorScheme.mutedForeground;
 
     return Padding(
       padding: padding,
       child: Row(
         children: [
           if (icon != null) ...[
-            Icon(icon, size: iconSize, color: iconColor),
-            SizedBox(width: gapSize),
+            Icon(icon, size: AppDimens.iconSm, color: iconColor),
+            const SizedBox(width: AppDimens.spacingXs),
           ],
           Expanded(
             child: Text(
               title,
-              style: context.theme.typography.xl2, // h4 equivalent
+              style: theme.textTheme.h4,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
           ),
           if (badgeCount != null) ...[
-            SizedBox(width: gapSize),
-            FBadge(
-              style: FBadgeStyle.primary(),
-              child: Text('$badgeCount', style: context.theme.typography.sm),
-            ),
+            const SizedBox(width: AppDimens.spacingXs),
+            ShadBadge(child: Text('$badgeCount', style: theme.textTheme.small)),
           ],
         ],
       ),

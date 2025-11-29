@@ -42,7 +42,7 @@ class DataInitializationService {
        _fileDownloadService = fileDownloadService ?? FileDownloadService();
 
   static const _currentDataVersion =
-      '2025-01-20-rc3'; // Updated to force FTS5 re-indexing with trigram tokenizer and sanitized principles
+      '2025-01-29-representative-cip'; // Updated to include representative_cip in MedicamentSummary for SQL-first search
   static const String dataVersion = _currentDataVersion;
 
   final AppDatabase _db;
@@ -87,7 +87,36 @@ class DataInitializationService {
       // WHY: Check for cached files first - if they exist, use them immediately
       // This makes initialization much faster on subsequent launches
       _stepController.add(InitializationStep.downloading);
-      final filePaths = await _downloadAllFilesWithCacheCheck();
+
+      Map<String, String> filePaths;
+      try {
+        filePaths = await _downloadAllFilesWithCacheCheck();
+      } catch (e, stackTrace) {
+        // WHY: If download fails, check if we have existing database data
+        // If database has data, continue with that instead of failing
+        LoggerService.warning(
+          '[DataInit] Download failed, checking for existing database data: $e',
+        );
+        final hasExistingData = await _db.libraryDao.hasExistingData();
+        if (hasExistingData) {
+          LoggerService.info(
+            '[DataInit] Using existing database data despite download failure. '
+            'App will continue with cached data.',
+          );
+          // WHY: Mark as ready with existing data - user can retry download later
+          await _db.settingsDao.updateBdpmVersion(_currentDataVersion);
+          _stepController.add(InitializationStep.ready);
+          return;
+        }
+        // WHY: No existing data and download failed - rethrow to show error
+        LoggerService.error(
+          '[DataInit] Download failed and no existing database data available',
+          e,
+          stackTrace,
+        );
+        _stepController.add(InitializationStep.error);
+        rethrow;
+      }
 
       _stepController.add(InitializationStep.parsing);
       await _parseAndInsertData(filePaths);
@@ -145,19 +174,69 @@ class DataInitializationService {
       return cachedFiles;
     }
 
-    // WHY: Download only missing files
-    final downloadTasks = missingFiles.map((entry) async {
-      LoggerService.info(
-        '[DataInit] Downloading ${entry.key} from ${entry.value}',
+    // WHY: Download only missing files, handling individual failures gracefully
+    // If a download fails but we have cached files, we can still proceed
+    final downloadResults = <MapEntry<String, String>>[];
+    final downloadErrors = <String, Object>{}; // Track which files failed
+
+    for (final entry in missingFiles) {
+      try {
+        LoggerService.info(
+          '[DataInit] Downloading ${entry.key} from ${entry.value}',
+        );
+        final path = await _getFilePath(entry.key, entry.value);
+        LoggerService.info('[DataInit] Downloaded ${entry.key} to $path');
+        downloadResults.add(MapEntry(entry.key, path));
+      } catch (e, stackTrace) {
+        // WHY: If download fails, check if we have a cached version
+        final filename = _extractFilenameFromUrl(entry.value);
+        final cacheDir = _globalCacheDir;
+        File? fallbackFile;
+
+        if (cacheDir != null) {
+          final cacheFile = File(p.join(cacheDir, filename));
+          if (await cacheFile.exists()) {
+            fallbackFile = cacheFile;
+          }
+        }
+
+        // WHY: Check application documents directory as fallback
+        if (fallbackFile == null) {
+          final directory = await getApplicationDocumentsDirectory();
+          final appCacheFile = File('${directory.path}/$filename');
+          if (await appCacheFile.exists()) {
+            fallbackFile = appCacheFile;
+          }
+        }
+
+        if (fallbackFile != null) {
+          LoggerService.warning(
+            '[DataInit] Download failed for ${entry.key}, using cached file: $e',
+          );
+          downloadResults.add(MapEntry(entry.key, fallbackFile.path));
+        } else {
+          // WHY: Track error but don't fail immediately - let caller decide
+          LoggerService.error(
+            '[DataInit] Download failed for ${entry.key} and no cache available',
+            e,
+            stackTrace,
+          );
+          downloadErrors[entry.key] = e;
+        }
+      }
+    }
+
+    // WHY: If we have errors and no results, throw to be handled by caller
+    if (downloadErrors.isNotEmpty &&
+        downloadResults.isEmpty &&
+        cachedFiles.isEmpty) {
+      throw Exception(
+        'Failed to download required files and no cache available: ${downloadErrors.keys.join(', ')}',
       );
-      final path = await _getFilePath(entry.key, entry.value);
-      LoggerService.info('[DataInit] Downloaded ${entry.key} to $path');
-      return MapEntry(entry.key, path);
-    });
-    final downloadedEntries = await Future.wait(downloadTasks);
+    }
 
     // WHY: Combine cached and downloaded files
-    return {...cachedFiles, ...Map.fromEntries(downloadedEntries)};
+    return {...cachedFiles, ...Map.fromEntries(downloadResults)};
   }
 
   Future<void> applyUpdate(Map<String, File> tempFiles) async {
@@ -195,9 +274,7 @@ class DataInitializationService {
     await _markSyncAsFresh();
   }
 
-  Future<void> _parseAndInsertData(
-    Map<String, String> filePaths,
-  ) async {
+  Future<void> _parseAndInsertData(Map<String, String> filePaths) async {
     LoggerService.info(
       '[DataInit] Parsing BDPM files: ${filePaths.keys.join(', ')}.',
     );
@@ -206,21 +283,23 @@ class DataInitializationService {
     // Parsing and batch insertion happen entirely inside the isolate
     // WHY: Skip clearing to avoid database lock conflicts - INSERT OR REPLACE will overwrite existing data
     // This eliminates the need for separate DELETE operations that cause lock conflicts
-    // WHY: Longer delay and ensure database connection is released before isolate starts
-    // This helps prevent "database is locked" errors when isolate tries to open the database
-    // WHY: Multiple delays to ensure all database operations complete and connections are released
-    // WHY: Force multiple event loop ticks to allow any pending database operations to complete
+    //
+    // CRITICAL: SQLite isolate locking on Android
+    // On Android, SQLite uses file-level locking. When the main isolate has an open database connection,
+    // the background isolate cannot open the same database file, resulting in "database is locked" errors.
+    // These delays ensure all database operations in the main isolate complete and connections are fully
+    // released before the background isolate attempts to open the database.
+    //
+    // DO NOT REMOVE OR REDUCE THESE DELAYS - they are essential for preventing database lock conflicts
+    // on Android devices. The total delay (600ms) is minimal compared to the parsing time (seconds).
+    // WHY: Multiple delays force multiple event loop ticks, ensuring pending database operations complete
     await Future<void>.delayed(const Duration(milliseconds: 100));
     await Future<void>.delayed(const Duration(milliseconds: 200));
     await Future<void>.delayed(const Duration(milliseconds: 300));
 
     final dbPath = await _getDatabasePath();
     final tempPath = (await getTemporaryDirectory()).path;
-    final args = (
-      dbPath: dbPath,
-      tempPath: tempPath,
-      filePaths: filePaths,
-    );
+    final args = (dbPath: dbPath, tempPath: tempPath, filePaths: filePaths);
 
     final result = await compute(_parseAndInsertDataInBackground, args);
 
@@ -530,15 +609,9 @@ Future<_ParseAndInsertResult> _parseAndInsertDataInBackground(
             cisCode: Value(row['cis_code'] as String),
             nomSpecialite: Value(row['nom_specialite'] as String),
             procedureType: Value(row['procedure_type'] as String),
-            statutAdministratif: Value(
-              row['statut_administratif'] as String?,
-            ),
-            formePharmaceutique: Value(
-              row['forme_pharmaceutique'] as String?,
-            ),
-            voiesAdministration: Value(
-              row['voies_administration'] as String?,
-            ),
+            statutAdministratif: Value(row['statut_administratif'] as String?),
+            formePharmaceutique: Value(row['forme_pharmaceutique'] as String?),
+            voiesAdministration: Value(row['voies_administration'] as String?),
             etatCommercialisation: Value(
               row['etat_commercialisation'] as String?,
             ),
@@ -552,7 +625,8 @@ Future<_ParseAndInsertResult> _parseAndInsertDataInBackground(
         );
         await _insertChunked(
           db,
-          (batch, chunk, mode) => batch.insertAll(db.specialites, chunk, mode: mode),
+          (batch, chunk, mode) =>
+              batch.insertAll(db.specialites, chunk, mode: mode),
           specialitesCompanions,
           mode: InsertMode.replace,
         );
@@ -574,7 +648,8 @@ Future<_ParseAndInsertResult> _parseAndInsertDataInBackground(
         );
         await _insertChunked(
           db,
-          (batch, chunk, mode) => batch.insertAll(db.medicaments, chunk, mode: mode),
+          (batch, chunk, mode) =>
+              batch.insertAll(db.medicaments, chunk, mode: mode),
           medicamentsCompanions,
           mode: InsertMode.replace,
         );
@@ -589,7 +664,8 @@ Future<_ParseAndInsertResult> _parseAndInsertDataInBackground(
         );
         await _insertChunked(
           db,
-          (batch, chunk, mode) => batch.insertAll(db.principesActifs, chunk, mode: mode),
+          (batch, chunk, mode) =>
+              batch.insertAll(db.principesActifs, chunk, mode: mode),
           principesCompanions,
         );
 
@@ -601,7 +677,8 @@ Future<_ParseAndInsertResult> _parseAndInsertDataInBackground(
         );
         await _insertChunked(
           db,
-          (batch, chunk, mode) => batch.insertAll(db.generiqueGroups, chunk, mode: mode),
+          (batch, chunk, mode) =>
+              batch.insertAll(db.generiqueGroups, chunk, mode: mode),
           generiqueGroupsCompanions,
           mode: InsertMode.replace,
         );
@@ -615,7 +692,8 @@ Future<_ParseAndInsertResult> _parseAndInsertDataInBackground(
         );
         await _insertChunked(
           db,
-          (batch, chunk, mode) => batch.insertAll(db.groupMembers, chunk, mode: mode),
+          (batch, chunk, mode) =>
+              batch.insertAll(db.groupMembers, chunk, mode: mode),
           groupMembersCompanions,
           mode: InsertMode.replace,
         );
@@ -640,7 +718,8 @@ Future<_ParseAndInsertResult> _parseAndInsertDataInBackground(
           );
           await _insertChunked(
             db,
-            (batch, chunk, mode) => batch.insertAll(db.medicamentAvailability, chunk, mode: mode),
+            (batch, chunk, mode) =>
+                batch.insertAll(db.medicamentAvailability, chunk, mode: mode),
             availabilityCompanions,
             mode: InsertMode.replace,
           );

@@ -1,16 +1,16 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:pharma_scan/core/router/app_router.dart';
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
-import 'package:pharma_scan/core/theme/pharma_theme_wrapper.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/features/explorer/models/generic_group_entity.dart';
 import 'package:pharma_scan/features/explorer/providers/database_stats_provider.dart';
 import 'package:pharma_scan/features/explorer/providers/generic_groups_provider.dart';
-import 'package:pharma_scan/features/explorer/screens/database_search_view.dart';
 import 'package:pharma_scan/features/home/providers/initialization_provider.dart';
+import 'package:shadcn_ui/shadcn_ui.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -44,19 +44,21 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: overrides,
-        child: MaterialApp.router(
-          routerConfig: GoRouter(
-            initialLocation: '/',
-            routes: [
-              GoRoute(
-                path: '/',
-                builder: (context, state) => const PharmaThemeWrapper(
-                  updateSystemUi: false,
-                  child: DatabaseSearchView(),
-                ),
-              ),
-            ],
+        child: ShadApp.custom(
+          theme: ShadThemeData(
+            brightness: Brightness.light,
+            colorScheme: const ShadGreenColorScheme.light(),
           ),
+          appBuilder: (BuildContext shadContext) {
+            final testRouter = AppRouter();
+            return MaterialApp.router(
+              routerConfig: testRouter.config(),
+              theme: Theme.of(shadContext),
+              builder: (BuildContext materialContext, Widget? child) {
+                return ShadAppBuilder(child: child);
+              },
+            );
+          },
         ),
       ),
     );

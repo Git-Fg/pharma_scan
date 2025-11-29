@@ -61,7 +61,7 @@ class Strings {
   static const String unknown = 'Inconnu';
   static const String unknownLab = 'Laboratoire Inconnu';
   static const String group = 'Groupe';
-  static const String unableToOpenUrl = 'Impossible d\'ouvrir l\'URL';
+  static const String unableToOpenUrl = "Impossible d'ouvrir l'URL";
 
   // Settings & Actions
   static const String openSettings = 'Ouvrir les réglages';
@@ -83,7 +83,7 @@ class Strings {
   // Error & Status Messages
   static const String updateError = 'Erreur lors de la mise à jour des données';
   static const String updateLimited =
-      'Certaines fonctionnalités peuvent être limitées tant que la base BDPM n\'est pas synchronisée.';
+      "Certaines fonctionnalités peuvent être limitées tant que la base BDPM n'est pas synchronisée.";
   static const String databaseInitialization =
       'Initialisation de la base de données...';
   static const String initializationInProgress = 'Initialisation en cours';
@@ -94,10 +94,10 @@ class Strings {
   static const String initializationParsing =
       'Traitement de la base de données...';
   static const String initializationReady =
-      'Base de données prête à l\'emploi.';
-  static const String initializationError = 'Erreur d\'initialisation.';
+      "Base de données prête à l'emploi.";
+  static const String initializationError = "Erreur d'initialisation.";
   static const String initializationDownloadingDescription =
-      'Veuillez ne pas quitter l\'application.';
+      "Veuillez ne pas quitter l'application.";
   static const String initializationParsingDescription =
       'Traitement des données massives...';
   static const String initializationAggregatingTitle = 'Finalisation';
@@ -122,7 +122,7 @@ class Strings {
 
   // Scanner
   static const String noBarcodeDetected = 'Aucun code-barres détecté';
-  static const String analysisError = 'Erreur d\'analyse';
+  static const String analysisError = "Erreur d'analyse";
   static const String error = 'Erreur';
   static const String cameraUnavailable = 'Caméra indisponible';
   static const String gallery = 'Galerie';
@@ -151,7 +151,7 @@ class Strings {
   static const String noRoutesAvailable = 'Aucune voie disponible';
   static const String noResults = 'Aucun résultat trouvé.';
   static const String filterHint =
-      'Permet de filtrer par type de procédure et voie d\'administration';
+      "Permet de filtrer par type de procédure et voie d'administration";
   static const String princeps = 'Princeps';
   static const String generics = 'Génériques';
   static const String relatedTherapies = 'Thérapies Associées';
@@ -191,10 +191,10 @@ class Strings {
   static const String checkPermissionsMessage =
       'Veuillez vérifier les autorisations.';
   static const String imageContainsNoValidBarcode =
-      'L\'image ne contient pas de code-barres valide.';
-  static const String unableToAnalyzeImage = 'Impossible d\'analyser l\'image:';
+      "L'image ne contient pas de code-barres valide.";
+  static const String unableToAnalyzeImage = "Impossible d'analyser l'image:";
   static const String unableToSelectImage =
-      'Impossible de sélectionner l\'image:';
+      "Impossible de sélectionner l'image:";
   static const String cipMustBe13Digits =
       'Le code CIP doit comporter 13 chiffres.';
   static const String noMedicamentFoundForCip =
@@ -210,7 +210,7 @@ class Strings {
       'Choisir une photo depuis la galerie';
   static const String cancelPhotoSelection = 'Annuler la sélection de photo';
   static const String noPhotoStoredMessage =
-      'Aucune photo n\'est conservée et vous pouvez annuler à tout moment.';
+      "Aucune photo n'est conservée et vous pouvez annuler à tout moment.";
   static const String pharmascanAnalyzesOnly =
       'PharmaScan analysera uniquement la photo choisie pour y détecter un code-barres.';
   static const String turnOffTorch = 'Éteindre la lampe torche';
@@ -262,11 +262,11 @@ class Strings {
   static const String syncErrorNetwork =
       'Connexion réseau requise pour poursuivre la synchronisation.';
   static const String syncErrorScraping =
-      'Impossible d\'analyser la page BDPM pour détecter les mises à jour.';
+      "Impossible d'analyser la page BDPM pour détecter les mises à jour.";
   static const String syncErrorDownload =
       'Téléchargement des fichiers BDPM interrompu.';
   static const String syncErrorApply =
-      'Impossible d\'appliquer la mise à jour à la base locale.';
+      "Impossible d'appliquer la mise à jour à la base locale.";
   static const String syncErrorUnknown =
       'Une erreur inattendue est survenue lors de la synchronisation.';
   static const String dataOperationsTitle = 'Opérations de données';
@@ -280,7 +280,7 @@ class Strings {
   static const String dataOperationsApplyingInProgress =
       'Application des données locales…';
   static const String dataOperationsWaitingNetwork =
-      'En attente d\'une connexion réseau…';
+      "En attente d'une connexion réseau…";
   static const String dataOperationsCheckingUpdates =
       'Analyse des mises à jour disponibles…';
   static const String dataOperationsIdle = 'En attente';
@@ -309,7 +309,7 @@ class Strings {
   static const String activeIngredientsLabel = 'Principe(s) actif(s)';
   static const String brandPrincepsLabel = 'Marque princeps';
   static const String procedureType = 'Type de procédure';
-  static const String administrationRouteFilter = 'Voie d\'administration';
+  static const String administrationRouteFilter = "Voie d'administration";
   static const String therapeuticClassFilter = 'Classe Thérapeutique';
   static const String allClasses = 'Toutes les classes';
   static const String resetAllFilters = 'Réinitialiser tous les filtres';
@@ -336,7 +336,7 @@ class Strings {
   static const String productStoppedBadge = 'Produit arrêté';
   static const String productCommercializedBadge = 'Commercialisé';
   static const String stockShortageBadge = 'Rupture de stock';
-  static const String stockTensionBadge = 'Tension d\'approvisionnement';
+  static const String stockTensionBadge = "Tension d'approvisionnement";
   static const String hospitalBadge = '🏥 Usage hospitalier';
   static const String badgeList1 = 'Liste I';
   static const String badgeList2 = 'Liste II';
@@ -371,6 +371,7 @@ class Strings {
 
   static String genericCount(int count) => '${Strings.genericsLabel} ($count)';
   static String princepsCount(int count) => '${Strings.princepsLabel} ($count)';
+  static String productCount(int count) => '$count produit(s)';
   static String groupCount(int count) => '$count groupe(s)';
   static String memberCount(int count) => '$count spécialités';
   static String presentationCount(int count) => '$count présentation(s)';

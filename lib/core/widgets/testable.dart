@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pharma_scan/core/utils/test_tags.dart' show TestTags;
 
 /// Wrapper widget that adds test identifiers via Semantics.
 ///
@@ -9,7 +10,7 @@ import 'package:flutter/material.dart';
 /// ```dart
 /// Testable(
 ///   id: TestTags.navScanner,
-///   child: FButton(...),
+///   child: ShadButton(...),
 /// )
 /// ```
 ///

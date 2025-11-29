@@ -1,0 +1,33 @@
+---
+description: Build, testing, and deployment commands.
+alwaysApply: false
+---
+
+# CI & Deployment
+
+## 1. Quality Gate (Local)
+
+Run before every commit:
+
+```bash
+dart run build_runner build --delete-conflicting-outputs
+dart fix --apply
+dart analyze
+flutter test
+```
+
+## 2. Production Build (Android)
+
+```bash
+flutter build apk --release --split-per-abi --no-tree-shake-icons
+
+# OR
+
+flutter build appbundle --release --no-tree-shake-icons
+```
+
+## 3. Versioning
+
+* Format: `x.y.z+n`
+
+* Bump version in `pubspec.yaml` before build.

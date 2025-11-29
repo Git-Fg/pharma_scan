@@ -1,83 +1,52 @@
 // lib/core/utils/adaptive_overlay.dart
-import 'dart:ui';
+import 'package:flutter/cupertino.dart' show MediaQuery;
 import 'package:flutter/material.dart';
-import 'package:forui/forui.dart';
+import 'package:flutter/widgets.dart' show MediaQuery;
+import 'package:shadcn_ui/shadcn_ui.dart';
 
-/// Affiche un overlay adaptatif qui s'adapte automatiquement à la largeur d'écran.
+/// A lightweight responsive dispatcher that opens a Sheet on mobile and a Dialog on desktop.
 ///
-/// - **Mobile (< sm breakpoint)** : Affiche une [FSheet] avec drag handle et coins arrondis.
-/// - **Desktop/Tablette (>= sm breakpoint)** : Affiche un [FDialog] centré avec une largeur maximale de 500px.
+/// **Crucial:** This function does NOT handle scrolling or keyboard padding.
+/// The [builder] widget is responsible for its own layout, scrolling (e.g. via [SingleChildScrollView]),
+/// and keyboard avoidance (e.g. via [Padding] with [MediaQuery.viewInsets]).
 ///
-/// Le contenu fourni par [builder] doit être compatible avec les deux modes d'affichage.
-/// Il est recommandé d'utiliser [FCard] ou [FCard.raw] pour le contenu principal.
-///
-/// [context] : Le contexte de build pour accéder au thème et à MediaQuery.
-/// [builder] : Fonction qui construit le widget à afficher dans l'overlay.
-/// [isDismissible] : Si true, l'overlay peut être fermé en tapant en dehors ou en glissant (mobile).
-/// [title] : Titre optionnel pour le Dialog (ignoré sur mobile).
-///
-/// Retourne la valeur retournée par l'overlay (généralement null sauf si spécifié).
-Future<T?> showAdaptiveOverlay<T>({
+/// [constraints] can be used to set explicit size constraints for the sheet.
+Future<T?> showAdaptiveSheet<T>({
   required BuildContext context,
   required WidgetBuilder builder,
   bool isDismissible = true,
-  String? title,
+  BoxConstraints? constraints,
 }) {
-  final screenWidth = MediaQuery.sizeOf(context).width;
-  final breakpoints = context.theme.breakpoints;
-  final isSmallScreen = screenWidth < breakpoints.sm;
+  // WHY: Use context.breakpoint extension for consistent responsive pattern
+  // This aligns with the Shadcn 2025 Standard for responsive design
+  final breakpoint = context.breakpoint;
+  final breakpoints = ShadTheme.of(context).breakpoints;
+  final isSmallScreen = breakpoint < breakpoints.sm;
 
   if (isSmallScreen) {
-    // Mobile : BottomSheet using Forui
-    return showFSheet<T>(
+    // WHY: Mobile uses bottom sheet for better UX
+    return showShadSheet<T>(
       context: context,
-      side: FLayout.btt, // Bottom to Top
-      barrierDismissible: isDismissible,
-      draggable: isDismissible,
-      style: context.theme.modalSheetStyle.copyWith(
-        // WHY: Make barrier completely transparent so camera is visible
-        barrierFilter: (animation) => ImageFilter.compose(
-          outer: ImageFilter.blur(sigmaX: animation * 5, sigmaY: animation * 5),
-          inner: const ColorFilter.mode(Colors.transparent, BlendMode.srcOver),
-        ),
-      ).call,
-      builder: (sheetContext) {
-        return Padding(
-          padding: EdgeInsets.only(
-            left: 16,
-            right: 16,
-            top: 16,
-            bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 24,
-          ),
-          child: builder(sheetContext),
-        );
+      side: ShadSheetSide.bottom,
+      builder: (BuildContext sheetContext) {
+        // Apply constraints if provided, otherwise let sheet size naturally
+        final content = builder(sheetContext);
+        if (constraints != null) {
+          return ConstrainedBox(constraints: constraints, child: content);
+        }
+        return content;
       },
     );
   } else {
-    // Desktop/Tablette : Dialog using Forui
-    return showFDialog<T>(
+    // WHY: Desktop uses dialog for better UX
+    return showShadDialog<T>(
       context: context,
-      barrierDismissible: isDismissible,
-      builder: (dialogContext, style, animation) {
-        // Wrap builder content in FDialog if it returns raw content
-        final content = builder(dialogContext);
-
-        // If content is already an FDialog, return it
-        if (content is FDialog) {
-          return content;
-        }
-
-        // Otherwise wrap in FDialog
-        return FDialog(
-          style: style.call,
-          animation: animation,
-          direction: Axis.vertical,
-          title: title != null ? Text(title) : null,
-          body: ConstrainedBox(
+      builder: (BuildContext dialogContext) {
+        return ShadDialog(
+          child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 500),
-            child: content,
+            child: builder(dialogContext),
           ),
-          actions: const [], // Empty actions list
         );
       },
     );

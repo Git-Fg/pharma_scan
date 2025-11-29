@@ -1,16 +1,21 @@
 // lib/core/utils/gs1_parser.dart
-import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:dart_mappable/dart_mappable.dart';
 
-part 'gs1_parser.freezed.dart';
+part 'gs1_parser.mapper.dart';
 
-@freezed
-abstract class Gs1DataMatrix with _$Gs1DataMatrix {
-  const factory Gs1DataMatrix({
-    String? gtin, // AI (01) -> Code CIP
-    String? serial, // AI (21)
-    String? lot, // AI (10)
-    DateTime? expDate, // AI (17)
-  }) = _Gs1DataMatrix;
+@MappableClass()
+class Gs1DataMatrix with Gs1DataMatrixMappable {
+  const Gs1DataMatrix({
+    this.gtin, // AI (01) -> Code CIP
+    this.serial, // AI (21)
+    this.lot, // AI (10)
+    this.expDate, // AI (17)
+  });
+
+  final String? gtin;
+  final String? serial;
+  final String? lot;
+  final DateTime? expDate;
 }
 
 class Gs1Parser {
@@ -26,7 +31,7 @@ class Gs1Parser {
     // Remplace les caractères de contrôle (comme FNC1/GS) et les espaces
     // qui pourraient être utilisés comme séparateurs par notre séparateur interne.
     // Le \x1D est la représentation hexadécimale de l'ASCII 29 (FNC1/GS).
-    String normalized = rawValue.replaceAll(
+    var normalized = rawValue.replaceAll(
       RegExp(r'[\s\x1D]'),
       _internalSeparator,
     );
@@ -44,7 +49,7 @@ class Gs1Parser {
 
     // Parser directement en cherchant les AI dans la chaîne normalisée
     // Cette approche fonctionne avec ou sans séparateurs
-    int i = 0;
+    var i = 0;
     while (i < normalized.length) {
       // Ignorer les séparateurs
       if (normalized[i] == _internalSeparator) {
@@ -75,7 +80,6 @@ class Gs1Parser {
               i++;
             }
           }
-          break;
         case '17': // Date de péremption - 6 chiffres fixes
           if (i + 6 <= normalized.length) {
             expDate = _parseExpiry(normalized.substring(i, i + 6));
@@ -85,7 +89,6 @@ class Gs1Parser {
               i++;
             }
           }
-          break;
         case '10': // Lot - longueur variable, se termine au prochain AI ou séparateur
           final lotEnd = _findFieldEnd(normalized, i);
           lot = normalized.substring(i, lotEnd);
@@ -94,7 +97,6 @@ class Gs1Parser {
           if (i < normalized.length && normalized[i] == _internalSeparator) {
             i++;
           }
-          break;
         case '21': // Numéro de série - longueur variable, se termine au prochain AI ou séparateur
           final serialEnd = _findFieldEnd(normalized, i);
           serial = normalized.substring(i, serialEnd);
@@ -103,7 +105,6 @@ class Gs1Parser {
           if (i < normalized.length && normalized[i] == _internalSeparator) {
             i++;
           }
-          break;
         default:
           // Ignorer les AI inconnus en cherchant le prochain AI ou séparateur
           final nextPos = _findFieldEnd(normalized, i);
@@ -111,7 +112,6 @@ class Gs1Parser {
           if (i < normalized.length && normalized[i] == _internalSeparator) {
             i++;
           }
-          break;
       }
     }
 
@@ -132,7 +132,7 @@ class Gs1Parser {
 
     // Si pas de séparateur, chercher le prochain AI (01, 10, 17, 21) dans la chaîne
     final knownAIs = ['01', '10', '17', '21'];
-    for (int i = startIndex; i < data.length - 1; i++) {
+    for (var i = startIndex; i < data.length - 1; i++) {
       final potentialAI = data.substring(i, i + 2);
       if (knownAIs.contains(potentialAI)) {
         return i;

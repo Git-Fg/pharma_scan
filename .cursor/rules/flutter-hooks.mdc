@@ -91,38 +91,55 @@ if (context.mounted) {
 
 * Signature: `Widget build(BuildContext context, WidgetRef ref)`.
 
-## 5. Forui Hooks Integration (New Standard)
+## 5. Shadcn Integration
 
-**Context:** When using `forui` components that require controllers, you **MUST** use the hooks provided by `package:forui_hooks`.
+**Context:** When using `shadcn_ui` components that require controllers, use `useMemoized` and `useEffect` to manage controller lifecycle.
 
-**Dependency:** Ensure `forui_hooks` is in `pubspec.yaml`.
-
-**Mappings:**
-
-| Component | Controller Class | Hook |
-| :--- | :--- | :--- |
-| Accordion | `FAccordionController` | `useFAccordionController()` |
-| Popover | `FPopoverController` | `useFPopoverController()` |
-| Tabs | `FTabController` | `useFTabController()` |
-| Pagination | `FPaginationController` | `useFPaginationController()` |
-| Select Group | `FSelectGroupController` | `useFSelectGroupController()` |
+**Pattern:** Shadcn controllers are typically `ChangeNotifier` instances or simple objects that need disposal.
 
 **Usage Pattern:**
 
 ```dart
-// ✅ Correct
-import 'package:forui_hooks/forui_hooks.dart';
+// ✅ Popover Controller
+import 'package:shadcn_ui/shadcn_ui.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
 
 class MyWidget extends HookWidget {
   @override
   Widget build(BuildContext context) {
-    // Controller lifecycle is fully managed by the hook
-    final tabController = useFTabController(length: 3);
+    final popoverController = useMemoized(() => ShadPopoverController());
     
-    return FTabs(
-      controller: tabController,
-      children: [ ... ],
+    useEffect(() {
+      return () => popoverController.dispose();
+    }, [popoverController]);
+    
+    return ShadPopover(
+      controller: popoverController,
+      popover: (context) => Text('Popover content'),
+      child: ShadButton(
+        onPressed: popoverController.toggle,
+        child: Text('Toggle Popover'),
+      ),
+    );
+  }
+}
+
+// ✅ Alternative: If controller doesn't need disposal, use useMemoized only
+class SimpleWidget extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    final controller = useMemoized(() => SomeController());
+    
+    return ShadComponent(
+      controller: controller,
+      // ... other properties
     );
   }
 }
 ```
+
+**Key Points:**
+
+* Use `useMemoized` to create the controller instance once
+* Use `useEffect` with a cleanup function to dispose controllers that require it
+* Check Shadcn documentation for which controllers need disposal

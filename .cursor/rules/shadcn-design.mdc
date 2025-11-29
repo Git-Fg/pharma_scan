@@ -1,0 +1,578 @@
+---
+description: CONSTANTLY APPLIED. Design system rules for Shadcn UI in Flutter.
+alwaysApply: true
+---
+
+# Shadcn UI Design System (2025 Standard)
+
+**Context:** You use `shadcn_ui` for all UI elements. This library is a port of the web design system. Prioritize its components over Material/Cupertino equivalents.
+
+## 1. Core Philosophy: The Shadcn Way
+
+*   **Lucide Icons:** You **MUST** use `LucideIcons` (e.g., `LucideIcons.home`). Do not use `Icons.*` (Material).
+
+*   **Theme Access:** Access styles via `ShadTheme.of(context)`.
+
+    *   *Colors:* `ShadTheme.of(context).colorScheme.primary`
+
+    *   *Text:* `ShadTheme.of(context).textTheme.h1`
+
+*   **Typography:** Use the semantic names: `h1`, `h2`, `h3`, `h4`, `p`, `lead`, `large`, `small`, `muted`.
+
+*   **Radius:** Use `ShadTheme.of(context).radius` for consistent shaping.
+
+## 2. Component Selection Protocol
+
+| UI Need | Component to Use |
+| :--- | :--- |
+| **Scaffold** | `Scaffold` (Material) |
+| **Button** | `ShadButton`, `ShadButton.outline`, `ShadButton.ghost` |
+| **Icon Button** | `ShadIconButton` |
+| **Card / Container** | `ShadCard` (Preferred) or `Container` with `ShadTheme` border |
+| **Input** | `ShadInput` (Standalone) or `ShadInputFormField` (In Form) |
+| **List Item** | `ShadCard` (Detail) or `Row` + `ShadTheme` styles (Dense) |
+| **Badge** | `ShadBadge`, `ShadBadge.secondary`, `ShadBadge.outline` |
+| **Toast** | `ShadToaster.of(context).show()` |
+| **Dialog** | `showShadDialog` with `ShadDialog` or `ShadDialog.alert` |
+| **Sheet** | `showShadSheet` (Side: `bottom` for mobile, `right` for desktop details) |
+
+## 3. Smart Form Architecture
+
+**Mandate:** Use `ShadForm` with `GlobalKey<ShadFormState>` to handle validation and value retrieval automatically. Do NOT use manual `TextEditingController`s for standard form fields.
+
+**Key Principles:**
+- Use `useMemoized(() => GlobalKey<ShadFormState>())` for form keys in hooks
+- All form fields MUST have unique `id` properties
+- Use `saveAndValidate()` for submission validation
+- Access values via `formKey.currentState!.value` (Map<String, dynamic>)
+- Forbid manual `TextEditingController` management for standard forms
+
+```dart
+// ✅ CORRECT: Using hooks with ShadForm
+class MyForm extends HookConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final formKey = useMemoized(() => GlobalKey<ShadFormState>());
+
+    return ShadForm(
+      key: formKey,
+      child: Column(
+        children: [
+          ShadInputFormField(
+            id: 'username', // Critical: Unique ID for value retrieval
+            label: Text(Strings.username),
+            placeholder: Text('Enter your username'),
+            validator: (v) => v.length < 2 ? Strings.errorShort : null,
+          ),
+          ShadButton(
+            onPressed: () {
+              if (formKey.currentState!.saveAndValidate()) {
+                final data = formKey.currentState!.value;
+                final username = data['username'] as String;
+                // Process data
+              }
+            },
+            child: Text(Strings.submit),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ❌ FORBIDDEN: Manual controller management
+class BadForm extends HookConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final controller = useTextEditingController(); // FORBIDDEN
+    return ShadInput(
+      controller: controller, // FORBIDDEN: Use ShadInputFormField with id instead
+      onChanged: (v) => setState(() => _val = v), // FORBIDDEN
+    );
+  }
+}
+```
+
+## 4. Sheet & Overlay Patterns
+
+**The Safe Sheet Pattern:**
+
+When using `showShadSheet`, especially with inputs, wrap content in `SafeArea` to handle keyboard insets automatically.
+
+```dart
+showShadSheet(
+  context: context,
+  side: ShadSheetSide.bottom,
+  builder: (context) => SafeArea(
+    minimum: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+    child: ShadSheet(
+      title: Text(Strings.details),
+      child: SingleChildScrollView(child: Content()),
+    ),
+  ),
+);
+```
+
+## 5. List Items (The "No Tile" Fix)
+
+Shadcn lacks a `ListTile`. Do NOT mix Material `ListTile`.
+
+**Pattern:** Build a custom row using Shadcn tokens.
+
+```dart
+// ✅ CORRECT: Custom Shadcn-styled Row
+GestureDetector(
+  onTap: onTap,
+  child: Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      border: Border(bottom: BorderSide(color: theme.colorScheme.border)),
+    ),
+    child: Row(
+      children: [
+        Icon(LucideIcons.pill, color: theme.colorScheme.primary),
+        const Gap(16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Title', style: theme.textTheme.base),
+              Text('Subtitle', style: theme.textTheme.muted),
+            ],
+          ),
+        ),
+        Icon(LucideIcons.chevronRight, size: 16, color: theme.colorScheme.mutedForeground),
+      ],
+    ),
+  ),
+)
+```
+
+## 6. Toast Notifications
+
+Use `ShadSonner` (bundled).
+
+```dart
+ShadToaster.of(context).show(
+  ShadToast(
+    title: Text(Strings.success),
+    description: Text(Strings.savedSuccessfully),
+    icon: Icon(LucideIcons.check),
+  ),
+);
+```
+
+## 7. Responsive Layouts (Breakpoints)
+
+**Pattern:** Use `ShadResponsiveBuilder` or `context.breakpoint` extension to branch UI logic based on screen size. Do NOT use raw `MediaQuery` width checks.
+
+**Preferred Approach:** `ShadResponsiveBuilder` with sealed class breakpoints
+
+```dart
+// ✅ CORRECT: Using ShadResponsiveBuilder
+ShadResponsiveBuilder(
+  builder: (context, breakpoint) {
+    return switch (breakpoint) {
+      ShadBreakpointTN() => const MobileView(),
+      ShadBreakpointSM() => const MobileView(),
+      ShadBreakpointMD() => const TabletView(),
+      ShadBreakpointLG() => const DesktopView(),
+      ShadBreakpointXL() => const DesktopView(),
+      ShadBreakpointXXL() => const DesktopView(),
+    };
+  },
+);
+
+// ✅ ALTERNATIVE: Using context.breakpoint extension
+final breakpoint = context.breakpoint;
+if (breakpoint >= ShadTheme.of(context).breakpoints.md) {
+  return DesktopLayout();
+}
+return MobileLayout();
+```
+
+**Breakpoints:**
+
+* `bp.tn` - Tiny (0)
+* `bp.sm` - Small (640)
+* `bp.md` - Medium (768)
+* `bp.lg` - Large (1024)
+* `bp.xl` - Extra Large (1280)
+* `bp.xxl` - Extra Extra Large (1536)
+
+**Legacy Pattern (Still Valid but Less Preferred):**
+
+```dart
+// ⚠️ ACCEPTABLE: Direct MediaQuery with breakpoints
+final width = MediaQuery.sizeOf(context).width;
+final bp = ShadTheme.of(context).breakpoints;
+
+if (width < bp.sm) {
+  return MobileView();
+} else if (width < bp.md) {
+  return TabletView();
+} else {
+  return DesktopView();
+}
+```
+
+## 8. Application Setup (main.dart)
+
+**CRITICAL:** Follow this exact pattern for root application setup:
+
+```dart
+import 'package:shadcn_ui/shadcn_ui.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+
+class PharmaScanApp extends HookConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final goRouter = ref.watch(goRouterProvider);
+    final themeMode = ref.watch(themeProvider).value ?? ThemeMode.system;
+    
+    return ShadApp.custom(
+      themeMode: themeMode,
+      theme: ShadThemeData(
+        brightness: Brightness.light,
+        colorScheme: const ShadGreenColorScheme.light(),
+      ),
+      darkTheme: ShadThemeData(
+        brightness: Brightness.dark,
+        colorScheme: const ShadGreenColorScheme.dark(),
+      ),
+      appBuilder: (context) {
+        return MaterialApp.router(
+          theme: Theme.of(context),
+          darkTheme: Theme.of(context),
+          supportedLocales: const [
+            Locale('en', ''),
+            Locale('fr', ''),
+          ],
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          builder: (context, child) {
+            return ShadAppBuilder(child: child!);
+          },
+          routerConfig: goRouter,
+        );
+      },
+    );
+  }
+}
+```
+
+**Key Points:**
+
+* `ShadApp.custom` wraps `MaterialApp.router` via `appBuilder`
+* `ShadAppBuilder` must be in the `builder` callback
+* `Theme.of(context)` is automatically provided by ShadApp
+* `flutter_localizations` is required for localization support
+
+## 9. Theme Supremacy
+
+**The Golden Rule:** You are FORBIDDEN from hardcoding colors, font sizes, or radii. You **MUST** use `ShadTheme.of(context)`.
+
+*   **Colors:** `ShadTheme.of(context).colorScheme.primary`, `destructive`, `muted`, `background`.
+
+    *   *❌ BAD:* `Colors.red`, `Color(0xFF...)`
+
+    *   *✅ GOOD:* `ShadTheme.of(context).colorScheme.destructive`
+
+*   **Typography:** `ShadTheme.of(context).textTheme.h1` ... `small`, `muted`.
+
+    *   *❌ BAD:* `TextStyle(fontSize: 18, fontWeight: FontWeight.bold)`
+
+    *   *✅ GOOD:* `ShadTheme.of(context).textTheme.h1`
+
+*   **Shapes:** `ShadTheme.of(context).radius`.
+
+## 10. Icon Usage
+
+**Always use `LucideIcons` from `shadcn_ui`:**
+
+```dart
+import 'package:shadcn_ui/shadcn_ui.dart';
+
+Icon(LucideIcons.settings)
+Icon(LucideIcons.check)
+Icon(LucideIcons.triangleAlert)
+Icon(LucideIcons.x)
+```
+
+**Do NOT use `Icons.*` (Material icons).**
+
+## 11. Button Variants
+
+```dart
+// Primary (default)
+ShadButton(
+  onPressed: () {},
+  child: const Text('Primary'),
+)
+
+// Secondary
+ShadButton.secondary(
+  onPressed: () {},
+  child: const Text('Secondary'),
+)
+
+// Destructive
+ShadButton.destructive(
+  onPressed: () {},
+  child: const Text('Destructive'),
+)
+
+// Outline
+ShadButton.outline(
+  onPressed: () {},
+  child: const Text('Outline'),
+)
+
+// Ghost
+ShadButton.ghost(
+  onPressed: () {},
+  child: const Text('Ghost'),
+)
+```
+
+## 12. Input Fields
+
+```dart
+// Standalone input
+ShadInput(
+  placeholder: Text('Enter your email'),
+  keyboardType: TextInputType.emailAddress,
+)
+
+// Form field with validation
+ShadInputFormField(
+  id: 'username',
+  label: Text(Strings.username),
+  placeholder: Text('Enter your username'),
+  validator: (v) => v.length < 2 ? Strings.errorShort : null,
+)
+```
+
+## 13. Dialogs
+
+```dart
+// Standard dialog
+showShadDialog(
+  context: context,
+  builder: (context) => ShadDialog(
+    title: Text(Strings.confirmAction),
+    description: Text(Strings.cannotBeUndone),
+    actions: [
+      ShadButton.outline(
+        child: Text(Strings.cancel),
+        onPressed: () => Navigator.of(context).pop(),
+      ),
+      ShadButton(
+        child: Text(Strings.confirm),
+        onPressed: () {
+          // Perform action
+          Navigator.of(context).pop();
+        },
+      ),
+    ],
+  ),
+);
+
+// Alert dialog
+showShadDialog(
+  context: context,
+  builder: (context) => ShadDialog.alert(
+    title: Text(Strings.areYouSure),
+    description: Text(Strings.cannotBeUndone),
+    actions: [
+      ShadButton.outline(
+        child: Text(Strings.cancel),
+        onPressed: () => Navigator.of(context).pop(false),
+      ),
+      ShadButton(
+        child: Text(Strings.continue),
+        onPressed: () => Navigator.of(context).pop(true),
+      ),
+    ],
+  ),
+);
+```
+
+## 14. Cards
+
+```dart
+// Card with header, content, and footer
+ShadCard(
+  title: Text(Strings.createProject),
+  description: Text(Strings.deployInOneClick),
+  footer: Row(
+    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    children: [
+      ShadButton.outline(
+        child: Text(Strings.cancel),
+        onPressed: () {},
+      ),
+      ShadButton(
+        child: Text(Strings.deploy),
+        onPressed: () {},
+      ),
+    ],
+  ),
+  child: Padding(
+    padding: const EdgeInsets.symmetric(vertical: 16),
+    child: Column(
+      children: [
+        // Content here
+      ],
+    ),
+  ),
+)
+```
+
+## 15. Accessibility
+
+**CRITICAL:** All interactive widgets MUST have semantic labels for screen reader support.
+
+* **ShadButton, ShadInput:** Accessibility comes from `child`/`label` Text content automatically
+* **ShadCard:** Accessibility comes from `title`, `description` automatically
+* **Decorative Icons:** Wrap chevrons and decorative-only icons with `ExcludeSemantics`
+* **All user-facing text MUST use `Strings.dart` constants** (project constraint)
+* **Explicit Semantics:** Only add explicit `Semantics` wrappers when you need additional context beyond what Shadcn provides
+
+See `.cursor/rules/accessibility.mdc` for detailed patterns and examples.
+
+## 16. Testing Pattern
+
+**Test helpers must use `ShadApp.custom`:**
+
+```dart
+import 'package:shadcn_ui/shadcn_ui.dart';
+
+extension PumpApp on WidgetTester {
+  Future<void> pumpApp(Widget widget) async {
+    await pumpWidget(
+      ProviderScope(
+        child: ShadApp.custom(
+          theme: ShadThemeData(
+            brightness: Brightness.light,
+            colorScheme: const ShadGreenColorScheme.light(),
+          ),
+          appBuilder: (context) {
+            return MaterialApp.router(
+              routerConfig: GoRouter(
+                initialLocation: '/',
+                routes: [
+                  GoRoute(
+                    path: '/',
+                    builder: (context, state) => Scaffold(body: widget),
+                  ),
+                ],
+              ),
+              builder: (context, child) => ShadAppBuilder(child: child!),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+```
+
+## 17. Error UI Patterns
+
+**Inline Error:**
+
+Use `ShadAlert` with destructive style.
+
+```dart
+ShadAlert.destructive(
+  icon: Icon(LucideIcons.circleAlert),
+  title: Text(Strings.error),
+  description: Text(error.toString()),
+)
+```
+
+**Full Screen Error:**
+
+Use a centered `ShadCard` with `ShadButton` for retry.
+
+```dart
+Center(
+  child: ShadCard(
+    title: Text(Strings.error),
+    description: Text(Strings.unableToLoadData),
+    child: ShadButton.icon(
+      onPressed: () => retry(),
+      icon: Icon(LucideIcons.refresh),
+      child: Text(Strings.retry),
+    ),
+  ),
+)
+```
+
+**Toast Error:**
+
+Use `ShadToaster` for transient errors.
+
+```dart
+ShadToaster.of(context).show(
+  ShadToast(
+    title: Text(Strings.actionFailed),
+    description: Text(Strings.operationCouldNotBeCompleted),
+    icon: Icon(LucideIcons.triangleAlert),
+  ),
+);
+```
+
+## 18. High-Performance Tables
+
+**Rule:** Choose the appropriate table implementation based on dataset size to ensure optimal performance.
+
+*   **Small Data (< 20 rows):** Use `ShadTable.list`. All children are created immediately, suitable for small static datasets.
+
+*   **Large Data (> 20 rows):** Use `ShadTable` with `builder`. This uses `two_dimensional_scrollables` for lazy rendering, ensuring only visible cells are built.
+
+**Small Dataset Pattern:**
+
+```dart
+// ✅ CORRECT: Small static data
+ShadTable.list(
+  header: const [
+    ShadTableCell.header(child: Text('Name')),
+    ShadTableCell.header(child: Text('Status')),
+  ],
+  children: smallList.map((item) => [
+    ShadTableCell(child: Text(item.name)),
+    ShadTableCell(child: Text(item.status)),
+  ]).toList(),
+)
+```
+
+**Large Dataset Pattern:**
+
+```dart
+// ✅ CORRECT: Large dynamic data with lazy rendering
+ShadTable(
+  columnCount: 4,
+  rowCount: largeList.length,
+  header: (context, column) {
+    return ShadTableCell.header(
+      child: Text(headings[column]),
+    );
+  },
+  builder: (context, index) {
+    final data = largeList[index.row][index.column];
+    return ShadTableCell(
+      child: Text(data.toString()),
+    );
+  },
+)
+```
+
+**Performance Rationale:**
+
+* `ShadTable.list` creates all widgets upfront, which is fine for small datasets but causes memory/performance issues with large lists.
+* `ShadTable` with `builder` only builds visible cells, making it essential for tables with many rows.

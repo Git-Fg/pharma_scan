@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
-import 'package:forui/forui.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
+import 'package:shadcn_ui/shadcn_ui.dart';
 
 class PharmaSheetLayout extends StatelessWidget {
   const PharmaSheetLayout({
-    super.key,
-    required this.title,
-    required this.child,
+    required this.title, required this.child, super.key,
     this.description,
     this.onClose,
     this.padding = const EdgeInsets.all(AppDimens.spacingLg),
@@ -37,16 +35,15 @@ class PharmaSheetLayout extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      title,
-                      style: context.theme.typography.xl2, // h4 equivalent
-                    ),
+                    Text(title, style: ShadTheme.of(context).textTheme.h4),
                     if (description != null) ...[
                       const Gap(AppDimens.spacing2xs),
                       Text(
                         description!,
-                        style: context.theme.typography.sm.copyWith(
-                          color: context.theme.colors.mutedForeground,
+                        style: ShadTheme.of(context).textTheme.small.copyWith(
+                          color: ShadTheme.of(
+                            context,
+                          ).colorScheme.mutedForeground,
                         ),
                       ),
                     ],
@@ -58,10 +55,9 @@ class PharmaSheetLayout extends StatelessWidget {
                 Semantics(
                   button: true,
                   label: Strings.close,
-                  child: FButton.icon(
-                    style: FButtonStyle.ghost(),
-                    onPress: onClose,
-                    child: const Icon(FIcons.x, size: AppDimens.iconMd),
+                  child: ShadIconButton.ghost(
+                    onPressed: onClose,
+                    icon: const Icon(LucideIcons.x, size: AppDimens.iconMd),
                   ),
                 ),
               ],

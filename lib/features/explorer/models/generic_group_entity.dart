@@ -1,12 +1,16 @@
-import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:dart_mappable/dart_mappable.dart';
 
-part 'generic_group_entity.freezed.dart';
+part 'generic_group_entity.mapper.dart';
 
-@freezed
-abstract class GenericGroupEntity with _$GenericGroupEntity {
-  const factory GenericGroupEntity({
-    required String groupId,
-    required String commonPrincipes,
-    required String princepsReferenceName,
-  }) = _GenericGroupEntity;
+@MappableClass()
+class GenericGroupEntity with GenericGroupEntityMappable {
+  const GenericGroupEntity({
+    required this.groupId,
+    required this.commonPrincipes,
+    required this.princepsReferenceName,
+  });
+
+  final String groupId;
+  final String commonPrincipes;
+  final String princepsReferenceName;
 }

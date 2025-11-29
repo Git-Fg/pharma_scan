@@ -1,5 +1,5 @@
 // test/core/services/triangulation_logic_test.dart
-import 'package:drift/drift.dart' hide isNull, isNotNull;
+import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pharma_scan/core/database/database.dart';
@@ -17,6 +17,69 @@ void main() {
   tearDown(() async {
     await database.close();
   });
+
+  // Legacy helper functions copied from sanitizer.dart for test purposes only
+  // These simulate the old Dart-based aggregation logic that has been superseded by SQL views
+  String findCommonPrincepsName(List<String> names) {
+    if (names.isEmpty) return 'N/A';
+
+    if (names.length == 1) return names.first;
+
+    final prefixWords = names.first.split(' ');
+
+    for (var i = 1; i < names.length; i++) {
+      final currentWords = names[i].split(' ');
+      var commonLength = 0;
+      while (commonLength < prefixWords.length &&
+          commonLength < currentWords.length &&
+          prefixWords[commonLength] == currentWords[commonLength]) {
+        commonLength++;
+      }
+
+      if (commonLength < prefixWords.length) {
+        prefixWords.removeRange(commonLength, prefixWords.length);
+      }
+    }
+
+    if (prefixWords.isEmpty) {
+      return names.reduce((a, b) => a.length < b.length ? a : b);
+    }
+
+    return prefixWords.join(' ').trim().replaceAll(RegExp(r'[,.]\s*$'), '');
+  }
+
+  String deriveSingleMoleculeName(String name) {
+    final parts = name.split(' ');
+    final stopIndex = parts.indexWhere(
+      (part) => double.tryParse(part.replaceAll(',', '.')) != null,
+    );
+
+    if (stopIndex != -1) {
+      return parts
+          .sublist(0, stopIndex)
+          .join(' ')
+          .replaceAll(RegExp(r'\s*,$'), '');
+    }
+
+    return name.split(',').first.trim();
+  }
+
+  String deriveGroupTitleFromName(String name) {
+    if (name.contains(' + ')) {
+      final segments = name.split(' + ');
+
+      final cleanedSegments = segments
+          .map((segment) {
+            return deriveSingleMoleculeName(segment.trim());
+          })
+          .where((cleaned) => cleaned.isNotEmpty)
+          .toList();
+
+      return cleanedSegments.join(' + ');
+    }
+
+    return deriveSingleMoleculeName(name);
+  }
 
   // Helper function to populate MedicamentSummary table for tests
   Future<void> populateMedicamentSummary(AppDatabase db) async {
@@ -54,7 +117,7 @@ void main() {
       }
 
       // Calculate common principles (intersection of all)
-      Set<String> commonPrincipes = {};
+      var commonPrincipes = <String>{};
       if (groupPrincipes.isNotEmpty) {
         commonPrincipes = Set<String>.from(groupPrincipes.values.first);
         for (final cipPrincipes in groupPrincipes.values) {
@@ -142,9 +205,8 @@ void main() {
         {
           'code_cip': 'CIP_P',
           'cis_code': 'CIS_PRINCEPS',
-          'nom': 'PRINCEPS 500 mg',
         },
-        {'code_cip': 'CIP_G', 'cis_code': 'CIS_GENERIC', 'nom': 'GENERIC LABO'},
+        {'code_cip': 'CIP_G', 'cis_code': 'CIS_GENERIC'},
       ],
       principes: [
         // Princeps has clean dosage

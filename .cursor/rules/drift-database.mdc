@@ -1,0 +1,44 @@
+---
+description: Drift database patterns, optimization, and query standards.
+alwaysApply: true
+---
+
+# Drift Database Standards
+
+## 1. Domain Model Principle
+
+* **Drift Classes = Domain Entities:** Use generated `Medicament`, `MedicamentSummary` classes directly in UI.
+
+* **Mappers:** Only create mappers if data needs to be transformed significantly for a specific View (e.g., ChartData).
+
+## 2. Query Patterns
+
+* **Streams:** Prefer `watch()` for all UI data sources.
+
+* **Single vs List:** Use `watchSingleOrNull()` for detail views to handle deletion gracefully.
+
+* **DAOs:** All queries must reside in a DAO (`LibraryDao`, `ScanDao`). No raw queries in Widgets.
+
+## 3. Optimization
+
+* **Transactions:** Always wrap multiple `insert/update/delete` operations in `transaction(() async { ... })`.
+
+* **Batching:** Use `batch((batch) { ... })` for bulk inserts (Initialization).
+
+* **Indexing:** Ensure `queries.drift` defines indices on columns used in `WHERE` and `JOIN` clauses.
+
+## 4. Search (FTS5)
+
+* **Normalization:** Always sanitize input using `_escapeFts5Query` (removes diacritics) before querying FTS tables.
+
+* **Trigrams:** Rely on the configured `tokenize='trigram'` for fuzzy matching.
+
+**Reference Implementation:** See `lib/core/database/queries.drift` for FTS5 virtual table definition and `insertSearchIndexFromSummary` helper.
+
+## 5. SQL Views
+
+* **Aggregation:** Use SQL Views (defined in `views.drift`) to pre-compute complex aggregations instead of Dart loops.
+
+* **Performance:** Views leverage SQLite's optimizer and are more efficient than fetching raw rows and processing in Dart.
+
+**Reference Implementation:** See `lib/core/database/views.drift` for `view_aggregated_grouped` and `view_aggregated_standalone` patterns.

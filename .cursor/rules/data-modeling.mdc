@@ -1,0 +1,252 @@
+---
+description: Standards pour la modélisation des données (Data Classes, DTOs, States) avec Dart Mappable.
+globs: lib/**/*_model.dart, lib/**/*_state.dart, lib/**/*_entity.dart, lib/**/*.mapper.dart
+alwaysApply: true
+---
+
+# Data Modeling Standard (2025)
+
+**Context:** Remplacement de Freezed par Dart Mappable pour privilégier la lisibilité et les classes Dart standard.
+
+## 1. Principes Fondamentaux
+
+*   **Classes Standard:** Utilisez des classes Dart `class` (ou `sealed class` pour les unions) avec des constructeurs `const` standards.
+
+*   **Immutabilité:** Tous les champs doivent être `final`.
+
+*   **Annotation:** Utilisez `@MappableClass()` sur la classe.
+
+*   **Mixin:** Appliquez le mixin `<ClassName>Mappable`.
+
+*   **Part File:** Utilisez `part 'filename.mapper.dart';`.
+
+## 2. Structure d'une Classe de Données
+
+**❌ BAD (Freezed - Legacy):**
+
+```dart
+@freezed
+class User with _$User {
+  const factory User({required String name, int? age}) = _User;
+  factory User.fromJson(Map<String, dynamic> json) => _$UserFromJson(json);
+}
+```
+
+**✅ GOOD (Dart Mappable - Standard):**
+
+```dart
+import 'package:dart_mappable/dart_mappable.dart';
+
+part 'user.mapper.dart';
+
+@MappableClass()
+class User with UserMappable {
+  const User({
+    required this.name,
+    this.age,
+  });
+
+  final String name;
+  final int? age;
+
+  // Optionnel : Raccourcis statiques
+  static final fromMap = UserMapper.fromMap;
+  static final fromJson = UserMapper.fromJson;
+}
+```
+
+## 3. Unions et Sealed Classes
+
+Pour le polymorphisme (anciennement `.map` / `.when` de Freezed), utilisez les `sealed classes` natives de Dart 3.
+
+**❌ BAD (Freezed - Legacy):**
+
+```dart
+@freezed
+sealed class UiState with _$UiState {
+  const factory UiState.loading() = Loading;
+  const factory UiState.success(List<String> data) = Success;
+  const factory UiState.error(String message) = Error;
+}
+```
+
+**✅ GOOD (Dart Mappable - Standard):**
+
+```dart
+import 'package:dart_mappable/dart_mappable.dart';
+
+part 'ui_state.mapper.dart';
+
+@MappableClass(discriminatorKey: 'type')
+sealed class UiState with UiStateMappable {
+  const UiState();
+}
+
+@MappableClass(discriminatorValue: 'loading')
+class Loading extends UiState with LoadingMappable {
+  const Loading();
+}
+
+@MappableClass(discriminatorValue: 'success')
+class Success extends UiState with SuccessMappable {
+  const Success(this.data);
+  final List<String> data;
+}
+
+@MappableClass(discriminatorValue: 'error')
+class ErrorState extends UiState with ErrorStateMappable {
+  const ErrorState(this.message);
+  final String message;
+}
+```
+
+**Pattern Matching (Dart 3):**
+
+```dart
+// ✅ GOOD: Utiliser switch expressions au lieu de .map()/.when()
+final result = switch (uiState) {
+  Loading() => 'Loading...',
+  Success(data: final data) => 'Data: ${data.length} items',
+  ErrorState(message: final msg) => 'Error: $msg',
+};
+```
+
+## 4. Configuration
+
+*   **JSON Keys:** Utilisez `@MappableField(key: 'custom_key')` si le nom diffère.
+
+*   **Hooks:** Utilisez des `MappingHook` pour les transformations complexes avant/après sérialisation.
+
+*   **Global Configuration:** Configurez `dart_mappable_builder` dans `build.yaml` avec `caseStyle: camelCase` et `generateMethods: [decode, encode, copy, stringify, equals]`.
+
+## 5. Méthodes Générées
+
+Le mixin `<ClassName>Mappable` fournit automatiquement :
+
+*   `Map<String, dynamic> toMap()` - Sérialisation vers Map
+*   `String toJson()` - Sérialisation vers JSON string
+*   `T copyWith({...})` - Création d'une copie modifiée
+*   `bool operator ==(Object other)` - Égalité par valeur
+*   `int get hashCode` - Hash code basé sur les valeurs
+*   `String toString()` - Représentation string
+
+**Méthodes statiques du Mapper :**
+
+*   `ClassNameMapper.fromMap(Map<String, dynamic> map)` - Désérialisation depuis Map
+*   `ClassNameMapper.fromJson(String json)` - Désérialisation depuis JSON string
+
+## 6. Migration depuis Freezed
+
+### 6.1 Classe Simple
+
+**Avant (Freezed):**
+```dart
+@freezed
+abstract class SearchFilters with _$SearchFilters {
+  const factory SearchFilters({
+    String? voieAdministration,
+    AtcLevel1? atcClass,
+  }) = _SearchFilters;
+  
+  bool get hasActiveFilters => voieAdministration != null || atcClass != null;
+}
+```
+
+**Après (Dart Mappable):**
+```dart
+@MappableClass()
+class SearchFilters with SearchFiltersMappable {
+  const SearchFilters({
+    this.voieAdministration,
+    this.atcClass,
+  });
+
+  final String? voieAdministration;
+  final AtcLevel1? atcClass;
+
+  bool get hasActiveFilters => voieAdministration != null || atcClass != null;
+}
+```
+
+### 6.2 Union (Sealed Class)
+
+**Avant (Freezed):**
+```dart
+@freezed
+sealed class SearchResultItem with _$SearchResultItem {
+  const factory SearchResultItem.groupResult({
+    required GenericGroupEntity group,
+  }) = _GroupResult;
+  
+  const factory SearchResultItem.princepsResult({
+    required MedicamentSummaryData princeps,
+    required List<MedicamentSummaryData> generics,
+  }) = _PrincepsResult;
+}
+```
+
+**Après (Dart Mappable):**
+```dart
+@MappableClass(discriminatorKey: 'type')
+sealed class SearchResultItem with SearchResultItemMappable {
+  const SearchResultItem();
+}
+
+@MappableClass(discriminatorValue: 'groupResult')
+class GroupResult extends SearchResultItem with GroupResultMappable {
+  const GroupResult({required this.group});
+  final GenericGroupEntity group;
+}
+
+@MappableClass(discriminatorValue: 'princepsResult')
+class PrincepsResult extends SearchResultItem with PrincepsResultMappable {
+  const PrincepsResult({
+    required this.princeps,
+    required this.generics,
+  });
+  final MedicamentSummaryData princeps;
+  final List<MedicamentSummaryData> generics;
+}
+```
+
+### 6.3 Remplacement des Appels
+
+**Avant (Freezed):**
+```dart
+result.map(
+  groupResult: (group) => handleGroup(group),
+  princepsResult: (princeps, generics) => handlePrinceps(princeps, generics),
+);
+
+result.when(
+  groupResult: (group) => navigateToGroup(group),
+  princepsResult: (princeps, generics, groupId, _) => navigateToGroup(groupId),
+);
+```
+
+**Après (Dart Mappable + Pattern Matching):**
+```dart
+switch (result) {
+  case GroupResult(group: final group):
+    handleGroup(group);
+  case PrincepsResult(princeps: final princeps, generics: final generics):
+    handlePrinceps(princeps, generics);
+}
+
+switch (result) {
+  case GroupResult(group: final group):
+    navigateToGroup(group.groupId);
+  case PrincepsResult(groupId: final groupId, ...):
+    navigateToGroup(groupId);
+}
+```
+
+## 7. Anti-Patterns
+
+*   ❌ **DO NOT** utiliser Freezed pour les nouveaux modèles
+*   ❌ **DO NOT** créer des classes avec des champs mutables pour les modèles de données
+*   ❌ **DO NOT** oublier d'ajouter `part '*.mapper.dart';` dans les fichiers de modèles
+*   ❌ **DO NOT** utiliser `.map()` ou `.when()` - utiliser `switch` expressions Dart 3
+*   ✅ **DO** utiliser `sealed class` pour les unions au lieu de factories Freezed
+*   ✅ **DO** utiliser `const` constructors pour l'immutabilité
+*   ✅ **DO** utiliser `@MappableClass(discriminatorKey: 'type')` pour les sealed classes avec polymorphisme JSON

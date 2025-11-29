@@ -1,0 +1,96 @@
+---
+description: Riverpod state management standards and provider architecture.
+alwaysApply: true
+---
+
+# Riverpod Architecture Standards
+
+## 1. Core Principles
+
+* **Code Generation:** ALWAYS use `@riverpod` / `@Riverpod` annotations. Manual `Provider` creation is forbidden for new code.
+
+* **Hook Integration:** ALWAYS use `HookConsumerWidget` instead of `ConsumerWidget` to leverage `flutter_hooks`.
+
+* **Async First:** Prefer `Future/Stream` providers over synchronous state. Handle `AsyncValue` explicitly.
+
+## 2. Provider Types Decision Matrix
+
+| Use Case | Provider Type | Annotation |
+| :--- | :--- | :--- |
+| **Data Fetching** | `Future<T>` | `@riverpod` |
+| **Real-time DB** | `Stream<T>` | `@riverpod` |
+| **Complex Logic** | `class ... extends _$Notifier` | `@riverpod` |
+| **Async Logic** | `class ... extends _$AsyncNotifier` | `@riverpod` |
+| **Global Config** | `keepAlive: true` | `@Riverpod(keepAlive: true)` |
+
+## 3. Implementation Patterns
+
+### A. The Controller Pattern (Notifier)
+
+Use this for screens requiring logic (e.g., Form submission, state management).
+
+```dart
+@riverpod
+class SearchFiltersNotifier extends _$SearchFiltersNotifier {
+  @override
+  SearchFilters build() => const SearchFilters();
+
+  void updateFilters(SearchFilters filters) {
+    state = filters;
+  }
+}
+```
+
+**Reference Implementation:** See `lib/features/explorer/providers/search_provider.dart` for Notifier pattern.
+
+### B. The Stream Pattern (Reactive Data)
+
+Use this for UI data that needs to update when the database changes.
+
+```dart
+@riverpod
+Stream<List<SearchResultItem>> searchResults(Ref ref, String rawQuery) {
+  final searchDao = ref.watch(searchDaoProvider);
+  return searchDao.watchMedicaments(query).map((summaries) {
+    return _mapSummariesToItems(summaries);
+  });
+}
+```
+
+**Reference Implementation:** See `lib/features/explorer/providers/search_provider.dart` for Stream pattern.
+
+### C. The Repository Pattern (Read-only)
+
+Expose DAOs directly. Do not create "Repository" classes if they just wrap a DAO method 1:1.
+
+```dart
+@riverpod
+ScanDao scanDao(Ref ref) => ref.watch(appDatabaseProvider).scanDao;
+```
+
+### D. The KeepAlive Pattern (Static Config)
+
+Use `@Riverpod(keepAlive: true)` for static data that shouldn't be disposed (dropdown lists, enums, settings).
+
+```dart
+@Riverpod(keepAlive: true)
+Future<List<String>> pharmaceuticalForms(Ref ref) async {
+  // Load once, keep in memory
+}
+```
+
+**Reference Implementation:** See `lib/features/explorer/providers/pharmaceutical_forms_provider.dart` for keepAlive pattern.
+
+## 4. Testing
+
+* **Overrides:** Test widgets by overriding providers in `ProviderScope`.
+
+* **Mocking:** Mock the *Return Type* of the provider, not the provider itself.
+
+## 5. Anti-Patterns
+
+* ❌ **DO NOT** use `StateProvider` (deprecated).
+
+* ❌ **DO NOT** use `ref.watch` inside lifecycle methods or callbacks. Use `ref.read`.
+
+* ❌ **DO NOT** perform side effects (navigation, snackbars) inside `build()`. Listen to the provider in the Widget layer.

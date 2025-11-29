@@ -12,7 +12,7 @@ alwaysApply: true
 
 ## 2. Flex Layout Safety (Column/Row)
 
-**Context:** The most common source of overflows.
+**Context:** The most common source of overflows inside widgets (e.g., inside a Card or Tile).
 
 ### Rule 2.1: Unbounded Children
 
@@ -62,27 +62,149 @@ alwaysApply: true
     )
     ```
 
-## 3. Scrolling & Viewports
+## 3. Scrolling & Viewports (2025 Standard)
 
-### Rule 3.1: The Scrollable Wrapper
+### Rule 3.1: The Root Scrollable
 
-If a screen contains a form or variable content, it **MUST** be scrollable to prevent bottom overflow (especially on small screens).
+The root of every screen **MUST** be a `CustomScrollView` (Sliver Protocol).
 
-* **Pattern:** `FScaffold` > `SingleChildScrollView` > `Column`.
-* **Exception:** If using `FScaffold` with `resizeToAvoidBottomInset: true` (default), ensure body is scrollable so content pushes up when keyboard opens.
+* **❌ Forbidden:** `FScaffold` > `SingleChildScrollView` > `Column`. This legacy pattern handles keyboards poorly and prevents sticky headers.
+* **✅ Mandatory:** `FScaffold` > `CustomScrollView`.
 
 ### Rule 3.2: List Nesting
 
-**NEVER** nest a `ListView` inside a `ListView` or `SingleChildScrollView` with `shrinkWrap: true` unless absolutely necessary for a tiny list. It destroys performance.
+**NEVER** nest a `ListView` inside a `SingleChildScrollView`. It destroys performance and scrolling physics.
 
-* **Solution:** Use **Slivers** (Refer to `forui-sliver-guidelines.mdc`) or `CustomScrollView`.
+* **Solution:** Use **Slivers** (Refer to `forui-sliver-guidelines.mdc`).
 
 ## 4. Keyboard Handling
 
-**Context:** Keyboards cause bottom overflow errors in Forms.
+**Context:** Keyboards cause bottom overflow errors in Forms and hide content. Native Flutter behaviors provide the simplest, most robust solution.
 
-* **Requirement:** All forms must be wrapped in a scroll view.
-* **Spacer Ban:** Do not use `Spacer()` inside a `SingleChildScrollView` (it throws an error). Use `SizedBox(height: ...)` or `LayoutBuilder` if you need to push content to the bottom.
+### Rule 4.1: Root Scaffold Keyboard Supremacy
+
+**Context:** Nested scaffolds both trying to handle keyboard insets cause double-padding gaps and layout instability. The root scaffold must have exclusive control.
+
+**Mandate:** Only the Root `FScaffold` (Navigation Shell) sets `resizeToAvoidBottomInset: true`.
+
+**Constraint:** All nested Page Scaffolds MUST set `resizeToAvoidBottomInset: false`.
+
+**Footer Logic:** The Root Scaffold MUST conditionally render `footer: null` when keyboard is detected to give full viewport height to inner content.
+
+**Keyboard Detection:** The Root Scaffold MUST check both the current context AND the root navigator context (for sheets with `useRootNavigator: true`) to detect keyboard state.
+
+* **✅ GOOD (Root Scaffold):** Root scaffold handles resizing and conditionally hides footer.
+
+    ```dart
+    // Root Scaffold (MainScreen)
+    // WHY: Detect keyboard state to hide bottom navigation bar and prevent double padding
+    // Check both current context and root navigator context (for sheets with useRootNavigator: true)
+    final keyboardHeight = MediaQuery.viewInsetsOf(context).bottom;
+    final rootNavigator = Navigator.of(context, rootNavigator: true);
+    final rootKeyboardHeight = rootNavigator.context != context
+        ? MediaQuery.viewInsetsOf(rootNavigator.context).bottom
+        : 0.0;
+    final isKeyboardOpen = keyboardHeight > 0 || rootKeyboardHeight > 0;
+
+    return FScaffold(
+      resizeToAvoidBottomInset: true, // Root handles keyboard resizing
+      footer: isKeyboardOpen
+          ? null // Hide footer when keyboard is open
+          : FBottomNavigationBar(...),
+      child: Column(
+        children: [
+          // Activity banner
+          if (activityBanner != null) activityBanner,
+          Expanded(
+            child: navigationShell, // Contains nested page scaffolds
+          ),
+        ],
+      ),
+    )
+    ```
+
+* **✅ GOOD (Nested Scaffold):** Nested scaffolds are passive and ignore keyboard insets.
+
+    ```dart
+    // Nested Page Scaffold (DatabaseSearchView, CameraScreen)
+    return FScaffold(
+      resizeToAvoidBottomInset: false, // Outer MainScreen handles keyboard resizing
+      childPad: false,
+      child: CustomScrollView(
+        slivers: [...],
+      ),
+    )
+    ```
+
+* **❌ FORBIDDEN:** Nested scaffolds setting `resizeToAvoidBottomInset: true`. This creates double-padding when both root and nested scaffolds try to resize.
+
+* **Rationale:** Centralizing keyboard handling in the root scaffold prevents layout conflicts and ensures consistent behavior across all nested pages.
+
+### Rule 4.2: Bottom Sheet Keyboard Padding
+
+**Mandate:** Bottom sheets must manage their own keyboard avoidance. Modal sheets live in the Overlay, not the Scaffold, so they do not respect `resizeToAvoidBottomInset`.
+
+**Pattern:**
+
+1. **Get Height:** `final keyboardHeight = MediaQuery.viewInsetsOf(context).bottom;`
+
+2. **Apply Padding:** Wrap the *root* of the sheet content (not the Scaffold) in `Padding(bottom: keyboardHeight)`.
+
+3. **Enable Scroll:** Ensure that `Padding` is the parent of `SingleChildScrollView` (or inside it, depending on if you want the padding to be scrollable).
+
+    *   *Preferred:* `Padding` > `SingleChildScrollView` > `Content`. (Input stays above keyboard).
+
+* **✅ GOOD:** Use `viewInsets` to push content above keyboard in overlays with scrollable content.
+
+    ```dart
+    builder: (context) {
+      // WHY: Modal sheets don't respect resizeToAvoidBottomInset
+      // We must manually add bottom padding equal to keyboard height
+      final keyboardHeight = MediaQuery.viewInsetsOf(context).bottom;
+      
+      return Padding(
+        // Crucial: Push content up by keyboard height
+        padding: EdgeInsets.only(bottom: keyboardHeight),
+        child: SingleChildScrollView(
+          child: MyFormContent(),
+        ),
+      );
+    }
+    ```
+
+* **❌ FORBIDDEN:** Relying on `resizeToAvoidBottomInset` for modal sheets. It only works for Scaffold body content, not overlays.
+
+### Rule 4.3: Sliver Padding for Keyboard
+
+**Pattern:** Use `SliverPadding` with `viewInsets` when needed in `CustomScrollView` to ensure content can scroll above keyboard.
+
+* **✅ GOOD:** Add bottom padding when keyboard is open.
+
+    ```dart
+    CustomScrollView(
+      slivers: [
+        // ... content ...
+        if (MediaQuery.viewInsetsOf(context).bottom > 0)
+          SliverPadding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.viewInsetsOf(context).bottom,
+            ),
+          ),
+      ],
+    )
+    ```
+
+### Rule 4.4: Form Scrolling
+
+**Requirement:** All forms must be inside a scroll view (`CustomScrollView`).
+
+* **Spacer Ban:** Do not use `Spacer()` inside a scrollable area (it throws an error). Use `SizedBox(height: ...)` or `SliverFillRemaining` if you need to push content to the bottom.
+
+### Rule 4.5: External Packages Ban
+
+**Ban:** External keyboard visibility packages (e.g., `flutter_keyboard_visibility`).
+
+* **Rationale:** Native `resizeToAvoidBottomInset` and `MediaQuery.viewInsets` are sufficient and keep dependencies minimal.
 
 ## 5. Intrinsic Dimensions (Performance Warning)
 
@@ -95,5 +217,3 @@ Avoid `IntrinsicHeight` and `IntrinsicWidth` whenever possible. They force an ex
 `FScaffold` handles `SafeArea` by default.
 
 * **Do NOT** double-wrap content in `SafeArea` inside `FScaffold`.
-* **DO** use `SafeArea` if you are using a raw `showModalBottomSheet` (though `showFSheet` handles this).
-

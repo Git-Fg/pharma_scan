@@ -1,7 +1,7 @@
 // lib/core/database/daos/database_dao.dart
 import 'package:drift/drift.dart';
-import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/database/daos/settings_dao.dart';
+import 'package:pharma_scan/core/database/database.dart';
 
 part 'database_dao.g.dart';
 

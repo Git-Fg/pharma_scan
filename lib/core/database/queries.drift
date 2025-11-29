@@ -139,7 +139,8 @@ INSERT OR REPLACE INTO medicament_summary (
   is_narcotic,
   is_exception,
   is_restricted,
-  is_otc
+  is_otc,
+  representative_cip
 )
 SELECT * FROM view_aggregated_standalone;
 

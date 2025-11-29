@@ -71,9 +71,10 @@ This document defines key terms used throughout the PharmaScan project to ensure
 
 ### Domain Entity
 
-* **Definition:** A pure Dart class (typically using `freezed`) that represents a business concept without database-specific annotations.
+* **Definition:** A pure Dart class (using `dart_mappable`) that represents a business concept without database-specific annotations.
 * **Characteristics:**
-  * Immutable (frozen).
+  * Immutable (all fields are `final`).
+  * Uses standard Dart classes with `@MappableClass()` annotation and mixin.
   * No dependencies on Drift-generated classes.
   * Used throughout the application layers (UI, services, business logic).
 * **Example:** `ScanResult`, `ClusterSummary`, `GenericGroupSummary`.

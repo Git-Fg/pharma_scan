@@ -24,26 +24,6 @@ class MedicationItem {
     this.isOtc = false,
   });
 
-  final String codeCip;
-  final String displayName;
-  final String titulaire;
-  final bool isPrinceps;
-  final String? formLabel;
-  final String? dosageLabel;
-  final double? price;
-  final String? refundRate;
-  final String? conditions;
-  final bool isSurveillance;
-  final String? availabilityStatus;
-  final bool isHospitalOnly;
-  final bool isDental;
-  final bool isList1;
-  final bool isList2;
-  final bool isNarcotic;
-  final bool isException;
-  final bool isRestricted;
-  final bool isOtc;
-
   factory MedicationItem.fromGroupDetail(db.ViewGroupDetail row) {
     final titulaire = parseMainTitulaire(
       row.summaryTitulaire ?? row.officialTitulaire,
@@ -63,8 +43,8 @@ class MedicationItem {
       displayName: displayName,
       titulaire: titulaire,
       isPrinceps: isPrinceps,
-      formLabel: formLabel?.isNotEmpty == true ? formLabel : null,
-      dosageLabel: dosageLabel?.isNotEmpty == true ? dosageLabel : null,
+      formLabel: formLabel?.isNotEmpty ?? false ? formLabel : null,
+      dosageLabel: dosageLabel?.isNotEmpty ?? false ? dosageLabel : null,
       price: row.prixPublic,
       refundRate: row.tauxRemboursement?.trim().isEmpty ?? true
           ? null
@@ -85,6 +65,26 @@ class MedicationItem {
     );
   }
 
+  final String codeCip;
+  final String displayName;
+  final String titulaire;
+  final bool isPrinceps;
+  final String? formLabel;
+  final String? dosageLabel;
+  final double? price;
+  final String? refundRate;
+  final String? conditions;
+  final bool isSurveillance;
+  final String? availabilityStatus;
+  final bool isHospitalOnly;
+  final bool isDental;
+  final bool isList1;
+  final bool isList2;
+  final bool isNarcotic;
+  final bool isException;
+  final bool isRestricted;
+  final bool isOtc;
+
   static String _extractGenericName(String canonicalName) {
     final parts = canonicalName.split(' - ');
     return parts.first.trim();
@@ -98,11 +98,6 @@ class GroupHeaderMetadata {
     required this.distinctDosages,
     required this.distinctFormulations,
   });
-
-  final String title;
-  final List<String> commonPrincipes;
-  final List<String> distinctDosages;
-  final List<String> distinctFormulations;
 
   factory GroupHeaderMetadata.fromMembers(List<db.ViewGroupDetail> members) {
     if (members.isEmpty) {
@@ -139,6 +134,11 @@ class GroupHeaderMetadata {
       distinctFormulations: (forms.toList()..sort()),
     );
   }
+
+  final String title;
+  final List<String> commonPrincipes;
+  final List<String> distinctDosages;
+  final List<String> distinctFormulations;
 }
 
 class GroupedProductsViewModel {
@@ -168,15 +168,15 @@ class GroupedProductsViewModel {
 class RelatedPrincepsItem {
   const RelatedPrincepsItem({required this.groupId, required this.medication});
 
-  final String groupId;
-  final MedicationItem medication;
-
   factory RelatedPrincepsItem.fromGroupDetail(db.ViewGroupDetail row) {
     return RelatedPrincepsItem(
       groupId: row.groupId,
       medication: MedicationItem.fromGroupDetail(row),
     );
   }
+
+  final String groupId;
+  final MedicationItem medication;
 }
 
 GroupedProductsViewModel buildGroupedProductsViewModel(
@@ -249,7 +249,7 @@ List<String> _aggregateConditions(List<MedicationItem> items) {
   final segments = <String>{};
   for (final condition in items.map((item) => item.conditions)) {
     if (condition == null || condition.isEmpty) continue;
-    final splits = condition.split(RegExp('[,;\\n]'));
+    final splits = condition.split(RegExp(r'[,;\n]'));
     for (final raw in splits) {
       final trimmed = raw.trim();
       if (trimmed.isEmpty) continue;
@@ -260,8 +260,8 @@ List<String> _aggregateConditions(List<MedicationItem> items) {
 }
 
 int _smartMedicationComparator(MedicationItem a, MedicationItem b) {
-  final aShortage = a.availabilityStatus?.isNotEmpty == true;
-  final bShortage = b.availabilityStatus?.isNotEmpty == true;
+  final aShortage = a.availabilityStatus?.isNotEmpty ?? false;
+  final bShortage = b.availabilityStatus?.isNotEmpty ?? false;
   if (aShortage != bShortage) {
     return aShortage ? 1 : -1;
   }

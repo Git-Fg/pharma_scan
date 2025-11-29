@@ -1,8 +1,8 @@
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/database/daos/scan_dao.dart';
+import 'package:pharma_scan/core/database/database.dart';
 
 void main() {
   late AppDatabase db;
@@ -73,7 +73,7 @@ void main() {
             MedicamentAvailabilityCompanion.insert(
               codeCip: '3400000000012',
               statut: availability,
-              dateDebut: Value(DateTime.utc(2025, 1, 1)),
+              dateDebut: Value(DateTime.utc(2025)),
             ),
           );
     }
@@ -97,7 +97,7 @@ void main() {
   test(
     'flags hospital-only presentations with agrement and no price',
     () async {
-      await seedData(agrement: 'oui', price: null, availability: null);
+      await seedData(agrement: 'oui');
 
       final result = await scanDao.getProductByCip('3400000000012');
 

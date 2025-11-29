@@ -1,14 +1,13 @@
 // test/features/explorer/medicament_tile_accessibility_test.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:forui/forui.dart';
-import 'package:go_router/go_router.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/features/explorer/models/search_result_item_model.dart';
 import 'package:pharma_scan/features/explorer/widgets/medicament_tile.dart';
-import 'package:pharma_scan/theme/theme.dart';
+import 'package:shadcn_ui/shadcn_ui.dart';
+
 import '../../helpers/accessibility_test_helpers.dart';
+import '../../helpers/pump_app.dart';
 
 MedicamentSummaryData _buildSummary({
   required String name,
@@ -25,15 +24,7 @@ MedicamentSummaryData _buildSummary({
     princepsBrandName: '',
     procedureType: 'Procédure',
     titulaire: 'Test Lab',
-    conditionsPrescription: null,
     isSurveillance: false,
-    formattedDosage: null,
-    atcCode: null,
-    status: null,
-    priceMin: null,
-    priceMax: null,
-    aggregatedConditions: null,
-    ansmAlertUrl: null,
     isHospitalOnly: false,
     isDental: false,
     isList1: false,
@@ -49,118 +40,57 @@ void main() {
   testWidgets('MedicamentTile has semantic label for princeps result', (
     tester,
   ) async {
-    final item = SearchResultItem.princepsResult(
+    final item = PrincepsResult(
       princeps: _buildSummary(name: 'Doliprane', isPrinceps: true),
-      generics: [],
+      generics: const <MedicamentSummaryData>[],
       groupId: 'group1',
       commonPrinciples: 'Paracétamol',
     );
 
-    await tester.pumpWidget(
-      ProviderScope(
-        child: MaterialApp.router(
-          routerConfig: GoRouter(
-            initialLocation: '/',
-            routes: [
-              GoRoute(
-                path: '/',
-                builder: (context, state) => FAnimatedTheme(
-                  data: greenLight,
-                  child: Scaffold(
-                    body: MedicamentTile(item: item, onTap: () {}),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-
+    await tester.pumpApp(MedicamentTile(item: item, onTap: () {}));
     await tester.pumpAndSettle();
 
-    final tileFinder = find.byType(FTile);
-    expect(tileFinder, findsOneWidget);
-
     // Verify semantic label exists and contains medication information
+    // The tile is now a custom Row-based widget, so we find by the widget type directly
+    final tileFinder = find.byType(MedicamentTile);
+    expect(tileFinder, findsOneWidget);
     AccessibilityTestHelpers.expectHasSemanticLabel(tester, tileFinder);
   });
 
   testWidgets('MedicamentTile has semantic label for generic result', (
     tester,
   ) async {
-    final item = SearchResultItem.genericResult(
-      generic: _buildSummary(name: 'Paracétamol Biogaran', isPrinceps: false),
-      princeps: [],
+    final item = GenericResult(
+      generic: _buildSummary(name: 'Paracétamol Biogaran'),
+      princeps: const <MedicamentSummaryData>[],
       groupId: 'group1',
       commonPrinciples: 'Paracétamol',
     );
 
-    await tester.pumpWidget(
-      ProviderScope(
-        child: MaterialApp.router(
-          routerConfig: GoRouter(
-            initialLocation: '/',
-            routes: [
-              GoRoute(
-                path: '/',
-                builder: (context, state) => FAnimatedTheme(
-                  data: greenLight,
-                  child: Scaffold(
-                    body: MedicamentTile(item: item, onTap: () {}),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-
+    await tester.pumpApp(MedicamentTile(item: item, onTap: () {}));
     await tester.pumpAndSettle();
 
-    final tileFinder = find.byType(FTile);
+    final tileFinder = find.byType(MedicamentTile);
     expect(tileFinder, findsOneWidget);
-
     AccessibilityTestHelpers.expectHasSemanticLabel(tester, tileFinder);
   });
 
   testWidgets('MedicamentTile decorative chevron is excluded from semantics', (
     tester,
   ) async {
-    final item = SearchResultItem.princepsResult(
+    final item = PrincepsResult(
       princeps: _buildSummary(name: 'Doliprane', isPrinceps: true),
-      generics: [],
+      generics: const <MedicamentSummaryData>[],
       groupId: 'group1',
       commonPrinciples: 'Paracétamol',
     );
 
-    await tester.pumpWidget(
-      ProviderScope(
-        child: MaterialApp.router(
-          routerConfig: GoRouter(
-            initialLocation: '/',
-            routes: [
-              GoRoute(
-                path: '/',
-                builder: (context, state) => FAnimatedTheme(
-                  data: greenLight,
-                  child: Scaffold(
-                    body: MedicamentTile(item: item, onTap: () {}),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-
+    await tester.pumpApp(MedicamentTile(item: item, onTap: () {}));
     await tester.pumpAndSettle();
 
     // Verify chevron icon is wrapped in ExcludeSemantics
     final chevronFinder = find.byWidgetPredicate(
-      (widget) => widget is Icon && widget.icon == FIcons.chevronRight,
+      (widget) => widget is Icon && widget.icon == LucideIcons.chevronRight,
     );
     expect(chevronFinder, findsOneWidget);
     final semanticsWrapper = find.ancestor(

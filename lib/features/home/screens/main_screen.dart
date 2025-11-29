@@ -1,26 +1,23 @@
 // lib/features/home/screens/main_screen.dart
+import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import 'package:forui/forui.dart';
-
-import 'package:pharma_scan/core/router/routes.dart';
+import 'package:pharma_scan/core/router/app_router.dart';
+import 'package:pharma_scan/core/services/data_initialization_service.dart';
 import 'package:pharma_scan/core/utils/app_animations.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/utils/test_tags.dart';
 import 'package:pharma_scan/core/widgets/testable.dart';
-import 'package:pharma_scan/features/home/providers/sync_provider.dart';
 import 'package:pharma_scan/features/home/models/sync_state.dart';
 import 'package:pharma_scan/features/home/providers/initialization_provider.dart';
-import 'package:pharma_scan/core/services/data_initialization_service.dart';
+import 'package:pharma_scan/features/home/providers/sync_provider.dart';
 import 'package:pharma_scan/features/home/widgets/unified_activity_banner.dart';
-import 'package:flutter_animate/flutter_animate.dart';
+import 'package:shadcn_ui/shadcn_ui.dart';
 
+@RoutePage()
 class MainScreen extends HookConsumerWidget {
-  const MainScreen({required this.navigationShell, super.key});
-
-  final StatefulNavigationShell navigationShell;
+  const MainScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -29,21 +26,13 @@ class MainScreen extends HookConsumerWidget {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         ref
             .read(syncControllerProvider.notifier)
-            .startSync(force: false)
+            .startSync()
             .catchError((_) => false);
       });
       return null;
     }, []);
 
-    void onTabChanged(int index) {
-      // "goBranch" switches the tab.
-      // "initialLocation: index == navigationShell.currentIndex" implements the
-      // standard behavior: if you tap the active tab, it pops to the root of that tab.
-      navigationShell.goBranch(
-        index,
-        initialLocation: index == navigationShell.currentIndex,
-      );
-    }
+    // Tab change logic will be handled by AutoTabsScaffold
 
     Future<bool> triggerSync({bool force = false}) {
       return ref
@@ -65,6 +54,15 @@ class MainScreen extends HookConsumerWidget {
     );
     final initTimerStart = useState<DateTime?>(null);
 
+    // WHY: Detect keyboard state to hide bottom navigation bar and prevent double padding
+    // Check both current context and root navigator context (for sheets with useRootNavigator: true)
+    final keyboardHeight = MediaQuery.viewInsetsOf(context).bottom;
+    final rootNavigator = Navigator.of(context, rootNavigator: true);
+    final rootKeyboardHeight = rootNavigator.context != context
+        ? MediaQuery.viewInsetsOf(rootNavigator.context).bottom
+        : 0.0;
+    final isKeyboardOpen = keyboardHeight > 0 || rootKeyboardHeight > 0;
+
     // WHY: Listen for sync status changes to show toast notifications
     // Data providers are now reactive to sync completion via lastSyncEpochStreamProvider
     ref.listen(syncControllerProvider, (previous, next) {
@@ -73,26 +71,26 @@ class MainScreen extends HookConsumerWidget {
           previous?.phase != SyncPhase.success) {
         // Show success toast notification
         if (context.mounted) {
-          showFToast(
-            context: context,
-            title: const Text(Strings.updateCompleted),
-            description: Text(
-              presenter.successDescription ?? Strings.bdpmUpToDate,
+          ShadToaster.of(context).show(
+            ShadToast(
+              title: const Text(Strings.updateCompleted),
+              description: Text(
+                presenter.successDescription ?? Strings.bdpmUpToDate,
+              ),
             ),
-            icon: const Icon(FIcons.check),
           );
         }
       } else if (next.phase == SyncPhase.error &&
           previous?.phase != SyncPhase.error) {
         // Show error toast notification only on transition to error
         if (context.mounted) {
-          showFToast(
-            context: context,
-            title: const Text(Strings.syncFailed),
-            description: Text(
-              presenter.errorDescription ?? Strings.syncFailedMessage,
+          ShadToaster.of(context).show(
+            ShadToast.destructive(
+              title: const Text(Strings.syncFailed),
+              description: Text(
+                presenter.errorDescription ?? Strings.syncFailedMessage,
+              ),
             ),
-            icon: const Icon(FIcons.triangleAlert),
           );
         }
       }
@@ -118,7 +116,7 @@ class MainScreen extends HookConsumerWidget {
     UnifiedActivityBanner? activityBanner;
     if (isInitializationErrored) {
       activityBanner = UnifiedActivityBanner(
-        icon: FIcons.triangleAlert,
+        icon: LucideIcons.triangleAlert,
         title: Strings.dataOperationsTitle,
         status: Strings.initializationError,
         secondaryStatus:
@@ -148,22 +146,22 @@ class MainScreen extends HookConsumerWidget {
         InitializationStep.downloading => (
           Strings.initializationDownloading,
           Strings.initializationDownloadingDescription,
-          FIcons.download,
+          LucideIcons.download,
         ),
         InitializationStep.parsing => (
           Strings.initializationParsing,
           Strings.initializationParsingDescription,
-          FIcons.fileDigit,
+          LucideIcons.fileDigit,
         ),
         InitializationStep.aggregating => (
           Strings.initializationAggregatingTitle,
           Strings.initializationAggregatingDescription,
-          FIcons.database,
+          LucideIcons.database,
         ),
         _ => (
           Strings.initializationInProgress,
           Strings.initializationDescription,
-          FIcons.loader,
+          LucideIcons.loader,
         ),
       };
       activityBanner = UnifiedActivityBanner(
@@ -183,24 +181,22 @@ class MainScreen extends HookConsumerWidget {
       IconData icon;
       String status;
       String? description;
-      bool indeterminate = true;
+      var indeterminate = true;
       double? progressValue;
       Duration? eta;
       var isError = false;
 
       switch (syncProgress.phase) {
         case SyncPhase.waitingNetwork:
-          icon = FIcons.wifiOff;
+          icon = LucideIcons.wifiOff;
           status = Strings.dataOperationsWaitingNetwork;
           description = Strings.syncWaitingNetwork;
-          break;
         case SyncPhase.checking:
-          icon = FIcons.search;
+          icon = LucideIcons.search;
           status = Strings.dataOperationsCheckingUpdates;
           description = Strings.syncCheckingUpdates;
-          break;
         case SyncPhase.downloading:
-          icon = FIcons.download;
+          icon = LucideIcons.download;
           status = Strings.syncBannerDownloadingTitle;
           description = Strings.syncDownloadingSource(
             syncProgress.subject ?? Strings.data,
@@ -208,30 +204,25 @@ class MainScreen extends HookConsumerWidget {
           indeterminate = false;
           progressValue = syncProgress.progress;
           eta = syncProgress.estimatedRemaining;
-          break;
         case SyncPhase.applying:
-          icon = FIcons.databaseZap;
+          icon = LucideIcons.databaseZap;
           status = Strings.syncBannerApplyingTitle;
           description = Strings.syncApplyingUpdate;
-          break;
         case SyncPhase.success:
-          icon = FIcons.circleCheck;
+          icon = LucideIcons.circleCheck;
           status = Strings.syncBannerSuccessTitle;
           description =
               presenter.successDescription ?? Strings.syncDatabaseUpdated;
           indeterminate = false;
           progressValue = 1;
-          break;
         case SyncPhase.error:
-          icon = FIcons.triangleAlert;
+          icon = LucideIcons.triangleAlert;
           status = Strings.syncBannerErrorTitle;
           description = presenter.errorDescription ?? Strings.syncFailedMessage;
           isError = true;
-          break;
         case SyncPhase.idle:
-          icon = FIcons.loader;
+          icon = LucideIcons.loader;
           status = Strings.dataOperationsIdle;
-          break;
       }
 
       activityBanner = UnifiedActivityBanner(
@@ -251,58 +242,80 @@ class MainScreen extends HookConsumerWidget {
       );
     }
 
-    return PopScope(
-      canPop: navigationShell.currentIndex == 0,
-      onPopInvokedWithResult: (didPop, _) {
-        if (didPop) return;
-        if (navigationShell.currentIndex != 0) {
-          onTabChanged(0);
-        }
+    return AutoTabsRouter(
+      routes: const [ScannerRoute(), ExplorerTabRoute()],
+      builder: (BuildContext context, Widget child) {
+        final tabsRouter = AutoTabsRouter.of(context);
+        return PopScope<Object>(
+          canPop: tabsRouter.activeIndex == 0,
+          onPopInvokedWithResult: (didPop, _) {
+            if (didPop) return;
+            if (tabsRouter.activeIndex != 0) {
+              tabsRouter.setActiveIndex(0);
+            }
+          },
+          child: Scaffold(
+            resizeToAvoidBottomInset: true,
+            appBar: AppBar(
+              title: Text(
+                titles[tabsRouter.activeIndex],
+                style: ShadTheme.of(context).textTheme.h4,
+              ),
+              elevation: 0,
+              backgroundColor: ShadTheme.of(context).colorScheme.background,
+              foregroundColor: ShadTheme.of(context).colorScheme.foreground,
+              actions: [
+                Testable(
+                  id: TestTags.navSettings,
+                  child: ShadIconButton.ghost(
+                    icon: const Icon(LucideIcons.settings),
+                    onPressed: () => context.router.push(const SettingsRoute()),
+                  ),
+                ),
+              ],
+            ),
+            bottomNavigationBar: isKeyboardOpen
+                ? null
+                : NavigationBar(
+                    selectedIndex: tabsRouter.activeIndex,
+                    onDestinationSelected: tabsRouter.setActiveIndex,
+                    backgroundColor: ShadTheme.of(
+                      context,
+                    ).colorScheme.background,
+                    indicatorColor: ShadTheme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.1),
+                    labelBehavior:
+                        NavigationDestinationLabelBehavior.alwaysShow,
+                    destinations: [
+                      NavigationDestination(
+                        icon: const Icon(LucideIcons.scan),
+                        selectedIcon: Icon(
+                          LucideIcons.scan,
+                          color: ShadTheme.of(context).colorScheme.primary,
+                        ),
+                        label: Strings.scanner,
+                      ),
+                      NavigationDestination(
+                        icon: const Icon(LucideIcons.database),
+                        selectedIcon: Icon(
+                          LucideIcons.database,
+                          color: ShadTheme.of(context).colorScheme.primary,
+                        ),
+                        label: Strings.explorer,
+                      ),
+                    ],
+                  ),
+            body: Column(
+              children: [
+                if (activityBanner != null)
+                  activityBanner.animate(effects: AppAnimations.bannerEnter),
+                Expanded(child: child),
+              ],
+            ),
+          ),
+        );
       },
-      child: FScaffold(
-        header: FHeader(
-          title: Text(titles[navigationShell.currentIndex]),
-          suffixes: [
-            Testable(
-              id: TestTags.navSettings,
-              child: FHeaderAction(
-                icon: const Icon(FIcons.settings),
-                onPress: () => const SettingsRoute().push<void>(context),
-              ),
-            ),
-          ],
-        ),
-        footer: FBottomNavigationBar(
-          index: navigationShell.currentIndex,
-          onChange: onTabChanged,
-          children: [
-            Testable(
-              id: TestTags.navScanner,
-              child: const FBottomNavigationBarItem(
-                icon: Icon(FIcons.scan),
-                label: Text(Strings.scanner),
-              ),
-            ),
-            Testable(
-              id: TestTags.navExplorer,
-              child: const FBottomNavigationBarItem(
-                icon: Icon(FIcons.database),
-                label: Text(Strings.explorer),
-              ),
-            ),
-          ],
-        ),
-        child: Column(
-          children: [
-            if (activityBanner != null)
-              activityBanner.animate(effects: AppAnimations.bannerEnter),
-            Expanded(
-              // The navigationShell acts as the body. It contains the IndexedStack internally.
-              child: navigationShell,
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

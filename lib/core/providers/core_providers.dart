@@ -1,7 +1,7 @@
-import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/database/daos/library_dao.dart';
 import 'package:pharma_scan/core/database/daos/scan_dao.dart';
 import 'package:pharma_scan/core/database/daos/search_dao.dart';
+import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
 import 'package:pharma_scan/core/services/file_download_service.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';

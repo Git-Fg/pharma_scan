@@ -400,7 +400,12 @@ SELECT
     WHEN COALESCE(nc.normalized_condition, '') LIKE '%RESERVEE AUX SPECIALISTES%' THEN 0
     WHEN COALESCE(nc.normalized_condition, '') LIKE '%RÉSERVÉE AUX SPÉCIALISTES%' THEN 0
     ELSE 1
-  END AS is_otc
+  END AS is_otc,
+  (
+    SELECT MIN(m5.code_cip)
+    FROM medicaments m5
+    WHERE m5.cis_code = s.cis_code
+  ) AS representative_cip
 FROM specialites s
 INNER JOIN medicaments m ON s.cis_code = m.cis_code
 LEFT JOIN dosage_values dv ON dv.cis_code = s.cis_code

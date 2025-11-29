@@ -59,7 +59,6 @@ class DataFactory {
   }) {
     return {
       'code_cip': cip,
-      'nom': name, // WHY: Kept for tests even if DB schema no longer uses it.
       'cis_code': cisCode,
     };
   }
@@ -67,9 +66,8 @@ class DataFactory {
   /// Builds the minimal coherent set of rows for a generic group in the
   /// staging tables, ready to be passed to `insertBatchData`.
   static GroupBatchData createGroup({
-    String groupId = _defaultGroupId,
+    required List<GroupMemberDefinition> members, String groupId = _defaultGroupId,
     String libelle = 'TEST GROUP',
-    required List<GroupMemberDefinition> members,
   }) {
     final specialites = <Map<String, dynamic>>[];
     final medicaments = <Map<String, dynamic>>[];
@@ -165,10 +163,9 @@ class DataFactory {
   /// Convenience factory for a group containing only princeps entries with
   /// different dosages (used by dosage-bucketing tests).
   static GroupBatchData createPrincepsOnlyGroup({
-    String groupId = _defaultGroupId,
-    String molecule = 'ACTIVE_PRINCIPLE',
     required List<({String cip, String cis, String name, String dosage})>
-    princepsDefinitions,
+    princepsDefinitions, String groupId = _defaultGroupId,
+    String molecule = 'ACTIVE_PRINCIPLE',
   }) {
     final members = princepsDefinitions
         .map(

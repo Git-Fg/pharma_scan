@@ -2,8 +2,8 @@
 
 import 'package:drift/drift.dart';
 import 'package:pharma_scan/core/database/database.dart';
-import 'package:pharma_scan/core/services/logger_service.dart';
 import 'package:pharma_scan/core/logic/sanitizer.dart';
+import 'package:pharma_scan/core/services/logger_service.dart';
 import 'package:pharma_scan/features/explorer/models/generic_group_entity.dart';
 
 part 'library_dao.g.dart';
@@ -111,7 +111,7 @@ class LibraryDao extends DatabaseAccessor<AppDatabase> with _$LibraryDaoMixin {
     final countPrinceps = countMeds - countGens;
 
     // WHY: Calculate average generics per principle for statistical insight.
-    double ratioGenPerPrincipe = 0.0;
+    var ratioGenPerPrincipe = 0.0;
     if (countPrincipes > 0) {
       ratioGenPerPrincipe = countGens / countPrincipes;
     }
@@ -143,7 +143,7 @@ class LibraryDao extends DatabaseAccessor<AppDatabase> with _$LibraryDaoMixin {
 
     // Base filter: group_id must not be null (standalone medications excluded)
     // Also exclude empty groups (NULL, empty string, or '[]' JSON array)
-    Expression<bool> filterExpression =
+    var filterExpression =
         tbl.groupId.isNotNull() &
         tbl.principesActifsCommuns.isNotNull() &
         tbl.principesActifsCommuns.isNotValue('[]') &

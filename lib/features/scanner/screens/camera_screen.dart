@@ -1,34 +1,35 @@
 // lib/features/scanner/screens/camera_screen.dart
 import 'dart:async';
 import 'dart:ui';
+
+import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:gap/gap.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart' hide ScanWindowOverlay;
-import 'package:forui/forui.dart';
-import 'package:pharma_scan/core/router/routes.dart';
+import 'package:pharma_scan/core/config/app_config.dart';
+import 'package:pharma_scan/core/router/app_router.dart';
+import 'package:pharma_scan/core/services/data_initialization_service.dart';
+import 'package:pharma_scan/core/services/logger_service.dart';
+import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/utils/adaptive_overlay.dart';
-import 'package:pharma_scan/core/widgets/ui_kit/pharma_sheet_layout.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:pharma_scan/core/utils/app_animations.dart';
+import 'package:pharma_scan/core/utils/hooks/use_mobile_scanner.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/utils/test_tags.dart';
+import 'package:pharma_scan/core/widgets/adaptive_bottom_panel.dart';
 import 'package:pharma_scan/core/widgets/testable.dart';
-import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:pharma_scan/core/services/logger_service.dart';
+import 'package:pharma_scan/core/widgets/ui_kit/pharma_sheet_layout.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/product_card.dart';
+import 'package:pharma_scan/core/widgets/ui_kit/status_view.dart';
+import 'package:pharma_scan/features/home/providers/initialization_provider.dart';
 import 'package:pharma_scan/features/scanner/providers/scanner_provider.dart';
 import 'package:pharma_scan/features/scanner/widgets/scan_window_overlay.dart';
-import 'package:gap/gap.dart';
-import 'package:pharma_scan/core/widgets/adaptive_bottom_panel.dart';
-import 'package:pharma_scan/core/widgets/ui_kit/status_view.dart';
-import 'package:pharma_scan/core/config/app_config.dart';
-import 'package:pharma_scan/core/theme/app_dimens.dart';
-import 'package:pharma_scan/features/home/providers/initialization_provider.dart';
-import 'package:pharma_scan/core/services/data_initialization_service.dart';
-import 'package:pharma_scan/core/utils/hooks/use_mobile_scanner.dart';
+import 'package:shadcn_ui/shadcn_ui.dart';
 
+@RoutePage(name: 'ScannerRoute')
 class CameraScreen extends HookConsumerWidget {
   const CameraScreen({super.key});
 
@@ -40,7 +41,7 @@ class CameraScreen extends HookConsumerWidget {
     final picker = useMemoized(ImagePicker.new);
 
     Future<void> openManualEntrySheet() async {
-      await showAdaptiveOverlay<void>(
+      await showAdaptiveSheet<void>(
         context: context,
         builder: (sheetContext) => _ManualCipSheet(
           onSubmit: (codeCip) =>
@@ -50,7 +51,7 @@ class CameraScreen extends HookConsumerWidget {
     }
 
     Future<void> openGallerySheet() async {
-      final action = await showAdaptiveOverlay<_GallerySheetResult>(
+      final action = await showAdaptiveSheet<_GallerySheetResult>(
         context: context,
         builder: (sheetContext) => const _GallerySheet(),
       );
@@ -93,7 +94,6 @@ class CameraScreen extends HookConsumerWidget {
         ),
         child: Dismissible(
           key: ValueKey(bubble.cip),
-          direction: DismissDirection.horizontal,
           onDismissed: (_) =>
               ref.read(scannerProvider.notifier).removeBubble(bubble.cip),
           child: _buildBubbleContent(context, ref, bubble),
@@ -106,10 +106,11 @@ class CameraScreen extends HookConsumerWidget {
     final isInitializing =
         initStep != null && initStep != InitializationStep.ready;
 
-    return FScaffold(
-      childPad: false, // Disable default padding for full-screen camera
+    return Scaffold(
+      resizeToAvoidBottomInset:
+          false, // Prevent double padding when manual CIP sheet keyboard opens
       // WHY: Use SafeArea to ensure camera controls don't overlap with navigation bar
-      child: SafeArea(
+      body: SafeArea(
         top: false, // Don't add top padding - let parent Scaffold handle it
         bottom:
             false, // Don't add bottom padding - let parent Scaffold handle it
@@ -126,20 +127,22 @@ class CameraScreen extends HookConsumerWidget {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
-                          FIcons.videoOff,
+                          LucideIcons.videoOff,
                           size: 64,
-                          color: context.theme.colors.destructive,
+                          color: ShadTheme.of(context).colorScheme.destructive,
                         ),
                         const Gap(AppDimens.spacingMd),
                         Text(
                           Strings.cameraUnavailable,
-                          style: context.theme.typography.xl2,
+                          style: ShadTheme.of(context).textTheme.h4,
                         ),
                         const Gap(AppDimens.spacingXs),
                         Text(
                           Strings.checkPermissionsMessage,
-                          style: context.theme.typography.sm.copyWith(
-                            color: context.theme.colors.mutedForeground,
+                          style: ShadTheme.of(context).textTheme.small.copyWith(
+                            color: ShadTheme.of(
+                              context,
+                            ).colorScheme.mutedForeground,
                           ),
                         ),
                       ],
@@ -151,7 +154,7 @@ class CameraScreen extends HookConsumerWidget {
               const Center(
                 child: StatusView(
                   type: StatusType.loading,
-                  icon: FIcons.loader,
+                  icon: LucideIcons.loader,
                   title: Strings.initializationInProgress,
                   description: Strings.initializationDescription,
                 ),
@@ -162,15 +165,17 @@ class CameraScreen extends HookConsumerWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
-                      FIcons.scan,
+                      LucideIcons.scan,
                       size: 80,
-                      color: context.theme.colors.muted,
+                      color: ShadTheme.of(context).colorScheme.muted,
                     ),
                     const Gap(AppDimens.spacingXl),
                     Text(
                       Strings.readyToScan,
-                      style: context.theme.typography.xl2.copyWith(
-                        color: context.theme.colors.mutedForeground,
+                      style: ShadTheme.of(context).textTheme.h4.copyWith(
+                        color: ShadTheme.of(
+                          context,
+                        ).colorScheme.mutedForeground,
                       ),
                     ),
                   ],
@@ -197,28 +202,29 @@ class CameraScreen extends HookConsumerWidget {
                           filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
                           child: DecoratedBox(
                             decoration: BoxDecoration(
-                              color: context.theme.colors.background.withValues(
-                                alpha: 0.85,
-                              ),
+                              color: ShadTheme.of(
+                                context,
+                              ).colorScheme.background.withValues(alpha: 0.85),
                               border: Border.all(
-                                color: context.theme.colors.border.withValues(
-                                  alpha: 0.3,
-                                ),
+                                color: ShadTheme.of(
+                                  context,
+                                ).colorScheme.border.withValues(alpha: 0.3),
                               ),
                               borderRadius: BorderRadius.circular(
                                 AppDimens.radiusLg,
                               ),
                             ),
-                            child: FButton.icon(
-                              style: FButtonStyle.ghost(),
-                              onPress: toggleTorch,
-                              child: Icon(
-                                FIcons.zap,
+                            child: ShadIconButton.ghost(
+                              icon: Icon(
+                                LucideIcons.zap,
                                 size: AppDimens.iconLg,
                                 color: torchState
-                                    ? context.theme.colors.primary
-                                    : context.theme.colors.foreground,
+                                    ? ShadTheme.of(context).colorScheme.primary
+                                    : ShadTheme.of(
+                                        context,
+                                      ).colorScheme.foreground,
                               ),
+                              onPressed: toggleTorch,
                             ),
                           ),
                         ),
@@ -286,15 +292,18 @@ class CameraScreen extends HookConsumerWidget {
                                   AppDimens.spacingLg * 0.85,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: context.theme.colors.secondary
+                                  color: ShadTheme.of(context)
+                                      .colorScheme
+                                      .secondary
                                       .withValues(
                                         alpha: isCameraActive.value
                                             ? 0.2
                                             : 0.92,
                                       ),
                                   border: Border.all(
-                                    color: context.theme.colors.border
-                                        .withValues(alpha: 0.5),
+                                    color: ShadTheme.of(
+                                      context,
+                                    ).colorScheme.border.withValues(alpha: 0.5),
                                   ),
                                 ),
                                 child: Column(
@@ -324,11 +333,12 @@ class CameraScreen extends HookConsumerWidget {
                                                 shape: BoxShape.circle,
                                                 gradient: LinearGradient(
                                                   colors: [
-                                                    context
-                                                        .theme
-                                                        .colors
-                                                        .primary,
-                                                    context.theme.colors.primary
+                                                    ShadTheme.of(
+                                                      context,
+                                                    ).colorScheme.primary,
+                                                    ShadTheme.of(context)
+                                                        .colorScheme
+                                                        .primary
                                                         .withValues(
                                                           alpha: 0.85,
                                                         ),
@@ -336,9 +346,8 @@ class CameraScreen extends HookConsumerWidget {
                                                 ),
                                                 boxShadow: [
                                                   BoxShadow(
-                                                    color: context
-                                                        .theme
-                                                        .colors
+                                                    color: ShadTheme.of(context)
+                                                        .colorScheme
                                                         .primary
                                                         .withValues(
                                                           alpha: 0.35,
@@ -351,12 +360,11 @@ class CameraScreen extends HookConsumerWidget {
                                               child: Center(
                                                 child: Icon(
                                                   isCameraActive.value
-                                                      ? FIcons.cameraOff
-                                                      : FIcons.scanLine,
+                                                      ? LucideIcons.cameraOff
+                                                      : LucideIcons.scanLine,
                                                   size: AppDimens.iconXl * 0.85,
-                                                  color: context
-                                                      .theme
-                                                      .colors
+                                                  color: ShadTheme.of(context)
+                                                      .colorScheme
                                                       .primaryForeground,
                                                 ),
                                               ),
@@ -388,16 +396,15 @@ class CameraScreen extends HookConsumerWidget {
                                               button: true,
                                               label: Strings
                                                   .importBarcodeFromGallery,
-                                              child: FButton(
-                                                onPress: isInitializing
+                                              child: ShadButton(
+                                                onPressed: isInitializing
                                                     ? null
                                                     : openGallerySheet,
-                                                prefix: Icon(
-                                                  FIcons.image,
+                                                leading: Icon(
+                                                  LucideIcons.image,
                                                   size: iconSize,
-                                                  color: context
-                                                      .theme
-                                                      .colors
+                                                  color: ShadTheme.of(context)
+                                                      .colorScheme
                                                       .primaryForeground,
                                                 ),
                                                 child: Text(
@@ -406,10 +413,9 @@ class CameraScreen extends HookConsumerWidget {
                                                       TextOverflow.ellipsis,
                                                   maxLines: 1,
                                                   style: isSmallScreen
-                                                      ? context
-                                                            .theme
-                                                            .typography
-                                                            .xs
+                                                      ? ShadTheme.of(
+                                                          context,
+                                                        ).textTheme.small
                                                       : null,
                                                 ),
                                               ),
@@ -429,16 +435,15 @@ class CameraScreen extends HookConsumerWidget {
                                               button: true,
                                               label:
                                                   Strings.manuallyEnterCipCode,
-                                              child: FButton(
-                                                onPress: isInitializing
+                                              child: ShadButton(
+                                                onPressed: isInitializing
                                                     ? null
                                                     : openManualEntrySheet,
-                                                prefix: Icon(
-                                                  FIcons.keyboard,
+                                                leading: Icon(
+                                                  LucideIcons.keyboard,
                                                   size: iconSize,
-                                                  color: context
-                                                      .theme
-                                                      .colors
+                                                  color: ShadTheme.of(context)
+                                                      .colorScheme
                                                       .primaryForeground,
                                                 ),
                                                 child: Text(
@@ -447,10 +452,9 @@ class CameraScreen extends HookConsumerWidget {
                                                       TextOverflow.ellipsis,
                                                   maxLines: 1,
                                                   style: isSmallScreen
-                                                      ? context
-                                                            .theme
-                                                            .typography
-                                                            .xs
+                                                      ? ShadTheme.of(
+                                                          context,
+                                                        ).textTheme.small
                                                       : null,
                                                 ),
                                               ),
@@ -519,7 +523,7 @@ Future<void> _pickAndScanImage(
   }
 
   try {
-    final XFile? file = await picker.pickImage(source: ImageSource.gallery);
+    final file = await picker.pickImage(source: ImageSource.gallery);
     LoggerService.info(
       '[CameraScreen] Image picker result: '
       '${file != null ? "File selected: ${file.path}" : "No file selected"}',
@@ -544,7 +548,7 @@ Future<void> _pickAndScanImage(
         '[CameraScreen] Analyzing image at path: ${file.path}',
       );
 
-      final BarcodeCapture? capture = await scannerController.analyzeImage(
+      final capture = await scannerController.analyzeImage(
         file.path,
       );
 
@@ -562,11 +566,11 @@ Future<void> _pickAndScanImage(
       } else {
         LoggerService.warning('[CameraScreen] No barcodes detected in image');
         if (context.mounted) {
-          showFToast(
-            context: context,
-            title: const Text(Strings.noBarcodeDetected),
-            description: const Text(Strings.imageContainsNoValidBarcode),
-            icon: const Icon(FIcons.triangleAlert),
+          ShadToaster.of(context).show(
+            const ShadToast.destructive(
+              title: Text(Strings.noBarcodeDetected),
+              description: Text(Strings.imageContainsNoValidBarcode),
+            ),
           );
         }
       }
@@ -577,11 +581,13 @@ Future<void> _pickAndScanImage(
         stackTrace,
       );
       if (context.mounted) {
-        showFToast(
-          context: context,
-          title: const Text(Strings.analysisError),
-          description: Text('${Strings.unableToAnalyzeImage} ${e.toString()}'),
-          icon: const Icon(FIcons.triangleAlert),
+        ShadToaster.of(context).show(
+          ShadToast.destructive(
+            title: const Text(Strings.analysisError),
+            description: Text(
+              '${Strings.unableToAnalyzeImage} $e',
+            ),
+          ),
         );
       }
     }
@@ -592,11 +598,11 @@ Future<void> _pickAndScanImage(
       stackTrace,
     );
     if (context.mounted) {
-      showFToast(
-        context: context,
-        title: const Text(Strings.error),
-        description: Text('${Strings.unableToSelectImage} ${e.toString()}'),
-        icon: const Icon(FIcons.triangleAlert),
+      ShadToaster.of(context).show(
+        ShadToast.destructive(
+          title: const Text(Strings.error),
+          description: Text('${Strings.unableToSelectImage} $e'),
+        ),
       );
     }
   }
@@ -614,46 +620,40 @@ Widget _buildBubbleContent(
   if (summary.groupId != null) {
     if (summary.isPrinceps) {
       badges.add(
-        FTooltip(
-          hover: true,
-          longPress: true,
-          tipBuilder: (context, controller) =>
+        ShadTooltip(
+          builder: (BuildContext tooltipContext) =>
               const Text(Strings.badgePrincepsTooltip),
-          child: FBadge(
-            style: FBadgeStyle.secondary(),
+          child: ShadBadge.secondary(
             child: Text(
               Strings.badgePrinceps,
-              style: context.theme.typography.xs,
+              style: ShadTheme.of(context).textTheme.small,
             ),
           ),
         ),
       );
     } else {
       badges.add(
-        FTooltip(
-          hover: true,
-          longPress: true,
-          tipBuilder: (context, controller) =>
+        ShadTooltip(
+          builder: (BuildContext tooltipContext) =>
               const Text(Strings.badgeGenericTooltip),
-          child: FBadge(
-            style: FBadgeStyle.primary(),
-            child: Text(Strings.generic, style: context.theme.typography.xs),
+          child: ShadBadge(
+            child: Text(
+              Strings.generic,
+              style: ShadTheme.of(context).textTheme.small,
+            ),
           ),
         ),
       );
     }
   } else {
     badges.add(
-      FTooltip(
-        hover: true,
-        longPress: true,
-        tipBuilder: (context, controller) =>
+      ShadTooltip(
+        builder: (BuildContext tooltipContext) =>
             const Text(Strings.badgeStandaloneTooltip),
-        child: FBadge(
-          style: FBadgeStyle.primary(),
+        child: ShadBadge(
           child: Text(
             Strings.uniqueMedicationBadge,
-            style: context.theme.typography.xs,
+            style: ShadTheme.of(context).textTheme.small,
           ),
         ),
       ),
@@ -664,11 +664,10 @@ Widget _buildBubbleContent(
   if (summary.conditionsPrescription != null &&
       summary.conditionsPrescription!.isNotEmpty) {
     badges.add(
-      FBadge(
-        style: FBadgeStyle.outline(),
+      ShadBadge.outline(
         child: Text(
           summary.conditionsPrescription!,
-          style: context.theme.typography.xs,
+          style: ShadTheme.of(context).textTheme.small,
         ),
       ),
     );
@@ -714,7 +713,8 @@ Widget _buildBubbleContent(
     animation: true,
     onClose: () => ref.read(scannerProvider.notifier).removeBubble(bubble.cip),
     onExplore: summary.groupId != null
-        ? () => GroupDetailRoute(groupId: summary.groupId!).go(context)
+        ? () =>
+              context.router.push(GroupExplorerRoute(groupId: summary.groupId!))
         : null,
     price: bubble.price,
     refundRate: bubble.refundRate,
@@ -740,7 +740,9 @@ class _GallerySheet extends StatelessWidget {
         filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: context.theme.colors.secondary.withValues(alpha: 0.6),
+            color: ShadTheme.of(
+              context,
+            ).colorScheme.secondary.withValues(alpha: 0.6),
             borderRadius: const BorderRadius.vertical(
               top: Radius.circular(AppDimens.radiusLg),
             ),
@@ -757,15 +759,15 @@ class _GallerySheet extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Icon(
-                      FIcons.shieldCheck,
-                      color: context.theme.colors.primary,
+                      LucideIcons.shieldCheck,
+                      color: ShadTheme.of(context).colorScheme.primary,
                       size: 20,
                     ),
                     const Gap(12),
                     Expanded(
                       child: Text(
                         Strings.noPhotoStoredMessage,
-                        style: context.theme.typography.sm,
+                        style: ShadTheme.of(context).textTheme.small,
                       ),
                     ),
                   ],
@@ -774,8 +776,8 @@ class _GallerySheet extends StatelessWidget {
                 Semantics(
                   button: true,
                   label: Strings.choosePhotoFromGallery,
-                  child: FButton(
-                    onPress: () =>
+                  child: ShadButton(
+                    onPressed: () =>
                         Navigator.of(context).pop(_GallerySheetResult.pick),
                     child: const Text(Strings.choosePhoto),
                   ),
@@ -784,9 +786,8 @@ class _GallerySheet extends StatelessWidget {
                 Semantics(
                   button: true,
                   label: Strings.cancelPhotoSelection,
-                  child: FButton(
-                    style: FButtonStyle.outline(),
-                    onPress: () => Navigator.of(context).maybePop(),
+                  child: ShadButton.outline(
+                    onPressed: () => Navigator.of(context).maybePop(),
                     child: const Text(Strings.cancel),
                   ),
                 ),
@@ -807,24 +808,15 @@ class _ManualCipSheet extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isSubmitting = useState(false);
-    final formKey = useMemoized(GlobalKey<FormState>.new);
-    final cipController = useTextEditingController();
-    final focusNode = useFocusNode();
-
-    // WHY: Request focus on the form field after the first frame
-    useEffect(() {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        focusNode.requestFocus();
-      });
-      return null;
-    }, []);
+    final formKey = useMemoized(GlobalKey<ShadFormState>.new);
 
     Future<void> submit() async {
       if (isSubmitting.value) return;
 
-      // WHY: Validate and save form data
-      if (formKey.currentState!.validate()) {
-        final code = cipController.text;
+      // WHY: Use ShadForm's saveAndValidate() to handle validation and value retrieval
+      if (formKey.currentState!.saveAndValidate()) {
+        final data = formKey.currentState!.value;
+        final code = data['cip'] as String? ?? '';
 
         isSubmitting.value = true;
 
@@ -835,11 +827,11 @@ class _ManualCipSheet extends HookConsumerWidget {
 
         if (!success) {
           // WHY: Show toast notification when medicament is not found.
-          showFToast(
-            context: context,
-            title: const Text(Strings.medicamentNotFound),
-            description: Text('${Strings.noMedicamentFoundForCipCode} $code'),
-            icon: const Icon(FIcons.triangleAlert),
+          ShadToaster.of(context).show(
+            ShadToast.destructive(
+              title: const Text(Strings.medicamentNotFound),
+              description: Text('${Strings.noMedicamentFoundForCipCode} $code'),
+            ),
           );
         } else if (context.mounted) {
           unawaited(Navigator.of(context).maybePop());
@@ -847,91 +839,135 @@ class _ManualCipSheet extends HookConsumerWidget {
       }
     }
 
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 480),
-      child: ClipRRect(
-        borderRadius: const BorderRadius.vertical(
-          top: Radius.circular(AppDimens.radiusLg),
-        ),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: context.theme.colors.secondary.withValues(alpha: 0.6),
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(AppDimens.radiusLg),
-              ),
+    // WHY: Simplified structure - let Shadcn handle constraints and scrolling
+    // Remove hardcoded maxWidth and LayoutBuilder anti-patterns
+    // Use SafeArea with minimum inset for declarative keyboard handling per shadcn-design.mdc
+
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(
+        top: Radius.circular(AppDimens.radiusLg),
+      ),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            // Slightly translucent to show blur
+            color: ShadTheme.of(
+              context,
+            ).colorScheme.secondary.withValues(alpha: 0.92),
+            borderRadius: const BorderRadius.vertical(
+              top: Radius.circular(AppDimens.radiusLg),
             ),
-            child: PharmaSheetLayout(
-              title: Strings.manualCipEntry,
-              description: Strings.manualCipDescription,
-              onClose: () => Navigator.of(context).maybePop(),
-              child: FocusTraversalGroup(
-                child: Form(
-                  key: formKey,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Semantics(
-                        textField: true,
-                        label: Strings.manualEntryFieldLabel,
-                        hint: Strings.manualEntryFieldHint,
-                        child: FTextFormField(
-                          controller: cipController,
-                          focusNode: focusNode,
-                          label: const Text(Strings.cipCodeLabel),
-                          hint: Strings.cipPlaceholder,
-                          keyboardType: TextInputType.number,
-                          inputFormatters: [
-                            FilteringTextInputFormatter.digitsOnly,
-                            LengthLimitingTextInputFormatter(
-                              AppConfig.cipLength,
+          ),
+          child: SafeArea(
+            // WHY: Use SafeArea with minimum inset for declarative keyboard handling
+            // This ensures the input field remains visible when keyboard is open
+            minimum: EdgeInsets.only(
+              bottom: MediaQuery.viewInsetsOf(context).bottom,
+            ),
+            child: SingleChildScrollView(
+              child: PharmaSheetLayout(
+                title: Strings.manualCipEntry,
+                description: Strings.manualCipDescription,
+                onClose: () => Navigator.of(context).maybePop(),
+                child: FocusTraversalGroup(
+                  child: ShadForm(
+                    key: formKey,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Semantics(
+                          textField: true,
+                          label: Strings.manualEntryFieldLabel,
+                          hint: Strings.manualEntryFieldHint,
+                          child: ShadInputOTPFormField(
+                            id: 'cip',
+                            maxLength: 13,
+                            label: const Text(Strings.cipCodeLabel),
+                            description: const Text(
+                              Strings.manualCipDescription,
                             ),
-                          ],
-                          validator: (String? v) {
-                            if (v == null || v.isEmpty) {
-                              return Strings.cipMustBe13Digits;
-                            }
-                            if (v.length != AppConfig.cipLength) {
-                              return Strings.cipMustBe13Digits;
-                            }
-                            return null;
-                          },
-                          onChange: (String value) {
-                            // WHY: Auto-submit when 13 digits are entered
-                            if (value.length == AppConfig.cipLength) {
-                              unawaited(submit());
-                            }
-                          },
-                          autofocus: true,
+                            keyboardType: TextInputType.number,
+                            validator: (String? v) {
+                              if (v == null || v.isEmpty) {
+                                return Strings.cipMustBe13Digits;
+                              }
+                              if (v.length < AppConfig.cipLength) {
+                                return Strings.cipMustBe13Digits;
+                              }
+                              return null;
+                            },
+                            onChanged: (String value) {
+                              // WHY: Auto-submit when CIP code is complete
+                              // Access current form value to check length
+                              if (value.length == AppConfig.cipLength) {
+                                // Trigger validation and submit if valid
+                                if (formKey.currentState!.saveAndValidate()) {
+                                  unawaited(submit());
+                                }
+                              }
+                            },
+                            children: const [
+                              ShadInputOTPGroup(
+                                children: [
+                                  ShadInputOTPSlot(),
+                                  ShadInputOTPSlot(),
+                                  ShadInputOTPSlot(),
+                                  ShadInputOTPSlot(),
+                                  ShadInputOTPSlot(),
+                                ],
+                              ),
+                              Icon(LucideIcons.minus, size: 16),
+                              ShadInputOTPGroup(
+                                children: [
+                                  ShadInputOTPSlot(),
+                                  ShadInputOTPSlot(),
+                                  ShadInputOTPSlot(),
+                                ],
+                              ),
+                              Icon(LucideIcons.minus, size: 16),
+                              ShadInputOTPGroup(
+                                children: [
+                                  ShadInputOTPSlot(),
+                                  ShadInputOTPSlot(),
+                                  ShadInputOTPSlot(),
+                                  ShadInputOTPSlot(),
+                                ],
+                              ),
+                              Icon(LucideIcons.minus, size: 16),
+                              ShadInputOTPGroup(children: [ShadInputOTPSlot()]),
+                            ],
+                          ),
                         ),
-                      ),
-                      const Gap(16),
-                      Text(
-                        Strings.searchStartsAutomatically,
-                        style: context.theme.typography.sm,
-                      ),
-                      const Gap(16),
-                      Semantics(
-                        button: true,
-                        label: isSubmitting.value
-                            ? Strings.searchingInProgress
-                            : Strings.searchMedicamentWithCip,
-                        enabled: !isSubmitting.value,
-                        child: FButton(
-                          onPress: isSubmitting.value ? null : submit,
-                          prefix: isSubmitting.value
-                              ? const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: FCircularProgress.loader(),
-                                )
-                              : null,
-                          child: const Text(Strings.search),
+                        const Gap(16),
+                        Text(
+                          Strings.searchStartsAutomatically,
+                          style: ShadTheme.of(context).textTheme.small,
                         ),
-                      ),
-                    ],
+                        const Gap(16),
+                        Semantics(
+                          button: true,
+                          label: isSubmitting.value
+                              ? Strings.searchingInProgress
+                              : Strings.searchMedicamentWithCip,
+                          enabled: !isSubmitting.value,
+                          child: ShadButton(
+                            onPressed: isSubmitting.value ? null : submit,
+                            leading: isSubmitting.value
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : null,
+                            child: const Text(Strings.search),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
