@@ -6,9 +6,9 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:pharma_scan/core/router/app_router.dart';
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
-import 'package:pharma_scan/features/explorer/models/generic_group_entity.dart';
-import 'package:pharma_scan/features/explorer/providers/database_stats_provider.dart';
-import 'package:pharma_scan/features/explorer/providers/generic_groups_provider.dart';
+import 'package:pharma_scan/features/explorer/domain/models/generic_group_entity.dart';
+import 'package:pharma_scan/features/explorer/presentation/providers/database_stats_provider.dart';
+import 'package:pharma_scan/features/explorer/presentation/providers/generic_groups_provider.dart';
 import 'package:pharma_scan/features/home/providers/initialization_provider.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
@@ -18,13 +18,14 @@ void main() {
   testWidgets('search bar stays visible when keyboard insets are applied', (
     tester,
   ) async {
-    final view = tester.view;
-    view.devicePixelRatio = 1.0;
-    view.physicalSize = const Size(390, 844);
+    final view = tester.view
+      ..devicePixelRatio = 1.0
+      ..physicalSize = const Size(390, 844);
     addTearDown(() {
-      view.resetPhysicalSize();
-      view.resetDevicePixelRatio();
-      view.resetViewInsets();
+      view
+        ..resetPhysicalSize()
+        ..resetDevicePixelRatio()
+        ..resetViewInsets();
     });
 
     final overrides = [

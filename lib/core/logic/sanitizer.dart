@@ -19,7 +19,7 @@ List<String> decodePrincipesFromJson(String? jsonString) {
           .toList();
     }
     return const <String>[];
-  } catch (_) {
+  } on Object catch (_) {
     return const <String>[];
   }
 }

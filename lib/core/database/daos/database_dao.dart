@@ -17,13 +17,10 @@ part 'database_dao.g.dart';
 )
 class DatabaseDao extends DatabaseAccessor<AppDatabase>
     with _$DatabaseDaoMixin {
-  DatabaseDao(super.db);
+  DatabaseDao(super.attachedDatabase);
 
-  // WHY: Provides access to the database for custom operations
-  // Used by DataInitializationService for aggregation logic
   AppDatabase get database => attachedDatabase;
 
-  // WHY: Provides a deterministic way to reset the persisted database before reloading BDPM data or starting an integration test run.
   Future<void> clearDatabase() async {
     await delete(medicamentSummary).go();
     await delete(groupMembers).go();
@@ -32,7 +29,6 @@ class DatabaseDao extends DatabaseAccessor<AppDatabase>
     await delete(medicaments).go();
     await delete(specialites).go();
 
-    // WHY: Clear settings metadata via SettingsDao
     final settingsDao = SettingsDao(attachedDatabase);
     await settingsDao.clearSourceMetadata();
     await settingsDao.resetSettingsMetadata();
@@ -71,7 +67,6 @@ class DatabaseDao extends DatabaseAccessor<AppDatabase>
         medicaments.map(
           (row) => MedicamentsCompanion(
             codeCip: Value(row['code_cip'] as String),
-            // WHY: Removed nom field - specialites table is the single source of truth for medication names.
             cisCode: Value(row['cis_code'] as String),
             presentationLabel: Value(row['presentation_label'] as String?),
             commercialisationStatut: Value(
@@ -119,18 +114,7 @@ class DatabaseDao extends DatabaseAccessor<AppDatabase>
     });
   }
 
-  // WHY: Populate medicament_summary table using SQL aggregation
-  // This replaces the complex Dart-based ETL logic with SQL queries
-  // that perform all aggregation directly in SQLite
-  // WHY: Split into two separate INSERT statements instead of UNION ALL
-  // This reduces query complexity and improves performance by executing
-  // grouped and standalone medications in separate, optimized queries
-  // WHY: Queries and views are defined in queries.drift and views.drift for compile-time validation
-  // of column names and types, preventing schema-related runtime errors
-  // WHY: Use transaction to ensure atomicity of DELETE + INSERT operations
   Future<int> populateSummaryTable() async {
-    // WHY: Execute all operations in a transaction to ensure atomicity
-    // If any operation fails, the entire transaction is rolled back
     await database.transaction(() async {
       // Step 1: Clear existing summaries
       await database.deleteMedicamentSummaries();
@@ -150,8 +134,6 @@ class DatabaseDao extends DatabaseAccessor<AppDatabase>
     return result;
   }
 
-  // WHY: Populate FTS5 search index directly via SQL helpers
-  // This keeps the index in sync with medicament_summary without Dart loops
   Future<void> populateFts5Index() async {
     await database.deleteSearchIndex();
     await database.insertSearchIndexFromSummary();

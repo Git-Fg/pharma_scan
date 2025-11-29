@@ -18,7 +18,7 @@ Future<bool> Function() connectivityCheck(Ref ref) {
         'example.com',
       ).timeout(const Duration(seconds: 3));
       return result.isNotEmpty && result.first.rawAddress.isNotEmpty;
-    } catch (_) {
+    } on Object catch (_) {
       return false;
     }
   };

@@ -1,5 +1,3 @@
-// WHY: Centralized operational constants (timeouts, limits, durations) to
-// share configuration across services and business logic without magic numbers.
 class AppConfig {
   AppConfig._();
 

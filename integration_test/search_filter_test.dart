@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-import 'package:pharma_scan/features/explorer/providers/search_provider.dart';
+import 'package:pharma_scan/features/explorer/presentation/providers/search_provider.dart';
 
 import 'test_bootstrap.dart';
 
@@ -25,8 +25,7 @@ void main() {
           container: container,
           child: Builder(
             builder: (context) {
-              final asyncValue = container.read(searchResultsProvider(''));
-              asyncValue.whenData((results) {
+              container.read(searchResultsProvider('')).whenData((results) {
                 expect(results, isEmpty);
               });
               return const SizedBox();
@@ -51,8 +50,7 @@ void main() {
           container: container,
           child: Builder(
             builder: (context) {
-              final asyncValue = container.read(searchResultsProvider('   '));
-              asyncValue.whenData((results) {
+              container.read(searchResultsProvider('   ')).whenData((results) {
                 expect(results, isEmpty);
               });
               return const SizedBox();

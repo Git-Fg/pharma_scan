@@ -45,12 +45,23 @@ class ThemeNotifier extends _$ThemeNotifier {
   @override
   Stream<ThemeMode> build() {
     final db = ref.watch(appDatabaseProvider);
-    return db.settingsDao.watchSettings().map((settings) {
-      return themeSettingFromStorage(settings.themeMode).asThemeMode;
+    return db.settingsDao.watchSettings().map((either) {
+      return either.fold(
+        ifLeft: (failure) => throw failure,
+        ifRight: (settings) =>
+            themeSettingFromStorage(settings.themeMode).asThemeMode,
+      );
     });
   }
 
   Future<void> setTheme(ThemeSetting setting) async {
-    await ref.read(appDatabaseProvider).settingsDao.updateTheme(setting.name);
+    final updateEither = await ref
+        .read(appDatabaseProvider)
+        .settingsDao
+        .updateTheme(setting.name);
+    updateEither.fold(
+      ifLeft: (failure) => throw failure,
+      ifRight: (_) {},
+    );
   }
 }

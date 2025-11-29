@@ -9,15 +9,23 @@ class AppPreferences extends _$AppPreferences {
   @override
   Stream<UpdateFrequency> build() {
     final db = ref.watch(appDatabaseProvider);
-    return db.settingsDao.watchSettings().map(
-      (settings) => UpdateFrequency.fromStorage(settings.updateFrequency),
-    );
+    return db.settingsDao.watchSettings().map((either) {
+      return either.fold(
+        ifLeft: (failure) => throw failure,
+        ifRight: (settings) =>
+            UpdateFrequency.fromStorage(settings.updateFrequency),
+      );
+    });
   }
 
   Future<void> setUpdateFrequency(UpdateFrequency newFrequency) async {
-    await ref
+    final updateEither = await ref
         .read(appDatabaseProvider)
         .settingsDao
         .updateSyncFrequency(newFrequency.storageValue);
+    updateEither.fold(
+      ifLeft: (failure) => throw failure,
+      ifRight: (_) {},
+    );
   }
 }

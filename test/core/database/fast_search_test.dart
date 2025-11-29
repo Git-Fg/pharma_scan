@@ -100,7 +100,12 @@ void main() {
       await dataInitializationService.runSummaryAggregationForTesting();
 
       final searchDao = database.searchDao;
-      final candidates = await searchDao.searchMedicaments('APIXABAN');
+      final candidatesEither = await searchDao.searchMedicaments('APIXABAN');
+      expect(candidatesEither.isRight, isTrue);
+      final candidates = candidatesEither.fold(
+        ifLeft: (_) => <MedicamentSummaryData>[],
+        ifRight: (v) => v,
+      );
 
       // Verify results contain expected medications
       expect(candidates, isNotEmpty);

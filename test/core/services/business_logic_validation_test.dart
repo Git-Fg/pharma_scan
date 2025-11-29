@@ -413,7 +413,12 @@ void main() {
       await dataInitializationService.runSummaryAggregationForTesting();
 
       final searchDao = database.searchDao;
-      final candidates = await searchDao.searchMedicaments('APIXABAN');
+      final candidatesEither = await searchDao.searchMedicaments('APIXABAN');
+      expect(candidatesEither.isRight, isTrue);
+      final candidates = candidatesEither.fold(
+        ifLeft: (_) => <MedicamentSummaryData>[],
+        ifRight: (v) => v,
+      );
 
       // THEN: All candidates should have clean nomCanonique (from group libelle)
       expect(candidates.length, 2);

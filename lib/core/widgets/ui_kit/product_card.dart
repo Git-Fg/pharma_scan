@@ -6,7 +6,6 @@ import 'package:pharma_scan/core/logic/sanitizer.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/info_label.dart';
-import 'package:pharma_scan/theme/pharma_colors.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 /// WHY: Universal ProductCard that handles all product display states.
@@ -14,7 +13,9 @@ import 'package:shadcn_ui/shadcn_ui.dart';
 /// "Trust the SQL" - displays Drift `MedicamentSummaryData` directly without transformation.
 class ProductCard extends StatelessWidget {
   const ProductCard({
-    required this.summary, required this.cip, super.key,
+    required this.summary,
+    required this.cip,
+    super.key,
     this.title,
     this.subtitle,
     this.badges = const [],
@@ -58,7 +59,6 @@ class ProductCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = ShadTheme.of(context);
     final displayTitle = title ?? getDisplayTitle(summary);
     final displaySubtitle = subtitle ?? _buildDefaultSubtitle();
     final availabilityAlert = _buildAvailabilityAlert(context);
@@ -74,131 +74,42 @@ class ProductCard extends StatelessWidget {
         ? _buildPrincepsReference(context)
         : null;
 
+    final cardPadding = compact ? AppDimens.spacing2xs : AppDimens.spacingMd;
+
     final card = ShadCard(
+      title: _buildTitleRow(context, displayTitle, computedBadges, statusIcons),
+      description: displaySubtitle.isNotEmpty
+          ? _buildDescription(context, displaySubtitle)
+          : null,
+      footer: showActions ? _buildActions(context) : null,
       child: Padding(
-        padding: EdgeInsets.all(
-          compact
-              ? AppDimens.spacing2xs
-              : AppDimens.spacingMd, // Reduced from spacingSm to spacing2xs
-        ),
+        padding: EdgeInsets.all(cardPadding),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (exactMatchBanner != null) ...[
               exactMatchBanner,
-              Gap(
-                compact ? 2.0 : AppDimens.spacingSm,
-              ), // Reduced from spacing2xs to 2.0
+              Gap(compact ? 2.0 : AppDimens.spacingSm),
             ],
             if (availabilityAlert != null) ...[
               availabilityAlert,
-              Gap(
-                compact ? 2.0 : AppDimens.spacingSm,
-              ), // Reduced from spacing2xs to 2.0
+              Gap(compact ? 2.0 : AppDimens.spacingSm),
             ],
-            // Title row with badges and status icons
-            Row(
-              children: [
-                if (computedBadges.isNotEmpty) ...[
-                  ...computedBadges.map(
-                    (badge) => Padding(
-                      padding: EdgeInsets.only(
-                        right: compact
-                            ? 4.0
-                            : AppDimens
-                                  .spacingXs, // Reduced from spacingXs to 4.0
-                      ),
-                      child: badge,
-                    ),
-                  ),
-                  Gap(
-                    compact ? 4.0 : AppDimens.spacingXs,
-                  ), // Reduced from spacingXs to 4.0
-                ],
-                Expanded(
-                  child: Text(
-                    displayTitle,
-                    style: compact ? theme.textTheme.p : theme.textTheme.h4,
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: compact ? 1 : 2,
-                  ),
-                ),
-                if (statusIcons is! SizedBox) ...[
-                  Gap(
-                    compact ? 4.0 : AppDimens.spacingXs,
-                  ), // Reduced from spacingXs to 4.0
-                  statusIcons,
-                ],
-                if (trailing != null) ...[
-                  Gap(
-                    compact ? 4.0 : AppDimens.spacingXs,
-                  ), // Reduced from spacingXs to 4.0
-                  trailing!,
-                ],
-              ],
-            ),
-            // Equivalence - highlighted and prominent (most important information)
             if (princepsReference != null) ...[
-              Gap(
-                compact ? 4.0 : AppDimens.spacingSm,
-              ), // More space to make it stand out
+              Gap(compact ? 4.0 : AppDimens.spacingSm),
               princepsReference,
             ],
-            // Subtitle
-            if (displaySubtitle.isNotEmpty) ...[
-              Gap(
-                compact ? 2.0 : AppDimens.spacingXs,
-              ), // Reduced from spacing2xs to 2.0
-              ...displaySubtitle.map(
-                (line) => Padding(
-                  padding: EdgeInsets.only(
-                    bottom: compact
-                        ? 2.0
-                        : AppDimens.spacingXs /
-                              2, // Reduced from spacing2xs to 2.0
-                  ),
-                  child: Text(
-                    line,
-                    style:
-                        (compact
-                                ? theme.textTheme.small
-                                : theme.textTheme.small)
-                            .copyWith(color: theme.colorScheme.mutedForeground),
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: compact
-                        ? 1
-                        : null, // Single line for compact mode
-                  ),
-                ),
-              ),
-            ],
             if (regulatoryBadges.isNotEmpty) ...[
-              Gap(
-                compact ? 2.0 : AppDimens.spacingXs,
-              ), // Reduced from spacing2xs to 2.0
+              Gap(compact ? 2.0 : AppDimens.spacingXs),
               Wrap(
-                spacing: compact
-                    ? 2.0
-                    : AppDimens.spacing2xs, // Reduced spacing
-                runSpacing: compact
-                    ? 1.0
-                    : AppDimens.spacing2xs / 2, // Reduced runSpacing
+                spacing: compact ? 2.0 : AppDimens.spacing2xs,
+                runSpacing: compact ? 1.0 : AppDimens.spacing2xs / 2,
                 children: regulatoryBadges,
               ),
             ],
-            // Details section
             if (showDetails) ...[
-              Gap(
-                compact ? 2.0 : AppDimens.spacingSm,
-              ), // Reduced from spacing2xs to 2.0
+              Gap(compact ? 2.0 : AppDimens.spacingSm),
               ..._buildDetails(context),
-            ],
-            // Actions
-            if (showActions) ...[
-              Gap(
-                compact ? 2.0 : AppDimens.spacingMd,
-              ), // Reduced from spacing2xs to 2.0
-              _buildActions(context),
             ],
           ],
         ),
@@ -211,13 +122,89 @@ class ProductCard extends StatelessWidget {
             hint: Strings.tapToViewDetails,
             child: InkWell(
               onTap: onTap,
-              borderRadius: BorderRadius.circular(AppDimens.radiusMd),
+              borderRadius: ShadTheme.of(context).radius,
               child: card,
             ),
           )
         : card;
 
     return wrappedCard;
+  }
+
+  Widget _buildTitleRow(
+    BuildContext context,
+    String displayTitle,
+    List<Widget> computedBadges,
+    Widget statusIcons,
+  ) {
+    final theme = ShadTheme.of(context);
+    return Padding(
+      padding: EdgeInsets.all(
+        compact ? AppDimens.spacing2xs : AppDimens.spacingMd,
+      ),
+      child: Row(
+        children: [
+          if (computedBadges.isNotEmpty) ...[
+            ...computedBadges.map(
+              (badge) => Padding(
+                padding: EdgeInsets.only(
+                  right: compact ? 4.0 : AppDimens.spacingXs,
+                ),
+                child: badge,
+              ),
+            ),
+            Gap(compact ? 4.0 : AppDimens.spacingXs),
+          ],
+          Expanded(
+            child: Text(
+              displayTitle,
+              style: compact ? theme.textTheme.p : theme.textTheme.h4,
+              overflow: TextOverflow.ellipsis,
+              maxLines: compact ? 1 : 2,
+            ),
+          ),
+          if (statusIcons is! SizedBox) ...[
+            Gap(compact ? 4.0 : AppDimens.spacingXs),
+            statusIcons,
+          ],
+          if (trailing != null) ...[
+            Gap(compact ? 4.0 : AppDimens.spacingXs),
+            trailing!,
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDescription(BuildContext context, List<String> displaySubtitle) {
+    final theme = ShadTheme.of(context);
+    return Padding(
+      padding: EdgeInsets.only(
+        left: compact ? AppDimens.spacing2xs : AppDimens.spacingMd,
+        right: compact ? AppDimens.spacing2xs : AppDimens.spacingMd,
+        top: compact ? 2.0 : AppDimens.spacingXs,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: displaySubtitle
+            .map(
+              (line) => Padding(
+                padding: EdgeInsets.only(
+                  bottom: compact ? 2.0 : AppDimens.spacingXs / 2,
+                ),
+                child: Text(
+                  line,
+                  style: theme.textTheme.small.copyWith(
+                    color: theme.colorScheme.mutedForeground,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: compact ? 1 : null,
+                ),
+              ),
+            )
+            .toList(),
+      ),
+    );
   }
 
   List<Widget> _buildDetails(BuildContext context) {
@@ -244,9 +231,6 @@ class ProductCard extends StatelessWidget {
         style: mutedStyle,
       ),
     );
-
-    // WHY: Price and Refund Rate are removed from card face - they belong in detail sheets only
-    // Financial details are "details", not "identity" - declutter the preview card
 
     if (summary.principesActifsCommuns.isNotEmpty) {
       widgets.add(Gap(compact ? 2.0 : AppDimens.spacingXs)); // Reduced gap
@@ -376,8 +360,6 @@ class ProductCard extends StatelessWidget {
     );
   }
 
-  // WHY: Build status icons with tooltips instead of text badges to save vertical space
-  // Icons are more compact and provide the same information via tooltips
   Widget _buildStatusIcons(BuildContext context) {
     final theme = ShadTheme.of(context);
     final primaryColor = theme.colorScheme.primary;
@@ -506,7 +488,7 @@ class ProductCard extends StatelessWidget {
     final theme = ShadTheme.of(context);
     final mutedColor = theme.colorScheme.muted;
     final mutedForeground = theme.colorScheme.mutedForeground;
-    const radiusSm = 8.0; // Standard small radius
+    final smallRadius = theme.radius.topLeft.x;
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: compact ? 6.0 : AppDimens.spacingSm, // Reduced padding
@@ -514,7 +496,7 @@ class ProductCard extends StatelessWidget {
       ),
       decoration: BoxDecoration(
         color: mutedColor,
-        borderRadius: BorderRadius.circular(radiusSm),
+        borderRadius: BorderRadius.circular(smallRadius),
       ),
       child: Row(
         children: [
@@ -541,189 +523,114 @@ class ProductCard extends StatelessWidget {
   }
 
   List<Widget> _buildRegulatoryBadges(BuildContext context) {
-    // WHY: PharmaColors is always registered in theme extensions (see lib/theme/theme.dart)
-    // Flow analysis confirms this is non-null, so we can safely assert
-    final pharmaColors = Theme.of(context).extension<PharmaColors>()!;
+    final theme = ShadTheme.of(context);
     final badges = <Widget>[];
     void addBadge(Widget badge) => badges.add(badge);
 
+    // DANGER / STRICT -> Destructive (Red)
     if (summary.isNarcotic) {
       addBadge(
         ShadBadge.destructive(
           child: Text(
             Strings.badgeNarcotic,
-            style: ShadTheme.of(context).textTheme.small,
+            style: theme.textTheme.small,
           ),
         ),
       );
     }
 
+    // LIST 1 (Toxic) -> Destructive (Red)
     if (summary.isList1) {
       addBadge(
-        Container(
-          decoration: BoxDecoration(
-            border: Border.all(color: pharmaColors.regulatoryRed),
-            borderRadius: BorderRadius.circular(AppDimens.radiusSm / 2),
-          ),
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppDimens.spacingXs,
-            vertical: AppDimens.spacing2xs,
-          ),
+        ShadBadge.destructive(
           child: Text(
             Strings.badgeList1,
-            style: ShadTheme.of(
-              context,
-            ).textTheme.small.copyWith(color: pharmaColors.regulatoryRed),
+            style: theme.textTheme.small,
           ),
         ),
       );
     }
 
+    // LIST 2 (Less Toxic) -> Primary (Green - perfectly matches our theme!)
     if (summary.isList2) {
       addBadge(
-        Container(
-          decoration: BoxDecoration(
-            border: Border.all(color: pharmaColors.regulatoryGreen),
-            borderRadius: BorderRadius.circular(AppDimens.radiusSm / 2),
-          ),
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppDimens.spacingXs,
-            vertical: AppDimens.spacing2xs,
-          ),
+        ShadBadge(
           child: Text(
             Strings.badgeList2,
-            style: ShadTheme.of(
-              context,
-            ).textTheme.small.copyWith(color: pharmaColors.regulatoryGreen),
+            style: theme.textTheme.small,
           ),
         ),
       );
     }
 
+    // EXCEPTIONS -> Secondary (Distinct but not alarming)
     if (summary.isException) {
       addBadge(
-        Container(
-          decoration: BoxDecoration(
-            color: pharmaColors.regulatoryPurple,
-            borderRadius: BorderRadius.circular(AppDimens.radiusSm / 2),
-          ),
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppDimens.spacingXs,
-            vertical: AppDimens.spacing2xs,
-          ),
+        ShadBadge.secondary(
           child: Text(
             Strings.badgeException,
-            style: ShadTheme.of(
-              context,
-            ).textTheme.small.copyWith(color: Colors.white),
+            style: theme.textTheme.small,
           ),
         ),
       );
     }
 
+    // RESTRICTED -> Outline (Information)
     if (summary.isRestricted) {
       addBadge(
-        Container(
-          decoration: BoxDecoration(
-            border: Border.all(color: pharmaColors.regulatoryAmber),
-            borderRadius: BorderRadius.circular(AppDimens.radiusSm / 2),
-          ),
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppDimens.spacingXs,
-            vertical: AppDimens.spacing2xs,
-          ),
+        ShadBadge.outline(
           child: Text(
             Strings.badgeRestricted,
-            style: ShadTheme.of(
-              context,
-            ).textTheme.small.copyWith(color: pharmaColors.regulatoryAmber),
+            style: theme.textTheme.small,
           ),
         ),
       );
     }
 
+    // HOSPITAL -> Outline (Information)
     if (summary.isHospitalOnly) {
       addBadge(
-        Container(
-          decoration: BoxDecoration(
-            color: pharmaColors.regulatoryGray,
-            borderRadius: BorderRadius.circular(AppDimens.radiusSm / 2),
-          ),
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppDimens.spacingXs,
-            vertical: AppDimens.spacing2xs,
-          ),
+        ShadBadge.outline(
           child: Text(
             Strings.hospitalBadge,
-            style: ShadTheme.of(
-              context,
-            ).textTheme.small.copyWith(color: Colors.white),
+            style: theme.textTheme.small,
           ),
         ),
       );
     }
 
+    // DENTAL -> Secondary (Distinct category)
     if (summary.isDental) {
-      final theme = ShadTheme.of(context);
-      final secondaryColor = theme.colorScheme.secondary;
-      final secondaryForeground = theme.colorScheme.secondaryForeground;
       addBadge(
-        Container(
-          decoration: BoxDecoration(
-            color: secondaryColor,
-            borderRadius: BorderRadius.circular(AppDimens.radiusSm / 2),
-          ),
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppDimens.spacingXs,
-            vertical: AppDimens.spacing2xs,
-          ),
+        ShadBadge.secondary(
           child: Text(
             Strings.badgeDental,
-            style: ShadTheme.of(
-              context,
-            ).textTheme.small.copyWith(color: secondaryForeground),
+            style: theme.textTheme.small,
           ),
         ),
       );
     }
 
+    // SURVEILLANCE -> Outline (Information)
+    // We lose the "Yellow" but gain UI consistency
     if (summary.isSurveillance) {
       addBadge(
-        Container(
-          decoration: BoxDecoration(
-            color: pharmaColors.regulatoryYellow,
-            borderRadius: BorderRadius.circular(AppDimens.radiusSm / 2),
-          ),
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppDimens.spacingXs,
-            vertical: AppDimens.spacing2xs,
-          ),
+        ShadBadge.outline(
           child: Text(
             Strings.badgeSurveillance,
-            style: ShadTheme.of(
-              context,
-            ).textTheme.small.copyWith(color: Colors.black),
+            style: theme.textTheme.small,
           ),
         ),
       );
     }
 
+    // OTC -> Secondary (Safe/Light)
     if (summary.isOtc) {
       addBadge(
-        Container(
-          decoration: BoxDecoration(
-            color: pharmaColors.regulatoryGreen.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(AppDimens.radiusSm / 2),
-          ),
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppDimens.spacingXs,
-            vertical: AppDimens.spacing2xs,
-          ),
+        ShadBadge.secondary(
           child: Text(
             Strings.badgeOtc,
-            style: ShadTheme.of(
-              context,
-            ).textTheme.small.copyWith(color: pharmaColors.regulatoryGreen),
+            style: theme.textTheme.small,
           ),
         ),
       );

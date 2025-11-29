@@ -1,7 +1,4 @@
 // lib/core/utils/strings.dart
-// WHY: Centralized string constants for localization preparation.
-// This prepares the codebase for future i18n without requiring a full i18n package.
-
 class Strings {
   Strings._();
 
@@ -93,8 +90,7 @@ class Strings {
       'Téléchargement des données de référence...';
   static const String initializationParsing =
       'Traitement de la base de données...';
-  static const String initializationReady =
-      "Base de données prête à l'emploi.";
+  static const String initializationReady = "Base de données prête à l'emploi.";
   static const String initializationError = "Erreur d'initialisation.";
   static const String initializationDownloadingDescription =
       "Veuillez ne pas quitter l'application.";
@@ -327,8 +323,6 @@ class Strings {
   // Error Details
 
   // Badge Labels
-  // WHY: badgePrinceps is the canonical constant for PRINCEPS badge text.
-  // Removed redundant princepsBadge (same value) to avoid duplication.
   static const String badgePrinceps = 'PRINCEPS';
   static const String badgeGeneric = 'GÉNÉRIQUE';
   static const String badgeStandalone = 'UNIQUE';
@@ -365,10 +359,6 @@ class Strings {
   static const String cipCodeLabel = 'Code CIP';
   static const String activePrincipleLabel = 'Principe Actif';
 
-  // Dynamic String Helpers
-  // WHY: These methods ensure UI and tests stay synchronized when constructing
-  // dynamic strings with counts or variables. Both UI and tests must use these helpers.
-
   static String genericCount(int count) => '${Strings.genericsLabel} ($count)';
   static String princepsCount(int count) => '${Strings.princepsLabel} ($count)';
   static String productCount(int count) => '$count produit(s)';
@@ -402,9 +392,9 @@ class Strings {
 
   static String princepsSemantics(
     String name,
-    String molecule,
-    bool hasGenerics,
-  ) {
+    String molecule, {
+    required bool hasGenerics,
+  }) {
     final genericsText = hasGenerics
         ? 'Génériques disponibles'
         : 'Aucun générique';
@@ -412,10 +402,10 @@ class Strings {
   }
 
   static String standaloneSemantics(
-    String name,
-    bool hasPrinciples,
+    String name, {
+    required bool hasPrinciples,
     String? principlesText,
-  ) {
+  }) {
     final principlesSection = hasPrinciples
         ? 'Principes actifs: $principlesText'
         : Strings.noActivePrincipleReported;
@@ -427,9 +417,6 @@ class Strings {
   static String holderWithValue(String value) => 'Titulaire: $value';
   static String formWithValue(String value) => 'Forme: $value';
 
-  // Summary List Item Helpers
-  // WHY: Centralize bullet point formatting for search result lists
-  // to ensure consistency and prepare for i18n
   static String genericSummaryItem(String name, int count) {
     if (count > 1) {
       return '• $name ($count)';
@@ -441,8 +428,6 @@ class Strings {
 
   static String stockAlert(String status) => '⚠️ $status';
 
-  // ATC Level 1 Class Labels
-  // WHY: Map ATC Level 1 codes (single letters) to French therapeutic class labels
   static String? getAtcLevel1Label(String? atcCode) {
     if (atcCode == null || atcCode.isEmpty) return null;
     final level1 = atcCode.substring(0, 1).toUpperCase();
@@ -466,11 +451,6 @@ class Strings {
     'V': 'Divers',
   };
 
-  // Accessibility Semantic Labels
-  // WHY: Centralized semantic labels for screen readers and accessibility tools.
-  // All semantic labels must use these constants to ensure consistency.
-
-  // Button Semantic Labels
   static const String confirmButtonLabel = 'Confirmer';
   static const String confirmButtonHint = 'Double-tap pour confirmer';
   static const String confirmResetButtonHint =

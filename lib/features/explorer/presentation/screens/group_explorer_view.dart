@@ -8,9 +8,8 @@ import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/section_header_delegate.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/status_view.dart';
-import 'package:pharma_scan/features/explorer/models/grouped_by_product_model.dart';
-import 'package:pharma_scan/features/explorer/providers/group_classification_provider.dart';
-import 'package:pharma_scan/theme/pharma_colors.dart';
+import 'package:pharma_scan/features/explorer/domain/models/grouped_by_product_model.dart';
+import 'package:pharma_scan/features/explorer/presentation/providers/group_classification_provider.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -687,184 +686,114 @@ class GroupExplorerView extends HookConsumerWidget {
     BuildContext context,
     MedicationItem member,
   ) {
-    // WHY: PharmaColors is always registered in theme extensions (see lib/theme/theme.dart)
-    // Flow analysis confirms this is non-null, so we can safely assert
-    final pharmaColors = Theme.of(context).extension<PharmaColors>()!;
     final theme = ShadTheme.of(context);
     final badges = <Widget>[];
     void addBadge(Widget badge) => badges.add(badge);
 
+    // DANGER / STRICT -> Destructive (Red)
     if (member.isNarcotic) {
       addBadge(
         ShadBadge.destructive(
-          child: Text(Strings.badgeNarcotic, style: theme.textTheme.small),
+          child: Text(
+            Strings.badgeNarcotic,
+            style: theme.textTheme.small,
+          ),
         ),
       );
     }
 
+    // LIST 1 (Toxic) -> Destructive (Red)
     if (member.isList1) {
       addBadge(
-        Container(
-          decoration: BoxDecoration(
-            border: Border.all(color: pharmaColors.regulatoryRed),
-            borderRadius: BorderRadius.circular(AppDimens.radiusSm / 2),
-          ),
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppDimens.spacingXs,
-            vertical: AppDimens.spacing2xs,
-          ),
+        ShadBadge.destructive(
           child: Text(
             Strings.badgeList1,
-            style: ShadTheme.of(
-              context,
-            ).textTheme.small.copyWith(color: pharmaColors.regulatoryRed),
+            style: theme.textTheme.small,
           ),
         ),
       );
     }
 
+    // LIST 2 (Less Toxic) -> Primary (Green - perfectly matches our theme!)
     if (member.isList2) {
       addBadge(
-        Container(
-          decoration: BoxDecoration(
-            border: Border.all(color: pharmaColors.regulatoryGreen),
-            borderRadius: BorderRadius.circular(AppDimens.radiusSm / 2),
-          ),
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppDimens.spacingXs,
-            vertical: AppDimens.spacing2xs,
-          ),
+        ShadBadge(
           child: Text(
             Strings.badgeList2,
-            style: ShadTheme.of(
-              context,
-            ).textTheme.small.copyWith(color: pharmaColors.regulatoryGreen),
+            style: theme.textTheme.small,
           ),
         ),
       );
     }
 
+    // EXCEPTIONS -> Secondary (Distinct but not alarming)
     if (member.isException) {
       addBadge(
-        Container(
-          decoration: BoxDecoration(
-            color: pharmaColors.regulatoryPurple,
-            borderRadius: BorderRadius.circular(AppDimens.radiusSm / 2),
-          ),
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppDimens.spacingXs,
-            vertical: AppDimens.spacing2xs,
-          ),
+        ShadBadge.secondary(
           child: Text(
             Strings.badgeException,
-            style: ShadTheme.of(
-              context,
-            ).textTheme.small.copyWith(color: Colors.white),
+            style: theme.textTheme.small,
           ),
         ),
       );
     }
 
+    // RESTRICTED -> Outline (Information)
     if (member.isRestricted) {
       addBadge(
-        Container(
-          decoration: BoxDecoration(
-            border: Border.all(color: pharmaColors.regulatoryAmber),
-            borderRadius: BorderRadius.circular(AppDimens.radiusSm / 2),
-          ),
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppDimens.spacingXs,
-            vertical: AppDimens.spacing2xs,
-          ),
+        ShadBadge.outline(
           child: Text(
             Strings.badgeRestricted,
-            style: ShadTheme.of(
-              context,
-            ).textTheme.small.copyWith(color: pharmaColors.regulatoryAmber),
+            style: theme.textTheme.small,
           ),
         ),
       );
     }
 
+    // HOSPITAL -> Outline (Information)
     if (member.isHospitalOnly) {
       addBadge(
-        Container(
-          decoration: BoxDecoration(
-            color: pharmaColors.regulatoryGray,
-            borderRadius: BorderRadius.circular(AppDimens.radiusSm / 2),
-          ),
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppDimens.spacingXs,
-            vertical: AppDimens.spacing2xs,
-          ),
+        ShadBadge.outline(
           child: Text(
             Strings.hospitalBadge,
-            style: ShadTheme.of(
-              context,
-            ).textTheme.small.copyWith(color: Colors.white),
+            style: theme.textTheme.small,
           ),
         ),
       );
     }
 
+    // DENTAL -> Secondary (Distinct category)
     if (member.isDental) {
       addBadge(
-        Container(
-          decoration: BoxDecoration(
-            color: ShadTheme.of(context).colorScheme.secondary,
-            borderRadius: BorderRadius.circular(AppDimens.radiusSm / 2),
-          ),
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppDimens.spacingXs,
-            vertical: AppDimens.spacing2xs,
-          ),
+        ShadBadge.secondary(
           child: Text(
             Strings.badgeDental,
-            style: ShadTheme.of(context).textTheme.small.copyWith(
-              color: ShadTheme.of(context).colorScheme.secondaryForeground,
-            ),
+            style: theme.textTheme.small,
           ),
         ),
       );
     }
 
-    if (member.isOtc) {
-      addBadge(
-        Container(
-          decoration: BoxDecoration(
-            color: pharmaColors.regulatoryGreen.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(AppDimens.radiusSm / 2),
-          ),
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppDimens.spacingXs,
-            vertical: AppDimens.spacing2xs,
-          ),
-          child: Text(
-            Strings.badgeOtc,
-            style: ShadTheme.of(
-              context,
-            ).textTheme.small.copyWith(color: pharmaColors.regulatoryGreen),
-          ),
-        ),
-      );
-    }
-
+    // SURVEILLANCE -> Outline (Information)
+    // We lose the "Yellow" but gain UI consistency
     if (member.isSurveillance) {
       addBadge(
-        Container(
-          decoration: BoxDecoration(
-            color: pharmaColors.regulatoryYellow,
-            borderRadius: BorderRadius.circular(AppDimens.radiusSm / 2),
-          ),
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppDimens.spacingXs,
-            vertical: AppDimens.spacing2xs,
-          ),
+        ShadBadge.outline(
           child: Text(
             Strings.badgeSurveillance,
-            style: ShadTheme.of(
-              context,
-            ).textTheme.small.copyWith(color: Colors.black),
+            style: theme.textTheme.small,
+          ),
+        ),
+      );
+    }
+
+    // OTC -> Secondary (Safe/Light)
+    if (member.isOtc) {
+      addBadge(
+        ShadBadge.secondary(
+          child: Text(
+            Strings.badgeOtc,
+            style: theme.textTheme.small,
           ),
         ),
       );
@@ -899,7 +828,7 @@ class GroupExplorerView extends HookConsumerWidget {
                 color: Colors.transparent,
                 child: InkWell(
                   onTap: () => _launchUrl(context, ansmUrl),
-                  borderRadius: BorderRadius.circular(AppDimens.radiusMd),
+                  borderRadius: ShadTheme.of(context).radius,
                   child: Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: AppDimens.spacingMd,
@@ -909,7 +838,7 @@ class GroupExplorerView extends HookConsumerWidget {
                       border: Border.all(
                         color: ShadTheme.of(context).colorScheme.destructive,
                       ),
-                      borderRadius: BorderRadius.circular(AppDimens.radiusMd),
+                      borderRadius: ShadTheme.of(context).radius,
                       color: ShadTheme.of(
                         context,
                       ).colorScheme.destructive.withValues(alpha: 0.1),
@@ -971,11 +900,8 @@ class GroupExplorerView extends HookConsumerWidget {
   Future<void> _launchUrl(BuildContext context, String url) async {
     try {
       final uri = Uri.parse(url);
-      // WHY: Try to launch directly - canLaunchUrl can return false for valid URLs
-      // Better to attempt launch and handle exceptions
       await launchUrl(uri);
     } on Exception catch (e) {
-      // WHY: Handle specific exceptions with user-friendly messages
       if (context.mounted) {
         ShadToaster.of(context).show(
           ShadToast.destructive(

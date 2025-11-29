@@ -3,8 +3,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:dart_either/dart_either.dart';
 import 'package:decimal/decimal.dart';
-import 'package:fpdart/fpdart.dart';
 
 /// Parse error types for functional error handling
 sealed class ParseError {
@@ -22,14 +22,9 @@ class InvalidFormatError extends ParseError {
   final String details;
 }
 
-/// WHY: BDPM file parser with static methods for parsing BDPM data files.
-/// Separates parsing logic from service orchestration for better testability and reusability.
-/// Uses fpdart Either for Railway Oriented Programming - explicit error handling without exceptions.
 class BdpmFileParser {
-  BdpmFileParser._(); // Private constructor to prevent instantiation
+  BdpmFileParser._();
 
-  // WHY: Expose a reusable helper to decode BDPM files line-by-line using
-  // latin1 to match legacy behavior, while avoiding loading full files in memory.
   static Stream<String>? openLineStream(String? path) {
     if (path == null || path.isEmpty) {
       return null;
@@ -44,9 +39,6 @@ class BdpmFileParser {
         .transform(const LineSplitter());
   }
 
-  // WHY: Parse BDPM specialites file and return structured data.
-  // Allows every form and filters only on BOIRON noise.
-  // Returns Either for Railway Oriented Programming - explicit error handling.
   static Future<Either<ParseError, SpecialitesParseResult>> parseSpecialites(
     Stream<String>? lines,
     Map<String, String> conditionsByCis,
@@ -57,7 +49,7 @@ class BdpmFileParser {
     final seenCis = <String>{};
 
     if (lines == null) {
-      return const Left(EmptyContentError('specialites'));
+      return const Either.left(EmptyContentError('specialites'));
     }
 
     var hasData = false;
@@ -92,9 +84,6 @@ class BdpmFileParser {
           final surveillanceRaw = survRaw.trim();
           final isSurveillance = surveillanceRaw.toLowerCase() == 'oui';
 
-          // WHY: BOIRON floods BDPM with homeopathic granules/doses that are not useful
-          // in PharmaScan. Skip them explicitly to keep the dataset lean while still
-          // allowing every other form to flow through.
           if (titulaire.toUpperCase().contains('BOIRON')) {
             continue;
           }
@@ -122,18 +111,16 @@ class BdpmFileParser {
     }
 
     if (!hasData) {
-      return const Left(EmptyContentError('specialites'));
+      return const Either.left(EmptyContentError('specialites'));
     }
 
-    return Right((
+    return Either.right((
       specialites: specialites,
       namesByCis: namesByCis,
       seenCis: seenCis,
     ));
   }
 
-  // WHY: Parse BDPM medicaments file and return structured data.
-  // Returns Either for Railway Oriented Programming.
   static Future<Either<ParseError, MedicamentsParseResult>> parseMedicaments(
     Stream<String>? lines,
     SpecialitesParseResult specialitesResult,
@@ -145,7 +132,7 @@ class BdpmFileParser {
     final namesByCis = specialitesResult.namesByCis;
 
     if (lines == null) {
-      return const Left(EmptyContentError('medicaments'));
+      return const Either.left(EmptyContentError('medicaments'));
     }
 
     var hasData = false;
@@ -206,18 +193,16 @@ class BdpmFileParser {
     }
 
     if (!hasData) {
-      return const Left(EmptyContentError('medicaments'));
+      return const Either.left(EmptyContentError('medicaments'));
     }
 
-    return Right((
+    return Either.right((
       medicaments: medicaments,
       cisToCip13: cisToCip13,
       medicamentCips: medicamentCips,
     ));
   }
 
-  // WHY: Parse BDPM compositions file and extract active principles with dosages.
-  // Returns Either for Railway Oriented Programming.
   static Future<Either<ParseError, List<Map<String, dynamic>>>>
   parseCompositions(
     Stream<String>? lines,
@@ -226,7 +211,7 @@ class BdpmFileParser {
     final principes = <Map<String, dynamic>>[];
 
     if (lines == null) {
-      return Right(principes);
+      return Either.right(principes);
     }
 
     final rowsByKey = <String, _CompositionGroup>{};
@@ -245,7 +230,6 @@ class BdpmFileParser {
       if (cis.isEmpty || denomination.isEmpty) continue;
       if (!cisToCip13.containsKey(cis)) continue;
 
-      // WHY: Normalize salt prefixes to fix alphabetical sorting
       final normalizedDenomination = _normalizeSaltPrefix(denomination);
 
       final row = _CompositionRow(
@@ -285,8 +269,6 @@ class BdpmFileParser {
     return Right(principes);
   }
 
-  // WHY: Parse BDPM generiques file and return group data.
-  // Returns Either for Railway Oriented Programming.
   static Future<Either<ParseError, GeneriquesParseResult>> parseGeneriques(
     Stream<String>? lines,
     Map<String, List<String>> cisToCip13,
@@ -297,7 +279,7 @@ class BdpmFileParser {
     final seenGroups = <String>{};
 
     if (lines == null) {
-      return Right((
+      return Either.right((
         generiqueGroups: generiqueGroups,
         groupMembers: groupMembers,
       ));
@@ -324,7 +306,6 @@ class BdpmFileParser {
 
           if (cip13s != null && (isPrinceps || isGeneric)) {
             if (seenGroups.add(groupId)) {
-              // WHY: Normalize salt prefixes to fix alphabetical sorting
               final normalizedLibelle = _normalizeSaltPrefix(libelle);
               generiqueGroups.add({
                 'group_id': groupId,
@@ -347,13 +328,12 @@ class BdpmFileParser {
       }
     }
 
-    return Right((
+    return Either.right((
       generiqueGroups: generiqueGroups,
       groupMembers: groupMembers,
     ));
   }
 
-  // WHY: Parse BDPM conditions file and return CIS-to-condition mapping.
   static Future<Map<String, String>> parseConditions(
     Stream<String>? lines,
   ) async {
@@ -430,7 +410,6 @@ class BdpmFileParser {
     );
   }
 
-  // WHY: Parse BDPM MITM file and return CIS-to-ATC mapping.
   static Future<Map<String, String>> parseMitm(Stream<String>? lines) async {
     final mitmMap = <String, String>{};
     if (lines == null) return mitmMap;
@@ -449,9 +428,6 @@ class BdpmFileParser {
     return mitmMap;
   }
 
-  // WHY: Parse BDPM availability file and keep only actionable shortage/tension rows.
-  // Expands CIS-level shortages (empty CIP) to every known CIP for that CIS.
-  // Returns Either for Railway Oriented Programming.
   static Future<Either<ParseError, List<Map<String, dynamic>>>>
   parseAvailability(
     Stream<String>? lines,
@@ -459,7 +435,7 @@ class BdpmFileParser {
   ) async {
     final availability = <Map<String, dynamic>>[];
     if (lines == null) {
-      return Right(availability);
+      return Either.right(availability);
     }
 
     await for (final line in lines) {
@@ -551,9 +527,6 @@ String _normalizeConditionText(String? raw) {
   return text;
 }
 
-// WHY: Normalize salt prefixes by moving them to the end in parentheses.
-// Transforms "CHLORHYDRATE DE METFORMINE" -> "METFORMINE (CHLORHYDRATE DE)"
-// This fixes alphabetical sorting while preserving FTS5 searchability.
 String _normalizeSaltPrefix(String label) {
   if (label.isEmpty) return label;
 

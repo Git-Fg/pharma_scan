@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:pharma_scan/core/logic/sanitizer.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
-import 'package:pharma_scan/features/explorer/models/search_result_item_model.dart';
+import 'package:pharma_scan/features/explorer/domain/models/search_result_item_model.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 class MedicamentTile extends StatelessWidget {
@@ -24,18 +24,19 @@ class MedicamentTile extends StatelessWidget {
       String? details,
     ) = switch (item) {
       GroupResult(group: final group) => (
-          group.commonPrincipes.isNotEmpty
-              ? group.commonPrincipes
-              : Strings.notDetermined,
-          group.princepsReferenceName,
-          _buildGenericBadge(context),
-          null,
-        ),
+        group.commonPrincipes.isNotEmpty
+            ? group.commonPrincipes
+            : Strings.notDetermined,
+        group.princepsReferenceName,
+        _buildGenericBadge(context),
+        null,
+      ),
       PrincepsResult(
         princeps: final princeps,
         commonPrinciples: final commonPrinciples,
         generics: final generics,
-      ) => (
+      ) =>
+        (
           princeps.nomCanonique,
           _buildSubtitle(princeps.formePharmaceutique, commonPrinciples),
           _buildBadge(context, Strings.badgePrinceps, isPrinceps: true),
@@ -45,7 +46,8 @@ class MedicamentTile extends StatelessWidget {
         generic: final generic,
         commonPrinciples: final commonPrinciples,
         princeps: final princeps,
-      ) => (
+      ) =>
+        (
           generic.nomCanonique,
           _buildSubtitle(generic.formePharmaceutique, commonPrinciples),
           _buildBadge(context, Strings.badgeGeneric, isPrinceps: false),
@@ -54,7 +56,8 @@ class MedicamentTile extends StatelessWidget {
       StandaloneResult(
         summary: final summary,
         commonPrinciples: final commonPrinciples,
-      ) => (
+      ) =>
+        (
           summary.nomCanonique,
           _buildSubtitle(summary.formePharmaceutique, commonPrinciples),
           _buildBadge(context, Strings.badgeStandalone, isPrinceps: false),
@@ -80,18 +83,17 @@ class MedicamentTile extends StatelessWidget {
       ) =>
         Strings.standaloneSemantics(
           summary.nomCanonique,
-          commonPrinciples.isNotEmpty,
-          commonPrinciples,
+          hasPrinciples: commonPrinciples.isNotEmpty,
+          principlesText: commonPrinciples,
         ),
       GroupResult(group: final group) => () {
-          final principles = group.commonPrincipes.isNotEmpty
-              ? group.commonPrincipes
-              : Strings.notDetermined;
-          return '$principles, référence ${group.princepsReferenceName}';
-        }(),
+        final principles = group.commonPrincipes.isNotEmpty
+            ? group.commonPrincipes
+            : Strings.notDetermined;
+        return '$principles, référence ${group.princepsReferenceName}';
+      }(),
     };
 
-    // WHY: Custom Row-based widget matching Shadcn design patterns
     return MergeSemantics(
       child: Semantics(
         label: semanticLabel,
@@ -112,9 +114,9 @@ class MedicamentTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 ...[
-                prefix,
-                const SizedBox(width: AppDimens.spacingSm),
-              ],
+                  prefix,
+                  const SizedBox(width: AppDimens.spacingSm),
+                ],
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

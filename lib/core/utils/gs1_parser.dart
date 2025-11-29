@@ -66,9 +66,6 @@ class Gs1Parser {
         case '01': // GTIN (Code CIP) - 14 chiffres fixes
           if (i + 14 <= normalized.length) {
             final rawGtin = normalized.substring(i, i + 14);
-            // WHY: The database uses 13-digit CIPs. The GTIN-14 is often a
-            // 13-digit EAN with a leading packaging indicator (usually '0').
-            // We strip this leader to match the database key.
             if (rawGtin.length == 14) {
               gtin = rawGtin.substring(1);
             } else {
@@ -150,7 +147,7 @@ class Gs1Parser {
       // Logique simple pour gérer le siècle.
       final year = yy < 50 ? 2000 + yy : 1900 + yy;
       return DateTime.utc(year, mm, dd);
-    } catch (_) {
+    } on Object catch (_) {
       return null;
     }
   }

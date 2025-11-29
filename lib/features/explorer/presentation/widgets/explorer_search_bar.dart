@@ -1,4 +1,4 @@
-// lib/features/explorer/widgets/explorer_search_bar.dart
+// lib/features/explorer/presentation/widgets/explorer_search_bar.dart
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -10,10 +10,10 @@ import 'package:pharma_scan/core/utils/adaptive_overlay.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/utils/test_tags.dart';
 import 'package:pharma_scan/core/widgets/testable.dart';
-import 'package:pharma_scan/features/explorer/models/explorer_enums.dart';
-import 'package:pharma_scan/features/explorer/models/search_filters_model.dart';
-import 'package:pharma_scan/features/explorer/providers/search_provider.dart';
-import 'package:pharma_scan/features/explorer/widgets/filters/administration_route_filter_tile.dart';
+import 'package:pharma_scan/features/explorer/domain/models/explorer_enums.dart';
+import 'package:pharma_scan/features/explorer/domain/models/search_filters_model.dart';
+import 'package:pharma_scan/features/explorer/presentation/providers/search_provider.dart';
+import 'package:pharma_scan/features/explorer/presentation/widgets/filters/administration_route_filter_tile.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 class ExplorerSearchBar extends HookConsumerWidget {
@@ -29,14 +29,11 @@ class ExplorerSearchBar extends HookConsumerWidget {
     final debouncedQuery = useState('');
     final onSearchChangedRef = useRef(onSearchChanged);
 
-    // WHY: Keep callback ref up to date without causing effect re-runs
     useEffect(() {
       onSearchChangedRef.value = onSearchChanged;
       return null;
     }, [onSearchChanged]);
 
-    // WHY: Debounce search input so database queries are not fired on every keystroke.
-    // onSearchChanged is called with the debounced value.
     useEffect(() {
       void listener() {
         debounceTimer.value?.cancel();
@@ -54,13 +51,10 @@ class ExplorerSearchBar extends HookConsumerWidget {
       };
     }, [searchController]);
 
-    // WHY: Watch provider with debounced query to avoid rebuilds on every keystroke
     final isFetching = ref
         .watch(searchResultsProvider(debouncedQuery.value))
         .isLoading;
 
-    // WHY: Search bar is now a sticky bottom bar overlaid on scrollable content
-    // Uses top border since it's positioned at the bottom of the screen
     return Container(
       decoration: BoxDecoration(
         color: ShadTheme.of(context).colorScheme.background,
@@ -117,7 +111,7 @@ class ExplorerSearchBar extends HookConsumerWidget {
             color: ShadTheme.of(
               context,
             ).colorScheme.muted.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(AppDimens.radiusSm),
+            borderRadius: ShadTheme.of(context).radius,
           ),
           padding: const EdgeInsets.symmetric(horizontal: AppDimens.spacingSm),
           child: ShadInput(
@@ -155,9 +149,7 @@ class ExplorerSearchBar extends HookConsumerWidget {
                           child: const Icon(LucideIcons.x, size: 16),
                         )
                       : null),
-            onChanged: (_) {
-              // WHY: Debouncing is handled via useEffect listener
-            },
+            onChanged: (_) {},
             onSubmitted: (_) => _commitSearchQuery(
               searchController.text,
               debounceTimer,
@@ -365,7 +357,7 @@ class ExplorerSearchBar extends HookConsumerWidget {
           ref
               .read(searchFiltersProvider.notifier)
               .updateFilters(currentFilters.copyWith(atcClass: value));
-          Navigator.of(context).maybePop();
+          unawaited(Navigator.of(context).maybePop());
         },
       ),
     );

@@ -5,11 +5,11 @@ import 'package:pharma_scan/core/router/app_router.dart';
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
-import 'package:pharma_scan/features/explorer/models/generic_group_entity.dart';
-import 'package:pharma_scan/features/explorer/models/search_result_item_model.dart';
-import 'package:pharma_scan/features/explorer/providers/database_stats_provider.dart';
-import 'package:pharma_scan/features/explorer/providers/generic_groups_provider.dart';
-import 'package:pharma_scan/features/explorer/providers/search_provider.dart';
+import 'package:pharma_scan/features/explorer/domain/models/generic_group_entity.dart';
+import 'package:pharma_scan/features/explorer/domain/models/search_result_item_model.dart';
+import 'package:pharma_scan/features/explorer/presentation/providers/database_stats_provider.dart';
+import 'package:pharma_scan/features/explorer/presentation/providers/generic_groups_provider.dart';
+import 'package:pharma_scan/features/explorer/presentation/providers/search_provider.dart';
 import 'package:pharma_scan/features/home/providers/initialization_provider.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
@@ -20,13 +20,14 @@ void main() {
     testWidgets(
       'sticky search bar header has valid SliverGeometry (layoutExtent <= paintExtent)',
       (tester) async {
-        final view = tester.view;
-        view.devicePixelRatio = 1.0;
-        view.physicalSize = const Size(390, 844);
+        final view = tester.view
+          ..devicePixelRatio = 1.0
+          ..physicalSize = const Size(390, 844);
         addTearDown(() {
-          view.resetPhysicalSize();
-          view.resetDevicePixelRatio();
-          view.resetViewInsets();
+          view
+            ..resetPhysicalSize()
+            ..resetDevicePixelRatio()
+            ..resetViewInsets();
         });
 
         final overrides = [
@@ -98,12 +99,13 @@ void main() {
     testWidgets('search bar header height matches AppDimens constant', (
       tester,
     ) async {
-      final view = tester.view;
-      view.devicePixelRatio = 1.0;
-      view.physicalSize = const Size(390, 844);
+      final view = tester.view
+        ..devicePixelRatio = 1.0
+        ..physicalSize = const Size(390, 844);
       addTearDown(() {
-        view.resetPhysicalSize();
-        view.resetDevicePixelRatio();
+        view
+          ..resetPhysicalSize()
+          ..resetDevicePixelRatio();
       });
 
       final overrides = [
@@ -157,15 +159,16 @@ void main() {
     testWidgets('adds keyboard inset padding when keyboard is open', (
       tester,
     ) async {
-      final view = tester.view;
-      view.devicePixelRatio = 1.0;
-      view.physicalSize = const Size(390, 844);
+      final view = tester.view
+        ..devicePixelRatio = 1.0
+        ..physicalSize = const Size(390, 844);
       const keyboardHeight = 300.0;
       view.viewInsets = const FakeViewPadding(bottom: keyboardHeight);
       addTearDown(() {
-        view.resetPhysicalSize();
-        view.resetDevicePixelRatio();
-        view.resetViewInsets();
+        view
+          ..resetPhysicalSize()
+          ..resetDevicePixelRatio()
+          ..resetViewInsets();
       });
 
       final overrides = [

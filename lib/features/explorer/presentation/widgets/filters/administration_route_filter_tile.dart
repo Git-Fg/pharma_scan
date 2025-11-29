@@ -1,13 +1,15 @@
 // lib/features/explorer/widgets/filters/administration_route_filter_tile.dart
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
-import 'package:pharma_scan/features/explorer/models/search_filters_model.dart';
-import 'package:pharma_scan/features/explorer/providers/pharmaceutical_forms_provider.dart';
-import 'package:pharma_scan/features/explorer/providers/search_provider.dart';
+import 'package:pharma_scan/features/explorer/domain/models/search_filters_model.dart';
+import 'package:pharma_scan/features/explorer/presentation/providers/pharmaceutical_forms_provider.dart';
+import 'package:pharma_scan/features/explorer/presentation/providers/search_provider.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 Widget buildAdministrationRouteFilterTile(
@@ -42,7 +44,7 @@ Widget buildAdministrationRouteFilterTile(
               .updateFilters(
                 currentFilters.copyWith(voieAdministration: value),
               );
-          Navigator.of(context).maybePop();
+          unawaited(Navigator.of(context).maybePop());
         },
       );
     },
@@ -188,7 +190,7 @@ class _SelectTileWithSearch extends HookWidget {
         ),
         onChanged: (value) {
           onChanged(value);
-          Navigator.of(context).maybePop();
+          unawaited(Navigator.of(context).maybePop());
         },
       ),
     );

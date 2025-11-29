@@ -1,5 +1,3 @@
-// WHY: Centralized design tokens for spacing, radii, and icon sizing to avoid
-// magic numbers across the UI layer.
 class AppDimens {
   AppDimens._();
 
@@ -12,12 +10,6 @@ class AppDimens {
   static const double spacingXl = 24;
   static const double spacing2xl = 32;
   static const double spacing3xl = 48;
-
-  // Border Radius
-  static const double radiusSm = 8;
-  static const double radiusMd = 12; // Standard card radius
-  static const double radiusLg = 16; // Bottom sheet / large containers
-  static const double radiusFull = 999; // Capsule/Circle
 
   // Icon Sizes
   static const double iconXs = 14;

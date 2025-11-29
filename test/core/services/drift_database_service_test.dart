@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
+import 'package:pharma_scan/features/explorer/domain/models/generic_group_entity.dart';
 import '../../fixtures/seed_builder.dart';
 import '../../test_utils.dart';
 
@@ -117,8 +118,23 @@ void main() {
       await dataInitializationService.runSummaryAggregationForTesting();
 
       // WHEN: We fetch GROUP_A details
-      final members = await database.libraryDao.getGroupDetails('GROUP_A');
-      final related = await database.libraryDao.fetchRelatedPrinceps('GROUP_A');
+      final membersEither = await database.libraryDao.getGroupDetails(
+        'GROUP_A',
+      );
+      expect(membersEither.isRight, isTrue);
+      final members = membersEither.fold(
+        ifLeft: (_) => <ViewGroupDetail>[],
+        ifRight: (v) => v,
+      );
+
+      final relatedEither = await database.libraryDao.fetchRelatedPrinceps(
+        'GROUP_A',
+      );
+      expect(relatedEither.isRight, isTrue);
+      final related = relatedEither.fold(
+        ifLeft: (_) => <ViewGroupDetail>[],
+        ifRight: (v) => v,
+      );
 
       // THEN: Should have member rows for princeps, generic, and no related princeps
       expect(members.length, greaterThanOrEqualTo(2));
@@ -186,8 +202,13 @@ void main() {
         await dataInitializationService.runSummaryAggregationForTesting();
 
         // WHEN: We fetch details, expecting dosage inheritance in view
-        final members = await database.libraryDao.getGroupDetails(
+        final membersEither = await database.libraryDao.getGroupDetails(
           'GROUP_BROKEN',
+        );
+        expect(membersEither.isRight, isTrue);
+        final members = membersEither.fold(
+          ifLeft: (_) => <ViewGroupDetail>[],
+          ifRight: (v) => v,
         );
 
         // THEN: The group data should contain both princeps and generic
@@ -296,8 +317,14 @@ void main() {
       await dataInitializationService.runSummaryAggregationForTesting();
 
       // WHEN: We get generic group summaries
-      final summaries = await database.libraryDao.getGenericGroupSummaries(
-        limit: 10,
+      final summariesEither = await database.libraryDao
+          .getGenericGroupSummaries(
+            limit: 10,
+          );
+      expect(summariesEither.isRight, isTrue);
+      final summaries = summariesEither.fold(
+        ifLeft: (_) => <GenericGroupEntity>[],
+        ifRight: (v) => v,
       );
 
       // THEN: Should return both groups with correct common principles
@@ -347,8 +374,14 @@ void main() {
       await dataInitializationService.runSummaryAggregationForTesting();
 
       // WHEN: We get generic group summaries
-      final summaries = await database.libraryDao.getGenericGroupSummaries(
-        limit: 10,
+      final summariesEither = await database.libraryDao
+          .getGenericGroupSummaries(
+            limit: 10,
+          );
+      expect(summariesEither.isRight, isTrue);
+      final summaries = summariesEither.fold(
+        ifLeft: (_) => <GenericGroupEntity>[],
+        ifRight: (v) => v,
       );
 
       // THEN: Should filter out groups without shared principles

@@ -4,10 +4,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/utils/test_tags.dart';
-import 'package:pharma_scan/features/explorer/models/search_filters_model.dart';
-import 'package:pharma_scan/features/explorer/models/search_result_item_model.dart';
-import 'package:pharma_scan/features/explorer/providers/search_provider.dart';
-import 'package:pharma_scan/features/explorer/widgets/explorer_search_bar.dart';
+import 'package:pharma_scan/features/explorer/domain/models/search_filters_model.dart';
+import 'package:pharma_scan/features/explorer/domain/models/search_result_item_model.dart';
+import 'package:pharma_scan/features/explorer/presentation/providers/search_provider.dart';
+import 'package:pharma_scan/features/explorer/presentation/widgets/explorer_search_bar.dart';
 import '../../helpers/pump_app.dart';
 
 void main() {
@@ -34,14 +34,14 @@ void main() {
       expect(find.byKey(const Key(TestTags.filterBtn)), findsOneWidget);
     });
 
-    // TODO: Skip due to Flutter semantics assertions when interacting with
+    // TODO(user): Skip due to Flutter semantics assertions when interacting with
     // Shadcn ShadInput in test environment. Debounce behavior is verified
     // in integration tests and manual testing.
     testWidgets('debounces search input and calls callback', (tester) async {
       // Skipped - see TODO above
     }, skip: true);
 
-    // TODO: Skip due to Flutter semantics assertions when interacting with
+    // TODO(user): Skip due to Flutter semantics assertions when interacting with
     // Shadcn ShadInput in test environment. Trim behavior is verified
     // in integration tests and manual testing.
     testWidgets('trims search query before calling callback', (tester) async {

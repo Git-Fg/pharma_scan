@@ -1,4 +1,6 @@
 // lib/features/home/screens/main_screen.dart
+import 'dart:async';
+
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -21,18 +23,17 @@ class MainScreen extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // WHY: Trigger sync after first frame
     useEffect(() {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        ref
-            .read(syncControllerProvider.notifier)
-            .startSync()
-            .catchError((_) => false);
+        unawaited(
+          ref
+              .read(syncControllerProvider.notifier)
+              .startSync()
+              .catchError((_) => false),
+        );
       });
       return null;
     }, []);
-
-    // Tab change logic will be handled by AutoTabsScaffold
 
     Future<bool> triggerSync({bool force = false}) {
       return ref
@@ -54,8 +55,6 @@ class MainScreen extends HookConsumerWidget {
     );
     final initTimerStart = useState<DateTime?>(null);
 
-    // WHY: Detect keyboard state to hide bottom navigation bar and prevent double padding
-    // Check both current context and root navigator context (for sheets with useRootNavigator: true)
     final keyboardHeight = MediaQuery.viewInsetsOf(context).bottom;
     final rootNavigator = Navigator.of(context, rootNavigator: true);
     final rootKeyboardHeight = rootNavigator.context != context
@@ -63,8 +62,6 @@ class MainScreen extends HookConsumerWidget {
         : 0.0;
     final isKeyboardOpen = keyboardHeight > 0 || rootKeyboardHeight > 0;
 
-    // WHY: Listen for sync status changes to show toast notifications
-    // Data providers are now reactive to sync completion via lastSyncEpochStreamProvider
     ref.listen(syncControllerProvider, (previous, next) {
       final presenter = SyncStatusPresenter(next);
       if (next.phase == SyncPhase.success &&
@@ -326,16 +323,17 @@ class SyncStatusPresenter {
   final SyncProgress progress;
 
   String? get successDescription {
-    switch (progress.code) {
-      case SyncStatusCode.successAlreadyCurrent:
-        return Strings.syncUpToDate;
-      case SyncStatusCode.successUpdatesApplied:
-        return Strings.syncDatabaseUpdated;
-      case SyncStatusCode.successVerified:
-        return Strings.syncContentVerified;
-      default:
-        return null;
-    }
+    return switch (progress.code) {
+      SyncStatusCode.successAlreadyCurrent => Strings.syncUpToDate,
+      SyncStatusCode.successUpdatesApplied => Strings.syncDatabaseUpdated,
+      SyncStatusCode.successVerified => Strings.syncContentVerified,
+      SyncStatusCode.idle ||
+      SyncStatusCode.waitingNetwork ||
+      SyncStatusCode.checkingUpdates ||
+      SyncStatusCode.downloadingSource ||
+      SyncStatusCode.applyingUpdate ||
+      SyncStatusCode.error => null,
+    };
   }
 
   String? get errorDescription {

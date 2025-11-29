@@ -15,7 +15,7 @@ You have access to specialized rule files. You must load and adhere to them base
 - **State Management:** `.cursor/rules/riverpod-architecture.mdc`
 - **Database:** `.cursor/rules/drift-database.mdc`
 - **Navigation:** `.cursor/rules/navigation.mdc`
-- **Error Handling:** `.cursor/rules/error-handling.mdc`
+- **Error Handling:** `.cursor/rules/error-handling.mdc` (Standard: `dart_either` ROP)
 - **Testing & QA:** `.cursor/rules/qa-testing.mdc`
 - **UI/UX Design (New Standard):** `.cursor/rules/shadcn-design.mdc`
 - **Accessibility:** `.cursor/rules/accessibility.mdc`
@@ -30,7 +30,9 @@ When modifying logic, check `.cursor/rules/riverpod-architecture.mdc` and `.curs
 
 When searching for documentation on shadcn_ui, use `websites/flutter-shadcn-ui_mariuti` library id for context7
 
-When searching for documentation on dart_mappable, use `/schultek/dart_mappable` library id for context7
+When searching for documentation on dart_mappable, use `websites/pub_dev_dart_mappable` library id for context7
+
+When searching for documentation on dart_either, use `hoc081098/dart_either` library id for context7
 
 </context_library>
 
@@ -42,7 +44,8 @@ When searching for documentation on dart_mappable, use `/schultek/dart_mappable`
     - *Self-Correction:* If a project rule conflicts with modern documentation, trigger `.cursor/rules/knowledge-maintenance.mdc`.
 
 2. **Architectural Filter (The 2025 Shadcn Standard):**
-    - **Hybrid Root Protocol:** The root widget MUST be `ShadApp.custom` wrapping a `MaterialApp.router` (or `CupertinoApp.router`). This ensures access to Shadcn components AND native Flutter navigation/scaffolding simultaneously.
+    - **Native Shadcn Root:** The root widget MUST be `ShadApp.router` (or `ShadApp.custom` only if deep Material customization is strictly required). This automatically provides the Material Theme layer for Scaffold.
+    - **Pure Shadcn Colors:** Use only native Shadcn color scheme variants (`primary`, `secondary`, `destructive`, `muted`, `outline`). Do NOT inject custom colors via `ShadColorScheme.custom`. Map domain concepts to semantic intents (danger→destructive, brand→primary, info→outline). This enforces visual consistency and reduces maintenance.
     - **UI Library:** Use `shadcn_ui` widgets (`ShadButton`, `ShadCard`, `ShadInput`). Do NOT use `forui`, `mix`, or Material-only patterns for new code.
     - **Icon Library:** Strictly use `LucideIcons` (bundled with shadcn_ui). Do NOT use `Icons.*` (Material).
     - **Theme Access:** Access styles via `ShadTheme.of(context)` for colors, typography, and shapes.
@@ -57,7 +60,7 @@ When searching for documentation on dart_mappable, use `/schultek/dart_mappable`
     - **SQL > Dart:** Can this logic (grouping, sorting, filtering) be done in a SQL View instead of a Dart loop? If yes, use SQL.
     - **Stream > Future:** Is this data displayed in the UI? If yes, use `watch()` (Stream) instead of `get()` (Future).
     - **Hooks > Stateful:** Does this UI need a controller? If yes, use `HookConsumerWidget` and `flutter_hooks`.
-    - **Functional > Exceptions:** For ETL pipelines and error-prone operations, use fpdart's `Either`/`Task` for Railway Oriented Programming instead of try-catch blocks.
+    - **Functional > Exceptions:** For ETL pipelines and error-prone operations, use dart_either's `Either` for Railway Oriented Programming instead of try-catch blocks.
     - **Data Models:** Use `dart_mappable` (`@MappableClass` + Mixin). Do NOT use `freezed` or `json_serializable`. Favor standard Dart classes and `sealed` classes for unions. Use Dart 3 pattern matching (`switch` expressions) instead of `.map()`/`.when()`.
 
 3. **Logical Decomposition:**
@@ -121,6 +124,11 @@ When searching for documentation on dart_mappable, use `/schultek/dart_mappable`
 6.  **No Cosmetic Linter Noise:** All structural linter issues must be auto-fixed via `dart fix --apply`. Manual suppression comments are forbidden unless the issue is a false positive.
 7.  **Strict Exclusions for Generated Code:** Generated files (`.g.dart`, `.freezed.dart`, `.mapper.dart`, `.drift.dart`) must be excluded from linter analysis. Use `analysis_options.yaml` exclusions, not inline suppressions.
 8.  **Strict Linting:** `very_good_analysis` is enforced. Documentation rules (`public_member_api_docs`) are disabled to reduce noise.
+9.  **Language Policy (French for User-Facing Content, English for Agent Instructions):**
+    - **README.md:** MUST remain in French. It targets pharmacists and must be accessible in French.
+    - **User-Facing Text:** All strings in `lib/core/utils/strings.dart` and any user-visible text in the codebase MUST be in French.
+    - **Agent Instructions:** This file (`AGENTS.md`) and all rule files in `.cursor/rules/*.mdc` MUST remain in English for clarity and consistency with AI tooling.
+    - **Code Comments:** Code comments can be in English (standard practice) unless they are user-facing documentation.
 </constraints>
 
 <data_layer>

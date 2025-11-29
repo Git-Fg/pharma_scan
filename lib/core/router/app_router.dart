@@ -1,10 +1,10 @@
 // lib/core/router/app_router.dart
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
-import 'package:pharma_scan/features/explorer/screens/database_screen.dart';
-import 'package:pharma_scan/features/explorer/screens/group_explorer_view.dart';
+import 'package:pharma_scan/features/explorer/presentation/screens/database_screen.dart';
+import 'package:pharma_scan/features/explorer/presentation/screens/group_explorer_view.dart';
 import 'package:pharma_scan/features/home/screens/main_screen.dart';
-import 'package:pharma_scan/features/scanner/screens/camera_screen.dart';
+import 'package:pharma_scan/features/scanner/presentation/screens/camera_screen.dart';
 import 'package:pharma_scan/features/settings/screens/logs_screen_wrapper.dart';
 import 'package:pharma_scan/features/settings/screens/settings_screen.dart';
 

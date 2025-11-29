@@ -6,5 +6,9 @@ part 'database_stats_provider.g.dart';
 @riverpod
 Future<Map<String, dynamic>> databaseStats(Ref ref) async {
   final libraryDao = ref.watch(libraryDaoProvider);
-  return libraryDao.getDatabaseStats();
+  final statsEither = await libraryDao.getDatabaseStats();
+  return statsEither.fold(
+    ifLeft: (failure) => throw failure,
+    ifRight: (stats) => stats,
+  );
 }

@@ -6,8 +6,8 @@ import 'package:integration_test/integration_test.dart';
 import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/providers/core_providers.dart';
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
-import 'package:pharma_scan/features/explorer/models/grouped_by_product_model.dart';
-import 'package:pharma_scan/features/explorer/providers/group_classification_provider.dart';
+import 'package:pharma_scan/features/explorer/domain/models/grouped_by_product_model.dart';
+import 'package:pharma_scan/features/explorer/presentation/providers/group_classification_provider.dart';
 
 import '../test/fixtures/seed_builder.dart';
 import 'test_bootstrap.dart';
@@ -52,7 +52,7 @@ void main() {
       // Use a widget to watch the provider and get the stream value
       final container = integrationTestContainer;
       GroupedProductsViewModel? viewModel;
-      
+
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
@@ -74,7 +74,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle(const Duration(seconds: 5));
-      
+
       // Ensure we got the viewModel
       expect(viewModel, isNotNull, reason: 'ViewModel should be loaded');
 

@@ -82,8 +82,6 @@ class SectionHeaderDelegate extends SliverPersistentHeaderDelegate {
     double shrinkOffset,
     bool overlapsContent,
   ) {
-    // WHY: Use the existing SectionHeader widget for consistency
-    // The delegate just wraps it to make it work with SliverPersistentHeader
     return SectionHeader(
       title: title,
       badgeCount: badgeCount,

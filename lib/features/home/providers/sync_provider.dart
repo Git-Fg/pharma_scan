@@ -60,7 +60,11 @@ class SyncController extends _$SyncController {
     final clock = ref.read(clockProvider);
     final now = clock();
     final db = ref.read(appDatabaseProvider);
-    final lastCheck = await db.settingsDao.getLastSyncTime();
+    final lastCheckEither = await db.settingsDao.getLastSyncTime();
+    final lastCheck = lastCheckEither.fold(
+      ifLeft: (_) => null,
+      ifRight: (v) => v,
+    );
 
     if (!force &&
         lastCheck != null &&
@@ -113,8 +117,16 @@ class SyncController extends _$SyncController {
     try {
       LoggerService.info('Starting sync run (Notifier)');
       final db = ref.read(appDatabaseProvider);
-      final sourceHashes = await db.settingsDao.getSourceHashes();
-      final sourceDates = await db.settingsDao.getSourceDates();
+      final sourceHashesEither = await db.settingsDao.getSourceHashes();
+      final sourceHashes = sourceHashesEither.fold(
+        ifLeft: (_) => <String, String>{},
+        ifRight: (v) => v,
+      );
+      final sourceDatesEither = await db.settingsDao.getSourceDates();
+      final sourceDates = sourceDatesEither.fold(
+        ifLeft: (_) => <String, DateTime>{},
+        ifRight: (v) => v,
+      );
 
       currentStep = _SyncStep.waitConnectivity;
       await _waitForConnectivity();
@@ -208,8 +220,30 @@ class SyncController extends _$SyncController {
         downloadedFiles[entry.key] = tempFile;
       }
 
-      await db.settingsDao.saveSourceHashes(sourceHashes);
-      await db.settingsDao.saveSourceDates(sourceDates);
+      final saveHashesEither = await db.settingsDao.saveSourceHashes(
+        sourceHashes,
+      );
+      saveHashesEither.fold(
+        ifLeft: (failure) {
+          LoggerService.error(
+            '[SyncController] Failed to save source hashes',
+            failure.message,
+            failure.stackTrace,
+          );
+        },
+        ifRight: (_) {},
+      );
+      final saveDatesEither = await db.settingsDao.saveSourceDates(sourceDates);
+      saveDatesEither.fold(
+        ifLeft: (failure) {
+          LoggerService.error(
+            '[SyncController] Failed to save source dates',
+            failure.message,
+            failure.stackTrace,
+          );
+        },
+        ifRight: (_) {},
+      );
 
       if (hasChanges) {
         currentStep = _SyncStep.applyUpdate;
@@ -259,7 +293,19 @@ class SyncController extends _$SyncController {
       }
       final clock = ref.read(clockProvider);
       final db = ref.read(appDatabaseProvider);
-      await db.settingsDao.updateSyncTimestamp(clock().millisecondsSinceEpoch);
+      final updateEither = await db.settingsDao.updateSyncTimestamp(
+        clock().millisecondsSinceEpoch,
+      );
+      updateEither.fold(
+        ifLeft: (failure) {
+          LoggerService.error(
+            '[SyncController] Failed to update sync timestamp',
+            failure.message,
+            failure.stackTrace,
+          );
+        },
+        ifRight: (_) {},
+      );
       unawaited(_scheduleReset());
     }
   }
@@ -329,7 +375,7 @@ class SyncController extends _$SyncController {
       }
 
       return remoteDates;
-    } catch (error, stackTrace) {
+    } on Exception catch (error, stackTrace) {
       LoggerService.error('Failed to parse update page', error, stackTrace);
       return {};
     }
@@ -344,7 +390,7 @@ class SyncController extends _$SyncController {
         int.parse(parts[1]),
         int.parse(parts[0]),
       );
-    } catch (_) {
+    } on Exception catch (_) {
       return null;
     }
   }
@@ -381,7 +427,7 @@ class SyncController extends _$SyncController {
       if (await file.exists()) {
         await file.delete();
       }
-    } catch (_) {
+    } on Exception catch (_) {
       // Ignore failures
     }
   }

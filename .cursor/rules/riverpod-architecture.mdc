@@ -94,3 +94,56 @@ Future<List<String>> pharmaceuticalForms(Ref ref) async {
 * ❌ **DO NOT** use `ref.watch` inside lifecycle methods or callbacks. Use `ref.read`.
 
 * ❌ **DO NOT** perform side effects (navigation, snackbars) inside `build()`. Listen to the provider in the Widget layer.
+
+## 6. Consuming ROP (Either) in Providers
+
+* **Pattern:** Providers act as the adaptation layer ("Anti-Corruption Layer") between ROP (Domain) and UI (AsyncValue).
+
+* **Transformation:** Use `.fold()` to map the result.
+
+**Pattern for Future Providers:**
+
+```dart
+@riverpod
+Future<List<Data>> myData(Ref ref) async {
+  final resultEither = await ref.watch(repositoryProvider).getData();
+  return resultEither.fold(
+    (failure) => throw failure, // Transforms Failure into AsyncError for UI
+    (data) => data,             // Passes data as AsyncData
+  );
+}
+```
+
+**Pattern for Stream Providers:**
+
+```dart
+@riverpod
+Stream<List<Data>> myData(Ref ref) {
+  final stream = ref.watch(repositoryProvider).watchData();
+  return stream.map((either) => either.fold(
+    (failure) => throw failure, // Transforms into AsyncError
+    (data) => data,             // Passes data
+  ));
+}
+```
+
+**Pattern for Notifiers (Manual Error Handling):**
+
+```dart
+Future<bool> performAction(String id) async {
+  final resultEither = await dao.getData(id);
+  return resultEither.fold(
+    (failure) {
+      LoggerService.error('[Notifier] Error', failure.message, failure.stackTrace);
+      // Optional: Show toast error
+      return false;
+    },
+    (data) {
+      // Business logic with data
+      return true;
+    },
+  );
+}
+```
+
+**Rationale:** This pattern ensures type-safe error propagation from the data layer to the UI layer, where `AsyncValue` naturally handles the error states.

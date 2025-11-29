@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
+import 'package:pharma_scan/features/explorer/domain/models/generic_group_entity.dart';
 
 import 'test_utils.dart';
 
@@ -80,8 +81,14 @@ void main() {
       // Populate MedicamentSummary table
       await dataInitializationService.runSummaryAggregationForTesting();
 
-      final summaries = await database.libraryDao.getGenericGroupSummaries(
-        limit: 10,
+      final summariesEither = await database.libraryDao
+          .getGenericGroupSummaries(
+            limit: 10,
+          );
+      expect(summariesEither.isRight, isTrue);
+      final summaries = summariesEither.fold(
+        ifLeft: (_) => <GenericGroupEntity>[],
+        ifRight: (v) => v,
       );
 
       expect(summaries.length, 1);
@@ -123,8 +130,14 @@ void main() {
           ],
         );
 
-        final summaries = await database.libraryDao.getGenericGroupSummaries(
-          limit: 10,
+        final summariesEither = await database.libraryDao
+            .getGenericGroupSummaries(
+              limit: 10,
+            );
+        expect(summariesEither.isRight, isTrue);
+        final summaries = summariesEither.fold(
+          ifLeft: (_) => const <GenericGroupEntity>[],
+          ifRight: (v) => v,
         );
 
         expect(
@@ -196,7 +209,12 @@ void main() {
       );
 
       // WHEN: We get database stats
-      final stats = await database.libraryDao.getDatabaseStats();
+      final statsEither = await database.libraryDao.getDatabaseStats();
+      expect(statsEither.isRight, isTrue);
+      final stats = statsEither.fold(
+        ifLeft: (_) => <String, dynamic>{},
+        ifRight: (v) => v,
+      );
 
       // THEN: Statistics are correct
       expect(stats['total_princeps'], 2); // 4 total - 2 generics = 2 princeps
@@ -256,7 +274,12 @@ void main() {
       await dataInitializationService.runSummaryAggregationForTesting();
 
       final searchDao = database.searchDao;
-      final candidates = await searchDao.searchMedicaments('APIXABAN');
+      final candidatesEither = await searchDao.searchMedicaments('APIXABAN');
+      expect(candidatesEither.isRight, isTrue);
+      final candidates = candidatesEither.fold(
+        ifLeft: (_) => <MedicamentSummaryData>[],
+        ifRight: (v) => v,
+      );
       expect(candidates.length, 2);
 
       final princeps = candidates.firstWhere(
@@ -328,7 +351,12 @@ void main() {
 
       await dataInitializationService.runSummaryAggregationForTesting();
 
-      final result = await database.searchDao.searchMedicaments('GROUP');
+      final resultEither = await database.searchDao.searchMedicaments('GROUP');
+      expect(resultEither.isRight, isTrue);
+      final result = resultEither.fold(
+        ifLeft: (_) => <MedicamentSummaryData>[],
+        ifRight: (v) => v,
+      );
       expect(result.length, 2);
 
       // Get specialite data to check procedure type
@@ -387,7 +415,12 @@ void main() {
 
       await dataInitializationService.runSummaryAggregationForTesting();
 
-      final result = await database.searchDao.searchMedicaments('Group');
+      final resultEither = await database.searchDao.searchMedicaments('Group');
+      expect(resultEither.isRight, isTrue);
+      final result = resultEither.fold(
+        ifLeft: (_) => <MedicamentSummaryData>[],
+        ifRight: (v) => v,
+      );
       expect(result.length, 2);
       final names = result.map((s) => s.nomCanonique).toList();
       final sortedNames = [...names]..sort((a, b) => a.compareTo(b));
@@ -477,7 +510,14 @@ void main() {
       await dataInitializationService.runSummaryAggregationForTesting();
 
       // WHEN: We fetch group details
-      final members = await database.libraryDao.getGroupDetails('GROUP_1');
+      final membersEither = await database.libraryDao.getGroupDetails(
+        'GROUP_1',
+      );
+      expect(membersEither.isRight, isTrue);
+      final members = membersEither.fold(
+        ifLeft: (_) => <ViewGroupDetail>[],
+        ifRight: (v) => v,
+      );
 
       // THEN: The group data should contain 2 princeps and 3 generic members
       final princepsMembers = members
@@ -576,9 +616,22 @@ void main() {
 
         await dataInitializationService.runSummaryAggregationForTesting();
 
-        final members = await database.libraryDao.getGroupDetails('GROUP_A');
-        final related = await database.libraryDao.fetchRelatedPrinceps(
+        final membersEither = await database.libraryDao.getGroupDetails(
           'GROUP_A',
+        );
+        expect(membersEither.isRight, isTrue);
+        final members = membersEither.fold(
+          ifLeft: (_) => <ViewGroupDetail>[],
+          ifRight: (v) => v,
+        );
+
+        final relatedEither = await database.libraryDao.fetchRelatedPrinceps(
+          'GROUP_A',
+        );
+        expect(relatedEither.isRight, isTrue);
+        final related = relatedEither.fold(
+          ifLeft: (_) => <ViewGroupDetail>[],
+          ifRight: (v) => v,
         );
 
         expect(members.where((m) => m.isPrinceps).length, 1);
@@ -699,9 +752,22 @@ void main() {
 
       await dataInitializationService.runSummaryAggregationForTesting();
 
-      final members = await database.libraryDao.getGroupDetails('GROUP_MAIN');
-      final related = await database.libraryDao.fetchRelatedPrinceps(
+      final membersEither = await database.libraryDao.getGroupDetails(
         'GROUP_MAIN',
+      );
+      expect(membersEither.isRight, isTrue);
+      final members = membersEither.fold(
+        ifLeft: (_) => <ViewGroupDetail>[],
+        ifRight: (v) => v,
+      );
+
+      final relatedEither = await database.libraryDao.fetchRelatedPrinceps(
+        'GROUP_MAIN',
+      );
+      expect(relatedEither.isRight, isTrue);
+      final related = relatedEither.fold(
+        ifLeft: (_) => <ViewGroupDetail>[],
+        ifRight: (v) => v,
       );
 
       expect(members, isNotEmpty);
@@ -736,7 +802,14 @@ void main() {
     });
 
     test('returns null when group has no members', () async {
-      final members = await database.libraryDao.getGroupDetails('MISSING');
+      final membersEither = await database.libraryDao.getGroupDetails(
+        'MISSING',
+      );
+      expect(membersEither.isRight, isTrue);
+      final members = membersEither.fold(
+        ifLeft: (_) => <ViewGroupDetail>[],
+        ifRight: (v) => v,
+      );
       expect(members, isEmpty);
     });
   });

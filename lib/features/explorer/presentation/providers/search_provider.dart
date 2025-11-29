@@ -3,9 +3,9 @@ import 'dart:async';
 import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/logic/sanitizer.dart';
 import 'package:pharma_scan/core/providers/core_providers.dart';
-import 'package:pharma_scan/features/explorer/models/generic_group_entity.dart';
-import 'package:pharma_scan/features/explorer/models/search_filters_model.dart';
-import 'package:pharma_scan/features/explorer/models/search_result_item_model.dart';
+import 'package:pharma_scan/features/explorer/domain/models/generic_group_entity.dart';
+import 'package:pharma_scan/features/explorer/domain/models/search_filters_model.dart';
+import 'package:pharma_scan/features/explorer/domain/models/search_result_item_model.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'search_provider.g.dart';
@@ -14,6 +14,10 @@ part 'search_provider.g.dart';
 class SearchFiltersNotifier extends _$SearchFiltersNotifier {
   @override
   SearchFilters build() => const SearchFilters();
+
+  set filters(SearchFilters filters) {
+    state = filters;
+  }
 
   void updateFilters(SearchFilters filters) {
     state = filters;
@@ -34,11 +38,15 @@ Stream<List<SearchResultItem>> searchResults(Ref ref, String rawQuery) {
   final searchDao = ref.watch(searchDaoProvider);
   final filters = ref.watch(searchFiltersProvider);
 
-  // WHY: Watch FTS5 results reactively so UI updates whenever the underlying tables change.
-  // Representative CIP is now computed in SQL and stored in MedicamentSummary, so no asyncMap needed.
-  return searchDao.watchMedicaments(query, filters: filters).map((summaries) {
-    if (summaries.isEmpty) return const <SearchResultItem>[];
-    return _mapSummariesToItems(summaries);
+  return searchDao.watchMedicaments(query, filters: filters).map((either) {
+    return either.fold(
+      ifLeft: (failure) =>
+          throw failure, // Transforms Failure into AsyncError for UI
+      ifRight: (summaries) {
+        if (summaries.isEmpty) return const <SearchResultItem>[];
+        return _mapSummariesToItems(summaries);
+      },
+    );
   });
 }
 
@@ -51,8 +59,6 @@ List<SearchResultItem> _mapSummariesToItems(
 
   for (final summary in summaries) {
     final groupId = summary.groupId;
-    // WHY: representativeCip is now computed in SQL and stored in MedicamentSummary
-    // Fallback to cisCode if null (shouldn't happen for standalone, but defensive)
     final representativeCip = summary.representativeCip ?? summary.cisCode;
 
     if (groupId != null && groupId.isNotEmpty) {

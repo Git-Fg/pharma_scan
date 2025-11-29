@@ -1,4 +1,4 @@
-// lib/features/scanner/screens/camera_screen.dart
+// lib/features/scanner/presentation/screens/camera_screen.dart
 import 'dart:async';
 import 'dart:ui';
 
@@ -21,12 +21,11 @@ import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/utils/test_tags.dart';
 import 'package:pharma_scan/core/widgets/adaptive_bottom_panel.dart';
 import 'package:pharma_scan/core/widgets/testable.dart';
-import 'package:pharma_scan/core/widgets/ui_kit/pharma_sheet_layout.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/product_card.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/status_view.dart';
 import 'package:pharma_scan/features/home/providers/initialization_provider.dart';
-import 'package:pharma_scan/features/scanner/providers/scanner_provider.dart';
-import 'package:pharma_scan/features/scanner/widgets/scan_window_overlay.dart';
+import 'package:pharma_scan/features/scanner/presentation/providers/scanner_provider.dart';
+import 'package:pharma_scan/features/scanner/presentation/widgets/scan_window_overlay.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 @RoutePage(name: 'ScannerRoute')
@@ -62,7 +61,6 @@ class CameraScreen extends HookConsumerWidget {
     }
 
     Future<void> toggleCamera() async {
-      // WHY: Prevent camera from starting during initialization
       final initStepAsync = ref.read(initializationStepProvider);
       final initStep = initStepAsync.value;
       if (initStep != null && initStep != InitializationStep.ready) {
@@ -88,8 +86,7 @@ class CameraScreen extends HookConsumerWidget {
 
       return Padding(
         padding: EdgeInsets.only(
-          bottom: AppDimens.spacing2xs / 2, // Small gap between bubbles
-          // WHY: Primary bubble (index 0) has no top padding, history bubbles are smaller.
+          bottom: AppDimens.spacing2xs / 2,
           top: isPrimary ? 0 : AppDimens.spacing2xs / 2,
         ),
         child: Dismissible(
@@ -107,13 +104,10 @@ class CameraScreen extends HookConsumerWidget {
         initStep != null && initStep != InitializationStep.ready;
 
     return Scaffold(
-      resizeToAvoidBottomInset:
-          false, // Prevent double padding when manual CIP sheet keyboard opens
-      // WHY: Use SafeArea to ensure camera controls don't overlap with navigation bar
+      resizeToAvoidBottomInset: false,
       body: SafeArea(
-        top: false, // Don't add top padding - let parent Scaffold handle it
-        bottom:
-            false, // Don't add bottom padding - let parent Scaffold handle it
+        top: false,
+        bottom: false,
         child: Stack(
           children: [
             if (isCameraActive.value && !isInitializing)
@@ -183,7 +177,6 @@ class CameraScreen extends HookConsumerWidget {
               ),
             if (isCameraActive.value && !isInitializing)
               const ScanWindowOverlay(),
-            // WHY: Torch button only visible when camera is active (scanner mode)
             if (isCameraActive.value && !isInitializing)
               Positioned(
                 top: MediaQuery.of(context).padding.top + 16,
@@ -197,7 +190,7 @@ class CameraScreen extends HookConsumerWidget {
                           ? Strings.turnOffTorch
                           : Strings.turnOnTorch,
                       child: ClipRRect(
-                        borderRadius: BorderRadius.circular(AppDimens.radiusLg),
+                        borderRadius: ShadTheme.of(context).radius,
                         child: BackdropFilter(
                           filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
                           child: DecoratedBox(
@@ -210,9 +203,7 @@ class CameraScreen extends HookConsumerWidget {
                                   context,
                                 ).colorScheme.border.withValues(alpha: 0.3),
                               ),
-                              borderRadius: BorderRadius.circular(
-                                AppDimens.radiusLg,
-                              ),
+                              borderRadius: ShadTheme.of(context).radius,
                             ),
                             child: ShadIconButton.ghost(
                               icon: Icon(
@@ -239,7 +230,6 @@ class CameraScreen extends HookConsumerWidget {
               right: 0,
               child: LayoutBuilder(
                 builder: (context, constraints) {
-                  // WHY: Adapt margins for scan bubbles based on screen width
                   final isSmallScreen = constraints.maxWidth < 360;
                   final horizontalMargin = isSmallScreen
                       ? 8.0
@@ -268,7 +258,6 @@ class CameraScreen extends HookConsumerWidget {
               ),
             ),
             Positioned(
-              // WHY: Position controls above bottom navigation bar with adaptive spacing
               bottom: 0,
               left: 0,
               right: 0,
@@ -282,9 +271,7 @@ class CameraScreen extends HookConsumerWidget {
                         ),
                         children: [
                           ClipRRect(
-                            borderRadius: BorderRadius.circular(
-                              AppDimens.radiusLg,
-                            ),
+                            borderRadius: ShadTheme.of(context).radius,
                             child: BackdropFilter(
                               filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
                               child: Container(
@@ -376,8 +363,6 @@ class CameraScreen extends HookConsumerWidget {
                                     const Gap(AppDimens.spacingLg * 0.85),
                                     LayoutBuilder(
                                       builder: (context, constraints) {
-                                        // WHY: Use Expanded to allow buttons to take full width.
-                                        // Reduce spacing and icon size on very small screens.
                                         final isSmallScreen =
                                             constraints.maxWidth < 360;
                                         final buttonSpacing = isSmallScreen
@@ -541,8 +526,6 @@ Future<void> _pickAndScanImage(
       return;
     }
 
-    // WHY: Reuse the existing scanner controller for image analysis to avoid
-    // creating and disposing heavy controller instances.
     try {
       LoggerService.info(
         '[CameraScreen] Analyzing image at path: ${file.path}',
@@ -574,7 +557,7 @@ Future<void> _pickAndScanImage(
           );
         }
       }
-    } catch (e, stackTrace) {
+    } on Exception catch (e, stackTrace) {
       LoggerService.error(
         '[CameraScreen] Error during image analysis',
         e,
@@ -591,7 +574,7 @@ Future<void> _pickAndScanImage(
         );
       }
     }
-  } catch (e, stackTrace) {
+  } on Exception catch (e, stackTrace) {
     LoggerService.error(
       '[CameraScreen] Error during image pick',
       e,
@@ -732,68 +715,59 @@ class _GallerySheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: const BorderRadius.vertical(
-        top: Radius.circular(AppDimens.radiusLg),
-      ),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: ShadTheme.of(
-              context,
-            ).colorScheme.secondary.withValues(alpha: 0.6),
-            borderRadius: const BorderRadius.vertical(
-              top: Radius.circular(AppDimens.radiusLg),
-            ),
-          ),
-          child: PharmaSheetLayout(
-            title: Strings.importFromGallery,
-            description: Strings.pharmascanAnalyzesOnly,
-            onClose: () => Navigator.of(context).maybePop(),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+    final theme = ShadTheme.of(context);
+    return ShadSheet(
+      title: const Text(Strings.importFromGallery),
+      description: const Text(Strings.pharmascanAnalyzesOnly),
+      actions: [
+        ShadButton.ghost(
+          onPressed: () => Navigator.of(context).maybePop(),
+          child: const Icon(LucideIcons.x),
+        ),
+      ],
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(
-                      LucideIcons.shieldCheck,
-                      color: ShadTheme.of(context).colorScheme.primary,
-                      size: 20,
-                    ),
-                    const Gap(12),
-                    Expanded(
-                      child: Text(
-                        Strings.noPhotoStoredMessage,
-                        style: ShadTheme.of(context).textTheme.small,
-                      ),
-                    ),
-                  ],
+                Icon(
+                  LucideIcons.shieldCheck,
+                  color: theme.colorScheme.primary,
+                  size: 20,
                 ),
-                const Gap(16),
-                Semantics(
-                  button: true,
-                  label: Strings.choosePhotoFromGallery,
-                  child: ShadButton(
-                    onPressed: () =>
-                        Navigator.of(context).pop(_GallerySheetResult.pick),
-                    child: const Text(Strings.choosePhoto),
-                  ),
-                ),
-                const Gap(8),
-                Semantics(
-                  button: true,
-                  label: Strings.cancelPhotoSelection,
-                  child: ShadButton.outline(
-                    onPressed: () => Navigator.of(context).maybePop(),
-                    child: const Text(Strings.cancel),
+                const Gap(12),
+                Expanded(
+                  child: Text(
+                    Strings.noPhotoStoredMessage,
+                    style: theme.textTheme.small,
                   ),
                 ),
               ],
             ),
-          ),
+            const Gap(16),
+            Semantics(
+              button: true,
+              label: Strings.choosePhotoFromGallery,
+              child: ShadButton(
+                onPressed: () =>
+                    Navigator.of(context).pop(_GallerySheetResult.pick),
+                child: const Text(Strings.choosePhoto),
+              ),
+            ),
+            const Gap(8),
+            Semantics(
+              button: true,
+              label: Strings.cancelPhotoSelection,
+              child: ShadButton.outline(
+                onPressed: () => Navigator.of(context).maybePop(),
+                child: const Text(Strings.cancel),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -813,7 +787,6 @@ class _ManualCipSheet extends HookConsumerWidget {
     Future<void> submit() async {
       if (isSubmitting.value) return;
 
-      // WHY: Use ShadForm's saveAndValidate() to handle validation and value retrieval
       if (formKey.currentState!.saveAndValidate()) {
         final data = formKey.currentState!.value;
         final code = data['cip'] as String? ?? '';
@@ -826,7 +799,6 @@ class _ManualCipSheet extends HookConsumerWidget {
         isSubmitting.value = false;
 
         if (!success) {
-          // WHY: Show toast notification when medicament is not found.
           ShadToaster.of(context).show(
             ShadToast.destructive(
               title: const Text(Strings.medicamentNotFound),
@@ -839,136 +811,116 @@ class _ManualCipSheet extends HookConsumerWidget {
       }
     }
 
-    // WHY: Simplified structure - let Shadcn handle constraints and scrolling
-    // Remove hardcoded maxWidth and LayoutBuilder anti-patterns
-    // Use SafeArea with minimum inset for declarative keyboard handling per shadcn-design.mdc
-
-    return ClipRRect(
-      borderRadius: const BorderRadius.vertical(
-        top: Radius.circular(AppDimens.radiusLg),
+    return SafeArea(
+      minimum: EdgeInsets.only(
+        bottom: MediaQuery.viewInsetsOf(context).bottom,
       ),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            // Slightly translucent to show blur
-            color: ShadTheme.of(
-              context,
-            ).colorScheme.secondary.withValues(alpha: 0.92),
-            borderRadius: const BorderRadius.vertical(
-              top: Radius.circular(AppDimens.radiusLg),
-            ),
+      child: ShadSheet(
+        title: const Text(Strings.manualCipEntry),
+        description: const Text(Strings.manualCipDescription),
+        actions: [
+          ShadButton.ghost(
+            onPressed: () => Navigator.of(context).maybePop(),
+            child: const Icon(LucideIcons.x),
           ),
-          child: SafeArea(
-            // WHY: Use SafeArea with minimum inset for declarative keyboard handling
-            // This ensures the input field remains visible when keyboard is open
-            minimum: EdgeInsets.only(
-              bottom: MediaQuery.viewInsetsOf(context).bottom,
-            ),
-            child: SingleChildScrollView(
-              child: PharmaSheetLayout(
-                title: Strings.manualCipEntry,
-                description: Strings.manualCipDescription,
-                onClose: () => Navigator.of(context).maybePop(),
-                child: FocusTraversalGroup(
-                  child: ShadForm(
-                    key: formKey,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Semantics(
-                          textField: true,
-                          label: Strings.manualEntryFieldLabel,
-                          hint: Strings.manualEntryFieldHint,
-                          child: ShadInputOTPFormField(
-                            id: 'cip',
-                            maxLength: 13,
-                            label: const Text(Strings.cipCodeLabel),
-                            description: const Text(
-                              Strings.manualCipDescription,
-                            ),
-                            keyboardType: TextInputType.number,
-                            validator: (String? v) {
-                              if (v == null || v.isEmpty) {
-                                return Strings.cipMustBe13Digits;
-                              }
-                              if (v.length < AppConfig.cipLength) {
-                                return Strings.cipMustBe13Digits;
-                              }
-                              return null;
-                            },
-                            onChanged: (String value) {
-                              // WHY: Auto-submit when CIP code is complete
-                              // Access current form value to check length
-                              if (value.length == AppConfig.cipLength) {
-                                // Trigger validation and submit if valid
-                                if (formKey.currentState!.saveAndValidate()) {
-                                  unawaited(submit());
-                                }
-                              }
-                            },
-                            children: const [
-                              ShadInputOTPGroup(
-                                children: [
-                                  ShadInputOTPSlot(),
-                                  ShadInputOTPSlot(),
-                                  ShadInputOTPSlot(),
-                                  ShadInputOTPSlot(),
-                                  ShadInputOTPSlot(),
-                                ],
-                              ),
-                              Icon(LucideIcons.minus, size: 16),
-                              ShadInputOTPGroup(
-                                children: [
-                                  ShadInputOTPSlot(),
-                                  ShadInputOTPSlot(),
-                                  ShadInputOTPSlot(),
-                                ],
-                              ),
-                              Icon(LucideIcons.minus, size: 16),
-                              ShadInputOTPGroup(
-                                children: [
-                                  ShadInputOTPSlot(),
-                                  ShadInputOTPSlot(),
-                                  ShadInputOTPSlot(),
-                                  ShadInputOTPSlot(),
-                                ],
-                              ),
-                              Icon(LucideIcons.minus, size: 16),
-                              ShadInputOTPGroup(children: [ShadInputOTPSlot()]),
+        ],
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 20),
+            child: FocusTraversalGroup(
+              child: ShadForm(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Semantics(
+                      textField: true,
+                      label: Strings.manualEntryFieldLabel,
+                      hint: Strings.manualEntryFieldHint,
+                      child: ShadInputOTPFormField(
+                        id: 'cip',
+                        maxLength: 13,
+                        label: const Text(Strings.cipCodeLabel),
+                        description: const Text(
+                          Strings.manualCipDescription,
+                        ),
+                        keyboardType: TextInputType.number,
+                        validator: (String? v) {
+                          if (v == null || v.isEmpty) {
+                            return Strings.cipMustBe13Digits;
+                          }
+                          if (v.length < AppConfig.cipLength) {
+                            return Strings.cipMustBe13Digits;
+                          }
+                          return null;
+                        },
+                        onChanged: (String value) {
+                          if (value.length == AppConfig.cipLength) {
+                            if (formKey.currentState!.saveAndValidate()) {
+                              unawaited(submit());
+                            }
+                          }
+                        },
+                        children: const [
+                          ShadInputOTPGroup(
+                            children: [
+                              ShadInputOTPSlot(),
+                              ShadInputOTPSlot(),
+                              ShadInputOTPSlot(),
+                              ShadInputOTPSlot(),
+                              ShadInputOTPSlot(),
                             ],
                           ),
-                        ),
-                        const Gap(16),
-                        Text(
-                          Strings.searchStartsAutomatically,
-                          style: ShadTheme.of(context).textTheme.small,
-                        ),
-                        const Gap(16),
-                        Semantics(
-                          button: true,
-                          label: isSubmitting.value
-                              ? Strings.searchingInProgress
-                              : Strings.searchMedicamentWithCip,
-                          enabled: !isSubmitting.value,
-                          child: ShadButton(
-                            onPressed: isSubmitting.value ? null : submit,
-                            leading: isSubmitting.value
-                                ? const SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : null,
-                            child: const Text(Strings.search),
+                          Icon(LucideIcons.minus, size: 16),
+                          ShadInputOTPGroup(
+                            children: [
+                              ShadInputOTPSlot(),
+                              ShadInputOTPSlot(),
+                              ShadInputOTPSlot(),
+                            ],
                           ),
-                        ),
-                      ],
+                          Icon(LucideIcons.minus, size: 16),
+                          ShadInputOTPGroup(
+                            children: [
+                              ShadInputOTPSlot(),
+                              ShadInputOTPSlot(),
+                              ShadInputOTPSlot(),
+                              ShadInputOTPSlot(),
+                            ],
+                          ),
+                          Icon(LucideIcons.minus, size: 16),
+                          ShadInputOTPGroup(children: [ShadInputOTPSlot()]),
+                        ],
+                      ),
                     ),
-                  ),
+                    const Gap(16),
+                    Text(
+                      Strings.searchStartsAutomatically,
+                      style: ShadTheme.of(context).textTheme.small,
+                    ),
+                    const Gap(16),
+                    Semantics(
+                      button: true,
+                      label: isSubmitting.value
+                          ? Strings.searchingInProgress
+                          : Strings.searchMedicamentWithCip,
+                      enabled: !isSubmitting.value,
+                      child: ShadButton(
+                        onPressed: isSubmitting.value ? null : submit,
+                        leading: isSubmitting.value
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : null,
+                        child: const Text(Strings.search),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),

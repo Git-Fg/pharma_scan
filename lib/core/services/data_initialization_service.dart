@@ -9,7 +9,6 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:pharma_scan/core/config/app_config.dart';
 import 'package:pharma_scan/core/config/data_sources.dart';
-import 'package:pharma_scan/core/database/database.dart' as drift_db;
 import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/services/file_download_service.dart';
 import 'package:pharma_scan/core/services/ingestion/bdpm_file_parser.dart';
@@ -53,8 +52,17 @@ class DataInitializationService {
   Stream<InitializationStep> get onStepChanged => _stepController.stream;
 
   Future<void> initializeDatabase({bool forceRefresh = false}) async {
-    final persistedVersion = await _db.settingsDao.getBdpmVersion();
-    final hasExistingData = await _db.libraryDao.hasExistingData();
+    final versionEither = await _db.settingsDao.getBdpmVersion();
+    final persistedVersion = versionEither.fold(
+      ifLeft: (_) => null,
+      ifRight: (v) => v,
+    );
+
+    final hasDataEither = await _db.libraryDao.hasExistingData();
+    final hasExistingData = hasDataEither.fold(
+      ifLeft: (_) => false,
+      ifRight: (v) => v,
+    );
 
     LoggerService.info(
       '[DataInit] initializeDatabase(forceRefresh: $forceRefresh, '
@@ -84,31 +92,41 @@ class DataInitializationService {
       LoggerService.info(
         '[DataInit] Starting full BDPM refresh (download + parse + aggregate).',
       );
-      // WHY: Check for cached files first - if they exist, use them immediately
-      // This makes initialization much faster on subsequent launches
       _stepController.add(InitializationStep.downloading);
 
       Map<String, String> filePaths;
       try {
         filePaths = await _downloadAllFilesWithCacheCheck();
       } catch (e, stackTrace) {
-        // WHY: If download fails, check if we have existing database data
-        // If database has data, continue with that instead of failing
         LoggerService.warning(
           '[DataInit] Download failed, checking for existing database data: $e',
         );
-        final hasExistingData = await _db.libraryDao.hasExistingData();
+        final hasDataEither = await _db.libraryDao.hasExistingData();
+        final hasExistingData = hasDataEither.fold(
+          ifLeft: (_) => false,
+          ifRight: (v) => v,
+        );
         if (hasExistingData) {
           LoggerService.info(
             '[DataInit] Using existing database data despite download failure. '
             'App will continue with cached data.',
           );
-          // WHY: Mark as ready with existing data - user can retry download later
-          await _db.settingsDao.updateBdpmVersion(_currentDataVersion);
+          final updateEither = await _db.settingsDao.updateBdpmVersion(
+            _currentDataVersion,
+          );
+          updateEither.fold(
+            ifLeft: (failure) {
+              LoggerService.error(
+                '[DataInit] Failed to update BDPM version',
+                failure.message,
+                failure.stackTrace,
+              );
+            },
+            ifRight: (_) {},
+          );
           _stepController.add(InitializationStep.ready);
           return;
         }
-        // WHY: No existing data and download failed - rethrow to show error
         LoggerService.error(
           '[DataInit] Download failed and no existing database data available',
           e,
@@ -122,12 +140,22 @@ class DataInitializationService {
       await _parseAndInsertData(filePaths);
 
       _stepController.add(InitializationStep.aggregating);
-      // WHY: Add delay before aggregation to ensure isolate database operations complete
-      // This helps prevent "database is locked" errors when main thread tries to aggregate
       await Future<void>.delayed(const Duration(milliseconds: 500));
       await _aggregateDataForSummary();
 
-      await _db.settingsDao.updateBdpmVersion(_currentDataVersion);
+      final updateEither = await _db.settingsDao.updateBdpmVersion(
+        _currentDataVersion,
+      );
+      updateEither.fold(
+        ifLeft: (failure) {
+          LoggerService.error(
+            '[DataInit] Failed to update BDPM version',
+            failure.message,
+            failure.stackTrace,
+          );
+        },
+        ifRight: (_) {},
+      );
       await _markSyncAsFresh();
 
       _stepController.add(InitializationStep.ready);
@@ -143,8 +171,6 @@ class DataInitializationService {
   }
 
   Future<Map<String, String>> _downloadAllFilesWithCacheCheck() async {
-    // WHY: Check for cached files first - if all files are cached, use them immediately
-    // This avoids network delays and makes initialization much faster
     final cachedFiles = <String, String>{};
     final missingFiles = <MapEntry<String, String>>[];
 
@@ -166,7 +192,6 @@ class DataInitializationService {
       missingFiles.add(entry);
     }
 
-    // WHY: If all files are cached, return immediately - no network delay
     if (missingFiles.isEmpty) {
       LoggerService.info(
         '[DataInit] All BDPM files found in cache - skipping downloads',
@@ -174,8 +199,6 @@ class DataInitializationService {
       return cachedFiles;
     }
 
-    // WHY: Download only missing files, handling individual failures gracefully
-    // If a download fails but we have cached files, we can still proceed
     final downloadResults = <MapEntry<String, String>>[];
     final downloadErrors = <String, Object>{}; // Track which files failed
 
@@ -187,8 +210,7 @@ class DataInitializationService {
         final path = await _getFilePath(entry.key, entry.value);
         LoggerService.info('[DataInit] Downloaded ${entry.key} to $path');
         downloadResults.add(MapEntry(entry.key, path));
-      } catch (e, stackTrace) {
-        // WHY: If download fails, check if we have a cached version
+      } on Exception catch (e, stackTrace) {
         final filename = _extractFilenameFromUrl(entry.value);
         final cacheDir = _globalCacheDir;
         File? fallbackFile;
@@ -200,7 +222,6 @@ class DataInitializationService {
           }
         }
 
-        // WHY: Check application documents directory as fallback
         if (fallbackFile == null) {
           final directory = await getApplicationDocumentsDirectory();
           final appCacheFile = File('${directory.path}/$filename');
@@ -215,7 +236,6 @@ class DataInitializationService {
           );
           downloadResults.add(MapEntry(entry.key, fallbackFile.path));
         } else {
-          // WHY: Track error but don't fail immediately - let caller decide
           LoggerService.error(
             '[DataInit] Download failed for ${entry.key} and no cache available',
             e,
@@ -226,7 +246,6 @@ class DataInitializationService {
       }
     }
 
-    // WHY: If we have errors and no results, throw to be handled by caller
     if (downloadErrors.isNotEmpty &&
         downloadResults.isEmpty &&
         cachedFiles.isEmpty) {
@@ -235,7 +254,6 @@ class DataInitializationService {
       );
     }
 
-    // WHY: Combine cached and downloaded files
     return {...cachedFiles, ...Map.fromEntries(downloadResults)};
   }
 
@@ -270,7 +288,19 @@ class DataInitializationService {
 
     await _parseAndInsertData(filePaths);
 
-    await _db.settingsDao.updateBdpmVersion(_currentDataVersion);
+    final updateEither = await _db.settingsDao.updateBdpmVersion(
+      _currentDataVersion,
+    );
+    updateEither.fold(
+      ifLeft: (failure) {
+        LoggerService.error(
+          '[DataInit] Failed to update BDPM version',
+          failure.message,
+          failure.stackTrace,
+        );
+      },
+      ifRight: (_) {},
+    );
     await _markSyncAsFresh();
   }
 
@@ -279,10 +309,6 @@ class DataInitializationService {
       '[DataInit] Parsing BDPM files: ${filePaths.keys.join(', ')}.',
     );
 
-    // WHY: Pass only database path and temp path to isolate (~1KB) instead of large data structures
-    // Parsing and batch insertion happen entirely inside the isolate
-    // WHY: Skip clearing to avoid database lock conflicts - INSERT OR REPLACE will overwrite existing data
-    // This eliminates the need for separate DELETE operations that cause lock conflicts
     //
     // CRITICAL: SQLite isolate locking on Android
     // On Android, SQLite uses file-level locking. When the main isolate has an open database connection,
@@ -292,7 +318,6 @@ class DataInitializationService {
     //
     // DO NOT REMOVE OR REDUCE THESE DELAYS - they are essential for preventing database lock conflicts
     // on Android devices. The total delay (600ms) is minimal compared to the parsing time (seconds).
-    // WHY: Multiple delays force multiple event loop ticks, ensuring pending database operations complete
     await Future<void>.delayed(const Duration(milliseconds: 100));
     await Future<void>.delayed(const Duration(milliseconds: 200));
     await Future<void>.delayed(const Duration(milliseconds: 300));
@@ -317,10 +342,18 @@ class DataInitializationService {
   }
 
   Future<void> _markSyncAsFresh() async {
-    // WHY: SyncService reads this timestamp to skip redundant checks right
-    // after a successful initialization run.
-    await _db.settingsDao.updateSyncTimestamp(
+    final updateEither = await _db.settingsDao.updateSyncTimestamp(
       DateTime.now().millisecondsSinceEpoch,
+    );
+    updateEither.fold(
+      ifLeft: (failure) {
+        LoggerService.error(
+          '[DataInit] Failed to update sync timestamp',
+          failure.message,
+          failure.stackTrace,
+        );
+      },
+      ifRight: (_) {},
     );
   }
 
@@ -389,14 +422,10 @@ class DataInitializationService {
     final directory = await getApplicationDocumentsDirectory();
     final cacheFile = File('${directory.path}/$filename');
 
-    // WHY: Retry logic with exponential backoff to handle transient network errors
-    // (connection timeouts, connection closed, etc.)
     const maxRetries = 3;
     var retryCount = 0;
     while (retryCount < maxRetries) {
       try {
-        // WHY: Use centralized FileDownloader service for consistent error handling,
-        // timeouts, and Talker logging across all file downloads.
         return await _fileDownloadService.downloadToBytesWithCacheFallback(
           url: url,
           cacheFile: cacheFile,
@@ -404,7 +433,6 @@ class DataInitializationService {
       } catch (error) {
         retryCount++;
         if (retryCount >= maxRetries) {
-          // WHY: If cache exists, use it even if download failed after all retries
           if (await cacheFile.exists()) {
             LoggerService.warning(
               '[DataInit] Download failed after $maxRetries attempts, using cached file: $filename',
@@ -413,7 +441,6 @@ class DataInitializationService {
           }
           rethrow;
         }
-        // WHY: Exponential backoff: 2s, 4s, 8s
         final delayMs = 2000 * (1 << (retryCount - 1));
         LoggerService.warning(
           '[DataInit] Download failed for $filename (attempt $retryCount/$maxRetries), retrying in ${delayMs}ms: $error',
@@ -428,22 +455,16 @@ class DataInitializationService {
   @visibleForTesting
   Future<void> runSummaryAggregationForTesting() => _aggregateDataForSummary();
 
-  // WHY: Get the database file path to pass to isolate
-  // The database is stored in application documents directory
   Future<String> _getDatabasePath() async {
     final dbFolder = await getApplicationDocumentsDirectory();
     return p.join(dbFolder.path, 'medicaments.db');
   }
 
-  // WHY: Aggregate data for MedicamentSummary table using SQL
-  // This replaces the complex Dart-based ETL logic with a single SQL query
   Future<void> _aggregateDataForSummary() async {
     LoggerService.info(
       '[DataInit] Starting data aggregation for MedicamentSummary table.',
     );
 
-    // WHY: Use SQL aggregation directly - no isolate needed
-    // All aggregation happens in SQLite engine, which is faster and uses less memory
     final recordCount = await _db.databaseDao.populateSummaryTable();
     await _db.databaseDao.populateFts5Index();
 
@@ -453,9 +474,6 @@ class DataInitializationService {
   }
 }
 
-// WHY: Static function to open database in isolate
-// Must be top-level or static to be sendable to isolate
-// Still needed for _parseAndInsertDataInBackground
 Future<AppDatabase> _openDatabaseInIsolate(
   String dbPath,
   String tempPath,
@@ -472,8 +490,6 @@ Future<AppDatabase> _openDatabaseInIsolate(
   return AppDatabase.forTesting(database);
 }
 
-// WHY: Helper function to insert data in chunks to reduce memory pressure
-// Splits large lists into batches of AppConfig.batchSize and inserts each batch separately
 Future<void> _insertChunked<T>(
   AppDatabase db,
   void Function(Batch batch, List<T> chunk, InsertMode mode) inserter,
@@ -496,14 +512,9 @@ Future<void> _insertChunked<T>(
   }
 }
 
-// WHY: Parse files and insert data entirely in isolate to avoid large data transfer
-// Returns only counts/status instead of full data structures to minimize serialization overhead
 Future<_ParseAndInsertResult> _parseAndInsertDataInBackground(
   ParseAndInsertArgs args,
 ) async {
-  // WHY: Open database connection in isolate to avoid passing large data structures
-  // Retry opening database connection to handle transient lock errors
-  // WHY: Use longer delays between retries to allow main connection to fully release
   const maxDbOpenRetries = 8;
   var dbOpenRetryCount = 0;
   late AppDatabase db;
@@ -516,7 +527,6 @@ Future<_ParseAndInsertResult> _parseAndInsertDataInBackground(
       if (dbOpenRetryCount >= maxDbOpenRetries) {
         rethrow;
       }
-      // WHY: Exponential backoff with longer delays: 500ms, 1000ms, 2000ms, 4000ms, 8000ms, 16000ms, 32000ms
       final delayMs = 500 * (1 << (dbOpenRetryCount - 1));
       LoggerService.warning(
         '[DataInit] Failed to open database (attempt $dbOpenRetryCount/$maxDbOpenRetries), retrying in ${delayMs}ms: $e',
@@ -524,10 +534,6 @@ Future<_ParseAndInsertResult> _parseAndInsertDataInBackground(
       await Future<void>.delayed(Duration(milliseconds: delayMs));
     }
   }
-
-  // WHY: Skip clearing to avoid database lock conflicts
-  // INSERT OR REPLACE mode (InsertMode.replace) will overwrite existing data automatically
-  // This eliminates lock conflicts from DELETE operations
 
   Stream<String>? streamForKey(String key) =>
       BdpmFileParser.openLineStream(args.filePaths[key]);
@@ -545,30 +551,39 @@ Future<_ParseAndInsertResult> _parseAndInsertDataInBackground(
     mitmMap,
   );
 
-  final specialitesResult = specialitesEither.fold((error) {
-    LoggerService.error('[DataInit] Failed to parse specialites: $error');
-    throw Exception('Failed to parse specialites: $error');
-  }, (result) => result);
+  final specialitesResult = specialitesEither.fold(
+    ifLeft: (error) {
+      LoggerService.error('[DataInit] Failed to parse specialites: $error');
+      throw Exception('Failed to parse specialites: $error');
+    },
+    ifRight: (result) => result,
+  );
 
   final medicamentsEither = await BdpmFileParser.parseMedicaments(
     streamForKey('medicaments'),
     specialitesResult,
   );
 
-  final medicamentsResult = medicamentsEither.fold((error) {
-    LoggerService.error('[DataInit] Failed to parse medicaments: $error');
-    throw Exception('Failed to parse medicaments: $error');
-  }, (result) => result);
+  final medicamentsResult = medicamentsEither.fold(
+    ifLeft: (error) {
+      LoggerService.error('[DataInit] Failed to parse medicaments: $error');
+      throw Exception('Failed to parse medicaments: $error');
+    },
+    ifRight: (result) => result,
+  );
 
   final principesEither = await BdpmFileParser.parseCompositions(
     streamForKey('compositions'),
     medicamentsResult.cisToCip13,
   );
 
-  final principes = principesEither.fold((error) {
-    LoggerService.error('[DataInit] Failed to parse compositions: $error');
-    throw Exception('Failed to parse compositions: $error');
-  }, (result) => result);
+  final principes = principesEither.fold(
+    ifLeft: (error) {
+      LoggerService.error('[DataInit] Failed to parse compositions: $error');
+      throw Exception('Failed to parse compositions: $error');
+    },
+    ifRight: (result) => result,
+  );
 
   final generiqueEither = await BdpmFileParser.parseGeneriques(
     streamForKey('generiques'),
@@ -576,36 +591,34 @@ Future<_ParseAndInsertResult> _parseAndInsertDataInBackground(
     medicamentsResult.medicamentCips,
   );
 
-  final generiqueResult = generiqueEither.fold((error) {
-    LoggerService.error('[DataInit] Failed to parse generiques: $error');
-    throw Exception('Failed to parse generiques: $error');
-  }, (result) => result);
+  final generiqueResult = generiqueEither.fold(
+    ifLeft: (error) {
+      LoggerService.error('[DataInit] Failed to parse generiques: $error');
+      throw Exception('Failed to parse generiques: $error');
+    },
+    ifRight: (result) => result,
+  );
 
   final availabilityEither = await BdpmFileParser.parseAvailability(
     streamForKey('availability'),
     medicamentsResult.cisToCip13,
   );
 
-  final availabilityRows = availabilityEither.fold((error) {
-    LoggerService.error('[DataInit] Failed to parse availability: $error');
-    throw Exception('Failed to parse availability: $error');
-  }, (result) => result);
+  final availabilityRows = availabilityEither.fold(
+    ifLeft: (error) {
+      LoggerService.error('[DataInit] Failed to parse availability: $error');
+      throw Exception('Failed to parse availability: $error');
+    },
+    ifRight: (result) => result,
+  );
 
-  // WHY: Wrap database operations in try/finally to ensure database is always closed
-  // This prevents database locks from persisting after isolate completes
   try {
-    // WHY: Insert data directly in isolate using chunked batch operations
-    // This avoids serialization cost of passing large data structures to main thread
-    // and prevents OOM on low-end devices by processing records in batches
-    // WHY: Retry logic with exponential backoff to handle transient database lock errors
     const maxRetries = 5;
     var retryCount = 0;
     while (retryCount < maxRetries) {
       try {
-        // WHY: Process each table type independently with chunked insertion
-        // This reduces memory pressure by inserting in smaller batches
         final specialitesCompanions = specialitesResult.specialites.map(
-          (row) => drift_db.SpecialitesCompanion(
+          (row) => SpecialitesCompanion(
             cisCode: Value(row['cis_code'] as String),
             nomSpecialite: Value(row['nom_specialite'] as String),
             procedureType: Value(row['procedure_type'] as String),
@@ -632,7 +645,7 @@ Future<_ParseAndInsertResult> _parseAndInsertDataInBackground(
         );
 
         final medicamentsCompanions = medicamentsResult.medicaments.map(
-          (row) => drift_db.MedicamentsCompanion(
+          (row) => MedicamentsCompanion(
             codeCip: Value(row['code_cip'] as String),
             cisCode: Value(row['cis_code'] as String),
             presentationLabel: Value(row['presentation_label'] as String?),
@@ -655,7 +668,7 @@ Future<_ParseAndInsertResult> _parseAndInsertDataInBackground(
         );
 
         final principesCompanions = principes.map(
-          (row) => drift_db.PrincipesActifsCompanion(
+          (row) => PrincipesActifsCompanion(
             codeCip: Value(row['code_cip'] as String),
             principe: Value(row['principe'] as String),
             dosage: Value(row['dosage'] as String?),
@@ -670,7 +683,7 @@ Future<_ParseAndInsertResult> _parseAndInsertDataInBackground(
         );
 
         final generiqueGroupsCompanions = generiqueResult.generiqueGroups.map(
-          (row) => drift_db.GeneriqueGroupsCompanion(
+          (row) => GeneriqueGroupsCompanion(
             groupId: Value(row['group_id'] as String),
             libelle: Value(row['libelle'] as String),
           ),
@@ -684,7 +697,7 @@ Future<_ParseAndInsertResult> _parseAndInsertDataInBackground(
         );
 
         final groupMembersCompanions = generiqueResult.groupMembers.map(
-          (row) => drift_db.GroupMembersCompanion(
+          (row) => GroupMembersCompanion(
             codeCip: Value(row['code_cip'] as String),
             groupId: Value(row['group_id'] as String),
             type: Value(row['type'] as int),
@@ -708,7 +721,7 @@ Future<_ParseAndInsertResult> _parseAndInsertDataInBackground(
 
         if (availabilityRows.isNotEmpty) {
           final availabilityCompanions = availabilityRows.map(
-            (row) => drift_db.MedicamentAvailabilityCompanion(
+            (row) => MedicamentAvailabilityCompanion(
               codeCip: Value(row['code_cip'] as String),
               statut: Value(row['statut'] as String),
               dateDebut: Value(row['date_debut'] as DateTime?),
@@ -733,7 +746,6 @@ Future<_ParseAndInsertResult> _parseAndInsertDataInBackground(
           // Final attempt failed - rethrow the error
           rethrow;
         }
-        // WHY: Exponential backoff with longer delays: 500ms, 1000ms, 2000ms, 4000ms, 8000ms
         final delayMs = 500 * (1 << (retryCount - 1));
         LoggerService.warning(
           '[DataInit] Database lock error (attempt $retryCount/$maxRetries), retrying in ${delayMs}ms: $e',
@@ -742,20 +754,16 @@ Future<_ParseAndInsertResult> _parseAndInsertDataInBackground(
       }
     }
 
-    // WHY: Return only counts/status instead of full data structures
     return _ParseAndInsertResult(
       medicamentCount: medicamentsResult.medicaments.length,
       principeCount: principes.length,
       groupMemberCount: generiqueResult.groupMembers.length,
     );
   } finally {
-    // WHY: Force close database connection to release SQLite locks
-    // This ensures the main thread can proceed with aggregation without waiting indefinitely
     await db.close();
   }
 }
 
-// WHY: Result structure for isolate work - contains only counts/status
 class _ParseAndInsertResult {
   const _ParseAndInsertResult({
     required this.medicamentCount,

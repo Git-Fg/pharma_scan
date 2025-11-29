@@ -5,22 +5,52 @@ alwaysApply: true
 
 # Error Handling Protocols
 
-## 1. Service Layer: Functional approach
+## 1. Service & DAO Layer: Functional ROP (via dart_either)
 
-* **Library:** Use `fpdart`.
+* **Library:** `dart_either` (^2.0.0) is mandatory.
 
-* **Pattern:** Return `Future<Either<Failure, Success>>` for operations that can fail (parsing, network).
+* **Signature:** Any async method that can fail (DB, Network, Parsing) MUST return `Future<Either<Failure, T>>`.
 
-* **Exceptions:** Catch exceptions at the lowest level (datasource) and map them to domain `Failure` objects.
+* **Prohibition:** `fpdart`, `TaskEither`, and verbose manual `try-catch` blocks are FORBIDDEN. The `throw` keyword is FORBIDDEN in Services and DAOs.
+
+### Pattern 1: Encapsulation (DAOs / API)
+
+Use `Either.catchFutureError` to automatically convert exceptions into `Failure`.
 
 ```dart
-Future<Either<DataError, Medicament>> fetchMedication() async {
-  try {
-    final result = await api.get();
-    return Right(result);
-  } catch (e) {
-    return Left(DataError.from(e));
-  }
+// ✅ Correct: Automatic capture
+Future<Either<Failure, Data>> getData() {
+  return Either.catchFutureError(
+    (e, s) => DatabaseFailure(e.toString(), s), // Mapper
+    () async => await db.query(...),            // Action
+  );
+}
+```
+
+### Pattern 2: Sequencing (Services)
+
+Use "Monad Comprehension" via `Either.futureBinding` to chain operations. This eliminates "Callback Hell".
+
+```dart
+// ✅ Correct: Imperative style, functional safety
+Future<Either<Failure, ProcessedData>> process() {
+  return Either.futureBinding((e) async {
+    // .bind(e) unwraps success or stops everything if error
+    final raw = await dao.fetchRaw().bind(e); 
+    final parsed = await parser.parse(raw).bind(e);
+    return parsed;
+  });
+}
+```
+
+* **Stream Pattern:** For Drift streams that emit errors, use `.map((data) => Either.right(data)).handleError((e, s) => Either.left(DatabaseFailure(...)))` to transform stream errors into `Either`.
+
+```dart
+// ✅ Correct: Stream error handling
+Stream<Either<Failure, List<Data>>> watchData() {
+  return db.select(table).watch()
+    .map((data) => Either.right(data))
+    .handleError((e, stack) => Either.left(DatabaseFailure(e.toString(), stack)));
 }
 ```
 

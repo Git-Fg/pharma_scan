@@ -17,14 +17,11 @@ Future<T?> showAdaptiveSheet<T>({
   bool isDismissible = true,
   BoxConstraints? constraints,
 }) {
-  // WHY: Use context.breakpoint extension for consistent responsive pattern
-  // This aligns with the Shadcn 2025 Standard for responsive design
   final breakpoint = context.breakpoint;
   final breakpoints = ShadTheme.of(context).breakpoints;
   final isSmallScreen = breakpoint < breakpoints.sm;
 
   if (isSmallScreen) {
-    // WHY: Mobile uses bottom sheet for better UX
     return showShadSheet<T>(
       context: context,
       side: ShadSheetSide.bottom,
@@ -38,7 +35,6 @@ Future<T?> showAdaptiveSheet<T>({
       },
     );
   } else {
-    // WHY: Desktop uses dialog for better UX
     return showShadDialog<T>(
       context: context,
       builder: (BuildContext dialogContext) {

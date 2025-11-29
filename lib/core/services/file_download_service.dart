@@ -6,8 +6,6 @@ import 'package:pharma_scan/core/config/app_config.dart';
 import 'package:pharma_scan/core/services/logger_service.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 
-// WHY: Centralized Dio-based download service with manual Talker logging to
-// ensure consistent observability across all network file transfers.
 class FileDownloadService {
   FileDownloadService({Dio? dio, Talker? talker})
     : _dio =
@@ -24,8 +22,6 @@ class FileDownloadService {
   final Dio _dio;
   final Talker _talker;
 
-  // WHY: Detect DNS resolution failures specifically (errno 7) to provide
-  // actionable error messages for Android emulator DNS configuration issues.
   static bool _isDnsError(Object error) {
     if (error is SocketException) {
       // errno 7 = "No address associated with hostname" (DNS lookup failure)
@@ -40,17 +36,15 @@ class FileDownloadService {
     return false;
   }
 
-  // WHY: Extract hostname from URL for DNS-specific error messages.
   static String? _extractHostname(String url) {
     try {
       final uri = Uri.parse(url);
       return uri.host;
-    } catch (_) {
+    } on Object catch (_) {
       return null;
     }
   }
 
-  // WHY: Get user-friendly DNS error message with actionable fixes.
   static String _getDnsErrorMessage(String url) {
     final hostname = _extractHostname(url) ?? 'the server';
     return 'DNS resolution failed for $hostname. This typically indicates an '
@@ -64,8 +58,6 @@ class FileDownloadService {
         '4. Use a physical device instead of emulator';
   }
 
-  // WHY: Optional pre-flight connectivity check using DNS lookup.
-  // This helps identify DNS issues before attempting the full download.
   Future<bool> checkConnectivity(String url) async {
     try {
       final hostname = _extractHostname(url);
@@ -73,7 +65,7 @@ class FileDownloadService {
 
       final addresses = await InternetAddress.lookup(hostname);
       return addresses.isNotEmpty;
-    } catch (e) {
+    } on Exception catch (e) {
       LoggerService.debug(
         '[FileDownloadService] Connectivity check failed for ${_extractHostname(url)}: $e',
       );
@@ -133,14 +125,12 @@ class FileDownloadService {
         );
       }
       return null;
-    } catch (error, stackTrace) {
+    } on Exception catch (error, stackTrace) {
       _talker.handle(error, stackTrace, '❌ [DownloadService] Unexpected error');
       return null;
     }
   }
 
-  // WHY: Download file to bytes in memory. Used when the file needs to be processed
-  // immediately or when caching logic is handled by the caller.
   Future<List<int>> downloadToBytes(String url) async {
     try {
       final response = await _dio.get<List<int>>(
@@ -153,7 +143,6 @@ class FileDownloadService {
       }
       throw Exception('Failed to download file: HTTP ${response.statusCode}');
     } on DioException catch (error, stackTrace) {
-      // WHY: Detect DNS errors specifically and provide actionable error messages
       if (_isDnsError(error)) {
         final dnsMessage = _getDnsErrorMessage(url);
         _talker.error('❌ [FileDownloadService] DNS Resolution Error');
@@ -176,7 +165,6 @@ class FileDownloadService {
       );
       rethrow;
     } catch (error, stackTrace) {
-      // WHY: Check for DNS errors in non-Dio exceptions (e.g., SocketException)
       if (_isDnsError(error)) {
         final dnsMessage = _getDnsErrorMessage(url);
         _talker.error('❌ [FileDownloadService] DNS Resolution Error');
@@ -203,9 +191,6 @@ class FileDownloadService {
     }
   }
 
-  // WHY: Download file to disk with optional cache fallback.
-  // If download fails and cache file exists, returns cached bytes.
-  // Used by DataInitializationService for persistent caching in app documents directory.
   Future<List<int>> downloadToBytesWithCacheFallback({
     required String url,
     required File cacheFile,
@@ -226,8 +211,6 @@ class FileDownloadService {
     }
   }
 
-  // WHY: Download file to temporary location.
-  // Used by SyncService for one-time file processing before cleanup.
   Future<File> downloadToTempFile({
     required String url,
     required String tempPathPrefix,

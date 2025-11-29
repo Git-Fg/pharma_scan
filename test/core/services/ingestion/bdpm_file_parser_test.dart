@@ -22,8 +22,8 @@ void main() {
       );
 
       final result = resultEither.fold(
-        (error) => fail('Expected success but got error: $error'),
-        (value) => value,
+        ifLeft: (error) => fail('Expected success but got error: $error'),
+        ifRight: (value) => value,
       );
 
       expect(result.specialites, hasLength(2));
@@ -51,8 +51,8 @@ void main() {
       );
 
       final result = resultEither.fold(
-        (error) => fail('Expected success but got error: $error'),
-        (value) => value,
+        ifLeft: (error) => fail('Expected success but got error: $error'),
+        ifRight: (value) => value,
       );
 
       expect(result.specialites, isEmpty);
@@ -71,8 +71,8 @@ void main() {
       );
 
       final result = resultEither.fold(
-        (error) => fail('Expected success but got error: $error'),
-        (value) => value,
+        ifLeft: (error) => fail('Expected success but got error: $error'),
+        ifRight: (value) => value,
       );
 
       expect(result.specialites, hasLength(1));
@@ -95,8 +95,8 @@ void main() {
       );
 
       final result = resultEither.fold(
-        (error) => fail('Expected success but got error: $error'),
-        (value) => value,
+        ifLeft: (error) => fail('Expected success but got error: $error'),
+        ifRight: (value) => value,
       );
 
       expect(result.specialites, hasLength(1));
@@ -121,8 +121,8 @@ void main() {
       );
 
       final result = resultEither.fold(
-        (error) => fail('Expected success but got error: $error'),
-        (value) => value,
+        ifLeft: (error) => fail('Expected success but got error: $error'),
+        ifRight: (value) => value,
       );
 
       expect(result, hasLength(1));
@@ -146,8 +146,8 @@ void main() {
       );
 
       final result = resultEither.fold(
-        (error) => fail('Expected success but got error: $error'),
-        (value) => value,
+        ifLeft: (error) => fail('Expected success but got error: $error'),
+        ifRight: (value) => value,
       );
 
       expect(result, hasLength(1));
@@ -171,8 +171,8 @@ void main() {
       );
 
       final result = resultEither.fold(
-        (error) => fail('Expected success but got error: $error'),
-        (value) => value,
+        ifLeft: (error) => fail('Expected success but got error: $error'),
+        ifRight: (value) => value,
       );
 
       expect(result, hasLength(1));
@@ -196,8 +196,8 @@ void main() {
       );
 
       final result = resultEither.fold(
-        (error) => fail('Expected success but got error: $error'),
-        (value) => value,
+        ifLeft: (error) => fail('Expected success but got error: $error'),
+        ifRight: (value) => value,
       );
 
       expect(result, hasLength(1));
@@ -221,8 +221,8 @@ void main() {
       );
 
       final result = resultEither.fold(
-        (error) => fail('Expected success but got error: $error'),
-        (value) => value,
+        ifLeft: (error) => fail('Expected success but got error: $error'),
+        ifRight: (value) => value,
       );
 
       expect(result, hasLength(1));
@@ -246,8 +246,8 @@ void main() {
       );
 
       final result = resultEither.fold(
-        (error) => fail('Expected success but got error: $error'),
-        (value) => value,
+        ifLeft: (error) => fail('Expected success but got error: $error'),
+        ifRight: (value) => value,
       );
 
       expect(result, hasLength(1));
@@ -275,8 +275,8 @@ GROUP1\tCHLORHYDRATE DE METFORMINE\t123456\t0
       );
 
       final result = resultEither.fold(
-        (error) => fail('Expected success but got error: $error'),
-        (value) => value,
+        ifLeft: (error) => fail('Expected success but got error: $error'),
+        ifRight: (value) => value,
       );
 
       expect(result.generiqueGroups, hasLength(1));
@@ -302,8 +302,8 @@ GROUP2\tMETFORMINE\t123456\t0
       );
 
       final result = resultEither.fold(
-        (error) => fail('Expected success but got error: $error'),
-        (value) => value,
+        ifLeft: (error) => fail('Expected success but got error: $error'),
+        ifRight: (value) => value,
       );
 
       expect(result.generiqueGroups, hasLength(1));
@@ -329,8 +329,8 @@ GROUP4\tMALÉATE DE DIPHENHYDRAMINE\t123456\t1
       );
 
       final result = resultEither.fold(
-        (error) => fail('Expected success but got error: $error'),
-        (value) => value,
+        ifLeft: (error) => fail('Expected success but got error: $error'),
+        ifRight: (value) => value,
       );
 
       expect(result.generiqueGroups, hasLength(2));
@@ -365,8 +365,8 @@ GROUP4\tMALÉATE DE DIPHENHYDRAMINE\t123456\t1
       );
 
       final result = resultEither.fold(
-        (error) => fail('Expected success but got error: $error'),
-        (value) => value,
+        ifLeft: (error) => fail('Expected success but got error: $error'),
+        ifRight: (value) => value,
       );
 
       expect(result.medicaments, hasLength(1));
@@ -391,8 +391,8 @@ GROUP4\tMALÉATE DE DIPHENHYDRAMINE\t123456\t1
       );
 
       final result = resultEither.fold(
-        (error) => fail('Expected success but got error: $error'),
-        (value) => value,
+        ifLeft: (error) => fail('Expected success but got error: $error'),
+        ifRight: (value) => value,
       );
 
       expect(result, hasLength(1));
@@ -417,8 +417,8 @@ GROUP4\tMALÉATE DE DIPHENHYDRAMINE\t123456\t1
       );
 
       final result = resultEither.fold(
-        (error) => fail('Expected success but got error: $error'),
-        (value) => value,
+        ifLeft: (error) => fail('Expected success but got error: $error'),
+        ifRight: (value) => value,
       );
 
       expect(result, hasLength(2));

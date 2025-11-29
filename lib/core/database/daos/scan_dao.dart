@@ -1,6 +1,8 @@
 // lib/core/database/daos/scan_dao.dart
+import 'package:dart_either/dart_either.dart';
 import 'package:drift/drift.dart';
 import 'package:pharma_scan/core/database/database.dart';
+import 'package:pharma_scan/core/errors/failures.dart';
 import 'package:pharma_scan/core/models/scan_result.dart';
 import 'package:pharma_scan/core/services/logger_service.dart';
 
@@ -18,56 +20,72 @@ part 'scan_dao.g.dart';
   ],
 )
 class ScanDao extends DatabaseAccessor<AppDatabase> with _$ScanDaoMixin {
-  ScanDao(super.db);
+  ScanDao(super.attachedDatabase);
 
   /// WHY: Returns the medicament summary row associated with the scanned CIP.
   /// Scanner UI still needs the CIP itself alongside presentation metadata.
-  Future<ScanResult?> getProductByCip(String codeCip) async {
-    LoggerService.db('Lookup product for CIP $codeCip');
+  /// Uses Railway Oriented Programming (ROP) with `Either<Failure, T>` for type-safe error handling.
+  Future<Either<Failure, ScanResult?>> getProductByCip(String codeCip) {
+    return Either.catchFutureError(
+      (e, stackTrace) {
+        LoggerService.error(
+          '[ScanDao] Error in getProductByCip for CIP $codeCip',
+          e,
+          stackTrace,
+        );
+        return DatabaseFailure(e.toString(), stackTrace);
+      },
+      () async {
+        LoggerService.db('Lookup product for CIP $codeCip');
 
-    final query = select(medicaments).join([
-      leftOuterJoin(
-        medicamentAvailability,
-        medicamentAvailability.codeCip.equalsExp(medicaments.codeCip),
-      ),
-    ])..where(medicaments.codeCip.equals(codeCip));
-
-    final row = await query.getSingleOrNull();
-
-    if (row == null) {
-      LoggerService.db('No medicament row found for CIP $codeCip');
-      return null;
-    }
-
-    final medicament = row.readTable(medicaments);
-    final availabilityRow = row.readTableOrNull(medicamentAvailability);
-
-    final summary =
-        await (select(medicamentSummary)
-              ..where((tbl) => tbl.cisCode.equals(medicament.cisCode)))
-            .getSingleOrNull();
-
-    if (summary == null) {
-      LoggerService.warning(
-        '[ScanDao] No medicament_summary row found for CIS ${medicament.cisCode}',
-      );
-      return null;
-    }
-
-    return ScanResult(
-      summary: summary,
-      cip: codeCip,
-      price: medicament.prixPublic,
-      refundRate: medicament.tauxRemboursement,
-      boxStatus: medicament.commercialisationStatut,
-      availabilityStatus: availabilityRow?.statut,
-      isHospitalOnly: summary.isHospitalOnly ||
-          _isHospitalOnly(
-            medicament.agrementCollectivites,
-            medicament.prixPublic,
-            medicament.tauxRemboursement,
+        final query = select(medicaments).join([
+          leftOuterJoin(
+            medicamentAvailability,
+            medicamentAvailability.codeCip.equalsExp(medicaments.codeCip),
           ),
-      libellePresentation: medicament.presentationLabel,
+        ])..where(medicaments.codeCip.equals(codeCip));
+
+        final row = await query.getSingleOrNull();
+
+        if (row == null) {
+          LoggerService.db('No medicament row found for CIP $codeCip');
+          return null;
+        }
+
+        final medicament = row.readTable(medicaments);
+        final availabilityRow = row.readTableOrNull(medicamentAvailability);
+
+        final summary =
+            await (select(medicamentSummary)
+                  ..where((tbl) => tbl.cisCode.equals(medicament.cisCode)))
+                .getSingleOrNull();
+
+        if (summary == null) {
+          LoggerService.warning(
+            '[ScanDao] No medicament_summary row found for CIS ${medicament.cisCode}',
+          );
+          return null;
+        }
+
+        final result = ScanResult(
+          summary: summary,
+          cip: codeCip,
+          price: medicament.prixPublic,
+          refundRate: medicament.tauxRemboursement,
+          boxStatus: medicament.commercialisationStatut,
+          availabilityStatus: availabilityRow?.statut,
+          isHospitalOnly:
+              summary.isHospitalOnly ||
+              _isHospitalOnly(
+                medicament.agrementCollectivites,
+                medicament.prixPublic,
+                medicament.tauxRemboursement,
+              ),
+          libellePresentation: medicament.presentationLabel,
+        );
+
+        return result;
+      },
     );
   }
 

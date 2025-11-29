@@ -1,7 +1,7 @@
 // lib/features/explorer/screens/database_screen.dart
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
-import 'package:pharma_scan/features/explorer/screens/database_search_view.dart';
+import 'package:pharma_scan/features/explorer/presentation/screens/database_search_view.dart';
 
 @RoutePage(name: 'DatabaseRoute')
 class DatabaseScreen extends StatelessWidget {

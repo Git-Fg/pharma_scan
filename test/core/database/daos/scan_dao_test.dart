@@ -86,8 +86,10 @@ void main() {
       availability: 'Rupture de stock',
     );
 
-    final result = await scanDao.getProductByCip('3400000000012');
+    final resultEither = await scanDao.getProductByCip('3400000000012');
 
+    expect(resultEither.isRight, isTrue);
+    final result = resultEither.fold(ifLeft: (_) => null, ifRight: (v) => v);
     expect(result, isNotNull);
     expect(result!.availabilityStatus, equals('Rupture de stock'));
     expect(result.isHospitalOnly, isFalse);
@@ -99,8 +101,10 @@ void main() {
     () async {
       await seedData(agrement: 'oui');
 
-      final result = await scanDao.getProductByCip('3400000000012');
+      final resultEither = await scanDao.getProductByCip('3400000000012');
 
+      expect(resultEither.isRight, isTrue);
+      final result = resultEither.fold(ifLeft: (_) => null, ifRight: (v) => v);
       expect(result, isNotNull);
       expect(result!.isHospitalOnly, isTrue);
       expect(result.availabilityStatus, isNull);

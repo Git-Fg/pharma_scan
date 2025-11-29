@@ -1,151 +1,46 @@
-// lib/features/explorer/screens/database_search_view.dart
+// lib/features/explorer/presentation/widgets/explorer_content_list.dart
+import 'dart:async';
+
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:gap/gap.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/logic/sanitizer.dart';
 import 'package:pharma_scan/core/router/app_router.dart';
-import 'package:pharma_scan/core/services/data_initialization_service.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/utils/adaptive_overlay.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/detail_item.dart';
-import 'package:pharma_scan/core/widgets/ui_kit/pharma_sheet_layout.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/status_view.dart';
-import 'package:pharma_scan/features/explorer/models/generic_group_entity.dart';
-import 'package:pharma_scan/features/explorer/models/search_result_item_model.dart';
-import 'package:pharma_scan/features/explorer/providers/database_stats_provider.dart';
-import 'package:pharma_scan/features/explorer/providers/generic_groups_provider.dart';
-import 'package:pharma_scan/features/explorer/providers/search_provider.dart';
-import 'package:pharma_scan/features/explorer/widgets/explorer_search_bar.dart';
-import 'package:pharma_scan/features/explorer/widgets/medicament_tile.dart';
-import 'package:pharma_scan/features/explorer/widgets/molecule_group_tile.dart';
-import 'package:pharma_scan/features/home/providers/initialization_provider.dart';
+import 'package:pharma_scan/features/explorer/domain/models/generic_group_entity.dart';
+import 'package:pharma_scan/features/explorer/domain/models/search_result_item_model.dart';
+import 'package:pharma_scan/features/explorer/presentation/providers/generic_groups_provider.dart';
+import 'package:pharma_scan/features/explorer/presentation/providers/search_provider.dart';
+import 'package:pharma_scan/features/explorer/presentation/widgets/medicament_tile.dart';
+import 'package:pharma_scan/features/explorer/presentation/widgets/molecule_group_tile.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
-class DatabaseSearchView extends HookConsumerWidget {
-  const DatabaseSearchView({super.key});
+class ExplorerContentList extends ConsumerWidget {
+  const ExplorerContentList({
+    required this.databaseStats,
+    required this.groups,
+    required this.searchResults,
+    required this.hasSearchText,
+    required this.isSearching,
+    required this.currentQuery,
+    super.key,
+  });
+
+  final AsyncValue<Map<String, dynamic>> databaseStats;
+  final AsyncValue<GenericGroupsState> groups;
+  final AsyncValue<List<SearchResultItem>> searchResults;
+  final bool hasSearchText;
+  final bool isSearching;
+  final String currentQuery;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final scrollController = useScrollController();
-    final debouncedQuery = useState('');
-
-    // WHY: Set up scroll listener for pagination using useEffect
-    useEffect(() {
-      void onScroll() {
-        if (!scrollController.hasClients) return;
-        // WHY: Don't trigger group pagination when user is searching
-        // Search results are capped at 50 by FuzzyBolt, so pagination isn't needed
-        if (debouncedQuery.value.isNotEmpty) {
-          return;
-        }
-        if (scrollController.position.pixels >=
-            scrollController.position.maxScrollExtent - 200) {
-          final groupsState = ref.read(genericGroupsProvider);
-          final data = groupsState.value;
-          if (data == null || !data.hasMore || data.isLoadingMore) {
-            return;
-          }
-          ref.read(genericGroupsProvider.notifier).loadMore();
-        }
-      }
-
-      scrollController.addListener(onScroll);
-      return () => scrollController.removeListener(onScroll);
-    }, [scrollController]);
-
-    final groups = ref.watch(genericGroupsProvider);
-    // WHY: Watch provider with debounced query to avoid rebuilds on every keystroke
-    final currentQuery = debouncedQuery.value;
-    final searchResults = ref.watch(searchResultsProvider(currentQuery));
-    final databaseStats = ref.watch(databaseStatsProvider);
-    final hasSearchText = currentQuery.isNotEmpty;
-    final isSearching = hasSearchText;
-    final initStepAsync = ref.watch(initializationStepProvider);
-
-    // WHY: Show initialization placeholder if database is not ready
-    // This prevents showing "No results" during initialization
-    // Exclude error state so MainScreen error banner is visible
-    final initStep = initStepAsync.value;
-    if (initStep != null &&
-        initStep != InitializationStep.ready &&
-        initStep != InitializationStep.error) {
-      return const Scaffold(
-        body: Center(
-          child: StatusView(
-            type: StatusType.loading,
-            icon: LucideIcons.loader,
-            title: Strings.initializationInProgress,
-            description: Strings.initializationDescription,
-          ),
-        ),
-      );
-    }
-
-    // WHY: Search bar is now a sticky bottom bar using Stack overlay
-    // Keyboard handling is done by outer MainScreen scaffold
-
-    return Scaffold(
-      resizeToAvoidBottomInset:
-          false, // Outer MainScreen handles keyboard resizing
-      body: Stack(
-        children: [
-          // Main scrollable content
-          CustomScrollView(
-            controller: scrollController,
-            slivers: [
-              // Main content (stats, groups, search results)
-              _buildMainContentSlivers(
-                context,
-                ref,
-                databaseStats,
-                groups,
-                searchResults,
-                hasSearchText,
-                isSearching,
-                currentQuery,
-              ),
-              // WHY: Add bottom padding to prevent content from being hidden behind search bar
-              // Includes search bar height plus safe area insets
-              SliverPadding(
-                padding: EdgeInsets.only(
-                  bottom:
-                      AppDimens.searchBarHeaderHeight +
-                      MediaQuery.paddingOf(context).bottom,
-                ),
-              ),
-            ],
-          ),
-          // WHY: Sticky bottom search bar - positioned at bottom of screen
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: SafeArea(
-              top: false,
-              child: ExplorerSearchBar(
-                onSearchChanged: (query) => debouncedQuery.value = query,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMainContentSlivers(
-    BuildContext context,
-    WidgetRef ref,
-    AsyncValue<Map<String, dynamic>> databaseStats,
-    AsyncValue<GenericGroupsState> groups,
-    AsyncValue<List<SearchResultItem>> searchResults,
-    bool hasSearchText,
-    bool isSearching,
-    String currentQuery,
-  ) {
     return SliverPadding(
       padding: const EdgeInsets.symmetric(horizontal: AppDimens.spacingMd),
       sliver: SliverMainAxisGroup(
@@ -164,20 +59,20 @@ class DatabaseSearchView extends HookConsumerWidget {
             loading: () => const SliverToBoxAdapter(child: SizedBox.shrink()),
             error: (_, _) => const SliverToBoxAdapter(child: SizedBox.shrink()),
           ),
-          // Contenu variable (Groupes vs Recherche)
+          // Variable content (Groups vs Search)
           if (!hasSearchText)
-            _buildGenericGroupsSliver(groups, ref)
+            _buildGenericGroupsSliver(context, ref, groups)
           else if (!isSearching)
-            _buildSkeletonSliver()
+            _buildSkeletonSliver(context)
           else
             searchResults.when(
               skipLoadingOnReload: true,
-              data: (items) => _buildSearchResultsSliver(context, items, ref),
-              loading: _buildSkeletonSliver,
+              data: (items) => _buildSearchResultsSliver(context, ref, items),
+              loading: () => _buildSkeletonSliver(context),
               error: (error, _) =>
-                  _buildSearchErrorSliver(error, currentQuery, ref),
+                  _buildSearchErrorSliver(context, ref, error, currentQuery),
             ),
-          // Espace final
+          // Final spacing
           const SliverGap(AppDimens.spacingMd),
         ],
       ),
@@ -246,13 +141,10 @@ class DatabaseSearchView extends HookConsumerWidget {
     required TextStyle labelTextStyle,
   }) {
     return MergeSemantics(
-      // WHY: Merge value and label so screen readers announce "X Princeps" as a single unit
-      // instead of separate "X" and "Princeps" elements
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           ExcludeSemantics(
-            // WHY: Icon is decorative and should not be announced by screen readers
             child: Icon(
               icon,
               size: iconSize,
@@ -284,7 +176,7 @@ class DatabaseSearchView extends HookConsumerWidget {
     );
   }
 
-  Widget _buildGroupsError(WidgetRef ref) {
+  Widget _buildGroupsError(BuildContext context, WidgetRef ref) {
     return StatusView(
       type: StatusType.error,
       title: Strings.loadingError,
@@ -422,16 +314,19 @@ class DatabaseSearchView extends HookConsumerWidget {
 
   // Sliver versions for CustomScrollView
   Widget _buildGenericGroupsSliver(
-    AsyncValue<GenericGroupsState> groups,
+    BuildContext context,
     WidgetRef ref,
+    AsyncValue<GenericGroupsState> groups,
   ) {
     Widget sliver;
     if (groups.isLoading) {
-      sliver = _buildSkeletonSliver();
+      sliver = _buildSkeletonSliver(context);
     } else {
       final data = groups.asData?.value;
       if (groups.hasError && (data == null || data.items.isEmpty)) {
-        sliver = SliverToBoxAdapter(child: _buildGroupsError(ref));
+        sliver = SliverToBoxAdapter(
+          child: _buildGroupsError(context, ref),
+        );
       } else if (data == null || data.items.isEmpty) {
         sliver = const SliverToBoxAdapter(
           child: StatusView(type: StatusType.empty, title: Strings.noResults),
@@ -482,12 +377,10 @@ class DatabaseSearchView extends HookConsumerWidget {
         );
       }
     }
-    // SUPPRESSION DU SLIVER PADDING : On retourne directement le sliver
-    // Les clés sont gérées directement dans les slivers si nécessaire
     return sliver;
   }
 
-  Widget _buildSkeletonSliver() {
+  Widget _buildSkeletonSliver(BuildContext context) {
     return Builder(
       builder: (context) {
         final placeholderColor = ShadTheme.of(
@@ -553,16 +446,16 @@ class DatabaseSearchView extends HookConsumerWidget {
 
   Widget _buildSearchResultsSliver(
     BuildContext context,
-    List<SearchResultItem> results,
     WidgetRef ref,
+    List<SearchResultItem> results,
   ) {
     if (results.isEmpty) {
-      final filters = ref.watch(searchFiltersProvider);
+      final filters = ref.read(searchFiltersProvider);
       final hasFilters = filters.hasActiveFilters;
 
       return SliverToBoxAdapter(
         child: Padding(
-          // Padding vertical uniquement nécessaire, horizontal géré par Scaffold
+          // Vertical padding only, horizontal handled by Scaffold
           padding: const EdgeInsets.symmetric(vertical: AppDimens.spacing2xl),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -592,7 +485,6 @@ class DatabaseSearchView extends HookConsumerWidget {
       );
     }
 
-    // Plus de SliverPadding ici
     return SliverList(
       delegate: SliverChildBuilderDelegate((context, index) {
         final result = results[index];
@@ -608,9 +500,10 @@ class DatabaseSearchView extends HookConsumerWidget {
   }
 
   Widget _buildSearchErrorSliver(
+    BuildContext context,
+    WidgetRef ref,
     Object error,
     String currentQuery,
-    WidgetRef ref,
   ) {
     return SliverToBoxAdapter(
       child: StatusView(
@@ -628,27 +521,34 @@ class DatabaseSearchView extends HookConsumerWidget {
   void _handleSearchResultTap(BuildContext context, SearchResultItem result) {
     switch (result) {
       case GroupResult(group: final group):
-        context.router.push(GroupExplorerRoute(groupId: group.groupId));
+        unawaited(
+          context.router.push(GroupExplorerRoute(groupId: group.groupId)),
+        );
       case PrincepsResult(groupId: final groupId):
-        context.router.push(GroupExplorerRoute(groupId: groupId));
+        unawaited(
+          context.router.push(GroupExplorerRoute(groupId: groupId)),
+        );
       case GenericResult(groupId: final groupId):
-        context.router.push(GroupExplorerRoute(groupId: groupId));
+        unawaited(
+          context.router.push(GroupExplorerRoute(groupId: groupId)),
+        );
       case StandaloneResult(
         summary: final summary,
         representativeCip: final representativeCip,
       ):
-        showAdaptiveSheet<void>(
-          context: context,
-          builder: (overlayContext) => _buildStandaloneDetailOverlay(
-            overlayContext,
-            summary,
-            representativeCip,
+        unawaited(
+          showAdaptiveSheet<void>(
+            context: context,
+            builder: (overlayContext) => _buildStandaloneDetailOverlay(
+              overlayContext,
+              summary,
+              representativeCip,
+            ),
           ),
         );
     }
   }
 
-  // WHY: Detail overlay for standalone products (replaces StandaloneSearchResult detail)
   Widget _buildStandaloneDetailOverlay(
     BuildContext context,
     MedicamentSummaryData summary,
@@ -659,11 +559,17 @@ class DatabaseSearchView extends HookConsumerWidget {
         .toList();
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 480, maxHeight: 520),
-      child: ShadCard(
-        child: PharmaSheetLayout(
-          title: Strings.medicationDetails,
-          onClose: () => Navigator.of(context).maybePop(),
-          child: SingleChildScrollView(
+      child: ShadSheet(
+        title: const Text(Strings.medicationDetails),
+        actions: [
+          ShadButton.ghost(
+            onPressed: () => Navigator.of(context).maybePop(),
+            child: const Icon(LucideIcons.x),
+          ),
+        ],
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -725,7 +631,7 @@ class _SkeletonBlock extends StatelessWidget {
       width: width,
       decoration: BoxDecoration(
         color: color,
-        borderRadius: BorderRadius.circular(AppDimens.radiusSm),
+        borderRadius: ShadTheme.of(context).radius,
       ),
     );
   }

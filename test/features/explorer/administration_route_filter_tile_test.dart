@@ -4,9 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
-import 'package:pharma_scan/features/explorer/models/search_filters_model.dart';
-import 'package:pharma_scan/features/explorer/providers/pharmaceutical_forms_provider.dart';
-import 'package:pharma_scan/features/explorer/widgets/filters/administration_route_filter_tile.dart';
+import 'package:pharma_scan/features/explorer/domain/models/search_filters_model.dart';
+import 'package:pharma_scan/features/explorer/presentation/providers/pharmaceutical_forms_provider.dart';
+import 'package:pharma_scan/features/explorer/presentation/widgets/filters/administration_route_filter_tile.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 void main() {

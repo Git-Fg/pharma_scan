@@ -32,8 +32,6 @@ class UnifiedActivityBanner extends HookWidget {
 
   @override
   Widget build(BuildContext context) {
-    // WHY: Force a rebuild every second so elapsed/ETA stay fresh even if state
-    // doesn't emit new values (e.g. parsing phase).
     useStream(Stream<void>.periodic(const Duration(seconds: 1)));
 
     final elapsed = startTime != null

@@ -1,5 +1,6 @@
 import 'package:mocktail/mocktail.dart';
 import 'package:pharma_scan/core/database/daos/library_dao.dart';
+import 'package:pharma_scan/core/database/daos/scan_dao.dart';
 import 'package:pharma_scan/core/database/daos/search_dao.dart';
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
 
@@ -9,6 +10,8 @@ class MockDataInitializationService extends Mock
 
 // DAOs
 class MockLibraryDao extends Mock implements LibraryDao {}
+
+class MockScanDao extends Mock implements ScanDao {}
 
 class MockSearchDao extends Mock implements SearchDao {}
 

@@ -1,141 +1,206 @@
 # PharmaScan
 
-PharmaScan is a high-performance Flutter application designed for the rapid scanning and identification of pharmaceutical products (both generic and princeps) using GS1 Data Matrix codes.
+**L'outil professionnel pour la réception de commande et la recherche d'équivalences médicamentaires**
 
-## Project Context
+PharmaScan est une application mobile conçue spécifiquement pour les pharmaciens. Elle permet de scanner rapidement et efficacement les codes Data Matrix GS1 des boîtes de médicaments lors de la réception de commande, tout en offrant un accès immédiat aux équivalences entre médicaments princeps et génériques.
 
-This project is developed by a **single developer**. The architecture prioritizes **radical simplicity**, self-sufficiency (offline-first), and boilerplate reduction. Enterprise patterns (strict Clean Architecture, DTOs, Mappers, multiple abstraction layers) are considered anti-patterns here if they don't provide immediate value. The local database (Drift) is the single source of truth. Drift-generated classes are used directly in the UI layer without intermediate domain models or mappers, reducing cognitive overhead and maintenance burden.
+## Pourquoi PharmaScan ?
 
-## Features
+Lors de la réception d'une commande, vous devez scanner de nombreuses boîtes rapidement. Les applications classiques vous obligent à rouvrir le scanner pour chaque boîte, ce qui ralentit considérablement votre travail. PharmaScan résout ce problème avec un **scanner à activation permanente** qui reste ouvert, vous permettant de scanner en rafale sans interruption.
 
-- **Instant Data Matrix Scanning**: Utilizes the device camera to detect and parse GS1 barcodes in real-time.
-- **Robust Scan Results**: The scanner UI displays the most recent scan prominently, with a short history of previous scans, using a simplified and fluid animation system that is resilient to rapid, successive scans.
-- **Unified Group Explorer**: An intelligent view that presents a canonical overview of a medication group:
-  - **Product-Centric Grouping**: Generics are grouped by product name and dosage, not by laboratory, providing a clear, decluttered view of available alternatives.
-  - **Associated Therapies**: When viewing a group (e.g., "VALSARTAN"), the explorer proactively displays clickable cards for related combination therapies (e.g., "VALSARTAN/HYDROCHLOROTHIAZIDE") for seamless cross-discovery.
-- **Fuzzy & Grouped Search**: The search engine is powered by `FuzzyBolt` running in a background isolate for a superior experience:
-  - **Typo Tolerance**: The search is resilient to spelling mistakes and partial queries.
-  - **Grouped Results**: Search results are unified by group, showing one clear entry per product concept (e.g., "PARACETAMOL 500 mg") instead of an overwhelming list of every individual package.
-- **One-Tap Search Reset**: A contextual clear control instantly resets the explorer search field, taking you back to the generic group summaries without manual text deletion.
-- **Aggregated Source of Truth**: Every CIS (specialty) gets a single, denormalized `MedicamentSummary` row populated during initialization. This precomputes canonical names, princeps/generic flags, reference princeps, common active principles, and pharmaceutical forms so all explorer queries return instantly from a single table.
-- **Form Category Filtering**: Browse medications by pharmaceutical form with 7 categories:
-  - **Oral** (default): comprimé, gélule, capsule, lyophilisat, solution buvable, sirop, suspension buvable, comprimé orodispersible
-  - **Injectable**: injectable, injection, perfusion, solution pour perfusion, poudre pour solution injectable, solution pour injection
-  - **External Use**: crème, pommade, gel, lotion, pâte, cutanée, cutané, application locale, application cutanée, dispositif transdermique
-  - **Sachet**: sachet, poudre pour solution buvable, poudre pour suspension buvable, granulé
-  - **Ophthalmic**: collyre, ophtalmique, solution ophtalmique, pommade ophtalmique, gel ophtalmique
-  - **Nasal/ORL**: nasale, auriculaire, buccale, aérosol, spray nasal, gouttes nasales, gouttes auriculaires
-  - **Gynecological**: ovule, pessaire, comprimé vaginal, crème vaginale, gel vaginal, capsule vaginale, tampon vaginal, anneau vaginal
-  - Intelligent exclusions prevent false positives (e.g., External Use excludes "vaginal" to avoid overlap with Gynecological)
-- **Algorithmic Princeps Grouping**: Advanced word-based algorithm that identifies common base names for princeps within the same group, providing a clean "Generic Principle ↔ Princeps Reference" mapping in the explorer view.
-- **On-Device, Type-Safe Database**: Uses `drift` ORM for a fully offline, compile-time safe database built from official French public health data (BDPM).
-- **Deterministic Data Model**: All relationships and data extraction are derived directly from official BDPM data files, ensuring 100% accuracy and eliminating all heuristic approximations.
-- **Clean & Responsive UI**: Built with a minimalistic design system (`shadcn_ui`) for an efficient user experience.
-- **Resilient Initialization & Recovery**: Startup initialization relies on versioned data checks inside `DataInitializationService`; when connectivity fails, the app surfaces a non-blocking banner with retry and Settings shortcuts.
-- **Automatic BDPM Sync**: A background `SyncService` tracks per-file SHA-256 hashes, honors user-defined frequencies (`none/daily/weekly/monthly`), retries until connectivity is available, and exposes progress via Riverpod so the UI can display Shad banners, manual "check now" actions, and toast notifications.
+De plus, PharmaScan vous donne accès instantanément aux équivalences **Princeps ↔ Générique** grâce à une base de données issue de la base officielle française (BDPM), garantissant une fiabilité totale pour vos décisions professionnelles.
 
-## Technology Stack
+## Fonctionnalité Clé : Scanner à Activation Permanente
 
-- **Framework**: Flutter
-- **UI Toolkit**: [shadcn_ui](https://pub.dev/packages/shadcn_ui)
-- **Scanning**: [mobile_scanner](https://pub.dev/packages/mobile_scanner)
-- **Local Database**: [drift](https://pub.dev/packages/drift) - Type-safe ORM with compile-time query validation
-- **Data Sources**: Official BDPM TXT files (direct downloads, no ZIP archives)
-- **State Management**: Local `StatefulWidget` state for UI plus targeted Riverpod providers (e.g., background sync status, user preferences) where cross-layer coordination is required.
-- **Architecture**: Clean Two-Layer (UI / Services)
+### La différence qui change tout
 
-## Privacy & Telemetry
+Contrairement aux applications standard qui ferment le scanner après chaque scan, **PharmaScan maintient la caméra active en permanence**. Cette approche révolutionne votre productivité :
 
-- The `mobile_scanner` plugin embeds Google ML Kit on Android, which in turn depends on Google Play Services’ [common logging transport](https://github.com/juliansteenbakker/mobile_scanner/blob/develop/README.md#configuration--android). That stack emits `TransportRuntime.CctTransportBackend` logcat lines when it attempts to post anonymized health metrics to `https://firebaselogging.googleapis.com`.
-- PharmaScan explicitly opts out of every Firebase/Analytics data stream. The Android manifest disables analytics collection, performance monitoring, and Advertising ID telemetry via `<meta-data>` flags so **no external telemetry leaves the device**.
-- To double-check on a device build, run `adb logcat | grep TransportRuntime` while scanning; the log should stay silent after the opt-out flags are compiled in.
-- When re-adding a Google SDK, replicate the manifest flags (and add the matching iOS Info.plist keys) to preserve the zero-telemetry stance before shipping builds.
+- **Pas de rechargement** : La caméra reste ouverte, prête à scanner la boîte suivante instantanément
+- **Scan en rafale** : Scannez des dizaines de boîtes consécutivement sans jamais rouvrir le scanner
+- **Historique visuel** : Chaque scan apparaît sous forme de bulle empilée, vous permettant de voir rapidement les dernières boîtes scannées
+- **Productivité maximale** : Idéal pour la réception de commande où vous devez traiter rapidement de nombreux médicaments
 
-## Getting Started
+### Comment ça fonctionne
 
-### Prerequisites
+1. Activez le scanner une seule fois
+2. Scannez votre première boîte → le résultat s'affiche
+3. Scannez immédiatement la suivante → une nouvelle bulle s'ajoute à l'historique
+4. Continuez ainsi sans interruption → la caméra reste active, les résultats s'empilent visuellement
 
-- Flutter SDK installed.
-- An editor like VS Code or Android Studio.
-- A physical device or emulator for testing.
+Cette approche élimine les frictions inutiles et vous fait gagner un temps précieux lors de vos réceptions de commande.
 
-### Installation & Setup
+## Explorer : Regroupement Intelligent
 
-1. **Clone the repository:**
+### Une vue épurée pour une meilleure compréhension
+
+Les bases de données officielles listent chaque médicament individuellement, créant un bruit visuel important. PharmaScan résout ce problème avec un **regroupement intelligent** qui organise les médicaments de manière logique et professionnelle.
+
+### Regroupement Product-Centric
+
+PharmaScan groupe les médicaments selon une hiérarchie claire :
+
+1. **Molécule** : Le principe actif de base (ex: "PARACETAMOL")
+2. **Dosage** : La quantité de principe actif (ex: "500 mg")
+3. **Forme pharmaceutique** : La présentation (ex: "comprimé")
+
+Au lieu de voir une liste interminable de boîtes individuelles, vous voyez des **groupes cohérents** qui représentent un concept produit unique. Par exemple, au lieu de voir 15 entrées différentes pour "PARACETAMOL 500 mg comprimé", vous voyez un seul groupe qui contient toutes les alternatives (princeps et génériques).
+
+### Équivalences Princeps ↔ Générique
+
+PharmaScan distingue clairement :
+
+- **Princeps** : Le médicament original, développé et commercialisé en premier
+- **Génériques** : Les médicaments équivalents thérapeutiques, généralement moins chers
+
+L'Explorer vous montre automatiquement les princeps associés à chaque groupe générique, et inversement, vous permettant de trouver rapidement les alternatives disponibles.
+
+### Recherche Intelligente
+
+La recherche dans PharmaScan est tolérante aux fautes de frappe et aux requêtes partielles. Vous pouvez rechercher "paracetamol", "paracétamol", ou même "paracet" et trouver les résultats pertinents. Les résultats sont également regroupés, évitant les listes interminables.
+
+## Données & Fiabilité
+
+### Source Officielle : BDPM
+
+PharmaScan utilise exclusivement les données de la **Base de Données Publique des Médicaments (BDPM)**, la base officielle française gérée par l'ANSM (Agence Nationale de Sécurité du Médicament). Cette source garantit :
+
+- **Fiabilité totale** : Données officielles, mises à jour régulièrement
+- **Exhaustivité** : Tous les médicaments autorisés en France
+- **Conformité réglementaire** : Données conformes à la réglementation française
+
+### Parsing Déterministe
+
+Contrairement à d'autres solutions qui utilisent des approximations heuristiques (suppositions basées sur des règles), PharmaScan utilise un **parsing déterministe** basé sur les relations structurelles des données BDPM :
+
+- **Relations explicites** : Les liens entre substances actives, fractions thérapeutiques, et groupes génériques sont extraits directement des fichiers officiels
+- **Pas de suppositions** : Aucune règle de regex fragile, aucune approximation
+- **Précision scientifique** : Les noms de molécules et dosages sont extraits avec précision grâce aux relations FT (Fraction Thérapeutique) > SA (Substance Active)
+
+### Qualité des Données
+
+Le pipeline d'ingestion applique un **filtrage strict** : seuls les médicaments avec un statut administratif "Autorisation active" sont inclus dans la base. Les médicaments révoqués ou archivés sont automatiquement exclus, garantissant que vous ne voyez que des médicaments actuellement commercialisés.
+
+### Synchronisation Automatique
+
+PharmaScan peut synchroniser automatiquement les données BDPM selon une fréquence que vous définissez (aucune, quotidienne, hebdomadaire, mensuelle). La synchronisation se fait en arrière-plan et ne nécessite aucune intervention de votre part.
+
+## Accessibilité
+
+PharmaScan s'engage à fournir une expérience accessible à tous les utilisateurs. L'application implémente des fonctionnalités d'accessibilité complètes suivant les meilleures pratiques Flutter et les guidelines WCAG 2.1 Level AA :
+
+- **Support des lecteurs d'écran** : Tous les éléments interactifs ont des labels sémantiques annoncés par TalkBack (Android) et VoiceOver (iOS)
+- **Navigation au clavier** : Tous les éléments sont accessibles au clavier avec une gestion appropriée du focus
+- **Labels sémantiques** : Boutons, tuiles, champs de formulaire utilisent des labels descriptifs
+- **Gestion du focus** : Les sections de formulaire utilisent `FocusTraversalGroup` pour une navigation logique au clavier
+
+---
+
+## Sous le Capot
+
+*Cette section s'adresse aux développeurs souhaitant comprendre l'architecture technique de PharmaScan.*
+
+### Stack Technique
+
+- **Framework** : Flutter
+- **UI Toolkit** : [shadcn_ui](https://pub.dev/packages/shadcn_ui) - Design system moderne et accessible
+- **Scanning** : [mobile_scanner](https://pub.dev/packages/mobile_scanner) - Détection en temps réel des codes Data Matrix GS1
+- **Base de données locale** : [drift](https://pub.dev/packages/drift) - ORM type-safe avec validation des requêtes à la compilation
+- **Sources de données** : Fichiers TXT officiels BDPM (téléchargements directs, pas d'archives ZIP)
+- **Gestion d'état** : Riverpod avec génération de code (`@riverpod`)
+- **Architecture** : Clean Two-Layer (UI / Services)
+
+### Offline-First avec Drift/SQLite FTS5
+
+PharmaScan fonctionne entièrement hors ligne. La base de données locale (SQLite via Drift) contient toutes les données nécessaires :
+
+- **FTS5 avec trigram** : Recherche full-text performante avec support de la correspondance floue
+- **Normalisation** : Les requêtes de recherche sont normalisées (suppression des diacritiques) pour une correspondance cohérente
+- **Performance** : Toutes les requêtes Explorer/Search lisent depuis une table dénormalisée optimisée (`MedicamentSummary`)
+
+### Zéro Télémétrie (Privacy)
+
+PharmaScan respecte strictement votre vie privée :
+
+- **Aucune télémétrie externe** : Le manifeste Android désactive explicitement toutes les collectes Firebase/Analytics
+- **Données locales uniquement** : Toutes les données restent sur votre appareil
+- **Pas de tracking** : Aucun identifiant publicitaire, aucune analyse de comportement
+
+Le plugin `mobile_scanner` intègre Google ML Kit, qui dépend de Google Play Services. PharmaScan désactive explicitement tous les canaux de télémétrie via des flags `<meta-data>` dans le manifeste Android, garantissant qu'**aucune télémétrie ne quitte l'appareil**.
+
+### Architecture : Clean Two-Layer
+
+PharmaScan suit une architecture simple et pragmatique :
+
+- **Couche UI** : Widgets, état local, `HookConsumerWidget` pour la gestion des contrôleurs
+- **Couche Services** : Logique métier, accès base de données, parsing (zéro dépendance `flutter/material.dart`)
+
+**Principe clé** : La logique métier n'appartient jamais à un Widget. Les classes générées par Drift sont utilisées directement dans l'UI sans modèles intermédiaires, réduisant la complexité cognitive et la charge de maintenance.
+
+### Modèle de Données Déterministe
+
+L'application utilise un **modèle de données déterministe** basé sur les fichiers relationnels officiels de la BDPM :
+
+- **Sources de données** : Téléchargements directs de fichiers TXT individuels :
+  - `CIS_bdpm.txt` - Spécialités avec forme, statut de commercialisation, et titulaire
+  - `CIS_CIP_bdpm.txt` - Codes et noms des médicaments
+  - `CIS_COMPO_bdpm.txt` - Compositions en principes actifs avec informations de dosage structurées
+  - `CIS_GENER_bdpm.txt` - Relations de groupes génériques (source autoritative)
+
+- **Stratégie de parsing : Déterminisme Relationnel** :
+  Au lieu de nettoyer heuristiquement les noms chimiques (ex: supprimer "Chlorhydrate"), PharmaScan exploite le lien relationnel entre *Substances Actives* (SA) et *Fractions Thérapeutiques* (FT) fourni dans la structure BDPM. Cela garantit des noms et dosages scientifiquement précis (Base vs Sel) sans suppositions regex. Le parser préfère FT (molécule de base) à SA (forme sel) lorsqu'elles sont liées dans `CIS_COMPO`, produisant naturellement des noms propres (ex: "Metformine" au lieu de "Chlorhydrate de Metformine").
+
+- **Schéma de base de données** : Base de données relationnelle type-safe utilisant l'ORM drift :
+  - Schéma défini en Dart (`lib/core/database/database.dart`) avec génération de code automatique
+  - `MedicamentSummary` est une table dénormalisée "source de vérité" unique indexée par `cis_code`. Elle est peuplée lors de l'initialisation en agrégant les données de toutes les tables normalisées et en exécutant le parser Knowledge-Injected. Toutes les requêtes UI lisent depuis cette table optimisée
+
+- **Initialisation** : Au premier lancement, l'app télécharge les quatre fichiers TXT, les parse, et peuple la base de données locale. Le processus s'exécute en deux phases déterministes :
+  1. **Staging** – Les données TXT sont parsées dans les tables normalisées (`specialites`, `medicaments`, `principes_actifs`, `generique_groups`, `group_members`)
+  2. **Agrégation** – `_aggregateDataForSummary()` calcule une ligne `MedicamentSummary` par CIS en utilisant la stratégie de parsing décrite ci-dessus
+  Les lancements suivants sont instantanés car les deux couches persistent localement
+
+### Installation & Développement
+
+#### Prérequis
+
+- Flutter SDK installé
+- Un éditeur comme VS Code ou Android Studio
+- Un appareil physique ou un émulateur pour les tests
+
+#### Installation
+
+1. **Cloner le dépôt :**
 
     ```bash
     git clone <your-repository-url>
     cd pharma_scan
     ```
 
-2. **Install dependencies:**
+2. **Installer les dépendances :**
 
     ```bash
     dart pub get
     ```
 
-3. **Run the application:**
-    The first run will take some time as it needs to download three TXT files (~20MB total) from the official BDPM source and populate the local database.
+3. **Lancer l'application :**
+    Le premier lancement prendra un certain temps car il doit télécharger les fichiers TXT (~20MB au total) depuis la source officielle BDPM et peupler la base de données locale.
 
     ```bash
     flutter run
     ```
 
-## Data Architecture
+### Principes de Développement
 
-The application uses a **deterministic data model** based on official relational data files from the French public medication database (BDPM):
+Ce projet est développé par un **développeur solo**. L'architecture privilégie la **simplicité radicale**, l'autonomie (offline-first), et la réduction du boilerplate. Les patterns d'entreprise (Clean Architecture stricte, DTOs, Mappers, multiples couches d'abstraction) sont considérés comme des anti-patterns ici s'ils n'apportent pas de valeur immédiate.
 
-- **Data Sources**: Direct downloads of individual TXT files:
-  - `CIS_bdpm.txt` - Medication specialties with form, commercialization status, and manufacturer (titulaire)
-  - `CIS_CIP_bdpm.txt` - Medication codes and names
-  - `CIS_COMPO_bdpm.txt` - Active ingredient compositions with structured dosage information
-  - `CIS_GENER_bdpm.txt` - Generic group relationships (authoritative source)
+Pour des guidelines détaillées, référez-vous à `AGENTS.md`.
 
-- **Parsing Strategy: Relational Determinism**:
-  Instead of heuristically cleaning chemical names (e.g., stripping "Chlorhydrate"), PharmaScan leverages the relational link between *Active Substances* (SA) and *Therapeutic Fractions* (FT) provided in the BDPM structure. This guarantees scientifically accurate naming and dosages (Base vs Salt) without regex guesswork. The parser prefers FT (base molecule) over SA (salt form) when linked in `CIS_COMPO`, naturally producing clean names (e.g., "Metformine" instead of "Chlorhydrate de Metformine").
+### Roadmap
 
-- **Data Quality**: The ingestion pipeline enforces **Strict Lifecycle Filtering** by rejecting any medication where `Statut administratif de l'AMM` is not `"Autorisation active"`. This ensures zero database pollution from revoked or archived medications.
+La version actuelle de PharmaScan se concentre sur l'identification rapide et l'équivalence princeps/générique. Les fonctionnalités suivantes sont envisagées pour le développement futur :
 
-- **Database Schema**: Type-safe relational database using drift ORM with explicit generic group relationships:
-  - Schema defined in Dart (`lib/core/database/database.dart`) with automatic code generation.
-  - `MedicamentSummary` is a denormalized, single-table "source of truth" keyed by `cis_code`. It is populated during initialization by aggregating data from all normalized tables and running the Knowledge-Injected parser. All UI queries read from this optimized table.
+- **Statut de disponibilité en temps réel** : Intégration du fichier `CIS_CIP_Dispo_Spec.txt` pour fournir des informations sur les pénuries de médicaments
 
-- **Initialization**: On first launch, the app downloads all four TXT files, parses them, and populates the local database. The process now runs in two deterministic phases:
-  1. **Staging** – TXT data is parsed into the normalized tables (`specialites`, `medicaments`, `principes_actifs`, `generique_groups`, `group_members`).
-  2. **Aggregation** – `_aggregateDataForSummary()` computes one `MedicamentSummary` row per CIS using the parsing strategy described above.
-  Subsequent launches are instant as both layers persist locally.
+---
 
-## Accessibility
-
-PharmaScan is committed to providing an accessible experience for all users. The application implements comprehensive accessibility features following Flutter best practices and WCAG 2.1 Level AA guidelines.
-
-### Features
-
-- **Screen Reader Support**: All interactive elements have semantic labels that are announced by TalkBack (Android) and VoiceOver (iOS)
-- **Keyboard Navigation**: All interactive elements are keyboard accessible with proper focus management
-- **Semantic Labels**: Buttons, tiles, form fields, and other interactive widgets use descriptive semantic labels from `Strings.dart`
-- **Focus Management**: Form sections use `FocusTraversalGroup` for logical keyboard navigation
-- **Decorative Elements**: Decorative icons are excluded from the accessibility tree using `ExcludeSemantics`
-
-### Testing
-
-- **Automated Tests**: Widget tests verify that semantic labels exist and are meaningful
-- **Manual Testing**: Test with TalkBack (Android) and VoiceOver (iOS) to ensure proper announcements
-- **Analysis Script**: Run `dart run tool/check_accessibility.dart` to detect missing accessibility properties
-
-### Guidelines
-
-For detailed accessibility implementation guidelines, see `.cursor/rules/accessibility.mdc`.
-
-## Project Mantras
-
-This project adheres to a strict set of development principles focused on simplicity, robustness, and performance. For detailed guidelines, refer to `AGENTS.md`.
-
-## Project Roadmap
-
-The current version of PharmaScan is focused on rapid identification and generic/princeps equivalence. The following features are under consideration for future development, aiming to enrich the application with critical professional data. Each requires a thorough preliminary analysis of the official BDPM data files to ensure a robust and reliable implementation.
-
-### 1. Real-Time Availability Status (Stock Shortages)
-
-- **Feature Goal**: Provide near real-time information on medication availability.
-- **Core Modification**: Requires integrating the `CIS_CIP_Dispo_Spec.txt` file and potentially a more frequent sync mechanism.
+**PharmaScan** - L'outil professionnel pour les pharmaciens qui valorisent la productivité et la fiabilité.

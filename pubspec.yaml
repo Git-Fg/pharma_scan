@@ -55,7 +55,7 @@ dependencies:
   flutter_hooks: ^0.21.3+1
   hooks_riverpod: ^3.0.3
   url_launcher: ^6.3.2
-  fpdart: ^1.2.0
+  dart_either: ^2.0.0
   shadcn_ui: ^0.39.14
   flutter_localizations:
     sdk: flutter

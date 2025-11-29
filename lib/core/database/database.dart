@@ -37,7 +37,7 @@ class StringListConverter extends TypeConverter<List<String>, String> {
             .toList();
       }
       return [];
-    } catch (_) {
+    } on Object catch (_) {
       return [];
     }
   }
@@ -69,8 +69,6 @@ class Specialites extends Table {
 @TableIndex(name: 'idx_medicaments_cis_code', columns: {#cisCode})
 class Medicaments extends Table {
   TextColumn get codeCip => text()();
-  // WHY: Removed nom column - specialites table is the single source of truth for medication names.
-  // Every medicament (CIP) links to a specialite (CIS), so storing the name in both tables is redundant.
   TextColumn get cisCode => text().references(Specialites, #cisCode)();
   TextColumn get presentationLabel => text().nullable()();
   TextColumn get commercialisationStatut => text().nullable()();
@@ -256,7 +254,6 @@ LazyDatabase _openConnection() {
     sqlite3.tempDirectory = cachebase;
 
     LoggerService.db('SQLite Database Opened at ${file.path}');
-    // WHY: Enable WAL mode and custom SQL helpers before drift migrations run
     return NativeDatabase.createInBackground(
       file,
       setup: configureAppSQLite,

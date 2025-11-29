@@ -2,8 +2,8 @@
 
 import 'package:pharma_scan/core/providers/core_providers.dart';
 import 'package:pharma_scan/core/services/logger_service.dart';
-import 'package:pharma_scan/features/explorer/models/generic_group_entity.dart';
-import 'package:pharma_scan/features/explorer/providers/search_provider.dart';
+import 'package:pharma_scan/features/explorer/domain/models/generic_group_entity.dart';
+import 'package:pharma_scan/features/explorer/presentation/providers/search_provider.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'generic_groups_provider.g.dart';
@@ -41,13 +41,10 @@ class GenericGroupsNotifier extends _$GenericGroupsNotifier {
 
   @override
   Future<GenericGroupsState> build() async {
-    // WHY: Watch sync timestamp to automatically re-fetch when sync completes
-    // The provider will automatically re-execute when the stream emits a new value
     ref.watch(lastSyncEpochStreamProvider);
 
     _offset = 0;
     _isFetchingMore = false;
-    // WHY: Watching filters ensures we reload groups whenever Explorer filters change.
     ref.watch(searchFiltersProvider);
     return _fetchGroups(reset: true);
   }
@@ -93,11 +90,16 @@ class GenericGroupsNotifier extends _$GenericGroupsNotifier {
     // Convert enum to code string for database query
     final atcClassCode = filters.atcClass?.code;
 
-    final groups = await libraryDao.getGenericGroupSummaries(
+    final groupsEither = await libraryDao.getGenericGroupSummaries(
       routeKeywords: routeKeywords,
       atcClass: atcClassCode,
       limit: _pageSize,
       offset: reset ? 0 : _offset,
+    );
+
+    final groups = groupsEither.fold(
+      ifLeft: (failure) => throw failure,
+      ifRight: (data) => data,
     );
 
     final existing = reset

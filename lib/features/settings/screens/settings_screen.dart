@@ -74,7 +74,7 @@ class SettingsScreen extends HookConsumerWidget {
             ),
           );
         }
-      } catch (_) {
+      } on Exception catch (_) {
         if (context.mounted) {
           ShadToaster.of(context).show(
             const ShadToast.destructive(
@@ -91,65 +91,67 @@ class SettingsScreen extends HookConsumerWidget {
     }
 
     void showResetConfirmation() {
-      showAdaptiveSheet<void>(
-        context: context,
-        builder: (overlayContext) {
-          // WHY: Add scrolling for safety on small screens
-          return SingleChildScrollView(
-            child: ShadCard(
-              child: Padding(
-                padding: const EdgeInsets.all(AppDimens.spacingXl),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      Strings.resetDatabaseTitle,
-                      style: ShadTheme.of(context).textTheme.h4,
-                    ),
-                    const Gap(AppDimens.spacingSm),
-                    Text(
-                      Strings.resetDatabaseDescription,
-                      style: ShadTheme.of(context).textTheme.small.copyWith(
-                        color: ShadTheme.of(
-                          context,
-                        ).colorScheme.mutedForeground,
+      unawaited(
+        showAdaptiveSheet<void>(
+          context: context,
+          builder: (overlayContext) {
+            return SingleChildScrollView(
+              child: ShadCard(
+                child: Padding(
+                  padding: const EdgeInsets.all(AppDimens.spacingXl),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        Strings.resetDatabaseTitle,
+                        style: ShadTheme.of(context).textTheme.h4,
                       ),
-                    ),
-                    const Gap(AppDimens.spacingXl),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        Semantics(
-                          button: true,
-                          label: Strings.cancelButtonLabel,
-                          hint: Strings.cancelButtonHint,
-                          child: ShadButton.outline(
-                            onPressed: () => Navigator.of(overlayContext).pop(),
-                            child: const Text(Strings.cancel),
-                          ),
+                      const Gap(AppDimens.spacingSm),
+                      Text(
+                        Strings.resetDatabaseDescription,
+                        style: ShadTheme.of(context).textTheme.small.copyWith(
+                          color: ShadTheme.of(
+                            context,
+                          ).colorScheme.mutedForeground,
                         ),
-                        const Gap(AppDimens.spacingXs),
-                        Semantics(
-                          button: true,
-                          label: Strings.confirmButtonLabel,
-                          hint: Strings.confirmResetButtonHint,
-                          child: ShadButton(
-                            onPressed: () {
-                              Navigator.of(overlayContext).pop();
-                              performReset();
-                            },
-                            child: const Text(Strings.confirm),
+                      ),
+                      const Gap(AppDimens.spacingXl),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          Semantics(
+                            button: true,
+                            label: Strings.cancelButtonLabel,
+                            hint: Strings.cancelButtonHint,
+                            child: ShadButton.outline(
+                              onPressed: () =>
+                                  Navigator.of(overlayContext).pop(),
+                              child: const Text(Strings.cancel),
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
+                          const Gap(AppDimens.spacingXs),
+                          Semantics(
+                            button: true,
+                            label: Strings.confirmButtonLabel,
+                            hint: Strings.confirmResetButtonHint,
+                            child: ShadButton(
+                              onPressed: () {
+                                Navigator.of(overlayContext).pop();
+                                unawaited(performReset());
+                              },
+                              child: const Text(Strings.confirm),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       );
     }
 
@@ -180,7 +182,7 @@ class SettingsScreen extends HookConsumerWidget {
             ),
           ),
         );
-      } catch (_) {
+      } on Exception catch (_) {
         if (!context.mounted) return;
         ShadToaster.of(context).show(
           const ShadToast.destructive(
@@ -255,9 +257,11 @@ class SettingsScreen extends HookConsumerWidget {
                             ],
                             onChanged: (value) {
                               if (value != null) {
-                                ref
-                                    .read(themeProvider.notifier)
-                                    .setTheme(value);
+                                unawaited(
+                                  ref
+                                      .read(themeProvider.notifier)
+                                      .setTheme(value),
+                                );
                               }
                             },
                           ),
@@ -532,7 +536,10 @@ class SettingsScreen extends HookConsumerWidget {
   Widget _buildSelectGroup<T>({
     required BuildContext context,
     required String label,
-    required ValueNotifier<Set<T>> controller, required List<({T value, IconData icon, String label})> options, required void Function(T?)? onChanged, String? description,
+    required ValueNotifier<Set<T>> controller,
+    required List<({T value, IconData icon, String label})> options,
+    required void Function(T?)? onChanged,
+    String? description,
     bool enabled = true,
   }) {
     final theme = ShadTheme.of(context);
@@ -620,7 +627,8 @@ class SettingsScreen extends HookConsumerWidget {
 
   Widget _buildTile({
     required BuildContext context,
-    required String title, Widget? prefix,
+    required String title,
+    Widget? prefix,
     String? subtitle,
     VoidCallback? onTap,
     Widget? trailing,
@@ -685,8 +693,6 @@ class _SyncProgressDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // WHY: Let showAdaptiveSheet handle the screen size decision
-    // Return ShadCard for both cases - adaptive_overlay will wrap it appropriately
     return ShadCard(
       child: Padding(
         padding: const EdgeInsets.all(24),

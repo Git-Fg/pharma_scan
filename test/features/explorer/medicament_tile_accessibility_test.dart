@@ -2,8 +2,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pharma_scan/core/database/database.dart';
-import 'package:pharma_scan/features/explorer/models/search_result_item_model.dart';
-import 'package:pharma_scan/features/explorer/widgets/medicament_tile.dart';
+import 'package:pharma_scan/features/explorer/domain/models/search_result_item_model.dart';
+import 'package:pharma_scan/features/explorer/presentation/widgets/medicament_tile.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 import '../../helpers/accessibility_test_helpers.dart';

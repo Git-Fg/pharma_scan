@@ -8,7 +8,6 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'core_providers.g.dart';
 
-// WHY: The Database is a singleton that lives as long as the app.
 @Riverpod(keepAlive: true)
 AppDatabase appDatabase(Ref ref) {
   return AppDatabase();
@@ -30,17 +29,17 @@ DataInitializationService dataInitializationService(Ref ref) {
   );
 }
 
-// WHY: Expose lastSyncEpoch as a stream so providers can reactively re-execute
-// when sync completes. This eliminates the need for manual provider invalidation.
 @riverpod
 Stream<int?> lastSyncEpochStream(Ref ref) {
   final db = ref.watch(appDatabaseProvider);
-  return db.settingsDao.watchSettings().map(
-    (settings) => settings.lastSyncEpoch,
-  );
+  return db.settingsDao.watchSettings().map((either) {
+    return either.fold(
+      ifLeft: (failure) => throw failure,
+      ifRight: (settings) => settings.lastSyncEpoch,
+    );
+  });
 }
 
-// WHY: Expose DAOs directly - no repository layer needed for read-only local viewer
 @Riverpod(keepAlive: true)
 ScanDao scanDao(Ref ref) {
   final db = ref.watch(appDatabaseProvider);

@@ -21,8 +21,9 @@ class ScanWindowOverlay extends HookWidget {
       () => CurvedAnimation(parent: controller, curve: Curves.easeInOutSine),
       [controller],
     );
-    final primary = ShadTheme.of(context).colorScheme.primary;
-    final scrimColor = Colors.black.withValues(alpha: 0.65);
+    final theme = ShadTheme.of(context);
+    final primary = theme.colorScheme.primary;
+    final scrimColor = theme.colorScheme.foreground.withValues(alpha: 0.65);
 
     return IgnorePointer(
       child: AnimatedBuilder(

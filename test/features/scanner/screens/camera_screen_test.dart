@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/utils/test_tags.dart';
 import 'package:pharma_scan/core/widgets/adaptive_bottom_panel.dart';
-import 'package:pharma_scan/features/scanner/screens/camera_screen.dart';
+import 'package:pharma_scan/features/scanner/presentation/screens/camera_screen.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 import '../../../helpers/pump_app.dart';

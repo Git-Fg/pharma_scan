@@ -110,9 +110,14 @@ void main() {
         }
 
         final codeCipGenerique = generiquesResult.read<String>('code_cip');
-        final result = await scanDao.getProductByCip(codeCipGenerique);
+        final resultEither = await scanDao.getProductByCip(codeCipGenerique);
 
         // THEN: Verify it returns a summary with groupId (generic)
+        expect(resultEither.isRight, isTrue);
+        final result = resultEither.fold(
+          ifLeft: (_) => null,
+          ifRight: (v) => v,
+        );
         expect(result, isNotNull);
         expect(result!.cip, codeCipGenerique);
         expect(result.summary.nomCanonique, isNotEmpty);
@@ -146,9 +151,14 @@ void main() {
         }
 
         final codeCipPrinceps = princepsResult.read<String>('code_cip');
-        final result = await scanDao.getProductByCip(codeCipPrinceps);
+        final resultEither = await scanDao.getProductByCip(codeCipPrinceps);
 
         // THEN: Verify it returns a summary with isPrinceps = true
+        expect(resultEither.isRight, isTrue);
+        final result = resultEither.fold(
+          ifLeft: (_) => null,
+          ifRight: (v) => v,
+        );
         expect(result, isNotNull);
         expect(result!.cip, codeCipPrinceps);
         expect(result.summary.nomCanonique, isNotEmpty);
@@ -178,9 +188,14 @@ void main() {
         }
 
         final codeCipStandalone = nonGroupedResult.read<String>('code_cip');
-        final result = await scanDao.getProductByCip(codeCipStandalone);
+        final resultEither = await scanDao.getProductByCip(codeCipStandalone);
 
         // THEN: Verify it returns a summary without groupId (standalone)
+        expect(resultEither.isRight, isTrue);
+        final result = resultEither.fold(
+          ifLeft: (_) => null,
+          ifRight: (v) => v,
+        );
         expect(
           result,
           isNotNull,

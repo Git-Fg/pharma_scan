@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
-import 'package:pharma_scan/features/explorer/models/generic_group_entity.dart';
+import 'package:pharma_scan/features/explorer/domain/models/generic_group_entity.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 class MoleculeGroupTile extends HookWidget {

@@ -31,6 +31,8 @@ class SeedBuilder {
     }
 
     _currentGroupId = groupId;
+    // WHY: Fluent builder pattern requires returning this for method chaining
+    // ignore: avoid_returning_this
     return this;
   }
 
@@ -54,6 +56,8 @@ class SeedBuilder {
       form: form,
       lab: lab,
     );
+    // WHY: Fluent builder pattern requires returning this for method chaining
+    // ignore: avoid_returning_this
     return this;
   }
 
@@ -77,6 +81,8 @@ class SeedBuilder {
       form: form,
       lab: lab,
     );
+    // WHY: Fluent builder pattern requires returning this for method chaining
+    // ignore: avoid_returning_this
     return this;
   }
 

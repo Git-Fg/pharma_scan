@@ -1,12 +1,10 @@
 // lib/features/explorer/models/search_result_item_model.dart
 import 'package:dart_mappable/dart_mappable.dart';
 import 'package:pharma_scan/core/database/database.dart';
-import 'package:pharma_scan/features/explorer/models/generic_group_entity.dart';
+import 'package:pharma_scan/features/explorer/domain/models/generic_group_entity.dart';
 
 part 'search_result_item_model.mapper.dart';
 
-// WHY: Group-level result - returns GenericGroupEntity without hydrating full medication lists
-// Medications are lazy-loaded when user navigates to group detail view
 @MappableClass(discriminatorKey: 'type')
 sealed class SearchResultItem with SearchResultItemMappable {
   const SearchResultItem();
