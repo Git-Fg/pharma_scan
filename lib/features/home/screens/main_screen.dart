@@ -4,6 +4,7 @@ import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:pharma_scan/core/providers/navigation_provider.dart';
 import 'package:pharma_scan/core/router/app_router.dart';
 import 'package:pharma_scan/core/utils/app_animations.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
@@ -71,9 +72,14 @@ class MainScreen extends HookConsumerWidget {
       }
     });
 
-    return AutoTabsRouter(
-      routes: const [ScannerRoute(), ExplorerTabRoute()],
-      builder: (BuildContext context, Widget child) {
+    final canSwipeRoot = ref.watch(canSwipeRootProvider);
+
+    return AutoTabsRouter.pageView(
+      routes: const [ScannerTabRoute(), ExplorerTabRoute()],
+      physics: canSwipeRoot
+          ? const PageScrollPhysics()
+          : const NeverScrollableScrollPhysics(),
+      builder: (BuildContext context, Widget child, _) {
         final tabsRouter = AutoTabsRouter.of(context);
         return PopScope<Object>(
           canPop: tabsRouter.activeIndex == 0,
@@ -107,7 +113,14 @@ class MainScreen extends HookConsumerWidget {
                 ? null
                 : NavigationBar(
                     selectedIndex: tabsRouter.activeIndex,
-                    onDestinationSelected: tabsRouter.setActiveIndex,
+                    onDestinationSelected: (index) {
+                      // If tapping already-active Explorer tab, reset stack
+                      if (tabsRouter.activeIndex == index && index == 1) {
+                        tabsRouter.stackRouterOfIndex(index)?.popUntilRoot();
+                      } else {
+                        tabsRouter.setActiveIndex(index);
+                      }
+                    },
                     backgroundColor: ShadTheme.of(
                       context,
                     ).colorScheme.background,
@@ -126,7 +139,9 @@ class MainScreen extends HookConsumerWidget {
                           id: TestTags.navScanner,
                           child: Icon(
                             LucideIcons.scan,
-                            color: ShadTheme.of(context).colorScheme.primary,
+                            color: ShadTheme.of(
+                              context,
+                            ).colorScheme.primary,
                           ),
                         ),
                         label: Strings.scanner,
@@ -140,7 +155,9 @@ class MainScreen extends HookConsumerWidget {
                           id: TestTags.navExplorer,
                           child: Icon(
                             LucideIcons.database,
-                            color: ShadTheme.of(context).colorScheme.primary,
+                            color: ShadTheme.of(
+                              context,
+                            ).colorScheme.primary,
                           ),
                         ),
                         label: Strings.explorer,

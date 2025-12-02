@@ -143,6 +143,22 @@ class MainRoute extends PageRouteInfo<void> {
 }
 
 /// generated route for
+/// [ScannerTabScreen]
+class ScannerTabRoute extends PageRouteInfo<void> {
+  const ScannerTabRoute({List<PageRouteInfo>? children})
+    : super(ScannerTabRoute.name, initialChildren: children);
+
+  static const String name = 'ScannerTabRoute';
+
+  static PageInfo page = PageInfo(
+    name,
+    builder: (data) {
+      return const ScannerTabScreen();
+    },
+  );
+}
+
+/// generated route for
 /// [SettingsScreen]
 class SettingsRoute extends PageRouteInfo<void> {
   const SettingsRoute({List<PageRouteInfo>? children})

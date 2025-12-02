@@ -53,7 +53,10 @@ class ScannerNotifier extends _$ScannerNotifier {
     return const ScannerState(bubbles: [], scannedCodes: {});
   }
 
-  void processBarcodeCapture(BarcodeCapture capture) {
+  void processBarcodeCapture(
+    BarcodeCapture capture, {
+    bool force = false,
+  }) {
     for (final barcode in capture.barcodes) {
       if (barcode.rawValue == null) {
         continue;
@@ -78,24 +81,33 @@ class ScannerNotifier extends _$ScannerNotifier {
             : barcode.rawValue!;
         LoggerService.debug(
           '[ScannerNotifier] New barcode detected - Format: ${barcode.format}, '
-          'GTIN: $codeCip, RawValue: $rawValuePreview',
+          'GTIN: $codeCip, RawValue: $rawValuePreview, Force: $force',
         );
       }
 
-      if (state.scannedCodes.contains(codeCip)) {
+      // Skip duplicate check if force is true
+      if (!force && state.scannedCodes.contains(codeCip)) {
         continue;
+      }
+
+      // If force is true and bubble exists, remove it first (will be re-added at top)
+      if (force && state.bubbles.any((b) => b.cip == codeCip)) {
+        removeBubble(codeCip);
       }
 
       if (isNewCode) {
         LoggerService.db(
-          '[ScannerNotifier] Searching for medicament with CIP: $codeCip',
+          '[ScannerNotifier] Searching for medicament with CIP: $codeCip (force: $force)',
         );
-        unawaited(findMedicament(codeCip));
+        unawaited(findMedicament(codeCip, force: force));
       }
     }
   }
 
-  Future<bool> findMedicament(String codeCip) async {
+  Future<bool> findMedicament(
+    String codeCip, {
+    bool force = false,
+  }) async {
     if (_processingCips.contains(codeCip)) {
       return false;
     }
@@ -152,11 +164,19 @@ class ScannerNotifier extends _$ScannerNotifier {
 
   void addBubble(ScanBubble bubble) {
     final codeCip = bubble.cip;
-    if (state.bubbles.any((b) => b.cip == codeCip)) return;
+
+    // Remove existing bubble if it exists (for bump-to-top behavior)
+    final existingIndex = state.bubbles.indexWhere((b) => b.cip == codeCip);
+    final updatedBubbles = List<ScanBubble>.from(state.bubbles);
+
+    if (existingIndex != -1) {
+      // Cancel existing timer
+      _dismissTimers[codeCip]?.cancel();
+      // Remove from list (will be re-inserted at top)
+      updatedBubbles.removeAt(existingIndex);
+    }
 
     final updatedCodes = Set<String>.from(state.scannedCodes)..add(codeCip);
-
-    final updatedBubbles = List<ScanBubble>.from(state.bubbles);
     if (updatedBubbles.length >= _maxBubbles) {
       final oldest = updatedBubbles.removeLast();
       final oldestCode = oldest.cip;
@@ -174,6 +194,7 @@ class ScannerNotifier extends _$ScannerNotifier {
     final timer = Timer(_bubbleLifetime, () => removeBubble(codeCip));
     _dismissTimers[codeCip] = timer;
 
+    // Insert at top (index 0)
     updatedBubbles.insert(0, bubble);
 
     state = state.copyWith(bubbles: updatedBubbles, scannedCodes: updatedCodes);

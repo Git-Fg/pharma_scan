@@ -1,5 +1,5 @@
 name: pharma_scan
-description: "A new Flutter project."
+description: "Assistant pharmacien offline : scan Data Matrix, identification Princeps/Génériques et alertes stock via la base BDPM."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `dart pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -54,7 +54,7 @@ dependencies:
   petitparser: ^7.0.1
   riverpod: ^3.0.3
   riverpod_annotation: ^3.0.3
-  shadcn_ui: ^0.39.14
+  shadcn_ui: ^0.40.2
   sqlite3: ^2.9.4
   sqlite3_flutter_libs: ^0.5.40
   talker: ^5.1.0

@@ -20,6 +20,7 @@ class Strings {
   static const String exploreMedicationGroup =
       'Explorer le groupe de médicaments';
   static const String closeMedicationCard = 'Fermer cette carte de médicament';
+  static const String viewInExplorer = "Voir dans l'explorateur";
   static const String shortageAlert = 'Pénurie';
   static const String ficheInfo = 'Fiche';
   static const String rcpDocument = 'RCP';

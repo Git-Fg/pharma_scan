@@ -4,6 +4,7 @@ import 'package:pharma_scan/features/explorer/presentation/screens/database_scre
 import 'package:pharma_scan/features/explorer/presentation/screens/group_explorer_view.dart';
 import 'package:pharma_scan/features/home/screens/main_screen.dart';
 import 'package:pharma_scan/features/scanner/presentation/screens/camera_screen.dart';
+import 'package:pharma_scan/features/scanner/presentation/screens/scanner_tab_screen.dart';
 import 'package:pharma_scan/features/settings/screens/logs_screen_wrapper.dart';
 import 'package:pharma_scan/features/settings/screens/settings_screen.dart';
 
@@ -22,8 +23,15 @@ class AppRouter extends RootStackRouter {
       initial: true,
       path: '/',
       children: [
-        // Tab 1: Scanner
-        AutoRoute(path: 'scanner', page: ScannerRoute.page),
+        // Tab 1: Scanner (Stack imbriquée)
+        AutoRoute(
+          path: 'scanner',
+          page: ScannerTabRoute.page, // Wrapper pour la stack
+          children: [
+            AutoRoute(path: '', page: ScannerRoute.page),
+            AutoRoute(path: 'group/:groupId', page: GroupExplorerRoute.page),
+          ],
+        ),
         // Tab 2: Explorer (Stack imbriquée)
         AutoRoute(
           path: 'explorer',

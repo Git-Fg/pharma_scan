@@ -68,46 +68,70 @@ class DatabaseSearchView extends HookConsumerWidget {
       );
     }
 
-    return Scaffold(
-      resizeToAvoidBottomInset:
-          false, // Outer MainScreen handles keyboard resizing
-      body: Stack(
-        children: [
-          // Main scrollable content
-          CustomScrollView(
-            controller: scrollController,
-            slivers: [
-              // Main content (stats, groups, search results)
-              ExplorerContentList(
-                databaseStats: databaseStats,
-                groups: groups,
-                searchResults: searchResults,
-                hasSearchText: hasSearchText,
-                isSearching: isSearching,
-                currentQuery: currentQuery,
-              ),
-              SliverPadding(
-                padding: EdgeInsets.only(
-                  bottom:
-                      AppDimens.searchBarHeaderHeight +
-                      MediaQuery.paddingOf(context).bottom,
+    return _KeepAliveWrapper(
+      child: Scaffold(
+        resizeToAvoidBottomInset:
+            false, // Outer MainScreen handles keyboard resizing
+        body: Stack(
+          children: [
+            // Main scrollable content
+            CustomScrollView(
+              key: const PageStorageKey('explorer_list'),
+              controller: scrollController,
+              slivers: [
+                // Main content (stats, groups, search results)
+                ExplorerContentList(
+                  databaseStats: databaseStats,
+                  groups: groups,
+                  searchResults: searchResults,
+                  hasSearchText: hasSearchText,
+                  isSearching: isSearching,
+                  currentQuery: currentQuery,
+                ),
+                SliverPadding(
+                  padding: EdgeInsets.only(
+                    bottom:
+                        AppDimens.searchBarHeaderHeight +
+                        MediaQuery.paddingOf(context).bottom,
+                  ),
+                ),
+              ],
+            ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: SafeArea(
+                top: false,
+                child: ExplorerSearchBar(
+                  onSearchChanged: (query) => debouncedQuery.value = query,
                 ),
               ),
-            ],
-          ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: SafeArea(
-              top: false,
-              child: ExplorerSearchBar(
-                onSearchChanged: (query) => debouncedQuery.value = query,
-              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
+  }
+}
+
+class _KeepAliveWrapper extends StatefulWidget {
+  const _KeepAliveWrapper({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_KeepAliveWrapper> createState() => _KeepAliveWrapperState();
+}
+
+class _KeepAliveWrapperState extends State<_KeepAliveWrapper>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
   }
 }

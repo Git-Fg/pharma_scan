@@ -1,15 +1,20 @@
+import 'dart:async';
+
 import 'package:auto_route/auto_route.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:gap/gap.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:pharma_scan/core/config/data_sources.dart';
 import 'package:pharma_scan/core/database/database.dart';
+import 'package:pharma_scan/core/providers/navigation_provider.dart';
 import 'package:pharma_scan/core/router/app_router.dart';
 import 'package:pharma_scan/core/services/logger_service.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/utils/formatters.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
+import 'package:pharma_scan/core/widgets/swipe_back_detector.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/product_type_badge.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/regulatory_badges.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/section_header.dart';
@@ -32,6 +37,15 @@ class GroupExplorerView extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Disable root-level swiping when in nested route
+    useEffect(() {
+      ref.read(canSwipeRootProvider.notifier).canSwipe = false;
+      return () {
+        // Re-enable root-level swiping when leaving this route
+        ref.read(canSwipeRootProvider.notifier).canSwipe = true;
+      };
+    }, []);
+
     final stateAsync = ref.watch(groupExplorerControllerProvider(groupId));
 
     return stateAsync.when(
@@ -45,17 +59,19 @@ class GroupExplorerView extends HookConsumerWidget {
                 onPressed: () => context.router.maybePop(),
               ),
             ),
-            body: StatusView(
-              type: StatusType.error,
-              title: Strings.loadDetailsError,
-              description: Strings.errorLoadingGroups,
-              action: Semantics(
-                button: true,
-                label: Strings.backButtonLabel,
-                hint: Strings.backButtonHint,
-                child: ShadButton.outline(
-                  onPressed: () => context.router.maybePop(),
-                  child: const Text(Strings.back),
+            body: SwipeBackDetector(
+              child: StatusView(
+                type: StatusType.error,
+                title: Strings.loadDetailsError,
+                description: Strings.errorLoadingGroups,
+                action: Semantics(
+                  button: true,
+                  label: Strings.backButtonLabel,
+                  hint: Strings.backButtonHint,
+                  child: ShadButton.outline(
+                    onPressed: () => context.router.maybePop(),
+                    child: const Text(Strings.back),
+                  ),
                 ),
               ),
             ),
@@ -64,6 +80,9 @@ class GroupExplorerView extends HookConsumerWidget {
 
         final shouldShowRelatedSection = state.related.isNotEmpty;
 
+        // Detect if we're in Scanner context
+        final isInScannerContext = _isInScannerContext(context);
+
         return Scaffold(
           appBar: AppBar(
             title: Text(state.title),
@@ -71,55 +90,68 @@ class GroupExplorerView extends HookConsumerWidget {
               icon: const Icon(LucideIcons.arrowLeft),
               onPressed: () => context.router.maybePop(),
             ),
-          ),
-          body: CustomScrollView(
-            slivers: [
-              SliverToBoxAdapter(
-                child: Column(
-                  children: [
-                    _buildAppBarContent(
-                      context,
-                      state,
-                    ),
-                    if (state.princepsCisCode != null &&
-                        state.princepsCisCode!.isNotEmpty) ...[
-                      const Gap(AppDimens.spacingSm),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppDimens.spacingMd,
-                        ),
-                        child: RcpShortcutsAccordion(
-                          cisCode: state.princepsCisCode!,
-                        ),
+            actions: isInScannerContext
+                ? [
+                    Tooltip(
+                      message: Strings.viewInExplorer,
+                      child: ShadIconButton.ghost(
+                        icon: const Icon(LucideIcons.database),
+                        onPressed: () => _navigateToExplorer(context, groupId),
                       ),
+                    ),
+                  ]
+                : null,
+          ),
+          body: SwipeBackDetector(
+            child: CustomScrollView(
+              slivers: [
+                SliverToBoxAdapter(
+                  child: Column(
+                    children: [
+                      _buildAppBarContent(
+                        context,
+                        state,
+                      ),
+                      if (state.princepsCisCode != null &&
+                          state.princepsCisCode!.isNotEmpty) ...[
+                        const Gap(AppDimens.spacingSm),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppDimens.spacingMd,
+                          ),
+                          child: RcpShortcutsAccordion(
+                            cisCode: state.princepsCisCode!,
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
-              ),
-              _buildSectionSliver(
-                context,
-                Strings.princeps,
-                state.princeps.length,
-                state.princeps,
-                sectionType: _ProductSectionType.princeps,
-                icon: LucideIcons.star,
-              ),
-              _buildSectionSliver(
-                context,
-                Strings.generics,
-                state.generics.length,
-                state.generics,
-                sectionType: _ProductSectionType.generics,
-                icon: LucideIcons.copy,
-              ),
-              if (shouldShowRelatedSection)
-                _buildRelatedSectionSliver(
+                _buildSectionSliver(
                   context,
-                  state.related,
-                  isLoading: false,
+                  Strings.princeps,
+                  state.princeps.length,
+                  state.princeps,
+                  sectionType: _ProductSectionType.princeps,
+                  icon: LucideIcons.star,
                 ),
-              const SliverToBoxAdapter(child: Gap(AppDimens.spacingXl)),
-            ],
+                _buildSectionSliver(
+                  context,
+                  Strings.generics,
+                  state.generics.length,
+                  state.generics,
+                  sectionType: _ProductSectionType.generics,
+                  icon: LucideIcons.copy,
+                ),
+                if (shouldShowRelatedSection)
+                  _buildRelatedSectionSliver(
+                    context,
+                    state.related,
+                    isLoading: false,
+                  ),
+                const SliverToBoxAdapter(child: Gap(AppDimens.spacingXl)),
+              ],
+            ),
           ),
         );
       },
@@ -131,7 +163,9 @@ class GroupExplorerView extends HookConsumerWidget {
             onPressed: () => context.router.maybePop(),
           ),
         ),
-        body: const StatusView(type: StatusType.loading),
+        body: const SwipeBackDetector(
+          child: StatusView(type: StatusType.loading),
+        ),
       ),
       error: (error, stackTrace) => Scaffold(
         appBar: AppBar(
@@ -141,18 +175,20 @@ class GroupExplorerView extends HookConsumerWidget {
             onPressed: () => context.router.maybePop(),
           ),
         ),
-        body: StatusView(
-          type: StatusType.error,
-          title: Strings.loadDetailsError,
-          description: error.toString(),
-          action: Semantics(
-            button: true,
-            label: Strings.retryButtonLabel,
-            hint: Strings.retryButtonHint,
-            child: ShadButton(
-              onPressed: () =>
-                  ref.invalidate(groupExplorerControllerProvider(groupId)),
-              child: const Text(Strings.retry),
+        body: SwipeBackDetector(
+          child: StatusView(
+            type: StatusType.error,
+            title: Strings.loadDetailsError,
+            description: error.toString(),
+            action: Semantics(
+              button: true,
+              label: Strings.retryButtonLabel,
+              hint: Strings.retryButtonHint,
+              child: ShadButton(
+                onPressed: () =>
+                    ref.invalidate(groupExplorerControllerProvider(groupId)),
+                child: const Text(Strings.retry),
+              ),
             ),
           ),
         ),
@@ -880,6 +916,28 @@ class GroupExplorerView extends HookConsumerWidget {
       }
       LoggerService.error('Failed to launch URL: $url', e);
     }
+  }
+
+  bool _isInScannerContext(BuildContext context) {
+    try {
+      final parentRoute = context.router.parent();
+      return parentRoute?.routeData.name == 'ScannerTabRoute';
+    } on Exception {
+      return false;
+    }
+  }
+
+  void _navigateToExplorer(BuildContext context, String groupId) {
+    // Navigate to Explorer tab and push the same group
+    unawaited(
+      context.router.navigate(const ExplorerTabRoute()).then((_) {
+        if (context.mounted) {
+          unawaited(
+            context.router.push(GroupExplorerRoute(groupId: groupId)),
+          );
+        }
+      }),
+    );
   }
 }
 

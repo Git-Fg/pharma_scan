@@ -29,7 +29,12 @@ class ScannerUtils {
         );
 
         if (capture != null && capture.barcodes.isNotEmpty) {
-          ref.read(scannerProvider.notifier).processBarcodeCapture(capture);
+          ref
+              .read(scannerProvider.notifier)
+              .processBarcodeCapture(
+                capture,
+                force: true,
+              );
         } else {
           if (context.mounted) {
             ShadToaster.of(context).show(
