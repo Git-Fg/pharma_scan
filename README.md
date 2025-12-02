@@ -1,9 +1,5 @@
 # PharmaScan 💊
 
-![vide1](https://github.com/user-attachments/assets/e3212341-9e88-4c8f-bcfc-d93a1324879a)
-![vid3](https://github.com/user-attachments/assets/26dd4b71-9646-4a4f-9a17-31af22504669)
-
-
 **L'assistant de poche pour le rangement et les équivalences.**
 
 PharmaScan est un projet personnel, conçu pour combler des problèmes très spécifiques pour les étudiants en pharmacie et pharmaciens, particulièrement pour les petites et moyennes pharmacies où les boîtes sont triées en fonction des princeps dans les tiroirs.
