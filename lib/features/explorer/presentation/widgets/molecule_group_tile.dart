@@ -1,0 +1,187 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:pharma_scan/core/theme/app_dimens.dart';
+import 'package:pharma_scan/core/utils/strings.dart';
+import 'package:pharma_scan/features/explorer/domain/models/generic_group_entity.dart';
+import 'package:shadcn_ui/shadcn_ui.dart';
+
+class MoleculeGroupTile extends HookWidget {
+  const MoleculeGroupTile({
+    required this.moleculeName,
+    required this.groups,
+    required this.itemBuilder,
+    super.key,
+  });
+
+  final String moleculeName;
+  final List<GenericGroupEntity> groups;
+  final Widget Function(BuildContext, GenericGroupEntity) itemBuilder;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = ShadTheme.of(context);
+
+    final sortedGroups = List<GenericGroupEntity>.from(groups)
+      ..sort(
+        (a, b) =>
+            _naturalCompare(a.princepsReferenceName, b.princepsReferenceName),
+      );
+
+    final uniquePrinceps =
+        sortedGroups.map((g) => g.princepsReferenceName).toSet().toList()
+          ..sort(_naturalCompare);
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.secondary,
+        border: Border.all(color: theme.colorScheme.border),
+        borderRadius: theme.radius,
+      ),
+      child: ShadAccordion<String>(
+        children: [
+          ShadAccordionItem(
+            value: moleculeName,
+            title: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ShadBadge.outline(
+                  child: Text(
+                    Strings.generics.substring(0, 1),
+                    style: theme.textTheme.small,
+                  ),
+                ),
+                const SizedBox(width: AppDimens.spacingSm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        moleculeName,
+                        style: theme.textTheme.p.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (uniquePrinceps.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        ...uniquePrinceps.map(
+                          (princeps) => Text(
+                            princeps,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.small.copyWith(
+                              color: theme.colorScheme.mutedForeground,
+                            ),
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 4),
+                      Text(
+                        Strings.productCount(groups.length),
+                        style: theme.textTheme.small.copyWith(
+                          color: theme.colorScheme.mutedForeground,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.only(left: AppDimens.spacingMd),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: sortedGroups
+                    .map((group) => itemBuilder(context, group))
+                    .toList(),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Natural sort comparison that handles numeric values correctly.
+  /// Example: "0,5" < "50" < "23" < "300"
+  /// This splits strings into text and numeric parts for proper comparison.
+  int _naturalCompare(String a, String b) {
+    final aParts = _splitNatural(a);
+    final bParts = _splitNatural(b);
+    final minLength = aParts.length < bParts.length
+        ? aParts.length
+        : bParts.length;
+
+    for (var i = 0; i < minLength; i++) {
+      final aPart = aParts[i];
+      final bPart = bParts[i];
+
+      // If both parts are numeric, compare as numbers
+      if (aPart.isNumeric && bPart.isNumeric) {
+        final aNum = double.tryParse(aPart) ?? 0;
+        final bNum = double.tryParse(bPart) ?? 0;
+        final diff = aNum.compareTo(bNum);
+        if (diff != 0) return diff;
+      } else {
+        // Compare as strings (case-insensitive for better UX)
+        final diff = aPart.toLowerCase().compareTo(bPart.toLowerCase());
+        if (diff != 0) return diff;
+      }
+    }
+
+    // If all parts match, shorter string comes first
+    return aParts.length.compareTo(bParts.length);
+  }
+
+  /// Splits a string into alternating text and numeric parts.
+  /// Example: "PLAVIX 0,5 mg" -> ["PLAVIX ", "0,5", " mg"]
+  /// Handles decimal separators (both comma and dot) correctly.
+  List<String> _splitNatural(String input) {
+    if (input.isEmpty) return [input];
+
+    final parts = <String>[];
+    final buffer = StringBuffer();
+    bool? isNumeric;
+
+    for (var i = 0; i < input.length; i++) {
+      final char = input[i];
+      final isDigit = char.codeUnitAt(0) >= 48 && char.codeUnitAt(0) <= 57;
+      final isDecimalSep = char == ',' || char == '.';
+      final isNumericChar = isDigit || isDecimalSep;
+
+      if (isNumeric == null) {
+        // First character - determine type
+        isNumeric = isNumericChar;
+        buffer.write(char);
+      } else if (isNumeric && isNumericChar) {
+        // Continue numeric sequence
+        buffer.write(char);
+      } else if (!isNumeric && !isNumericChar) {
+        // Continue text sequence
+        buffer.write(char);
+      } else {
+        // Type change - save current part and start new one
+        parts.add(buffer.toString());
+        buffer.clear();
+        isNumeric = isNumericChar;
+        buffer.write(char);
+      }
+    }
+
+    if (buffer.isNotEmpty) {
+      parts.add(buffer.toString());
+    }
+
+    return parts.isEmpty ? [input] : parts;
+  }
+}
+
+extension _StringNumeric on String {
+  bool get isNumeric {
+    if (isEmpty) return false;
+    final normalized = replaceAll(',', '.');
+    return double.tryParse(normalized) != null;
+  }
+}

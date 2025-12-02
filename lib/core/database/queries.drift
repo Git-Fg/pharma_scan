@@ -1,0 +1,218 @@
+import 'database.dart';
+import 'views.drift';
+
+-- Queries for MedicamentSummary table
+getMedicamentSummaryByCis: SELECT * FROM medicament_summary WHERE cis_code = ?;
+getAllMedicamentSummaries: SELECT * FROM medicament_summary ORDER BY nom_canonique;
+getMedicamentSummariesByGroup: SELECT * FROM medicament_summary WHERE group_id = ? ORDER BY is_princeps DESC, nom_canonique;
+getDistinctPrincipesActifsCommuns: SELECT DISTINCT principes_actifs_communs FROM medicament_summary WHERE principes_actifs_communs != '' ORDER BY principes_actifs_communs;
+
+-- Virtual table for trigram-enabled FTS search, defined in schema for drift awareness
+CREATE VIRTUAL TABLE search_index USING fts5(
+  cis_code UNINDEXED,
+  canonical_name,
+  princeps_name,
+  active_principles,
+  tokenize='trigram'
+);
+
+-- Helpers to manage the search index directly from SQL
+deleteSearchIndex: DELETE FROM search_index;
+
+insertSearchIndexFromSummary:
+INSERT INTO search_index (
+  cis_code,
+  canonical_name,
+  princeps_name,
+  active_principles
+)
+SELECT
+  ms.cis_code,
+  normalize_text(COALESCE(ms.nom_canonique, '')),
+  normalize_text(COALESCE(ms.princeps_de_reference, '')),
+  normalize_text(
+    COALESCE(
+      (
+        SELECT GROUP_CONCAT(value, ' ')
+        FROM json_each(ms.principes_actifs_communs)
+        WHERE value IS NOT NULL AND TRIM(value) != ''
+      ),
+      ''
+    )
+  ) AS normalized_actives
+FROM medicament_summary ms
+WHERE ms.principes_actifs_communs IS NOT NULL
+  AND ms.principes_actifs_communs != '[]'
+  AND ms.principes_actifs_communs != '';
+
+CREATE VIEW detailed_scan_results AS
+SELECT
+  m.code_cip,
+  m.cis_code,
+  s.nom_specialite,
+  s.procedure_type AS specialite_procedure_type,
+  s.forme_pharmaceutique,
+  s.titulaire AS specialite_titulaire,
+  s.conditions_prescription AS specialite_conditions_prescription,
+  ms.group_id,
+  ms.is_princeps,
+  ms.nom_canonique,
+  ms.principes_actifs_communs,
+  ms.princeps_de_reference,
+  ms.princeps_brand_name,
+  ms.forme_pharmaceutique AS summary_forme_pharmaceutique,
+  ms.procedure_type AS summary_procedure_type,
+  ms.titulaire AS summary_titulaire,
+  ms.conditions_prescription AS summary_conditions_prescription
+FROM medicaments m
+INNER JOIN specialites s ON s.cis_code = m.cis_code
+INNER JOIN medicament_summary ms ON ms.cis_code = m.cis_code;
+
+-- Aggregation queries for populating medicament_summary table
+-- These queries are validated at compile time against the schema
+deleteMedicamentSummaries: DELETE FROM medicament_summary;
+
+-- Insert grouped medications from view_aggregated_grouped view.
+-- The view contains all the aggregation logic with CTEs for compile-time validation.
+insertGroupedMedicamentSummaries:
+INSERT OR REPLACE INTO medicament_summary (
+  cis_code,
+  nom_canonique,
+  is_princeps,
+  group_id,
+  principes_actifs_communs,
+  princeps_de_reference,
+  forme_pharmaceutique,
+  princeps_brand_name,
+  procedure_type,
+  titulaire,
+  conditions_prescription,
+  is_surveillance,
+  voies_administration,
+  formatted_dosage,
+  atc_code,
+  status,
+  price_min,
+  price_max,
+  aggregated_conditions,
+  ansm_alert_url,
+  is_hospital,
+  is_dental,
+  is_list1,
+  is_list2,
+  is_narcotic,
+  is_exception,
+  is_restricted,
+  is_otc
+)
+SELECT * FROM view_aggregated_grouped;
+
+-- Insert standalone medications from view_aggregated_standalone view.
+-- The view contains all the aggregation logic with CTEs for compile-time validation.
+insertStandaloneMedicamentSummaries:
+INSERT OR REPLACE INTO medicament_summary (
+  cis_code,
+  nom_canonique,
+  is_princeps,
+  group_id,
+  principes_actifs_communs,
+  princeps_de_reference,
+  forme_pharmaceutique,
+  princeps_brand_name,
+  procedure_type,
+  titulaire,
+  conditions_prescription,
+  is_surveillance,
+  voies_administration,
+  formatted_dosage,
+  atc_code,
+  status,
+  price_min,
+  price_max,
+  aggregated_conditions,
+  ansm_alert_url,
+  is_hospital,
+  is_dental,
+  is_list1,
+  is_list2,
+  is_narcotic,
+  is_exception,
+  is_restricted,
+  is_otc,
+  representative_cip
+)
+SELECT * FROM view_aggregated_standalone;
+
+getMedicamentSummaryCount: SELECT COUNT(*) AS count FROM medicament_summary;
+
+-- Cross-validation query: Get Type 0 (princeps) member names for a group
+-- Returns the shortest nom_specialite as fallback if parsed princepsLabel doesn't match
+getPrincepsNamesForGroup:
+SELECT
+  gg.group_id,
+  gg.princeps_label AS parsed_princeps,
+  MIN(s.nom_specialite) AS shortest_name,
+  COUNT(*) AS match_count
+FROM generique_groups gg
+INNER JOIN group_members gm ON gg.group_id = gm.group_id
+INNER JOIN medicaments m ON gm.code_cip = m.code_cip
+INNER JOIN specialites s ON m.cis_code = s.cis_code
+WHERE gm.type = 0
+  AND gg.group_id = :groupId
+GROUP BY gg.group_id, gg.princeps_label
+HAVING (
+  -- Check if parsed_princeps appears in any Type 0 member name (normalized LIKE)
+  gg.princeps_label IS NULL
+  OR NOT EXISTS (
+    SELECT 1
+    FROM group_members gm2
+    INNER JOIN medicaments m2 ON gm2.code_cip = m2.code_cip
+    INNER JOIN specialites s2 ON m2.cis_code = s2.cis_code
+    WHERE gm2.group_id = gg.group_id
+      AND gm2.type = 0
+      AND normalize_text(s2.nom_specialite) LIKE '%' || normalize_text(gg.princeps_label) || '%'
+  )
+);
+
+-- Query to get all groups with the same active principles as a target group
+-- Uses self-join on principes_actifs_communs to find related groups
+-- Always includes the target group itself, even if it has no principes_actifs_communs
+getGroupsWithSamePrinciples:
+SELECT vgd.*
+FROM view_group_details vgd
+WHERE vgd.group_id = :targetGroupId
+   OR vgd.group_id IN (
+    SELECT DISTINCT ms2.group_id
+    FROM medicament_summary ms1
+    INNER JOIN medicament_summary ms2 
+        ON ms1.principes_actifs_communs = ms2.principes_actifs_communs
+    WHERE ms1.group_id = :targetGroupId
+      AND ms1.principes_actifs_communs IS NOT NULL
+      AND ms1.principes_actifs_communs != '[]'
+      AND ms1.principes_actifs_communs != ''
+      AND ms2.group_id IS NOT NULL
+      AND ms2.group_id != ''
+      AND ms2.group_id != :targetGroupId
+  )
+ORDER BY vgd.is_princeps DESC, vgd.nom_canonique ASC;
+
+-- Query to find related therapies (superset groups)
+-- Finds groups where target principles are a SUBSET of candidate principles
+getRelatedTherapies:
+SELECT DISTINCT vgd.*
+FROM view_group_details vgd
+INNER JOIN medicament_summary ms ON vgd.group_id = ms.group_id
+WHERE vgd.group_id != :targetGroupId
+  AND vgd.is_princeps = 1
+  AND ms.principes_actifs_communs IS NOT NULL
+  AND ms.principes_actifs_communs != '[]'
+  AND ms.principes_actifs_communs != ''
+  AND json_array_length(ms.principes_actifs_communs) > :targetLength
+  AND NOT EXISTS (
+    SELECT 1
+    FROM json_each(:targetPrinciples) as target
+    WHERE target.value NOT IN (
+      SELECT value FROM json_each(ms.principes_actifs_communs)
+    )
+  )
+ORDER BY vgd.princeps_de_reference ASC;

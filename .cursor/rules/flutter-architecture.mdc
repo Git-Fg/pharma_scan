@@ -1,0 +1,643 @@
+---
+description: CONSTANTLY APPLIED. Complete architecture standards: Riverpod state management, Dart Mappable data models, Flutter Hooks, error handling (ROP), anti-patterns, and native tool preferences.
+globs: lib/**/*, pubspec.yaml
+alwaysApply: true
+---
+
+# Flutter Architecture Standards (2025)
+
+**Context:** Complete architecture standards for Flutter applications. This consolidates state management, data modeling, hooks, error handling, anti-patterns, and tool preferences into a single source of truth.
+
+## 1. State Management (Riverpod)
+
+### Core Principles
+
+* **Code Generation:** ALWAYS use `@riverpod` / `@Riverpod` annotations. Manual `Provider` creation is forbidden for new code.
+* **Hook Integration:** ALWAYS use `HookConsumerWidget` instead of `ConsumerWidget` to leverage `flutter_hooks`.
+* **Async First:** Prefer `Future/Stream` providers over synchronous state. Handle `AsyncValue` explicitly.
+* **Stream > Future:** Is this data displayed in the UI? If yes, use `watch()` (Stream) instead of `get()` (Future).
+
+### Provider Types Decision Matrix
+
+| Use Case | Provider Type | Annotation |
+| :--- | :--- | :--- |
+| **Data Fetching** | `Future<T>` | `@riverpod` |
+| **Real-time DB** | `Stream<T>` | `@riverpod` |
+| **Complex Logic** | `class ... extends _$Notifier` | `@riverpod` |
+| **Async Logic** | `class ... extends _$AsyncNotifier` | `@riverpod` |
+| **Global Config** | `keepAlive: true` | `@Riverpod(keepAlive: true)` |
+
+### Implementation Patterns
+
+**A. The Controller Pattern (Notifier)**
+
+Use this for screens requiring logic (e.g., Form submission, state management).
+
+```dart
+@riverpod
+class FilterNotifier extends _$FilterNotifier {
+  @override
+  Filters build() => const Filters();
+
+  void updateFilters(Filters filters) {
+    state = filters;
+  }
+}
+```
+
+**B. The Stream Pattern (Reactive Data)**
+
+Use this for UI data that needs to update when the database changes.
+
+```dart
+@riverpod
+Stream<List<SearchResultItem>> searchResults(Ref ref, String rawQuery) {
+  final catalogDao = ref.watch(catalogDaoProvider);
+  return catalogDao.watchItems(query).map((summaries) {
+    return _mapSummariesToItems(summaries);
+  });
+}
+```
+
+**C. The Repository Pattern (Read-only)**
+
+Expose DAOs directly. Do not create "Repository" classes if they just wrap a DAO method 1:1.
+
+```dart
+@riverpod
+CatalogDao catalogDao(Ref ref) => ref.watch(appDatabaseProvider).catalogDao;
+```
+
+**D. The KeepAlive Pattern (Static Config)**
+
+Use `@Riverpod(keepAlive: true)` for static data that shouldn't be disposed (dropdown lists, enums, settings).
+
+```dart
+@Riverpod(keepAlive: true)
+Future<List<String>> categories(Ref ref) async {
+  // Load once, keep in memory
+}
+```
+
+### Read vs Write Error Handling
+
+**Core Principle:** Reads use exceptions (Future<T>/Stream<T>), Writes use Either (ROP).
+
+**Read Operations (Data Consumption):**
+
+* **Protocol:** Fail Fast.
+* **Signature:** `Future<T>` or `Stream<T>`.
+* **Behavior:** Let Drift exceptions bubble up naturally.
+* **Handling:** Riverpod's `AsyncValue` catches exceptions and renders Error state automatically.
+* **Prohibition:** Do NOT wrap simple DB reads in `Either`. It creates "Unwrap Boilerplate" in providers.
+
+```dart
+// ✅ CORRECT: Direct Future/Stream for reads
+@riverpod
+Future<List<Data>> myData(Ref ref) async {
+  final catalogDao = ref.watch(catalogDaoProvider);
+  return catalogDao.getData(); // Direct return, exceptions bubble up
+}
+
+@riverpod
+Stream<List<Data>> myData(Ref ref) {
+  final catalogDao = ref.watch(catalogDaoProvider);
+  return catalogDao.watchData(); // Direct stream, exceptions bubble up
+}
+```
+
+**Write/Logic Operations (Actions):**
+
+* **Protocol:** Functional Safety (ROP).
+* **Library:** `dart_either` (^2.0.0) is mandatory.
+* **Signature:** `Future<Either<Failure, Success>>`.
+* **Behavior:** Catch exceptions and map to `Failure`.
+* **Reason:** Writes often require specific recovery logic (retry, rollback, user alert) that `AsyncValue` doesn't express well.
+
+```dart
+// ✅ CORRECT: Either for writes
+Future<Either<Failure, void>> saveData(Data data) {
+  return Either.catchFutureError(
+    (e, s) => DatabaseFailure(e.toString(), s),
+    () async => await db.insert(data),
+  );
+}
+
+// ✅ CORRECT: Notifier handling Either for writes
+Future<bool> performAction(String id) async {
+  final resultEither = await dao.saveData(id);
+  return resultEither.fold(
+    (failure) {
+      LoggerService.error('[Notifier] Error', failure.message, failure.stackTrace);
+      return false;
+    },
+    (data) {
+      // Business logic with data
+      return true;
+    },
+  );
+}
+```
+
+**Rationale:** 
+- **Reads:** Riverpod's `AsyncValue` already provides Loading/Data/Error states. Wrapping in `Either` just adds boilerplate (`.fold()` calls) that unwraps only to throw again.
+- **Writes:** Business logic often needs explicit failure handling (retry, rollback, user alerts). `Either` forces explicit handling and provides type safety.
+
+### Testing
+
+* **Overrides:** Test widgets by overriding providers in `ProviderScope`.
+* **Mocking:** Mock the *Return Type* of the provider, not the provider itself.
+
+### Anti-Patterns
+
+* ❌ **DO NOT** use `StateProvider` (deprecated).
+* ❌ **DO NOT** use `ref.watch` inside lifecycle methods or callbacks. Use `ref.read`.
+* ❌ **DO NOT** perform side effects (navigation, snackbars) inside `build()`. Listen to the provider in the Widget layer.
+
+## 2. Data Models (Dart Mappable)
+
+### Core Principles
+
+* **Classes Standard:** Use standard Dart `class` (or `sealed class` for unions) with `const` constructors.
+* **Immutability:** All fields must be `final`.
+* **Annotation:** Use `@MappableClass()` on the class.
+* **Mixin:** Apply the mixin `<ClassName>Mappable`.
+* **Part File:** Use `part 'filename.mapper.dart';`.
+* **FORBIDDEN:** `freezed`, `json_serializable`.
+
+### Structure of a Data Class
+
+**❌ BAD (Freezed - Legacy):**
+
+```dart
+@freezed
+class User with _$User {
+  const factory User({required String name, int? age}) = _User;
+  factory User.fromJson(Map<String, dynamic> json) => _$UserFromJson(json);
+}
+```
+
+**✅ GOOD (Dart Mappable - Standard):**
+
+```dart
+import 'package:dart_mappable/dart_mappable.dart';
+
+part 'user.mapper.dart';
+
+@MappableClass()
+class User with UserMappable {
+  const User({
+    required this.name,
+    this.age,
+  });
+
+  final String name;
+  final int? age;
+
+  // Optional: Static shortcuts
+  static final fromMap = UserMapper.fromMap;
+  static final fromJson = UserMapper.fromJson;
+}
+```
+
+### Unions and Sealed Classes
+
+For polymorphism (formerly `.map` / `.when` from Freezed), use native Dart 3 `sealed classes`.
+
+**❌ BAD (Freezed - Legacy):**
+
+```dart
+@freezed
+sealed class UiState with _$UiState {
+  const factory UiState.loading() = Loading;
+  const factory UiState.success(List<String> data) = Success;
+  const factory UiState.error(String message) = Error;
+}
+```
+
+**✅ GOOD (Dart Mappable - Standard):**
+
+```dart
+import 'package:dart_mappable/dart_mappable.dart';
+
+part 'ui_state.mapper.dart';
+
+@MappableClass(discriminatorKey: 'type')
+sealed class UiState with UiStateMappable {
+  const UiState();
+}
+
+@MappableClass(discriminatorValue: 'loading')
+class Loading extends UiState with LoadingMappable {
+  const Loading();
+}
+
+@MappableClass(discriminatorValue: 'success')
+class Success extends UiState with SuccessMappable {
+  const Success(this.data);
+  final List<String> data;
+}
+
+@MappableClass(discriminatorValue: 'error')
+class ErrorState extends UiState with ErrorStateMappable {
+  const ErrorState(this.message);
+  final String message;
+}
+```
+
+**Pattern Matching (Dart 3):**
+
+```dart
+// ✅ GOOD: Use switch expressions instead of .map()/.when()
+final result = switch (uiState) {
+  Loading() => 'Loading...',
+  Success(data: final data) => 'Data: ${data.length} items',
+  ErrorState(message: final msg) => 'Error: $msg',
+};
+```
+
+### Generated Methods
+
+The mixin `<ClassName>Mappable` provides automatically:
+
+* `Map<String, dynamic> toMap()` - Serialization to Map
+* `String toJson()` - Serialization to JSON string
+* `T copyWith({...})` - Create a modified copy
+* `bool operator ==(Object other)` - Value equality
+* `int get hashCode` - Hash code based on values
+* `String toString()` - String representation
+
+**Static Mapper Methods:**
+
+* `ClassNameMapper.fromMap(Map<String, dynamic> map)` - Deserialization from Map
+* `ClassNameMapper.fromJson(String json)` - Deserialization from JSON string
+
+### Configuration
+
+* **JSON Keys:** Use `@MappableField(key: 'custom_key')` if the name differs.
+* **Hooks:** Use `MappingHook` for complex transformations before/after serialization.
+* **Global Configuration:** Configure `dart_mappable_builder` in `build.yaml` with `caseStyle: camelCase` and `generateMethods: [decode, encode, copy, stringify, equals]`.
+
+### Anti-Patterns
+
+* ❌ **DO NOT** use Freezed for new models
+* ❌ **DO NOT** create classes with mutable fields for data models
+* ❌ **DO NOT** forget to add `part '*.mapper.dart';` in model files
+* ❌ **DO NOT** use `.map()` or `.when()` - use `switch` expressions Dart 3
+* ✅ **DO** use `sealed class` for unions instead of Freezed factories
+* ✅ **DO** use `const` constructors for immutability
+* ✅ **DO** use `@MappableClass(discriminatorKey: 'type')` for sealed classes with JSON polymorphism
+
+## 3. Hooks (Flutter Hooks)
+
+### Core Principles
+
+* **Inheritance:** Use `HookWidget` (or `HookConsumerWidget` if using Riverpod) instead of `StatefulWidget`.
+* **FORBIDDEN:** `StatefulWidget` is explicitly prohibited. All widgets requiring controllers, lifecycle listeners, or local state MUST use `HookConsumerWidget`.
+* **No Lifecycle Methods:** You must NOT use `initState`, `dispose`, or `didUpdateWidget`. Hooks handle this automatically.
+* **Unconditional Call:** Hooks MUST be called unconditionally at the top of the `build` method. NEVER inside `if`, `for`, or callbacks.
+* **Naming:** Custom hooks must start with `use` (e.g., `useLoggedState`).
+
+### Migration Mapping (The "Cheat Sheet")
+
+When refactoring code, map standard Flutter patterns to their Hook equivalents:
+
+| Traditional Pattern | Hook Equivalent | Notes |
+| :--- | :--- | :--- |
+| `TextEditingController` | `useTextEditingController()` | Auto-disposed. |
+| `ScrollController` | `useScrollController()` | Auto-disposed. |
+| `AnimationController` | `useAnimationController(duration: ...)` | Auto-disposed. No `vsync` needed. |
+| `FocusNode` | `useFocusNode()` | Auto-disposed. |
+| `TabController` | `useTabController(length: ...)` | Auto-disposed. |
+| `WidgetsBindingObserver` | `useOnAppLifecycleStateChange(...)` | Handles resume/pause logic. |
+| `mounted` check | `context.mounted` | Property (Flutter 3.7+). Use directly: `if (context.mounted)`. |
+| `StreamSubscription` | `useStream(...)` | Returns current snapshot. |
+| `FutureBuilder` | `useFuture(...)` | Returns current snapshot. |
+
+### Specific Patterns
+
+**A. Animation Controllers**
+
+**Do NOT** implement `SingleTickerProviderStateMixin`.
+
+```dart
+// ✅ Correct
+final controller = useAnimationController(duration: const Duration(seconds: 1));
+controller.repeat();
+```
+
+**B. Lifecycle Management**
+
+**Do NOT** implement `WidgetsBindingObserver`.
+
+**Preferred approach:** Use `useAppLifecycleState()` with `useEffect` to react to lifecycle changes.
+
+```dart
+// ✅ Correct (Preferred)
+final lifecycleState = useAppLifecycleState();
+useEffect(() {
+  if (lifecycleState == null) return null;
+  switch (lifecycleState) {
+    case AppLifecycleState.resumed:
+      // Resume camera/logic
+      break;
+    case AppLifecycleState.paused:
+      // Pause camera/logic
+      break;
+    // ... other cases
+  }
+  return null;
+}, [lifecycleState]);
+```
+
+**C. Async Safety**
+
+**Do NOT** use the property `mounted` from State. **Do NOT** use deprecated `useIsMounted()`.
+
+**For Flutter 3.7+:** Use `BuildContext.mounted` property directly.
+
+```dart
+// ✅ Correct (Flutter 3.7+)
+await futureOp();
+if (context.mounted) {
+  // Safe to update UI
+}
+```
+
+**Note:** `useIsMounted()` is deprecated. Always use `context.mounted` when available (Flutter 3.7+).
+
+### Riverpod Integration
+
+* Use `HookConsumerWidget` from `hooks_riverpod`.
+* Signature: `Widget build(BuildContext context, WidgetRef ref)`.
+
+### Shadcn Integration
+
+**Context:** When using `shadcn_ui` components that require controllers, use `useMemoized` and `useEffect` to manage controller lifecycle.
+
+**Pattern:** Shadcn controllers are typically `ChangeNotifier` instances or simple objects that need disposal.
+
+```dart
+// ✅ Popover Controller
+import 'package:shadcn_ui/shadcn_ui.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
+
+class MyWidget extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    final popoverController = useMemoized(() => ShadPopoverController());
+    
+    useEffect(() {
+      return () => popoverController.dispose();
+    }, [popoverController]);
+    
+    return ShadPopover(
+      controller: popoverController,
+      popover: (context) => Text('Popover content'),
+      child: ShadButton(
+        onPressed: popoverController.toggle,
+        child: Text('Toggle Popover'),
+      ),
+    );
+  }
+}
+```
+
+## 4. Error Handling (ROP)
+
+### Service & DAO Layer
+
+**A. Read Operations (Data Consumption)**
+
+* **Protocol:** Fail Fast.
+* **Signature:** `Future<T>` or `Stream<T>`.
+* **Behavior:** Allow Exceptions to bubble up.
+* **Handling:** The UI (Riverpod `AsyncValue`) catches the exception and renders the Error state.
+* **Prohibition:** Do NOT wrap simple DB reads in `Either`. It creates "Unwrap Boilerplate" in providers.
+
+```dart
+// ✅ CORRECT: Direct Future/Stream for reads
+Future<List<Data>> getItems() async {
+  return await db.select(db.itemSummary).get();
+}
+
+Stream<List<Data>> watchItems() {
+  return db.select(db.itemSummary).watch();
+}
+
+// ❌ FORBIDDEN: Either wrapping for simple reads
+Future<Either<Failure, List<Data>>> getItems() {
+  return Either.catchFutureError(...); // Unnecessary boilerplate
+}
+```
+
+**B. Write/Logic Operations (Actions)**
+
+* **Protocol:** Functional Safety (ROP).
+* **Library:** `dart_either` (^2.0.0) is mandatory.
+* **Signature:** `Future<Either<Failure, Success>>`.
+* **Behavior:** Catch exceptions and map to `Failure`.
+* **Reason:** Writes often require specific recovery logic (retry, rollback, user alert) that `AsyncValue` doesn't express well.
+* **Prohibition:** `fpdart`, `TaskEither`, and verbose manual `try-catch` blocks are FORBIDDEN. The `throw` keyword is FORBIDDEN in write operations.
+
+**Pattern 1: Encapsulation (DAOs / API)**
+
+Use `Either.catchFutureError` to automatically convert exceptions into `Failure`.
+
+```dart
+// ✅ Correct: Automatic capture for writes
+Future<Either<Failure, void>> saveItem(Item data) {
+  return Either.catchFutureError(
+    (e, s) => DatabaseFailure(e.toString(), s), // Mapper
+    () async => await db.insert(db.itemSummary).insert(data), // Action
+  );
+}
+```
+
+**Pattern 2: Sequencing (Services)**
+
+Use "Monad Comprehension" via `Either.futureBinding` to chain operations. This eliminates "Callback Hell".
+
+```dart
+// ✅ Correct: Imperative style, functional safety
+Future<Either<Failure, ProcessedData>> process() {
+  return Either.futureBinding((e) async {
+    // .bind(e) unwraps success or stops everything if error
+    final raw = await dao.fetchRaw().bind(e); 
+    final parsed = await parser.parse(raw).bind(e);
+    return parsed;
+  });
+}
+```
+
+**Reference Implementation:** See your data ingestion service for Railway Oriented Programming patterns using `Either<ParseError, T>` (write/ETL operations).
+
+### UI Layer: Visual Feedback
+
+* **Toasts:** Use `ShadToaster.of(context).show()` with `ShadToast` for transient errors (network fail, save success).
+* **Alerts:** Use `ShadAlert` (or `ShadAlert.destructive` for errors) for inline error states within content.
+* **Dialogs:** Use `showShadDialog` with `ShadDialog` or `ShadDialog.alert` for critical errors requiring user acknowledgement.
+
+**Pattern:**
+
+```dart
+// ✅ CORRECT: Toast for transient errors
+ShadToaster.of(context).show(
+  ShadToast(
+    title: Text(Strings.error),
+    description: Text(Strings.networkError),
+    icon: Icon(LucideIcons.triangleAlert),
+  ),
+);
+
+// ✅ CORRECT: Destructive toast for errors
+ShadToaster.of(context).show(
+  ShadToast.destructive(
+    title: Text(Strings.actionFailed),
+    description: Text(Strings.operationCouldNotBeCompleted),
+  ),
+);
+
+// ✅ CORRECT: Alert for inline errors
+ShadAlert.destructive(
+  icon: Icon(LucideIcons.circleAlert),
+  title: Text(Strings.error),
+  description: Text(error.toString()),
+);
+
+// ✅ CORRECT: Dialog for critical errors
+showShadDialog(
+  context: context,
+  builder: (context) => ShadDialog.alert(
+    title: Text(Strings.criticalError),
+    description: Text(Strings.requiresUserAction),
+    actions: [
+      ShadButton(
+        child: Text(Strings.ok),
+        onPressed: () => Navigator.of(context).pop(),
+      ),
+    ],
+  ),
+);
+```
+
+### Logging (Talker)
+
+* **Usage:** Use `LoggerService` (wrapping Talker).
+* **Levels:**
+  * `info`: Normal flow events (Screen navigation, DB init).
+  * `error`: Exceptions with stack traces.
+  * `debug`: Payload details (API responses, data structures).
+* **Sanitization:** Ensure no PII enters logs.
+
+**Reference Implementation:** See `lib/core/services/logger_service.dart` for logging patterns.
+
+## 5. Domain Model
+
+### Drift-as-Domain Principle
+
+* **Drift Classes = Domain Entities:** Use generated `Item`, `ItemSummary` classes directly in UI.
+* **FORBIDDEN:** Creating mapped "Domain Entities" that mirror Database Rows 1:1 without adding behavior. Do not create `ItemDto` if it is identical to `Item`.
+* **Mappers:** Only create mappers if data needs to be transformed significantly for a specific View (e.g., ChartData).
+* **Dart Extensions:** Use **Dart Extensions** (`extension on ItemRow`) for computed properties (formatting prices, getters).
+
+### No DTOs/ViewModels
+
+Use database rows (Drift classes) directly in the UI. Use **Dart Extensions** for computed properties.
+
+**The "Passthrough" Rule:** If a Class/Provider merely passes data from A to B without logic, **DELETE IT**. Connect A to B directly.
+
+## 6. Folder Structure
+
+### Feature-First Organization
+
+Organize code by feature, not by technical layer:
+
+```
+lib/
+  core/           # Infrastructure (database, services, utils)
+  features/       # Business domains
+    auth/
+      domain/      # Domain models
+      presentation/
+        screens/   # Screen widgets
+        widgets/   # Feature-specific widgets
+        providers/ # Feature-specific providers
+```
+
+**Principles:**
+- Each feature is self-contained
+- Core infrastructure is shared
+- Avoid cross-feature dependencies
+
+## 7. Native Tool Preferences
+
+### Fundamental Guideline
+
+Lean on the native tools for file reads, edits, and searches because they provide richer context and safer writes. Console commands remain available when they substantially speed up the task or when native tools lack parity.
+
+### Recommended Defaults
+
+* ✅ Prefer `read_file` over `cat`, `less`, or `more` for reviewing source, especially when context windows, offsets, or quoting accuracy matter.
+* ✅ Use `apply_patch`/`edit_file` for modifications so changes are atomic and audited.
+* ✅ Reach for `grep`, `codebase_search`, or `glob_file_search` when you need precise or semantic matches.
+* ✅ Use `list_dir` for quick directory listings, but `ls` and `tree` are **allowed** when a visual hierarchy helps or when sharing console transcripts.
+
+### Console Allowances
+
+Shell utilities are acceptable for:
+
+1. Build/test/tooling commands (`dart run build_runner ...`, `dart fix --apply`, `dart analyze`, `flutter test`, custom scripts).
+2. **App Lifecycle:** `bash tool/run_session.sh` and `bash tool/run_session.sh stop` are the **ONLY** permitted ways to run the Flutter app for testing.
+3. Project scripts (`dart run tool/audit_data.dart`, `dart run tool/generate_test_data.dart`, `just`, `make`, etc.).
+4. Directory inspection commands, including `ls` and `tree`, when faster or when native output would be cumbersome.
+5. Occasional quick peeks (e.g., `cat file | head`) provided they do not replace sustained use of `read_file`/`grep` for substantive work.
+6. Simple, single-command invocations. **Avoid composed shell pipelines or chained commands (using `|`, `&&`, `||`, or `;`)** because they are harder to audit and may bypass native-tool safeguards. Break complex tasks into discrete commands instead.
+
+**Constraint:** You must NEVER use git command, except if specifically asked from the user.
+
+**Auto-Fix Discipline:** If `dart analyze` or CI surfaces warnings/errors with available quick fixes, immediately run `dart fix --apply` before re-running analysis or tests.
+
+### Rationale
+
+* **Accuracy:** Native tools prevent truncated output and automatically include metadata such as line numbers.
+* **Safety:** File edits stay atomic, preventing partial writes.
+* **Efficiency:** Purpose-built tools integrate with Cursor history and reduce context-switching.
+
+Use judgment: default to native tooling, but leverage the console whenever it clearly improves speed or clarity without sacrificing reliability.
+
+## 8. Anti-Patterns
+
+### 1. The "Premature Abstraction" Anti-Pattern
+
+**Definition:** Creating a generic class/function for code that is used only once or twice, "just in case" it's needed later.
+
+**Rule:**
+
+* **Rule of Three:** Do not extract logic into a shared service/utility until it is duplicated in **three** distinct places.
+* **YAGNI:** You Aren't Gonna Need It. Do not build for hypothetical future requirements.
+
+### 2. The "Pseudo-Domain" Anti-Pattern
+
+**Definition:** Creating mapped "Domain Entities" that mirror Database Rows 1:1 without adding behavior.
+
+**Rule:**
+
+* Use Drift-generated classes directly in the UI.
+* Do not create `ItemDto` if it is identical to `Item`.
+
+### 3. Legacy Enum-Based Filtering Anti-Pattern (Strictly Forbidden)
+
+**Definition:** Using enum-based filtering when dynamic database-driven filtering is available.
+
+**Why it fails:**
+
+* Enum-based categorization creates rigid filtering that doesn't match flexible database-driven approaches.
+* Hard-coded enums don't adapt to changing data structures.
+* Dynamic SQL string filtering provides more flexibility and maintainability.
+
+**Rule:**
+
+* **FORBIDDEN:** Do not use hard-coded enum-based filtering when database-driven filtering is available.
+* **REQUIRED:** Use dynamic SQL string filtering via providers for flexible, maintainable filtering.
+* Enums should only be used for truly static, unchanging categories.

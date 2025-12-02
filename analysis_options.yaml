@@ -1,0 +1,45 @@
+# This file configures the analyzer, which statically analyzes Dart code to
+# check for errors, warnings, and lints.
+#
+# The following line activates a set of recommended lints for Flutter apps,
+# packages, and plugins designed to encourage good coding practices.
+include: package:very_good_analysis/analysis_options.yaml
+
+linter:
+  rules:
+    # --- VERBOSITY REDUCTION (Solo Dev Optimization) ---
+    # Disable mandatory documentation for public members
+    public_member_api_docs: false
+    
+    # --- PROJECT SPECIFIC EXCLUSIONS ---
+    # Allow simple string concatenation when cleaner than interpolation
+    prefer_interpolation_to_compose_strings: false
+    
+    # Optional: If you prefer lines longer than 80 chars (modern screens)
+    lines_longer_than_80_chars: false
+    
+    # Disable I/O warnings for offline-first, I/O-heavy application
+    avoid_slow_async_io: false
+
+analyzer:
+  exclude:
+    - "**/*.g.dart"
+    - "**/*.freezed.dart"
+    - "**/*.mapper.dart"
+    - "**/*.drift.dart"
+    - "test/**/*.mocks.dart"
+    - "tool/**"
+  language:
+    strict-casts: true
+    strict-inference: true
+    strict-raw-types: true
+  enable-experiment:
+    - dot-shorthands  # Required for Mix 2.0 dot notation syntax (Dart SDK ≥ 3.9.0)
+  errors:
+    # Treat specific hints as errors for stricter quality
+    missing_return: error
+    dead_code: error
+    always_use_package_imports: error
+    avoid_print: error
+    # Allow TODOs without warning noise
+    todo: ignore

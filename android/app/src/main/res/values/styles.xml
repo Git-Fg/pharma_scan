@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The theme for the modern native splash screen -->
+    <style name="LaunchTheme" parent="Theme.SplashScreen">
+        <!-- Set the splash screen background color -->
+        <item name="windowSplashScreenBackground">@android:color/white</item>
+        <!-- Set the icon to be displayed -->
+        <item name="windowSplashScreenAnimatedIcon">@drawable/launch_background</item>
+        <!-- Set the theme to transition to after the splash screen -->
+        <item name="postSplashScreenTheme">@style/NormalTheme</item>
+    </style>
+
+    <!-- The theme for the app after the splash screen -->
+    <style name="NormalTheme" parent="@android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">?android:colorBackground</item>
+        <!-- Enable edge-to-edge display -->
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+    </style>
+</resources>

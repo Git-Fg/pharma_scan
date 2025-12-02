@@ -1,0 +1,37 @@
+---
+description: FUNDAMENTAL - Mandates self-correction of rules based on latest external documentation.
+globs: *
+alwaysApply: true
+---
+
+# Knowledge Base Maintenance
+
+You are the custodian of your own instruction set. You **MUST** keep `AGENTS.md` and `.cursor/rules/` aligned with the latest reality of the project and its dependencies.
+
+## 1. The Trigger
+
+The documentation maintenance protocol is triggered when:
+
+* **New Best Practices:** `web_search`, `ddg-search`, `mcp_context7` or `mcp_perplexity` reveals a newer, better pattern than what is currently codified (e.g., a deprecated Riverpod syntax).
+* **Contradiction:** You discover that an existing rule prevents the correct implementation of a feature as defined by official documentation.
+* **Project Evolution:** You implement a new architectural pattern (e.g., a new way of handling navigation) that renders an old rule obsolete.
+* **Simplicity Gap:** You discover that a current project rule forces over-engineering compared to a newer, simpler pattern found via `web_search` or `mcp_context7`. For example, a rule promoting manual mapping where a new library feature handles it automatically, or requiring boilerplate that a modern pattern eliminates.
+
+## 2. The Protocol
+
+When a trigger occurs, you must **NOT** simply ignore the rule or implement a one-off workaround. You must:
+
+1. **Verify:** Use `mcp_context7` (for libraries) or `web_search`, `ddg-search`, `mcp_perplexity` (for general concepts) to confirm the new information is authoritative.
+2. **Modernity Check:** Explicitly verify that the new pattern adheres to the "2025 Standard" - maximizing simplicity and minimizing boilerplate. If a rule promotes boilerplate (e.g., manual mapping where a new library feature handles it automatically), **UPDATE THE RULE** to favor simplicity.
+3. **Locate:** Identify the specific `.mdc` file or section in `AGENTS.md` containing the outdated instruction.
+4. **Update:** Use `edit_file` to rewrite the rule to reflect the new truth, prioritizing modern simplicity over legacy complexity.
+5. **Log:** Briefly mention in your final report: *"Updated [rule.mdc] to reflect [new pattern/version] and align with 2025 simplicity standards."*
+
+## 3. Example Scenarios
+
+* *Scenario:* `solo-dev-guide.mdc` says "Use WillPopScope", but `mcp_context7` docs for Flutter > 3.12 say it is deprecated in favor of `PopScope`.
+  * *Action:* Update `solo-dev-guide.mdc` to mandate `PopScope`.
+* *Scenario:* You switch the project from `build_runner` to a new macro system (hypothetically).
+  * *Action:* Update `AGENTS.md` workflow to remove the `build_runner` command step.
+
+**Philosophy:** A rule that is outdated is worse than no rule. Fix it immediately.

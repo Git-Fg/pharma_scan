@@ -1,0 +1,22 @@
+targets:
+  $default:
+    builders:
+      drift_dev:
+        options:
+          sql:
+            dialect: sqlite
+            options:
+              modules:
+                - fts5
+              known_functions:
+                normalize_text: "text(text)"
+      dart_mappable_builder:
+        options:
+          caseStyle: camelCase
+          generateMethods:
+            - decode
+            - encode
+            - copy
+            - stringify
+            - equals
+

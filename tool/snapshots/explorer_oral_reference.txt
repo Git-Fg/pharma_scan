@@ -1,0 +1,3658 @@
+[CLUSTER] ARIPIPRAZOLE
+  > ABILIFY 1 mg/ml, solution buvable
+    - ID: 1582
+    - Common: ARIPIPRAZOLE
+  > ABILIFY 10 mg, comprimé
+    - ID: 1247
+    - Common: ARIPIPRAZOLE
+  > ABILIFY 10 mg, comprimé orodispersible
+    - ID: 1282
+    - Common: ARIPIPRAZOLE
+  > ABILIFY 15 mg, comprimé
+    - ID: 1248
+    - Common: ARIPIPRAZOLE
+  > ABILIFY 15 mg, comprimé orodispersible
+    - ID: 1283
+    - Common: ARIPIPRAZOLE
+  > ABILIFY 5 mg, comprimé
+    - ID: 1246
+    - Common: ARIPIPRAZOLE
+----------------------------------------
+[CLUSTER] ACIDE RISÉDRONIQUE
+  > ACTONEL 30 mg, comprimé pelliculé
+    - ID: 983
+    - Common: ACIDE RISÉDRONIQUE
+  > ACTONEL 35 mg, comprimé pelliculé
+    - ID: 938
+    - Common: ACIDE RISÉDRONIQUE
+  > ACTONEL 5 mg, comprimé pelliculé
+    - ID: 984
+    - Common: ACIDE RISÉDRONIQUE
+  > ACTONEL 75 mg, comprimé pelliculé
+    - ID: 1010
+    - Common: ACIDE RISÉDRONIQUE
+----------------------------------------
+[SINGLE] ACUPAN, comprimé
+  - ID: 1829
+----------------------------------------
+[CLUSTER] ROPINIROLE
+  > ADARTREL 0,25 mg, comprimé pelliculé
+    - ID: 810
+    - Common: ROPINIROLE
+  > ADARTREL 0,50 mg, comprimé pelliculé
+    - ID: 809
+    - Common: ROPINIROLE
+  > ADARTREL 1 mg, comprimé pelliculé
+    - ID: 808
+    - Common: ROPINIROLE
+  > ADARTREL 2 mg, comprimé pelliculé
+    - ID: 807
+    - Common: ROPINIROLE
+  > REQUIP 0,25 mg, comprimé pelliculé
+    - ID: 674
+    - Common: ROPINIROLE
+  > REQUIP 0,50 mg, comprimé pelliculé
+    - ID: 677
+    - Common: ROPINIROLE
+  > REQUIP 1 mg, comprimé pelliculé
+    - ID: 675
+    - Common: ROPINIROLE
+  > REQUIP 2 mg, comprimé pelliculé
+    - ID: 678
+    - Common: ROPINIROLE
+  > REQUIP 5 mg, comprimé pelliculé
+    - ID: 676
+    - Common: ROPINIROLE
+  > REQUIP LP 2 mg, comprimé à libération prolongée
+    - ID: 1034
+    - Common: ROPINIROLE
+  > REQUIP LP 4 mg, comprimé à libération prolongée
+    - ID: 1033
+    - Common: ROPINIROLE
+  > REQUIP LP 8 mg, comprimé à libération prolongée
+    - ID: 1032
+    - Common: ROPINIROLE
+----------------------------------------
+[CLUSTER] TADALAFIL
+  > ADCIRCA 20 mg, comprimé pelliculé
+    - ID: 1386
+    - Common: TADALAFIL
+  > CIALIS 10 mg, comprimé pelliculé
+    - ID: 1258
+    - Common: TADALAFIL
+  > CIALIS 2,5 mg, comprimé pelliculé
+    - ID: 1256
+    - Common: TADALAFIL
+  > CIALIS 20 mg, comprimé pelliculé
+    - ID: 1259
+    - Common: TADALAFIL
+  > CIALIS 5 mg, comprimé pelliculé
+    - ID: 1257
+    - Common: TADALAFIL
+----------------------------------------
+[CLUSTER] FÉBUXOSTAT
+  > ADENURIC 120 mg, comprimé pelliculé
+    - ID: 1420
+    - Common: FÉBUXOSTAT
+  > ADENURIC 80 mg, comprimé pelliculé
+    - ID: 1419
+    - Common: FÉBUXOSTAT
+----------------------------------------
+[SINGLE] ADEPAL, comprimé enrobé
+  - ID: 757
+----------------------------------------
+[CLUSTER] ACIDE ALENDRONIQUE, CHOLÉCALCIFÉROL
+  > ADROVANCE 70 mg/2800 UI, comprimé -
+    - ID: 1409
+    - Common: ACIDE ALENDRONIQUE, CHOLÉCALCIFÉROL
+  > ADROVANCE 70 mg/5600 UI, comprimé
+    - ID: 1410
+    - Common: ACIDE ALENDRONIQUE, CHOLÉCALCIFÉROL
+----------------------------------------
+[CLUSTER] IBUPROFÈNE
+  > ADVIL 200 mg, comprimé enrobé
+    - ID: 1333
+    - Common: IBUPROFÈNE
+  > ADVILCAPS 400 mg, capsule molle
+    - ID: 1800
+    - Common: IBUPROFÈNE
+  > ADVILMED 400 mg, comprimé enrobé
+    - ID: 332
+    - Common: IBUPROFÈNE
+  > BRUFEN 400 mg, comprimé enrobé
+    - ID: 217
+    - Common: IBUPROFÈNE
+  > BRUFEN 400 mg, comprimé pelliculé
+    - ID: 784
+    - Common: IBUPROFÈNE
+  > NUREFLEX 20 mg/ml ENFANTS ET NOURRISSONS, suspension buvable
+    - ID: 244
+    - Common: IBUPROFÈNE
+  > NUREFLEX 200 mg, comprimé enrobé
+    - ID: 243
+    - Common: IBUPROFÈNE
+  > NUROFENCAPS 400 mg, capsule molle
+    - ID: 1853
+    - Common: IBUPROFÈNE
+  > NUROFENFLASH 400 mg, comprimé pelliculé
+    - ID: 1184
+    - Common: IBUPROFÈNE
+  > NUROFENPRO 20 mg/ml ENFANTS ET NOURRISSONS SANS SUCRE, suspension buvable édulcorée au maltitol liquide et à la saccharine sodique
+    - ID: 721
+    - Common: IBUPROFÈNE
+----------------------------------------
+[CLUSTER] DESLORATADINE
+  > AERIUS 0,5 mg/ml, solution buvable
+    - ID: 1038
+    - Common: DESLORATADINE
+  > AERIUS 5 mg, comprimé pelliculé -NEOCLARITYN 5 mg, comprimé pelliculé
+    - ID: 1037
+    - Common: DESLORATADINE
+----------------------------------------
+[CLUSTER] ÉVÉROLIMUS
+  > AFINITOR 10 mg, comprimé
+    - ID: 1468
+    - Common: ÉVÉROLIMUS
+  > AFINITOR 2,5 mg, comprimé
+    - ID: 1469
+    - Common: ÉVÉROLIMUS
+  > AFINITOR 5 mg, comprimé
+    - ID: 1470
+    - Common: ÉVÉROLIMUS
+  > CERTICAN 0,25 mg, comprimé
+    - ID: 1564
+    - Common: ÉVÉROLIMUS
+  > CERTICAN 0,5 mg, comprimé
+    - ID: 1565
+    - Common: ÉVÉROLIMUS
+  > CERTICAN 0,75 mg, comprimé
+    - ID: 1566
+    - Common: ÉVÉROLIMUS
+----------------------------------------
+[SINGLE] ALDACTAZINE 25 mg/15 mg, comprimé sécable
+  - ID: 60
+----------------------------------------
+[CLUSTER] SPIRONOLACTONE
+  > ALDACTONE 25 mg, comprimé sécable
+    - ID: 837
+    - Common: SPIRONOLACTONE
+  > ALDACTONE 50 mg, comprimé sécable
+    - ID: 57
+    - Common: SPIRONOLACTONE
+  > ALDACTONE 75 mg, comprimé sécable
+    - ID: 58
+    - Common: SPIRONOLACTONE
+----------------------------------------
+[CLUSTER] ACIDE ALENDRONIQUE
+  > ALENDRONATE MONOSODIQUE équivalant à ACIDE ALENDRONIQUE 10 mg  FOSAMAX 10 mg, comprimé.
+    - ID: 333
+    - Common: ACIDE ALENDRONIQUE
+  > FOSAMAX 70 mg, comprimé
+    - ID: 457
+    - Common: ACIDE ALENDRONIQUE
+----------------------------------------
+[SINGLE] ALFATIL 250 mg/5 ml, poudre pour suspension buvable
+  - ID: 168
+----------------------------------------
+[SINGLE] ALKONATREM 150 mg, gélule
+  - ID: 1611
+----------------------------------------
+[CLUSTER] FEXOFENADINE
+  > ALLERVI  120 mg, comprimé pelliculé
+    - ID: 552
+    - Common: FEXOFENADINE
+  > TELFAST 180 mg, comprimé pelliculé
+    - ID: 551
+    - Common: FEXOFENADINE
+----------------------------------------
+[SINGLE] ALMOGRAN 12,5 mg, comprimé pelliculé
+  - ID: 1207
+----------------------------------------
+[CLUSTER] GLIMÉPIRIDE
+  > AMAREL 1 mg, comprimé
+    - ID: 434
+    - Common: GLIMÉPIRIDE
+  > AMAREL 2 mg, comprimé
+    - ID: 435
+    - Common: GLIMÉPIRIDE
+  > AMAREL 3 mg, comprimé
+    - ID: 436
+    - Common: GLIMÉPIRIDE
+  > AMAREL 4 mg, comprimé
+    - ID: 437
+    - Common: GLIMÉPIRIDE
+----------------------------------------
+[CLUSTER] AMLODIPINE
+  > AMLOR 10 mg, gélule
+    - ID: 467
+    - Common: AMLODIPINE
+  > AMLOR 5 mg, gélule
+    - ID: 468
+    - Common: AMLODIPINE
+----------------------------------------
+[CLUSTER] CLOMIPRAMINE
+  > ANAFRANIL 10 mg, comprimé enrobé
+    - ID: 277
+    - Common: CLOMIPRAMINE
+  > ANAFRANIL 25 mg, comprimé enrobé
+    - ID: 278
+    - Common: CLOMIPRAMINE
+  > ANAFRANIL 75 mg, comprimé pelliculé sécable
+    - ID: 279
+    - Common: CLOMIPRAMINE
+----------------------------------------
+[CLUSTER] CYPROTÉRONE
+  > ANDROCUR 100 mg, comprimé sécable
+    - ID: 409
+    - Common: CYPROTÉRONE
+  > ANDROCUR 50 mg, comprimé sécable
+    - ID: 129
+    - Common: CYPROTÉRONE
+----------------------------------------
+[SINGLE] ANGELIQ 1mg/2 mg, comprimé pelliculé
+  - ID: 1720
+----------------------------------------
+[SINGLE] AOTAL 333 mg, comprimé enrobé gastro-résistant
+  - ID: 1153
+----------------------------------------
+[SINGLE] APRANAX 550 mg, comprimé pelliculé sécable
+  - ID: 221
+----------------------------------------
+[CLUSTER] IRBÉSARTAN
+  > APROVEL 150 mg, comprimé
+    - ID: 872
+    - Common: IRBÉSARTAN
+  > APROVEL 150 mg, comprimé pelliculé
+    - ID: 825
+    - Common: IRBÉSARTAN
+  > APROVEL 300 mg, comprimé
+    - ID: 873
+    - Common: IRBÉSARTAN
+  > APROVEL 300 mg, comprimé pelliculé
+    - ID: 819
+    - Common: IRBÉSARTAN
+  > APROVEL 75 mg, comprimé
+    - ID: 871
+    - Common: IRBÉSARTAN
+  > APROVEL 75 mg, comprimé pelliculé
+    - ID: 827
+    - Common: IRBÉSARTAN
+----------------------------------------
+[CLUSTER] LÉFLUNOMIDE
+  > ARAVA 10 mg, comprimé pelliculé
+    - ID: 1066
+    - Common: LÉFLUNOMIDE
+  > ARAVA 100 mg, comprimé pelliculé
+    - ID: 1074
+    - Common: LÉFLUNOMIDE
+  > ARAVA 20 mg, comprimé pelliculé
+    - ID: 1065
+    - Common: LÉFLUNOMIDE
+----------------------------------------
+[CLUSTER] ÉTORICOXIB
+  > ARCOXIA 30 mg, comprimé pelliculé
+    - ID: 1270
+    - Common: ÉTORICOXIB
+  > ARCOXIA 60 mg, comprimé pelliculé
+    - ID: 1271
+    - Common: ÉTORICOXIB
+----------------------------------------
+[CLUSTER] DONÉPÉZIL
+  > ARICEPT 10 mg, comprimé orodispersible
+    - ID: 656
+    - Common: DONÉPÉZIL
+  > ARICEPT 5 mg, comprimé orodispersible
+    - ID: 657
+    - Common: DONÉPÉZIL
+----------------------------------------
+[SINGLE] ARIMIDEX 1 mg, comprimé pelliculé
+  - ID: 659
+----------------------------------------
+[SINGLE] AROMASINE 25 mg, comprimé enrobé
+  - ID: 923
+----------------------------------------
+[SINGLE] ATARAX 25 mg, comprimé pelliculé sécable
+  - ID: 1199
+----------------------------------------
+[CLUSTER] MIANSÉRINE
+  > ATHYMIL 10 mg, comprimé pelliculé
+    - ID: 288
+    - Common: MIANSÉRINE
+  > ATHYMIL 30 mg, comprimé pelliculé
+    - ID: 289
+    - Common: MIANSÉRINE
+  > ATHYMIL 60 mg, comprimé pelliculé sécable
+    - ID: 290
+    - Common: MIANSÉRINE
+----------------------------------------
+[CLUSTER] TÉRIFLUNOMIDE
+  > AUBAGIO 14 mg, comprimé pelliculé
+    - ID: 1851
+    - Common: TÉRIFLUNOMIDE
+  > AUBAGIO 7 mg, comprimé pelliculé
+    - ID: 1932
+    - Common: TÉRIFLUNOMIDE
+----------------------------------------
+[SINGLE] AVLOCARDYL 40 mg, comprimé sécable
+  - ID: 74
+----------------------------------------
+[SINGLE] AVODART 0,5 mg, capsule molle
+  - ID: 1308
+----------------------------------------
+[CLUSTER] MÉMANTINE
+  > AXURA 10 mg, comprimé pelliculé
+    - ID: 1119
+    - Common: MÉMANTINE
+  > AXURA 20 mg, comprimé pelliculé
+    - ID: 1120
+    - Common: MÉMANTINE
+  > EBIXA 5 mg/pression, solution buvable
+    - ID: 1187
+    - Common: MÉMANTINE
+----------------------------------------
+[SINGLE] AZILECT 1 mg, comprimé
+  - ID: 1262
+----------------------------------------
+[SINGLE] BACTRIM FORTE, comprimé sécable
+  - ID: 180
+----------------------------------------
+[CLUSTER] ENTÉCAVIR
+  > BARACLUDE 0,5 mg, comprimé pelliculé
+    - ID: 1415
+    - Common: ENTÉCAVIR
+  > BARACLUDE 1 mg, comprimé pelliculé
+    - ID: 1416
+    - Common: ENTÉCAVIR
+----------------------------------------
+[CLUSTER] DICHLORHYDRATE DE BÉTAHISTINE
+  > BETASERC 24 mg, comprimé
+    - ID: 595
+    - Common: DICHLORHYDRATE DE BÉTAHISTINE
+  > SERC 8 mg, comprimé
+    - ID: 294
+    - Common: DICHLORHYDRATE DE BÉTAHISTINE
+----------------------------------------
+[SINGLE] BETMIGA 50 mg, comprimé à libération prolongée
+  - ID: 1934
+----------------------------------------
+[CLUSTER] KÉTOPROFÈNE
+  > BI PROFENID LP 100 mg, comprimé sécable à libération prolongée
+    - ID: 1012
+    - Common: KÉTOPROFÈNE
+  > PROFEMIGR 150 mg, comprimé sécable
+    - ID: 854
+    - Common: KÉTOPROFÈNE
+  > PROFENID 100 mg, comprimé pelliculé
+    - ID: 223
+    - Common: KÉTOPROFÈNE
+  > PROFENID 50 mg, gélule
+    - ID: 222
+    - Common: KÉTOPROFÈNE
+  > PROFENID LP 200 mg, comprimé enrobé à libération prolongée
+    - ID: 224
+    - Common: KÉTOPROFÈNE
+  > PROFENID LP 200 mg, gélule à libération prolongée
+    - ID: 225
+    - Common: KÉTOPROFÈNE
+----------------------------------------
+[CLUSTER] DILTIAZEM (CHLORHYDRATE DE)
+  > BI TILDIEM L.P. 90 mg, comprimé enrobé à libération prolongée
+    - ID: 535
+    - Common: DILTIAZEM (CHLORHYDRATE DE)
+  > BI TILDIEM LP 120 mg, comprimé enrobé à libération prolongée
+    - ID: 536
+    - Common: DILTIAZEM (CHLORHYDRATE DE)
+  > DIACOR L.P. 120 mg, gélule à libération prolongée
+    - ID: 92
+    - Common: DILTIAZEM
+  > DIACOR L.P. 90 mg, gélule à libération prolongée
+    - ID: 91
+    - Common: DILTIAZEM
+  > DILRENE L.P. 300 mg, gélule à libération prolongée
+    - ID: 93
+    - Common: DILTIAZEM
+  > MONO TILDIEM LP 200 mg, gélule à libération prolongée
+    - ID: 1111
+    - Common: DILTIAZEM
+  > MONO TILDIEM LP 300 mg, gélule à libération prolongée
+    - ID: 1112
+    - Common: DILTIAZEM
+  > TILDIEM 60 mg, comprimé
+    - ID: 90
+    - Common: DILTIAZEM
+----------------------------------------
+[CLUSTER] PHOLCODINE
+  > BIOCALYPTOL 6,55 mg/5 ml SANS SUCRE, sirop édulcoré à la saccharine sodique et au maltitol liquide
+    - ID: 924
+    - Common: PHOLCODINE
+  > BIOCALYPTOL, sirop
+    - ID: 925
+    - Common: PHOLCODINE
+----------------------------------------
+[CLUSTER] INDAPAMIDE, PÉRINDOPRIL
+  > BIPRETERAX 10 mg/2,5 mg, comprimé pelliculé
+    - ID: 1121
+    - Common: INDAPAMIDE, PÉRINDOPRIL
+  > BIPRETERAX 5 mg/1,25 mg, comprimé pelliculé
+    - ID: 1050
+    - Common: INDAPAMIDE, PÉRINDOPRIL
+  > BIPRETERAX 5 mg/1,25 mg, comprimé pelliculé
+    - ID: 723
+    - Common: INDAPAMIDE, PERINDOPRIL ERBUMINE
+  > PRETERAX 2,5 mg/0,625 mg,  comprimé pelliculé
+    - ID: 1049
+    - Common: INDAPAMIDE, PÉRINDOPRIL
+  > PRETERAX 2,5 mg/0,625 mg, comprimé pelliculé
+    - ID: 724
+    - Common: INDAPAMIDE, PERINDOPRIL ERBUMINE
+----------------------------------------
+[CLUSTER] MÉTRONIDAZOLE, SPIRAMYCINE
+  > BIRODOGYL, comprimé pelliculé
+    - ID: 354
+    - Common: MÉTRONIDAZOLE, SPIRAMYCINE
+  > RODOGYL, comprimé pelliculé
+    - ID: 192
+    - Common: MÉTRONIDAZOLE, SPIRAMYCINE
+----------------------------------------
+[SINGLE] BLEOMYCINE BELLON 15 mg, poudre pour solution injectable
+  - ID: 1478
+----------------------------------------
+[SINGLE] BONVIVA 150 mg, comprimé pelliculé
+  - ID: 881
+----------------------------------------
+[CLUSTER] BOSUTINIB
+  > BOSULIF 100 mg, comprimé pelliculé
+    - ID: 1893
+    - Common: BOSUTINIB
+  > BOSULIF 400 mg, comprimé pelliculé
+    - ID: 1892
+    - Common: BOSUTINIB
+  > BOSULIF 500 mg, comprimé pelliculé
+    - ID: 1891
+    - Common: BOSUTINIB
+----------------------------------------
+[SINGLE] BRIAZIDE 10 mg/12,5 mg, comprimé pelliculé sécable
+  - ID: 706
+----------------------------------------
+[CLUSTER] BÉNAZÉPRIL
+  > BRIEM 10 mg, comprimé pelliculé
+    - ID: 529
+    - Common: BÉNAZÉPRIL
+  > BRIEM 5 mg, comprimé pelliculé sécable
+    - ID: 528
+    - Common: BÉNAZÉPRIL
+----------------------------------------
+[SINGLE] BRILIQUE 90 mg, comprimé pelliculé
+  - ID: 1748
+----------------------------------------
+[CLUSTER] VORTIOXÉTINE
+  > BRINTELLIX 10 mg, comprimé pelliculé
+    - ID: 1901
+    - Common: VORTIOXÉTINE
+  > BRINTELLIX 15 mg, comprimé pelliculé
+    - ID: 1902
+    - Common: VORTIOXÉTINE
+  > BRINTELLIX 20 mg, comprimé pelliculé
+    - ID: 1899
+    - Common: VORTIOXÉTINE
+  > BRINTELLIX 5 mg, comprimé pelliculé
+    - ID: 1900
+    - Common: VORTIOXÉTINE
+----------------------------------------
+[CLUSTER] BRIVARACÉTAM
+  > BRIVIACT 10 mg, comprimé pelliculé
+    - ID: 1949
+    - Common: BRIVARACÉTAM
+  > BRIVIACT 100 mg, comprimé pelliculé
+    - ID: 1953
+    - Common: BRIVARACÉTAM
+  > BRIVIACT 25 mg, comprimé pelliculé
+    - ID: 1950
+    - Common: BRIVARACÉTAM
+  > BRIVIACT 50 mg, comprimé pelliculé
+    - ID: 1951
+    - Common: BRIVARACÉTAM
+  > BRIVIACT 75 mg, comprimé pelliculé
+    - ID: 1952
+    - Common: BRIVARACÉTAM
+----------------------------------------
+[SINGLE] BUSPAR 10 mg, comprimé sécable
+  - ID: 273
+----------------------------------------
+[CLUSTER] AMLODIPINE, ATORVASTATINE, ATORVASTATINE CALCIQUE TRIHYDRATÉE
+  > CADUET 10 mg/10 mg, comprimé pelliculé
+    - ID: 1059
+    - Common: AMLODIPINE, ATORVASTATINE, ATORVASTATINE CALCIQUE TRIHYDRATÉE
+  > CADUET 5 mg/10 mg, comprimé pelliculé
+    - ID: 1067
+    - Common: AMLODIPINE, ATORVASTATINE, ATORVASTATINE CALCIQUE TRIHYDRATÉE
+----------------------------------------
+[SINGLE] CAPTEA, comprimé sécable
+  - ID: 101
+----------------------------------------
+[SINGLE] CARBAGLU 200 mg, comprimé dispersible
+  - ID: 1443
+----------------------------------------
+[CLUSTER] BISOPROLOL
+  > CARDIOCOR 1,25 mg, comprimé pelliculé
+    - ID: 446
+    - Common: BISOPROLOL
+  > CARDIOCOR 10 mg, comprimé pelliculé sécable
+    - ID: 451
+    - Common: BISOPROLOL
+  > CARDIOCOR 2,5 mg, comprimé pelliculé sécable
+    - ID: 447
+    - Common: BISOPROLOL
+  > CARDIOCOR 3,75 mg, comprimé pelliculé sécable
+    - ID: 448
+    - Common: BISOPROLOL
+  > CARDIOCOR 5 mg, comprimé pelliculé sécable
+    - ID: 449
+    - Common: BISOPROLOL
+  > CARDIOCOR 7,5 mg, comprimé pelliculé sécable
+    - ID: 450
+    - Common: BISOPROLOL
+  > SOPROL 10 mg, comprimé pelliculé sécable
+    - ID: 82
+    - Common: BISOPROLOL
+----------------------------------------
+[SINGLE] CARTREX 100 mg, comprimé pelliculé
+  - ID: 470
+----------------------------------------
+[SINGLE] CASODEX 50 mg, comprimé enrobé
+  - ID: 498
+----------------------------------------
+[CLUSTER] CÉLÉCOXIB
+  > CELEBREX 100 mg, gélule
+    - ID: 1099
+    - Common: CÉLÉCOXIB
+  > CELEBREX 200 mg, gélule
+    - ID: 1100
+    - Common: CÉLÉCOXIB
+----------------------------------------
+[SINGLE] CELECTOL 200 mg, comprimé pelliculé
+  - ID: 83
+----------------------------------------
+[CLUSTER] BÉTAMÉTHASONE
+  > CELESTENE 0,05 POUR CENT, solution buvable en gouttes
+    - ID: 735
+    - Common: BÉTAMÉTHASONE
+  > CELESTENE 2 mg, comprimé dispersible sécable
+    - ID: 722
+    - Common: BÉTAMÉTHASONE
+----------------------------------------
+[CLUSTER] MYCOPHÉNOLATE MOFÉTIL
+  > CELLCEPT 250 mg, gélule
+    - ID: 758
+    - Common: MYCOPHÉNOLATE MOFÉTIL
+  > CELLCEPT 500 mg, comprimé pelliculé
+    - ID: 820
+    - Common: MYCOPHÉNOLATE MOFÉTIL
+----------------------------------------
+[CLUSTER] MARAVIROC
+  > CELSENTRI 150 mg, comprimé pelliculé
+    - ID: 1941
+    - Common: MARAVIROC
+  > CELSENTRI 300 mg, comprimé pelliculé
+    - ID: 1940
+    - Common: MARAVIROC
+----------------------------------------
+[SINGLE] CERAZETTE 0,075 mg, comprimé pelliculé
+  - ID: 1036
+----------------------------------------
+[SINGLE] CETORNAN 10 g, poudre pour solution buvable et solution entérale
+  - ID: 799
+----------------------------------------
+[SINGLE] CETORNAN 5 g, poudre pour solution buvable et solution entérale en sachet
+  - ID: 800
+----------------------------------------
+[CLUSTER] VARÉNICLINE
+  > CHAMPIX 0,5 mg et 1 mg, comprimé pelliculé
+    - ID: 1922
+    - Common: VARÉNICLINE
+  > VARENICLINE (CITRATE DE) équivalent à VARENICLINE 0,5 mg CHAMPIX 0,5 mg, comprimé pelliculé
+    - ID: 1921
+    - Common: VARÉNICLINE
+  > VARENICLINE (CITRATE DE) équivalent à VARENICLINE 1 mg CHAMPIX 1 mg, comprimé pelliculé
+    - ID: 1920
+    - Common: VARÉNICLINE
+----------------------------------------
+[CLUSTER] FINASTÉRIDE
+  > CHIBRO-PROSCAR 5 mg, comprimé pelliculé
+    - ID: 490
+    - Common: FINASTÉRIDE
+  > PROPECIA 1 mg, comprimé pelliculé
+    - ID: 780
+    - Common: FINASTÉRIDE
+----------------------------------------
+[SINGLE] CHRONADALATE L.P. 30 mg, comprimé osmotique pelliculé à libération prolongée
+  - ID: 403
+----------------------------------------
+[CLUSTER] ACIDE CLAVULANIQUE, AMOXICILLINE TRIHYDRATÉE
+  > CIBLOR 1 g/125 mg ADULTE, poudre pour suspension buvable en sachet-dose (Rapport amoxicilline/acide clavulanique : 8/1)
+    - ID: 159
+    - Common: ACIDE CLAVULANIQUE, AMOXICILLINE TRIHYDRATÉE
+  > CIBLOR 100 mg/12,50 mg par ml ENFANTS, poudre pour suspension buvable en flacon (Rapport amoxicilline/acide clavulanique : 8/1)
+    - ID: 157
+    - Common: ACIDE CLAVULANIQUE, AMOXICILLINE TRIHYDRATÉE
+  > CIBLOR 100 mg/12,50 mg par ml NOURRISSONS, poudre pour suspension buvable (Rapport amoxicilline/acide clavulanique : 8/1)
+    - ID: 156
+    - Common: ACIDE CLAVULANIQUE, AMOXICILLINE TRIHYDRATÉE
+  > CIBLOR 500 mg/62,5 mg ADULTES, comprimé pelliculé (rapport amoxicilline/acide clavulanique : 8/1)
+    - ID: 158
+    - Common: ACIDE CLAVULANIQUE, AMOXICILLINE TRIHYDRATÉE
+----------------------------------------
+[CLUSTER] CIPROFLOXACINE
+  > CIFLOX 250 mg, comprimé pelliculé sécable
+    - ID: 188
+    - Common: CIPROFLOXACINE
+  > CIFLOX 500 mg, comprimé pelliculé sécable
+    - ID: 189
+    - Common: CIPROFLOXACINE
+  > CIFLOX 750 mg, comprimé pelliculé
+    - ID: 190
+    - Common: CIPROFLOXACINE
+----------------------------------------
+[CLUSTER] NORGESTIMATE, ÉTHINYLESTRADIOL
+  > CILEST, comprimé
+    - ID: 1609
+    - Common: NORGESTIMATE, ÉTHINYLESTRADIOL
+  > TRIAFEMI, comprimé
+    - ID: 1844
+    - Common: NORGESTIMATE, ÉTHINYLESTRADIOL
+----------------------------------------
+[SINGLE] CIRCADIN 2 mg, comprimé à libération prolongée
+  - ID: 1788
+----------------------------------------
+[SINGLE] CITRATE DE BETAINE CITRON UPSA 2 g SANS SUCRE, comprimé effervescent édulcoré à la saccharine sodique
+  - ID: 743
+----------------------------------------
+[CLUSTER] AMOXICILLINE TRIHYDRATÉE
+  > CLAMOXYL 1 g, comprimé dispersible
+    - ID: 150
+    - Common: AMOXICILLINE TRIHYDRATÉE
+  > CLAMOXYL 125 mg/5 ml, poudre pour suspension buvable
+    - ID: 145
+    - Common: AMOXICILLINE TRIHYDRATÉE
+  > CLAMOXYL 250 mg/5 ml, poudre pour suspension buvable
+    - ID: 146
+    - Common: AMOXICILLINE TRIHYDRATÉE
+  > CLAMOXYL 500 mg, gélule
+    - ID: 148
+    - Common: AMOXICILLINE TRIHYDRATÉE
+  > CLAMOXYL 500 mg/5 ml, poudre pour suspension buvable
+    - ID: 147
+    - Common: AMOXICILLINE TRIHYDRATÉE
+----------------------------------------
+[SINGLE] CLARITYNE 10 mg, comprimé
+  - ID: 310
+----------------------------------------
+[CLUSTER] CLOPIDOGREL
+  > CLOPIDOGREL (CHLORHYDRATE DE) équivalant à CLOPIDOGREL 75 mg -PLAVIX 75 mg, comprimé pelliculé
+    - ID: 831
+    - Common: CLOPIDOGREL
+  > PLAVIX 300 mg, comprimé pelliculé
+    - ID: 1101
+    - Common: CLOPIDOGREL (HYDROGÉNOSULFATE DE)
+----------------------------------------
+[SINGLE] CO RENITEC 20 mg/12,5 mg, comprimé
+  - ID: 323
+----------------------------------------
+[CLUSTER] HYDROCHLOROTHIAZIDE, IRBÉSARTAN
+  > COAPROVEL 150 mg/12,5 mg, comprimé pelliculé
+    - ID: 979
+    - Common: HYDROCHLOROTHIAZIDE, IRBÉSARTAN
+  > COAPROVEL 300 mg/12,5 mg, comprimé pelliculé
+    - ID: 981
+    - Common: HYDROCHLOROTHIAZIDE, IRBÉSARTAN
+  > COAPROVEL 300 mg/25 mg, comprimé pelliculé
+    - ID: 980
+    - Common: HYDROCHLOROTHIAZIDE, IRBÉSARTAN
+----------------------------------------
+[CLUSTER] CANDÉSARTAN CILEXÉTIL, HYDROCHLOROTHIAZIDE
+  > COKENZEN 16 mg/12,5 mg, comprimé sécable
+    - ID: 948
+    - Common: CANDÉSARTAN CILEXÉTIL, HYDROCHLOROTHIAZIDE
+  > COKENZEN 8 mg/12,5 mg, comprimé sécable
+    - ID: 947
+    - Common: CANDÉSARTAN CILEXÉTIL, HYDROCHLOROTHIAZIDE
+----------------------------------------
+[SINGLE] COLTRAMYL 4 mg, comprimé
+  - ID: 232
+----------------------------------------
+[CLUSTER] EMBONATE DE PYRANTEL, PYRANTEL BASE
+  > COMBANTRIN 125 mg, comprimé
+    - ID: 296
+    - Common: EMBONATE DE PYRANTEL, PYRANTEL BASE
+  > COMBANTRIN 125 mg/2,5 ml, suspension buvable
+    - ID: 295
+    - Common: EMBONATE DE PYRANTEL, PYRANTEL BASE
+----------------------------------------
+[SINGLE] COMBIVIR 150 mg/300 mg, comprimé pelliculé
+  - ID: 1024
+----------------------------------------
+[SINGLE] COMBODART 0,5 mg/0,4 mg, gélule
+  - ID: 1666
+----------------------------------------
+[SINGLE] COMTESS 200 mg, comprimé pelliculé
+  - ID: 955
+----------------------------------------
+[CLUSTER] MÉTHYLPHÉNIDATE
+  > CONCERTA LP 18 mg, comprimé à libération prolongée
+    - ID: 1437
+    - Common: MÉTHYLPHÉNIDATE
+  > CONCERTA LP 36 mg, comprimé à libération prolongée
+    - ID: 1438
+    - Common: MÉTHYLPHÉNIDATE
+  > CONCERTA LP 54 mg, comprimé à libération prolongée
+    - ID: 1439
+    - Common: MÉTHYLPHÉNIDATE
+  > RITALINE L.P. 10 mg, gélule à libération prolongée
+    - ID: 1794
+    - Common: MÉTHYLPHÉNIDATE
+  > RITALINE L.P. 20 mg, gélule à libération prolongée
+    - ID: 1795
+    - Common: MÉTHYLPHÉNIDATE
+  > RITALINE L.P. 30 mg, gélule à libération prolongée
+    - ID: 1796
+    - Common: MÉTHYLPHÉNIDATE
+  > RITALINE L.P. 40 mg, gélule à libération prolongée
+    - ID: 1797
+    - Common: MÉTHYLPHÉNIDATE
+----------------------------------------
+[SINGLE] CONEBILOX 5 mg/12,5 mg, comprimé pelliculé
+  - ID: 1562
+----------------------------------------
+[SINGLE] CONEBILOX 5 mg/25 mg, comprimé pelliculé
+  - ID: 1560
+----------------------------------------
+[CLUSTER] BISACODYL
+  > CONTALAX, comprimé gastro-résistant
+    - ID: 1521
+    - Common: BISACODYL
+  > DULCOLAX 5 mg, comprimé enrobé gastro-résistant
+    - ID: 1404
+    - Common: BISACODYL
+----------------------------------------
+[CLUSTER] HYDROCHLOROTHIAZIDE, OLMÉSARTAN MÉDOXOMIL
+  > COOLMETEC 20 mg/12,5 mg, comprimé pelliculé
+    - ID: 1679
+    - Common: HYDROCHLOROTHIAZIDE, OLMÉSARTAN MÉDOXOMIL
+  > COOLMETEC 20 mg/25 mg, comprimé pelliculé
+    - ID: 1680
+    - Common: HYDROCHLOROTHIAZIDE, OLMÉSARTAN MÉDOXOMIL
+  > COOLMETEC 40 mg/12,5 mg, comprimé pelliculé
+    - ID: 1681
+    - Common: HYDROCHLOROTHIAZIDE, OLMÉSARTAN MÉDOXOMIL
+  > COOLMETEC 40 mg/25 mg, comprimé pelliculé
+    - ID: 1682
+    - Common: HYDROCHLOROTHIAZIDE, OLMÉSARTAN MÉDOXOMIL
+----------------------------------------
+[SINGLE] CORDARONE 200 mg, comprimé sécable
+  - ID: 43
+----------------------------------------
+[CLUSTER] PREDNISONE
+  > CORTANCYL 1 mg, comprimé
+    - ID: 445
+    - Common: PREDNISONE
+  > CORTANCYL 20 mg, comprimé sécable
+    - ID: 137
+    - Common: PREDNISONE
+  > CORTANCYL 5 mg, comprimé sécable
+    - ID: 136
+    - Common: PREDNISONE
+----------------------------------------
+[CLUSTER] MOLSIDOMINE
+  > CORVASAL 2 mg, comprimé sécable
+    - ID: 49
+    - Common: MOLSIDOMINE
+  > CORVASAL 4 mg, comprimé
+    - ID: 50
+    - Common: MOLSIDOMINE
+----------------------------------------
+[SINGLE] COTRIATEC 5 mg/12,5 mg, comprimé
+  - ID: 1075
+----------------------------------------
+[CLUSTER] AMLODIPINE, PÉRINDOPRIL
+  > COVERAM 10 mg/10 mg, comprimé
+    - ID: 1475
+    - Common: AMLODIPINE, PÉRINDOPRIL
+  > COVERAM 10 mg/5 mg, comprimé
+    - ID: 1476
+    - Common: AMLODIPINE, PÉRINDOPRIL
+  > COVERAM 5 mg/10 mg, comprimé
+    - ID: 1472
+    - Common: AMLODIPINE, PÉRINDOPRIL
+  > COVERAM 5 mg/5 mg, comprimé
+    - ID: 1474
+    - Common: AMLODIPINE, PÉRINDOPRIL
+----------------------------------------
+[CLUSTER] PÉRINDOPRIL
+  > COVERSYL 10 mg, comprimé pelliculé
+    - ID: 521
+    - Common: PÉRINDOPRIL
+  > COVERSYL 2,5 mg, comprimé pelliculé
+    - ID: 493
+    - Common: PÉRINDOPRIL
+  > PERINDOPRIL TOSILATE 5 mg, équivalant à 3,35 mg de PERINDOPRIL- COVERSYL 5 mg, comprimé pelliculé sécable
+    - ID: 494
+    - Common: PÉRINDOPRIL
+----------------------------------------
+[CLUSTER] LOSARTAN POTASSIQUE
+  > COZAAR 100 mg, comprimé pelliculé
+    - ID: 562
+    - Common: LOSARTAN POTASSIQUE
+  > COZAAR 50 mg, comprimé pelliculé
+    - ID: 561
+    - Common: LOSARTAN POTASSIQUE
+----------------------------------------
+[CLUSTER] ROSUVASTATINE
+  > CRESTOR 10 mg, comprimé pelliculé
+    - ID: 1313
+    - Common: ROSUVASTATINE
+  > CRESTOR 20 mg, comprimé pelliculé
+    - ID: 1314
+    - Common: ROSUVASTATINE
+  > CRESTOR 5 mg, comprimé pelliculé
+    - ID: 1312
+    - Common: ROSUVASTATINE
+----------------------------------------
+[SINGLE] CUFENCE 200 mg, gélule
+  - ID: 1865
+----------------------------------------
+[CLUSTER] DULOXÉTINE
+  > CYMBALTA 30 mg, gélule gastro-résistante
+    - ID: 1266
+    - Common: DULOXÉTINE
+  > CYMBALTA 60 mg, gélule gastro-résistante
+    - ID: 1267
+    - Common: DULOXÉTINE
+----------------------------------------
+[SINGLE] CYSTINE B6 BAILLEUL, comprimé pelliculé
+  - ID: 1510
+----------------------------------------
+[SINGLE] DAFALGAN CODEINE, comprimé pelliculé
+  - ID: 1643
+----------------------------------------
+[CLUSTER] CLINDAMYCINE
+  > DALACINE 150 mg, gélule
+    - ID: 1539
+    - Common: CLINDAMYCINE
+  > DALACINE 300 mg, gélule
+    - ID: 1540
+    - Common: CLINDAMYCINE
+----------------------------------------
+[CLUSTER] GLIBENCLAMIDE
+  > DAONIL 5 mg, comprimé sécable
+    - ID: 420
+    - Common: GLIBENCLAMIDE
+  > HEMI-DAONIL 2,5 mg, comprimé sécable
+    - ID: 419
+    - Common: GLIBENCLAMIDE
+----------------------------------------
+[CLUSTER] TRIMÉBUTINE
+  > DEBRIDAT 100 mg, comprimé pelliculé
+    - ID: 21
+    - Common: TRIMÉBUTINE
+  > DEBRIDAT 200 mg, comprimé pelliculé
+    - ID: 460
+    - Common: TRIMÉBUTINE
+----------------------------------------
+[CLUSTER] ACIDE URSODÉSOXYCHOLIQUE
+  > DELURSAN 250 mg, comprimé pelliculé
+    - ID: 1082
+    - Common: ACIDE URSODÉSOXYCHOLIQUE
+  > DELURSAN 500 mg, comprimé pelliculé sécable
+    - ID: 1709
+    - Common: ACIDE URSODÉOXYCHOLIQUE
+----------------------------------------
+[CLUSTER] SODIUM (VALPROATE DE)
+  > DEPAKINE 200 mg, comprimé gastro-résistant
+    - ID: 251
+    - Common: SODIUM (VALPROATE DE)
+  > DEPAKINE 200 mg/ml, solution buvable
+    - ID: 250
+    - Common: VALPROATE DE SODIUM
+  > DEPAKINE 500 mg, comprimé gastro-résistant
+    - ID: 252
+    - Common: SODIUM (VALPROATE DE)
+  > DEPAKINE CHRONO 500 mg, comprimé pelliculé sécable à libération prolongée
+    - ID: 404
+    - Common: ACIDE VALPROÏQUE
+----------------------------------------
+[CLUSTER] ACIDE VALPROÏQUE, DIVALPROATE DE SODIUM
+  > DEPAKOTE 250 mg, comprimé gastro-résistant
+    - ID: 1759
+    - Common: ACIDE VALPROÏQUE, DIVALPROATE DE SODIUM
+  > DEPAKOTE 500 mg, comprimé gastro-résistant
+    - ID: 1760
+    - Common: ACIDE VALPROÏQUE, DIVALPROATE DE SODIUM
+----------------------------------------
+[SINGLE] DEROXAT 20 mg, comprimé pelliculé sécable
+  - ID: 284
+----------------------------------------
+[SINGLE] DETRUSITOL 2 mg, comprimé pelliculé
+  - ID: 771
+----------------------------------------
+[CLUSTER] STIRIPENTOL
+  > DIACOMIT 250 mg, gélule
+    - ID: 1935
+    - Common: STIRIPENTOL
+  > DIACOMIT 250 mg, poudre pour suspension buvable en sachet
+    - ID: 1937
+    - Common: STIRIPENTOL
+  > DIACOMIT 500 mg, gélule
+    - ID: 1936
+    - Common: STIRIPENTOL
+  > DIACOMIT 500 mg, poudre pour suspension buvable en sachet
+    - ID: 1938
+    - Common: STIRIPENTOL
+----------------------------------------
+[CLUSTER] GLICLAZIDE
+  > DIAMICRON 30 mg, comprimé à libération modifiée
+    - ID: 690
+    - Common: GLICLAZIDE
+  > DIAMICRON 60 mg, comprimé sécable à libération modifiée
+    - ID: 1022
+    - Common: GLICLAZIDE
+  > DIAMICRON 80 mg, comprimé sécable
+    - ID: 35
+    - Common: GLICLAZIDE
+----------------------------------------
+[SINGLE] DIANE 35 microgrammes, comprimé enrobé
+  - ID: 130
+----------------------------------------
+[CLUSTER] DIGOXINE
+  > DIGOXINE NATIVELLE 0,25 mg, comprimé
+    - ID: 1870
+    - Common: DIGOXINE
+  > HEMIGOXINE NATIVELLE 0,125 mg, comprimé
+    - ID: 1871
+    - Common: DIGOXINE
+----------------------------------------
+[CLUSTER] DIOSMINE
+  > DIOVENOR 300 mg, comprimé pelliculé
+    - ID: 69
+    - Common: DIOSMINE
+  > DIOVENOR 600 mg, comprimé pelliculé
+    - ID: 70
+    - Common: DIOSMINE
+  > DIOVENOR 600 mg, poudre pour suspension buvable en sachet-dose
+    - ID: 71
+    - Common: DIOSMINE
+----------------------------------------
+[SINGLE] DITROPAN 5 mg, comprimé sécable
+  - ID: 131
+----------------------------------------
+[CLUSTER] SULPIRIDE
+  > DOGMATIL 200 mg, comprimé sécable
+    - ID: 260
+    - Common: SULPIRIDE
+  > DOGMATIL 50 mg, gélule
+    - ID: 259
+    - Common: SULPIRIDE
+----------------------------------------
+[SINGLE] DOSTINEX 0,5 mg, comprimé
+  - ID: 681
+----------------------------------------
+[SINGLE] DUOPLAVIN 75 mg/75 mg, comprimé pelliculé
+  - ID: 1708
+----------------------------------------
+[CLUSTER] LACTULOSE
+  > DUPHALAC 10 g/15 ml, solution buvable en sachet
+    - ID: 26
+    - Common: LACTULOSE
+  > DUPHALAC 66,5 POUR CENT, solution buvable en flacon
+    - ID: 25
+    - Common: LACTULOSE
+----------------------------------------
+[SINGLE] DUPHASTON 10 mg, comprimé pelliculé
+  - ID: 1947
+----------------------------------------
+[CLUSTER] MÉBÉVÉRINE
+  > DUSPATALIN 100 mg, comprimé enrobé
+    - ID: 18
+    - Common: MÉBÉVÉRINE
+  > DUSPATALIN 200 mg, gélule
+    - ID: 19
+    - Common: MÉBÉVÉRINE (CHLORHYDRATE DE)
+----------------------------------------
+[SINGLE] EDROGYL 15 mg/100 mL, solution buvable en gouttes
+  - ID: 1725
+----------------------------------------
+[SINGLE] EFAVIRENZ 600 mg + EMTRICITABINE 2
+  - ID: 1414
+----------------------------------------
+[CLUSTER] VENLAFAXINE
+  > EFFEXOR 50 mg, comprimé
+    - ID: 645
+    - Common: VENLAFAXINE
+  > EFFEXOR L.P. 150 mg, gélule à libération prolongée
+    - ID: 720
+    - Common: VENLAFAXINE
+  > EFFEXOR L.P. 37,5 mg, gélule à libération prolongée
+    - ID: 630
+    - Common: VENLAFAXINE
+  > EFFEXOR L.P. 75 mg, gélule à libération prolongée
+    - ID: 629
+    - Common: VENLAFAXINE
+----------------------------------------
+[SINGLE] EFIENT 10 mg, comprimé pelliculé
+  - ID: 1519
+----------------------------------------
+[CLUSTER] APIXABAN
+  > ELIQUIS 2,5 mg, comprimé pelliculé
+    - ID: 1712
+    - Common: APIXABAN
+  > ELIQUIS 5 mg, comprimé pelliculé
+    - ID: 1713
+    - Common: APIXABAN
+----------------------------------------
+[CLUSTER] ULIPRISTAL
+  > ELLAONE 30 mg, comprimé pelliculé
+    - ID: 1618
+    - Common: ULIPRISTAL
+  > ESMYA 5 mg, comprimé
+    - ID: 1650
+    - Common: ULIPRISTAL
+----------------------------------------
+[CLUSTER] APRÉPITANT
+  > EMEND 125 mg, gélule
+    - ID: 1484
+    - Common: APRÉPITANT
+  > EMEND 125 mg, gélule et EMEND 80 mg, gélule
+    - ID: 1485
+    - Common: APRÉPITANT
+  > EMEND 80 mg, gélule
+    - ID: 1486
+    - Common: APRÉPITANT
+----------------------------------------
+[CLUSTER] COMPLEXE SODIQUE SACUBITRIL VALSARTAN HÉMIPENTAHYDRATÉ, SACUBITRIL, VALSARTAN
+  > ENTRESTO 24 mg/26 mg, comprimé pelliculé
+    - ID: 1965
+    - Common: COMPLEXE SODIQUE SACUBITRIL VALSARTAN HÉMIPENTAHYDRATÉ, SACUBITRIL, VALSARTAN
+  > ENTRESTO 49 mg/51 mg, comprimé pelliculé
+    - ID: 1966
+    - Common: COMPLEXE SODIQUE SACUBITRIL VALSARTAN HÉMIPENTAHYDRATÉ, SACUBITRIL, VALSARTAN
+  > ENTRESTO 97 mg/103 mg, comprimé pelliculé
+    - ID: 1967
+    - Common: COMPLEXE SODIQUE SACUBITRIL VALSARTAN HÉMIPENTAHYDRATÉ, SACUBITRIL, VALSARTAN
+----------------------------------------
+[CLUSTER] TOPIRAMATE
+  > EPITOMAX 100 mg, comprimé pelliculé
+    - ID: 496
+    - Common: TOPIRAMATE
+  > EPITOMAX 200 mg, comprimé pelliculé
+    - ID: 497
+    - Common: TOPIRAMATE
+  > EPITOMAX 25 mg, gélule
+    - ID: 772
+    - Common: TOPIRAMATE
+  > EPITOMAX 50 mg, comprimé pelliculé
+    - ID: 495
+    - Common: TOPIRAMATE
+----------------------------------------
+[CLUSTER] LAMIVUDINE
+  > EPIVIR 150 mg, comprimé pelliculé
+    - ID: 900
+    - Common: LAMIVUDINE
+  > EPIVIR 300 mg, comprimé pelliculé
+    - ID: 901
+    - Common: LAMIVUDINE
+  > ZEFFIX 100 mg, comprimé pelliculé
+    - ID: 1374
+    - Common: LAMIVUDINE
+----------------------------------------
+[CLUSTER] ÉRYTHROMYCINE (ÉTHYLSUCCINATE D')
+  > ERYTHROCINE 250 mg, poudre orale en sachet
+    - ID: 181
+    - Common: ÉRYTHROMYCINE (ÉTHYLSUCCINATE D')
+  > PROPIOCINE 500 mg, comprimé
+    - ID: 184
+    - Common: ÉRYTHROMYCINE
+----------------------------------------
+[CLUSTER] PIRFÉNIDONE
+  > ESBRIET 267 mg, comprimé pelliculé
+    - ID: 1821
+    - Common: PIRFÉNIDONE
+  > ESBRIET 801 mg, comprimé pelliculé
+    - ID: 1822
+    - Common: PIRFÉNIDONE
+----------------------------------------
+[CLUSTER] HYDROCHLOROTHIAZIDE
+  > ESIDREX 25 mg, comprimé sécable
+    - ID: 1644
+    - Common: HYDROCHLOROTHIAZIDE
+  > MODURETIC, comprimé sécable
+    - ID: 59
+    - Common: HYDROCHLOROTHIAZIDE
+----------------------------------------
+[CLUSTER] ÉSOMÉPRAZOLE
+  > ESOMEPRAZOLE SODIQUE  équivalent à ESOMEPRAZOLE 20 mg- INEXIUM 20 mg, comprimé gastro-résistant
+    - ID: 968
+    - Common: ÉSOMÉPRAZOLE
+  > INEXIUM 10 mg, granulés gastro-résistants pour suspension buvable en sachet
+    - ID: 1873
+    - Common: ÉSOMÉPRAZOLE
+  > INEXIUM 40 mg, comprimé gastro-résistant
+    - ID: 969
+    - Common: ÉSOMÉPRAZOLE
+----------------------------------------
+[CLUSTER] ESTRADIOL, ESTRADIOL HÉMIHYDRATÉ
+  > ESTROFEM 1 mg, comprimé pelliculé
+    - ID: 337
+    - Common: ESTRADIOL, ESTRADIOL HÉMIHYDRATÉ
+  > ESTROFEM 2 mg, comprimé pelliculé
+    - ID: 338
+    - Common: ESTRADIOL, ESTRADIOL HÉMIHYDRATÉ
+----------------------------------------
+[SINGLE] EUCREAS 50 mg/1000 mg, comprimé pelliculé
+  - ID: 1451
+----------------------------------------
+[CLUSTER] ACIDE TRANEXAMIQUE
+  > EXACYL 1 g/10 ml, solution buvable
+    - ID: 39
+    - Common: ACIDE TRANEXAMIQUE
+  > EXACYL 500 mg, comprimé pelliculé
+    - ID: 38
+    - Common: TRANEXAMIQUE (ACIDE)
+----------------------------------------
+[CLUSTER] HYDROGÉNOTARTRATE DE RIVASTIGMINE, RIVASTIGMINE
+  > EXELON 1,5 mg, gélule
+    - ID: 821
+    - Common: HYDROGÉNOTARTRATE DE RIVASTIGMINE, RIVASTIGMINE
+  > EXELON 2 mg/ml, solution buvable
+    - ID: 960
+    - Common: HYDROGÉNOTARTRATE DE RIVASTIGMINE, RIVASTIGMINE BASE
+  > EXELON 3 mg, gélule
+    - ID: 823
+    - Common: HYDROGÉNOTARTRATE DE RIVASTIGMINE, RIVASTIGMINE
+  > EXELON 4,5 mg, gélule
+    - ID: 824
+    - Common: HYDROGÉNOTARTRATE DE RIVASTIGMINE, RIVASTIGMINE
+  > EXELON 6 mg, gélule
+    - ID: 826
+    - Common: HYDROGÉNOTARTRATE DE RIVASTIGMINE, RIVASTIGMINE
+----------------------------------------
+[CLUSTER] AMLODIPINE, VALSARTAN
+  > EXFORGE 10 mg/160 mg, comprimé pelliculé
+    - ID: 1403
+    - Common: AMLODIPINE, VALSARTAN
+  > EXFORGE 5 mg/160 mg, comprimé pelliculé
+    - ID: 1402
+    - Common: AMLODIPINE, VALSARTAN
+  > EXFORGE 5 mg/80 mg, comprimé pelliculé
+    - ID: 1401
+    - Common: AMLODIPINE, VALSARTAN
+----------------------------------------
+[SINGLE] EXFORGE HCT 5 mg/160 mg/12,5 mg, comprimé pelliculé
+  - ID: 1778
+----------------------------------------
+[CLUSTER] DÉFÉRASIROX
+  > EXJADE 180 mg, comprimé pelliculé
+    - ID: 1685
+    - Common: DÉFÉRASIROX
+  > EXJADE 360 mg, comprimé pelliculé
+    - ID: 1686
+    - Common: DÉFÉRASIROX
+  > EXJADE 90 mg, comprimé pelliculé
+    - ID: 1687
+    - Common: DÉFÉRASIROX
+----------------------------------------
+[SINGLE] EZETROL 10 mg, comprimé
+  - ID: 1332
+----------------------------------------
+[SINGLE] FAMPYRA 10 mg, comprimé à libération prolongée
+  - ID: 1782
+----------------------------------------
+[CLUSTER] PIROXICAM
+  > FELDENE 10 mg, gélule
+    - ID: 212
+    - Common: PIROXICAM
+  > FELDENE 20 mg, gélule
+    - ID: 213
+    - Common: PIROXICAM
+  > FELDENE DISPERSIBLE 20 mg, comprimé sécable
+    - ID: 214
+    - Common: PIROXICAM
+----------------------------------------
+[SINGLE] FEMARA 2,5 mg, comprimé pelliculé
+  - ID: 756
+----------------------------------------
+[SINGLE] FEMOSIA, comprimé enrobé
+  - ID: 1145
+----------------------------------------
+[CLUSTER] FÉNOFIBRATE
+  > FENOX 100 mg, gélule
+    - ID: 104
+    - Common: FÉNOFIBRATE
+  > FENOX 300 mg, gélule
+    - ID: 105
+    - Common: FÉNOFIBRATE
+  > LIPANTHYL 145 mg, comprimé pelliculé
+    - ID: 779
+    - Common: FÉNOFIBRATE
+  > LIPANTHYL 160 mg, comprimé pelliculé
+    - ID: 389
+    - Common: FÉNOFIBRATE
+  > LIPANTHYL 200 micronisé, gélule
+    - ID: 107
+    - Common: FÉNOFIBRATE
+  > LIPANTHYL 67 micronisé, gélule
+    - ID: 106
+    - Common: FÉNOFIBRATE
+----------------------------------------
+[CLUSTER] DÉFÉRIPRONE
+  > FERRIPROX 1000 mg, comprimé pelliculé
+    - ID: 1544
+    - Common: DÉFÉRIPRONE
+  > FERRIPROX 500 mg, comprimé pelliculé
+    - ID: 1545
+    - Common: DÉFÉRIPRONE
+----------------------------------------
+[CLUSTER] ACIDE ASCORBIQUE, PARACÉTAMOL, PHÉNIRAMINE
+  > FERVEX ADULTES SANS SUCRE, granulé pour solution buvable en sachet
+    - ID: 1300
+    - Common: ACIDE ASCORBIQUE, PARACÉTAMOL, PHÉNIRAMINE
+  > FERVEX ADULTES, granulés pour solution buvable en sachet
+    - ID: 1181
+    - Common: ACIDE ASCORBIQUE, PARACÉTAMOL, PHÉNIRAMINE
+----------------------------------------
+[SINGLE] FIRDAPSE 10 mg, comprimé
+  - ID: 1815
+----------------------------------------
+[CLUSTER] MÉTRONIDAZOLE
+  > FLAGYL 250 mg, comprimé pelliculé
+    - ID: 1528
+    - Common: MÉTRONIDAZOLE
+  > FLAGYL 500 mg, comprimé pelliculé
+    - ID: 1529
+    - Common: MÉTRONIDAZOLE
+----------------------------------------
+[CLUSTER] FLÉCAÏNIDE
+  > FLECAINE 100 mg, comprimé sécable
+    - ID: 42
+    - Common: FLÉCAÏNIDE
+  > FLECAÏNE L.P. 100 mg, gélule à libération prolongée
+    - ID: 1148
+    - Common: FLÉCAÏNIDE
+  > FLECAÏNE L.P. 150 mg, gélule à libération prolongée
+    - ID: 1149
+    - Common: FLÉCAÏNIDE
+  > FLECAÏNE L.P. 200 mg, gélule à libération prolongée
+    - ID: 1150
+    - Common: FLÉCAÏNIDE
+  > FLECAÏNE L.P. 50 mg, gélule à libération prolongée
+    - ID: 1147
+    - Common: FLÉCAÏNIDE
+----------------------------------------
+[SINGLE] FLODIL L.P. 5 mg, comprimé enrobé à libération prolongée
+  - ID: 559
+----------------------------------------
+[CLUSTER] FLUVOXAMINE
+  > FLOXYFRAL 100 mg, comprimé pelliculé sécable
+    - ID: 286
+    - Common: FLUVOXAMINE
+  > FLOXYFRAL 50 mg, comprimé pelliculé sécable
+    - ID: 285
+    - Common: FLUVOXAMINE
+----------------------------------------
+[CLUSTER] FLUCONAZOLE
+  > FLUCONAZOLE PFIZER 150 mg, gélule
+    - ID: 194
+    - Common: FLUCONAZOLE
+  > TRIFLUCAN 10 mg/ml, poudre pour suspension buvable
+    - ID: 550
+    - Common: FLUCONAZOLE
+  > TRIFLUCAN 100 mg, gélule
+    - ID: 196
+    - Common: FLUCONAZOLE
+  > TRIFLUCAN 200 mg, gélule
+    - ID: 197
+    - Common: FLUCONAZOLE
+  > TRIFLUCAN 50 mg, gélule
+    - ID: 195
+    - Common: FLUCONAZOLE
+----------------------------------------
+[SINGLE] FLUCORTAC 50 microgrammes, comprimé sécable
+  - ID: 1904
+----------------------------------------
+[SINGLE] FLUDEX 2,5 mg, comprimé pelliculé
+  - ID: 54
+----------------------------------------
+[SINGLE] FLUIMUCIL 200 mg, granulés pour solution buvable en sachet édulcorés au sorbitol et à l'aspartam
+  - ID: 903
+----------------------------------------
+[CLUSTER] MACROGOL 4000
+  > FORLAX 10 g, poudre pour solution buvable en sachet
+    - ID: 736
+    - Common: MACROGOL 4000
+  > FORLAX 4 g, poudre pour solution buvable en sachet
+    - ID: 1635
+    - Common: MACROGOL 4000
+----------------------------------------
+[CLUSTER] HYDROCHLOROTHIAZIDE, LOSARTAN POTASSIQUE
+  > FORTZAAR 100 mg/12,5 mg, comprimé pelliculé
+    - ID: 858
+    - Common: HYDROCHLOROTHIAZIDE, LOSARTAN POTASSIQUE
+  > FORTZAAR 100 mg/25 mg, comprimé pelliculé
+    - ID: 623
+    - Common: HYDROCHLOROTHIAZIDE, LOSARTAN POTASSIQUE
+  > FORTZAAR 50 mg/12,5 mg, comprimé pelliculé
+    - ID: 622
+    - Common: HYDROCHLOROTHIAZIDE, LOSARTAN POTASSIQUE
+----------------------------------------
+[SINGLE] FORXIGA 10 mg, comprimé pelliculé
+  - ID: 1869
+----------------------------------------
+[CLUSTER] CARBONATE DE LANTHANE HYDRATÉ, LANTHANE
+  > FOSRENOL 1000 mg, comprimé à croquer
+    - ID: 1763
+    - Common: CARBONATE DE LANTHANE HYDRATÉ, LANTHANE
+  > FOSRENOL 500 mg, comprimé à croquer
+    - ID: 1764
+    - Common: CARBONATE DE LANTHANE HYDRATÉ, LANTHANE
+----------------------------------------
+[SINGLE] FOSRENOL 750 mg, comprimé à croquer
+  - ID: 1765
+----------------------------------------
+[SINGLE] FOZIRETIC 20 mg/12,5 mg, comprimé sécable
+  - ID: 582
+----------------------------------------
+[CLUSTER] FOSINOPRIL SODIQUE
+  > FOZITEC 10 mg, comprimé sécable
+    - ID: 482
+    - Common: FOSINOPRIL SODIQUE
+  > FOZITEC 20 mg, comprimé
+    - ID: 466
+    - Common: FOSINOPRIL SODIQUE
+----------------------------------------
+[CLUSTER] FLUVASTATINE, FLUVASTATINE SODIQUE
+  > FRACTAL 20 mg, gélule
+    - ID: 642
+    - Common: FLUVASTATINE, FLUVASTATINE SODIQUE
+  > FRACTAL 40 mg, gélule
+    - ID: 641
+    - Common: FLUVASTATINE, FLUVASTATINE SODIQUE
+  > FRACTAL L.P. 80 mg, comprimé pelliculé à libération prolongée
+    - ID: 713
+    - Common: FLUVASTATINE, FLUVASTATINE SODIQUE
+----------------------------------------
+[SINGLE] FUCIDINE 250 mg, comprimé pelliculé
+  - ID: 1412
+----------------------------------------
+[SINGLE] GALVUS 50 mg, comprimé
+  - ID: 1509
+----------------------------------------
+[CLUSTER] ALGINATE DE SODIUM
+  > GAVISCON, suspension buvable en flacon
+    - ID: 375
+    - Common: ALGINATE DE SODIUM
+  > GAVISCON, suspension buvable en sachet, GAVISCONELL MENTHE SANS SUCRE, suspension buvable en sachet-dose édulcorée à la saccharine sodique
+    - ID: 1132
+    - Common: ALGINATE DE SODIUM
+----------------------------------------
+[CLUSTER] FINGOLIMOD
+  > GILENYA 0,25 mg, gélule
+    - ID: 1745
+    - Common: FINGOLIMOD
+  > GILENYA 0,5 mg, gélule
+    - ID: 1733
+    - Common: FINGOLIMOD
+----------------------------------------
+[CLUSTER] IMATINIB
+  > GLIVEC 100 mg, comprimé pelliculé
+    - ID: 1322
+    - Common: IMATINIB
+  > GLIVEC 400 mg, comprimé pelliculé
+    - ID: 1323
+    - Common: IMATINIB
+----------------------------------------
+[CLUSTER] METFORMINE
+  > GLUCOPHAGE 1000 mg, comprimé pelliculé sécable
+    - ID: 33
+    - Common: METFORMINE
+  > GLUCOPHAGE 1000 mg, poudre pour solution buvable en sachet-dose
+    - ID: 1762
+    - Common: METFORMINE
+  > GLUCOPHAGE 500 mg, comprimé pelliculé
+    - ID: 31
+    - Common: METFORMINE
+  > GLUCOPHAGE 850 mg, comprimé pelliculé
+    - ID: 32
+    - Common: METFORMINE
+----------------------------------------
+[CLUSTER] ACARBOSE
+  > GLUCOR 100 mg, comprimé sécable
+    - ID: 861
+    - Common: ACARBOSE
+  > GLUCOR 50 mg, comprimé
+    - ID: 862
+    - Common: ACARBOSE
+----------------------------------------
+[SINGLE] GUTRON 2,5 mg, comprimé
+  - ID: 1535
+----------------------------------------
+[SINGLE] HARMONET, comprimé enrobé
+  - ID: 491
+----------------------------------------
+[SINGLE] HUMEXLIB PARACETAMOL CHLORPHENAMINE 500 mg/4 mg, gélule
+  - ID: 1189
+----------------------------------------
+[SINGLE] HYDREA 500 mg, gélule
+  - ID: 1903
+----------------------------------------
+[SINGLE] HYDROCORTISONE ROUSSEL 10 mg, comprimé sécable
+  - ID: 1885
+----------------------------------------
+[SINGLE] HYPERIUM 1 mg, comprimé
+  - ID: 53
+----------------------------------------
+[SINGLE] HYTRINE 5 mg, comprimé
+  - ID: 133
+----------------------------------------
+[CLUSTER] NICORANDIL
+  > IKOREL 10 mg, comprimé sécable
+    - ID: 478
+    - Common: NICORANDIL
+  > IKOREL 20 mg, comprimé
+    - ID: 480
+    - Common: NICORANDIL
+----------------------------------------
+[SINGLE] IMIGRANE 50 mg, comprimé pelliculé
+  - ID: 554
+----------------------------------------
+[CLUSTER] POMALIDOMIDE
+  > IMNOVID 1 mg, gélule
+    - ID: 1916
+    - Common: POMALIDOMIDE
+  > IMNOVID 2 mg, gélule
+    - ID: 1917
+    - Common: POMALIDOMIDE
+  > IMNOVID 3 mg, gélule
+    - ID: 1918
+    - Common: POMALIDOMIDE
+  > IMNOVID 4 mg, gélule
+    - ID: 1919
+    - Common: POMALIDOMIDE
+----------------------------------------
+[SINGLE] IMODIUMCAPS 2 mg, gélule
+  - ID: 29
+----------------------------------------
+[CLUSTER] ZOPICLONE
+  > IMOVANE 3,75 mg, comprimé pelliculé
+    - ID: 1559
+    - Common: ZOPICLONE
+  > IMOVANE 7,5 mg, comprimé pelliculé sécable
+    - ID: 275
+    - Common: ZOPICLONE
+----------------------------------------
+[CLUSTER] AZATHIOPRINE
+  > IMUREL 50 mg, comprimé pelliculé
+    - ID: 477
+    - Common: AZATHIOPRINE
+  > IMUREL 50 mg, comprimé sécable
+    - ID: 203
+    - Common: AZATHIOPRINE
+----------------------------------------
+[CLUSTER] SIMVASTATINE, ÉZÉTIMIBE
+  > INEGY 10 mg/20 mg, comprimé
+    - ID: 1417
+    - Common: SIMVASTATINE, ÉZÉTIMIBE
+  > INEGY 10 mg/40 mg, comprimé
+    - ID: 1418
+    - Common: SIMVASTATINE, ÉZÉTIMIBE
+----------------------------------------
+[CLUSTER] AXITINIB
+  > INLYTA 1 mg, comprimé pelliculé
+    - ID: 1854
+    - Common: AXITINIB
+  > INLYTA 3 mg, comprimé pelliculé
+    - ID: 1855
+    - Common: AXITINIB
+  > INLYTA 5 mg, comprimé pelliculé
+    - ID: 1856
+    - Common: AXITINIB
+  > INLYTA 7 mg, comprimé pelliculé
+    - ID: 1857
+    - Common: AXITINIB
+----------------------------------------
+[SINGLE] INORIAL 20 mg, comprimé
+  - ID: 1775
+----------------------------------------
+[CLUSTER] RUFINAMIDE
+  > INOVELON 100 mg, comprimé pelliculé
+    - ID: 1957
+    - Common: RUFINAMIDE
+  > INOVELON 200 mg, comprimé pelliculé
+    - ID: 1958
+    - Common: RUFINAMIDE
+  > INOVELON 40 mg/ml, suspension buvable
+    - ID: 1948
+    - Common: RUFINAMIDE
+  > INOVELON 400 mg, comprimé pelliculé
+    - ID: 1959
+    - Common: RUFINAMIDE
+----------------------------------------
+[CLUSTER] ÉPLÉRÉNONE
+  > INSPRA 25 mg, comprimé pelliculé
+    - ID: 1243
+    - Common: ÉPLÉRÉNONE
+  > INSPRA 50 mg, comprimé pelliculé
+    - ID: 1244
+    - Common: ÉPLÉRÉNONE
+----------------------------------------
+[CLUSTER] MANIDIPINE
+  > IPERTEN 10 mg, comprimé
+    - ID: 927
+    - Common: MANIDIPINE
+  > IPERTEN 20 mg, comprimé
+    - ID: 928
+    - Common: MANIDIPINE
+----------------------------------------
+[SINGLE] IRESSA 250 mg, comprimé pelliculé
+  - ID: 1546
+----------------------------------------
+[SINGLE] ISENTRESS 600 mg, comprimé pelliculé
+  - ID: 1927
+----------------------------------------
+[CLUSTER] VÉRAPAMIL
+  > ISOPTINE 120 mg, gélule
+    - ID: 88
+    - Common: VÉRAPAMIL
+  > ISOPTINE 40 mg, comprimé enrobé
+    - ID: 1915
+    - Common: VÉRAPAMIL
+  > ISOPTINE L.P. 240 mg, comprimé pelliculé sécable à libération prolongée
+    - ID: 89
+    - Common: VÉRAPAMIL
+----------------------------------------
+[CLUSTER] MILNACIPRAN
+  > IXEL 25 mg, gélule
+    - ID: 1028
+    - Common: MILNACIPRAN
+  > IXEL 50 mg, gélule
+    - ID: 1029
+    - Common: MILNACIPRAN
+----------------------------------------
+[CLUSTER] MALATE DE SITAGLIPTINE
+  > JANUVIA 100 mg, comprimé pelliculé
+    - ID: 1502
+    - Common: MALATE DE SITAGLIPTINE
+  > JANUVIA 50 mg, comprimé pelliculé
+    - ID: 1501
+    - Common: MALATE DE SITAGLIPTINE
+----------------------------------------
+[SINGLE] JASMINE 0,03 mg/3 mg, comprimé pelliculé
+  - ID: 998
+----------------------------------------
+[SINGLE] JASMINELLE 0,02 mg/3 mg, comprimé pelliculé
+  - ID: 997
+----------------------------------------
+[SINGLE] JASMINELLECONTINU 0,02 mg/3 mg, comprimé pelliculé
+  - ID: 996
+----------------------------------------
+[CLUSTER] TOLVAPTAN
+  > JINARC 15 mg, comprimé
+    - ID: 1955
+    - Common: TOLVAPTAN
+  > JINARC 15 mg, comprimé + JINARC 45 mg, comprimé
+    - ID: 1721
+    - Common: TOLVAPTAN
+  > JINARC 30 mg, comprimé
+    - ID: 1956
+    - Common: TOLVAPTAN
+  > JINARC 30 mg, comprimé + JINARC 60 mg, comprimé
+    - ID: 1722
+    - Common: TOLVAPTAN
+  > JINARC 30 mg, comprimé + JINARC 90 mg, comprimé
+    - ID: 1723
+    - Common: TOLVAPTAN
+----------------------------------------
+[CLUSTER] TAMSULOSINE
+  > JOSIR L.P. 0,4 mg, microgranules à libération prolongée en gélule
+    - ID: 442
+    - Common: TAMSULOSINE
+  > OMEXEL L.P. 0,4 mg, comprimé pelliculé à libération prolongée
+    - ID: 1046
+    - Common: TAMSULOSINE
+----------------------------------------
+[CLUSTER] LOPINAVIR, RITONAVIR
+  > KALETRA 100 mg/25 mg, comprimé pelliculé
+    - ID: 1275
+    - Common: LOPINAVIR, RITONAVIR
+  > KALETRA 200 mg/50 mg, comprimé pelliculé
+    - ID: 1276
+    - Common: LOPINAVIR, RITONAVIR
+----------------------------------------
+[CLUSTER] CANDÉSARTAN CILEXÉTIL
+  > KENZEN 16 mg, comprimé sécable
+    - ID: 865
+    - Common: CANDÉSARTAN CILEXÉTIL
+  > KENZEN 32 mg, comprimé sécable
+    - ID: 866
+    - Common: CANDÉSARTAN CILEXÉTIL
+  > KENZEN 4 mg, comprimé sécable
+    - ID: 863
+    - Common: CANDÉSARTAN CILEXÉTIL
+  > KENZEN 8 mg, comprimé sécable
+    - ID: 864
+    - Common: CANDÉSARTAN CILEXÉTIL
+----------------------------------------
+[CLUSTER] LÉVÉTIRACÉTAM
+  > KEPPRA 100 mg/ml, solution buvable
+    - ID: 1052
+    - Common: LÉVÉTIRACÉTAM
+  > KEPPRA 1000 mg, comprimé pelliculé
+    - ID: 1025
+    - Common: LÉVÉTIRACÉTAM
+  > KEPPRA 250 mg, comprimé pelliculé
+    - ID: 1026
+    - Common: LÉVÉTIRACÉTAM
+  > KEPPRA 500 mg, comprimé pelliculé
+    - ID: 1027
+    - Common: LÉVÉTIRACÉTAM
+  > KEPPRA 750 mg, comprimé pelliculé
+    - ID: 1185
+    - Common: LÉVÉTIRACÉTAM
+----------------------------------------
+[SINGLE] KERLONE 20 mg, comprimé pelliculé sécable
+  - ID: 1118
+----------------------------------------
+[CLUSTER] ÉBASTINE
+  > KESTIN 10 mg, comprimé pelliculé
+    - ID: 1102
+    - Common: ÉBASTINE
+  > KESTINLYO 10 mg, lyophilisat oral
+    - ID: 1068
+    - Common: ÉBASTINE
+----------------------------------------
+[SINGLE] KIVEXA 600 mg/300 mg, comprimé pelliculé
+  - ID: 1362
+----------------------------------------
+[CLUSTER] QUINAPRIL
+  > KOREC 20 mg, comprimé enrobé sécable
+    - ID: 100
+    - Common: QUINAPRIL
+  > KOREC 5 mg, comprimé pelliculé sécable
+    - ID: 453
+    - Common: QUINAPRIL (CHLORHYDRATE DE)
+----------------------------------------
+[SINGLE] KORETIC 20 mg/12,5 mg, comprimé pelliculé sécable
+  - ID: 517
+----------------------------------------
+[CLUSTER] CARVÉDILOL
+  > KREDEX 12,5 mg, comprimé sécable
+    - ID: 317
+    - Common: CARVÉDILOL
+  > KREDEX 25 mg, comprimé sécable
+    - ID: 327
+    - Common: CARVÉDILOL
+  > KREDEX 6,25 mg, comprimé sécable
+    - ID: 326
+    - Common: CARVÉDILOL
+----------------------------------------
+[SINGLE] KUVAN 100 mg, comprimé pour solution buvable
+  - ID: 1823
+----------------------------------------
+[CLUSTER] DICHLORHYDRATE DE SAPROPTÉRINE, SAPROPTÉRINE
+  > KUVAN 100 mg, poudre pour solution buvable
+    - ID: 1860
+    - Common: DICHLORHYDRATE DE SAPROPTÉRINE, SAPROPTÉRINE
+  > KUVAN 500 mg, poudre pour solution buvable
+    - ID: 1859
+    - Common: DICHLORHYDRATE DE SAPROPTÉRINE, SAPROPTÉRINE
+----------------------------------------
+[CLUSTER] LAMOTRIGINE
+  > LAMICTAL 100 mg, comprimé dispersible ou à croquer
+    - ID: 396
+    - Common: LAMOTRIGINE
+  > LAMICTAL 200 mg, comprimé dispersible ou à croquer
+    - ID: 397
+    - Common: LAMOTRIGINE
+  > LAMICTAL 25 mg, comprimé dispersible ou à croquer
+    - ID: 394
+    - Common: LAMOTRIGINE
+  > LAMICTAL 5 mg, comprimé dispersible ou à croquer
+    - ID: 393
+    - Common: LAMOTRIGINE
+  > LAMICTAL 50 mg, comprimé dispersible ou à croquer
+    - ID: 395
+    - Common: LAMOTRIGINE
+----------------------------------------
+[SINGLE] LAMISIL 250 mg, comprimé sécable
+  - ID: 401
+----------------------------------------
+[CLUSTER] LANSOPRAZOLE
+  > LANZOR 15 mg, gélule gastro-résistante
+    - ID: 593
+    - Common: LANSOPRAZOLE
+  > LANZOR 30 mg, gélule gastro-résistante
+    - ID: 591
+    - Common: LANSOPRAZOLE
+  > OGAST 15 mg, gélule gastro-résistante
+    - ID: 1700
+    - Common: LANSOPRAZOLE
+  > OGAST 30 mg, gélule gastro-résistante
+    - ID: 1701
+    - Common: LANSOPRAZOLE
+  > OGASTORO 15 mg, comprimé orodispersible
+    - ID: 600
+    - Common: LANSOPRAZOLE
+  > OGASTORO 30 mg, comprimé orodispersible
+    - ID: 601
+    - Common: LANSOPRAZOLE
+----------------------------------------
+[SINGLE] LAROXYL 40 mg/ml, solution buvable
+  - ID: 1866
+----------------------------------------
+[CLUSTER] FUROSÉMIDE
+  > LASILIX 40 mg, comprimé sécable
+    - ID: 56
+    - Common: FUROSÉMIDE
+  > LASILIX FAIBLE 20 mg, comprimé
+    - ID: 55
+    - Common: FUROSÉMIDE
+  > LASILIX SPECIAL 500 mg, comprimé sécable
+    - ID: 1021
+    - Common: FUROSÉMIDE
+----------------------------------------
+[SINGLE] LAURETTE, comprimé enrobé
+  - ID: 666
+----------------------------------------
+[CLUSTER] LENVATINIB
+  > LENVIMA 10 mg, gélule
+    - ID: 1960
+    - Common: LENVATINIB
+  > LENVIMA 4 mg, gélule
+    - ID: 1961
+    - Common: LENVATINIB
+----------------------------------------
+[CLUSTER] CLOZAPINE
+  > LEPONEX 100 mg, comprimé sécable
+    - ID: 258
+    - Common: CLOZAPINE
+  > LEPONEX 25 mg, comprimé sécable
+    - ID: 257
+    - Common: CLOZAPINE
+----------------------------------------
+[CLUSTER] LERCANIDIPINE
+  > LERCAN 10 mg, comprimé pelliculé sécable
+    - ID: 762
+    - Common: LERCANIDIPINE
+  > LERCAN 20 mg, comprimé pelliculé
+    - ID: 764
+    - Common: LERCANIDIPINE
+----------------------------------------
+[SINGLE] LERCAPRESS 20 mg/10 mg, comprimé pelliculé
+  - ID: 1423
+----------------------------------------
+[SINGLE] LERCAPRESS 20 mg/20 mg, comprimé pelliculé
+  - ID: 1627
+----------------------------------------
+[CLUSTER] VARDÉNAFIL
+  > LEVITRA 10 mg, comprimé pelliculé
+    - ID: 1441
+    - Common: VARDÉNAFIL
+  > LEVITRA 20 mg, comprimé pelliculé
+    - ID: 1442
+    - Common: VARDÉNAFIL
+  > LEVITRA 5 mg, comprimé pelliculé
+    - ID: 1440
+    - Common: VARDÉNAFIL
+----------------------------------------
+[SINGLE] LEVOCARNIL 100 mg/ml, solution buvable
+  - ID: 1757
+----------------------------------------
+[CLUSTER] LÉVONORGESTREL
+  > LEVONORGESTREL BIOGARAN 1,5 mg, comprimé
+    - ID: 1324
+    - Common: LÉVONORGESTREL
+  > NORLEVO 1,5 mg, comprimé
+    - ID: 1169
+    - Common: LÉVONORGESTREL
+----------------------------------------
+[CLUSTER] LÉVOTHYROXINE SODIQUE
+  > LEVOTHYROX 100 microgrammes, comprimé sécable
+    - ID: 787
+    - Common: LÉVOTHYROXINE SODIQUE
+  > LEVOTHYROX 125 microgrammes, comprimé sécable
+    - ID: 788
+    - Common: LÉVOTHYROXINE SODIQUE
+  > LEVOTHYROX 150 microgrammes, comprimé sécable
+    - ID: 789
+    - Common: LÉVOTHYROXINE SODIQUE
+  > LEVOTHYROX 175 microgrammes, comprimé sécable
+    - ID: 790
+    - Common: LÉVOTHYROXINE SODIQUE
+  > LEVOTHYROX 200 microgrammes, comprimé sécable
+    - ID: 791
+    - Common: LÉVOTHYROXINE SODIQUE
+  > LEVOTHYROX 25 microgrammes, comprimé sécable
+    - ID: 792
+    - Common: LÉVOTHYROXINE SODIQUE
+  > LEVOTHYROX 50 microgrammes, comprimé sécable
+    - ID: 793
+    - Common: LÉVOTHYROXINE SODIQUE
+  > LEVOTHYROX 75 microgrammes, comprimé sécable
+    - ID: 794
+    - Common: LÉVOTHYROXINE SODIQUE
+----------------------------------------
+[SINGLE] LEXOMIL 6 mg, comprimé quadrisécable
+  - ID: 270
+----------------------------------------
+[SINGLE] LIORESAL 10 mg, comprimé sécable
+  - ID: 231
+----------------------------------------
+[SINGLE] LIPANOR 100 mg, gélule
+  - ID: 108
+----------------------------------------
+[CLUSTER] ATORVASTATINE, ATORVASTATINE CALCIQUE TRIHYDRATÉE, ÉZÉTIMIBE
+  > LIPTRUZET 10 mg/10 mg, comprimé pelliculé
+    - ID: 1887
+    - Common: ATORVASTATINE, ATORVASTATINE CALCIQUE TRIHYDRATÉE, ÉZÉTIMIBE
+  > LIPTRUZET 10 mg/20 mg, comprimé pelliculé
+    - ID: 1888
+    - Common: ATORVASTATINE, ATORVASTATINE CALCIQUE TRIHYDRATÉE, ÉZÉTIMIBE
+  > LIPTRUZET 10 mg/40 mg, comprimé pelliculé
+    - ID: 1889
+    - Common: ATORVASTATINE, ATORVASTATINE CALCIQUE TRIHYDRATÉE, ÉZÉTIMIBE
+  > LIPTRUZET 10 mg/80 mg, comprimé pelliculé
+    - ID: 1890
+    - Common: ATORVASTATINE, ATORVASTATINE CALCIQUE TRIHYDRATÉE, ÉZÉTIMIBE
+----------------------------------------
+[SINGLE] LIVIAL 2,5 mg, comprimé
+  - ID: 1398
+----------------------------------------
+[CLUSTER] SIMVASTATINE
+  > LODALES 10 mg, comprimé enrobé
+    - ID: 349
+    - Common: SIMVASTATINE
+  > LODALES 20 mg, comprimé pelliculé
+    - ID: 102
+    - Common: SIMVASTATINE
+  > LODALES 40 mg, comprimé pelliculé
+    - ID: 103
+    - Common: SIMVASTATINE
+----------------------------------------
+[CLUSTER] CAPTOPRIL
+  > LOPRIL 25 mg, comprimé sécable
+    - ID: 94
+    - Common: CAPTOPRIL
+  > LOPRIL 50 mg, comprimé sécable
+    - ID: 95
+    - Common: CAPTOPRIL
+----------------------------------------
+[CLUSTER] LOXAPINE
+  > LOXAPAC 100 mg, comprimé pelliculé
+    - ID: 1924
+    - Common: LOXAPINE
+  > LOXAPAC 25 mg, comprimé pelliculé
+    - ID: 1925
+    - Common: LOXAPINE
+  > LOXAPAC 50 mg, comprimé pelliculé
+    - ID: 1926
+    - Common: LOXAPINE
+----------------------------------------
+[SINGLE] LOXEN LP 50 mg, gélule à libération prolongée
+  - ID: 1735
+----------------------------------------
+[SINGLE] LUMIRELAX 500 mg, comprimé
+  - ID: 1864
+----------------------------------------
+[SINGLE] LUTENYL, comprimé sécable
+  - ID: 125
+----------------------------------------
+[CLUSTER] CHLORMADINONE
+  > LUTERAN 10 mg, comprimé
+    - ID: 128
+    - Common: CHLORMADINONE
+  > LUTERAN 5 mg, comprimé
+    - ID: 127
+    - Common: CHLORMADINONE
+----------------------------------------
+[CLUSTER] PRÉGABALINE
+  > LYRICA 100 mg, gélule
+    - ID: 1252
+    - Common: PRÉGABALINE
+  > LYRICA 150 mg, gélule
+    - ID: 1253
+    - Common: PRÉGABALINE
+  > LYRICA 20 mg/mL, solution buvable
+    - ID: 1645
+    - Common: PRÉGABALINE
+  > LYRICA 200 mg, gélule
+    - ID: 1254
+    - Common: PRÉGABALINE
+  > LYRICA 25 mg, gélule
+    - ID: 1249
+    - Common: PRÉGABALINE
+  > LYRICA 300 mg, gélule
+    - ID: 1255
+    - Common: PRÉGABALINE
+  > LYRICA 50 mg, gélule
+    - ID: 1250
+    - Common: PRÉGABALINE
+  > LYRICA 75 mg, gélule
+    - ID: 1251
+    - Common: PRÉGABALINE
+----------------------------------------
+[SINGLE] LYSANXIA 10 mg, comprimé
+  - ID: 874
+----------------------------------------
+[SINGLE] MAGNE B6 48 mg/5 mg, comprimé enrobé
+  - ID: 755
+----------------------------------------
+[CLUSTER] ATOVAQUONE, PROGUANIL
+  > MALARONE 250 mg/100 mg, comprimé pelliculé
+    - ID: 995
+    - Common: ATOVAQUONE, PROGUANIL
+  > MALARONE 62,5 mg/25 mg ENFANTS, comprimé pelliculé
+    - ID: 1135
+    - Common: ATOVAQUONE, PROGUANIL
+----------------------------------------
+[CLUSTER] BENZOATE DE RIZATRIPTAN, RIZATRIPTAN
+  > MAXALT 10 mg, comprimé
+    - ID: 1045
+    - Common: BENZOATE DE RIZATRIPTAN, RIZATRIPTAN
+  > MAXALT 5 mg, comprimé
+    - ID: 1044
+    - Common: BENZOATE DE RIZATRIPTAN, RIZATRIPTAN
+  > MAXALTLYO 10 mg, lyophilisat oral
+    - ID: 910
+    - Common: BENZOATE DE RIZATRIPTAN, RIZATRIPTAN
+----------------------------------------
+[CLUSTER] URAPIDIL
+  > MEDIATENSYL LP 30 mg, gélule à libération prolongée
+    - ID: 1375
+    - Common: URAPIDIL
+  > MEDIATENSYL LP 60 mg, gélule à libération prolongée
+    - ID: 1376
+    - Common: URAPIDIL
+----------------------------------------
+[SINGLE] MERCILON, comprimé
+  - ID: 121
+----------------------------------------
+[SINGLE] METEOSPASMYL, capsule molle
+  - ID: 1281
+----------------------------------------
+[CLUSTER] CINACALCET
+  > MIMPARA 30 mg, comprimé pelliculé
+    - ID: 1383
+    - Common: CINACALCET
+  > MIMPARA 60 mg, comprimé pelliculé
+    - ID: 1384
+    - Common: CINACALCET
+  > MIMPARA 90 mg, comprimé pelliculé
+    - ID: 1385
+    - Common: CINACALCET
+----------------------------------------
+[SINGLE] MINESSE 60 microgrammes/15 microgrammes, comprimé pelliculé
+  - ID: 747
+----------------------------------------
+[SINGLE] MINIDIAB 5 mg, comprimé sécable
+  - ID: 34
+----------------------------------------
+[SINGLE] MINIDRIL, comprimé enrobé
+  - ID: 119
+----------------------------------------
+[CLUSTER] DESMOPRESSINE
+  > MINIRINMELT 120 microgrammes, lyophilisat oral
+    - ID: 1706
+    - Common: DESMOPRESSINE
+  > MINIRINMELT 240 microgrammes, lyophilisat oral
+    - ID: 1705
+    - Common: DESMOPRESSINE
+  > MINIRINMELT 60 microgrammes, lyophilisat oral
+    - ID: 1704
+    - Common: DESMOPRESSINE
+----------------------------------------
+[CLUSTER] PRAMIPEXOLE
+  > MIRAPEXIN 0,18 mg, comprimé
+    - ID: 802
+    - Common: PRAMIPEXOLE
+  > MIRAPEXIN 0,7 mg, comprimé
+    - ID: 801
+    - Common: PRAMIPEXOLE
+  > SIFROL 0,26 mg, comprimé à libération prolongée
+    - ID: 1171
+    - Common: PRAMIPEXOLE
+  > SIFROL 0,52 mg, comprimé à libération prolongée
+    - ID: 1172
+    - Common: PRAMIPEXOLE
+  > SIFROL 1,05 mg, comprimé à libération prolongée
+    - ID: 1173
+    - Common: PRAMIPEXOLE
+  > SIFROL 2,1 mg, comprimé à libération prolongée
+    - ID: 1174
+    - Common: PRAMIPEXOLE
+----------------------------------------
+[CLUSTER] MÉLOXICAM
+  > MOBIC 15 mg, comprimé sécable
+    - ID: 425
+    - Common: MÉLOXICAM
+  > MOBIC 7,5 mg, comprimé
+    - ID: 424
+    - Common: MÉLOXICAM
+----------------------------------------
+[SINGLE] MODIODAL 100 mg, comprimé
+  - ID: 553
+----------------------------------------
+[CLUSTER] BENSÉRAZIDE, LÉVODOPA
+  > MODOPAR 125 (100 mg/25 mg), gélule
+    - ID: 637
+    - Common: BENSÉRAZIDE, LÉVODOPA
+  > MODOPAR 250 (200 mg/50 mg), gélule
+    - ID: 636
+    - Common: BENSÉRAZIDE, LÉVODOPA
+  > MODOPAR 62,5 (50 mg/12,5 mg), gélule
+    - ID: 635
+    - Common: BENSÉRAZIDE, LÉVODOPA
+----------------------------------------
+[SINGLE] MONEVA, comprimé enrobé
+  - ID: 489
+----------------------------------------
+[CLUSTER] CLARITHROMYCINE
+  > MONOZECLAR  500 mg, comprimé pelliculé à libération modifiée
+    - ID: 888
+    - Common: CLARITHROMYCINE
+  > ZECLAR 25 mg/ml, granulés pour suspension buvable
+    - ID: 671
+    - Common: CLARITHROMYCINE
+  > ZECLAR 250 mg, comprimé pelliculé
+    - ID: 346
+    - Common: CLARITHROMYCINE
+  > ZECLAR 50 mg/ml, granulés pour suspension buvable
+    - ID: 672
+    - Common: CLARITHROMYCINE
+  > ZECLAR 500 mg, comprimé pelliculé
+    - ID: 387
+    - Common: CLARITHROMYCINE
+----------------------------------------
+[CLUSTER] DOMPÉRIDONE
+  > MOTILYO 10 mg, lyophilisat oral
+    - ID: 617
+    - Common: DOMPÉRIDONE
+  > PERIDYS 10 mg, comprimé pelliculé
+    - ID: 23
+    - Common: DOMPÉRIDONE
+----------------------------------------
+[SINGLE] MOVICOL, poudre pour solution buvable en sachet
+  - ID: 970
+----------------------------------------
+[CLUSTER] CARBOCISTÉINE
+  > MUCOPLEXIL 5 % ADULTES SANS SUCRE, sirop édulcoré à la saccharine sodique
+    - ID: 306
+    - Common: CARBOCISTÉINE
+  > RHINATHIOL EXPECTORANT CARBOCISTEINE 2 % ENFANTS SANS SUCRE, sirop édulcoré à la saccharine sodique et au maltitol liquide
+    - ID: 304
+    - Common: CARBOCISTÉINE
+  > RHINATHIOL EXPECTORANT CARBOCISTEINE 2 % ENFANTS, sirop
+    - ID: 303
+    - Common: CARBOCISTÉINE
+  > RHINATHIOL EXPECTORANT CARBOCISTEINE 5 % ADULTES, sirop
+    - ID: 305
+    - Common: CARBOCISTÉINE
+  > RHINATHIOL EXPECTORANT CARBOCISTEINE 750 mg/10 ml ADULTES SANS SUCRE, gel oral en sachet édulcoré à la saccharine sodique
+    - ID: 1459
+    - Common: CARBOCISTÉINE
+----------------------------------------
+[CLUSTER] ACIDE MYCOPHÉNOLIQUE, MYCOPHÉNOLATE SODIQUE
+  > MYFORTIC 180 mg, comprimé gastro-résistant
+    - ID: 1462
+    - Common: ACIDE MYCOPHÉNOLIQUE, MYCOPHÉNOLATE SODIQUE
+  > MYFORTIC 360 mg, comprimé gastro-résistant
+    - ID: 1463
+    - Common: ACIDE MYCOPHÉNOLIQUE, MYCOPHÉNOLATE SODIQUE
+----------------------------------------
+[SINGLE] MYNOCINE 100 mg, gélule
+  - ID: 143
+----------------------------------------
+[SINGLE] NABUCOX 500 mg, comprimé pelliculé
+  - ID: 1594
+----------------------------------------
+[CLUSTER] NALTREXONE
+  > NALOREX 50 mg, comprimé pelliculé sécable
+    - ID: 951
+    - Common: NALTREXONE
+  > REVIA 50 mg, comprimé pelliculé sécable
+    - ID: 342
+    - Common: NALTREXONE
+----------------------------------------
+[SINGLE] NARAMIG 2,5 mg, comprimé pelliculé
+  - ID: 694
+----------------------------------------
+[CLUSTER] VINORELBINE
+  > NAVELBINE 20 mg, capsule molle
+    - ID: 1641
+    - Common: VINORELBINE
+  > NAVELBINE 30 mg, capsule molle
+    - ID: 1642
+    - Common: VINORELBINE
+----------------------------------------
+[SINGLE] NEBILOX 5 mg, comprimé quadrisécable
+  - ID: 604
+----------------------------------------
+[CLUSTER] CICLOSPORINE
+  > NEORAL 10 mg, capsule molle
+    - ID: 1636
+    - Common: CICLOSPORINE
+  > NEORAL 100 mg, capsule molle
+    - ID: 1637
+    - Common: CICLOSPORINE
+  > NEORAL 25 mg, capsule molle
+    - ID: 1638
+    - Common: CICLOSPORINE
+  > NEORAL 50 mg, capsule molle
+    - ID: 1639
+    - Common: CICLOSPORINE
+----------------------------------------
+[CLUSTER] GABAPENTINE
+  > NEURONTIN 100 mg, gélule
+    - ID: 364
+    - Common: GABAPENTINE
+  > NEURONTIN 300 mg, gélule
+    - ID: 365
+    - Common: GABAPENTINE
+  > NEURONTIN 400 mg, gélule
+    - ID: 340
+    - Common: GABAPENTINE
+  > NEURONTIN 600 mg, comprimé pelliculé
+    - ID: 366
+    - Common: GABAPENTINE
+  > NEURONTIN 800 mg, comprimé pelliculé
+    - ID: 367
+    - Common: GABAPENTINE
+----------------------------------------
+[SINGLE] NEXAVAR 200 mg, comprimé pelliculé
+  - ID: 1607
+----------------------------------------
+[CLUSTER] NITRENDIPINE
+  > NIDREL 10 mg, comprimé
+    - ID: 86
+    - Common: NITRENDIPINE
+  > NIDREL 20 mg, comprimé
+    - ID: 87
+    - Common: NITRENDIPINE
+----------------------------------------
+[CLUSTER] VALSARTAN
+  > NISIS 160 mg, comprimé pelliculé
+    - ID: 846
+    - Common: VALSARTAN
+  > NISIS 40 mg, comprimé pelliculé sécable
+    - ID: 847
+    - Common: VALSARTAN
+  > NISIS 80 mg, comprimé pelliculé
+    - ID: 848
+    - Common: VALSARTAN
+----------------------------------------
+[CLUSTER] HYDROCHLOROTHIAZIDE, VALSARTAN
+  > NISISCO 160 mg/12,5 mg, comprimé pelliculé
+    - ID: 849
+    - Common: HYDROCHLOROTHIAZIDE, VALSARTAN
+  > NISISCO 160 mg/25 mg, comprimé pelliculé
+    - ID: 851
+    - Common: HYDROCHLOROTHIAZIDE, VALSARTAN
+  > NISISCO 80 mg/12,5 mg, comprimé pelliculé
+    - ID: 850
+    - Common: HYDROCHLOROTHIAZIDE, VALSARTAN
+----------------------------------------
+[CLUSTER] LORMÉTAZÉPAM
+  > NOCTAMIDE 1 mg, comprimé sécable
+    - ID: 1155
+    - Common: LORMÉTAZÉPAM
+  > NOCTAMIDE 2 mg, comprimé sécable
+    - ID: 1156
+    - Common: LORMÉTAZÉPAM
+----------------------------------------
+[CLUSTER] TAMOXIFÈNE
+  > NOLVADEX 10 mg, comprimé pelliculé
+    - ID: 200
+    - Common: TAMOXIFÈNE
+  > NOLVADEX 20 mg, comprimé enrobé
+    - ID: 201
+    - Common: TAMOXIFÈNE
+----------------------------------------
+[CLUSTER] PIRACÉTAM
+  > NOOTROPYL 20 %, solution buvable
+    - ID: 291
+    - Common: PIRACÉTAM
+  > NOOTROPYL 400 mg, gélule
+    - ID: 292
+    - Common: PIRACÉTAM
+  > NOOTROPYL 800 mg, comprimé pelliculé
+    - ID: 293
+    - Common: PIRACÉTAM
+----------------------------------------
+[SINGLE] NOROXINE 400 mg, comprimé enrobé
+  - ID: 191
+----------------------------------------
+[CLUSTER] MIRTAZAPINE
+  > NORSET 15 mg, comprimé orodispersible
+    - ID: 505
+    - Common: MIRTAZAPINE
+  > NORSET 15 mg, comprimé pelliculé
+    - ID: 413
+    - Common: MIRTAZAPINE
+----------------------------------------
+[SINGLE] NORVIR 100 mg, comprimé pelliculé
+  - ID: 1526
+----------------------------------------
+[SINGLE] NOVATREX 2,5 mg, comprimé
+  - ID: 504
+----------------------------------------
+[CLUSTER] RÉPAGLINIDE
+  > NOVONORM 0,5 mg, comprimé
+    - ID: 882
+    - Common: RÉPAGLINIDE
+  > NOVONORM 1 mg, comprimé
+    - ID: 883
+    - Common: RÉPAGLINIDE
+  > NOVONORM 2 mg, comprimé
+    - ID: 884
+    - Common: RÉPAGLINIDE
+----------------------------------------
+[CLUSTER] POSACONAZOLE
+  > NOXAFIL 100 mg, comprimé gastro-résistant
+    - ID: 1691
+    - Common: POSACONAZOLE
+  > NOXAFIL 40 mg/mL, suspension buvable
+    - ID: 1563
+    - Common: POSACONAZOLE
+----------------------------------------
+[SINGLE] NUROFENFLASH 200 mg, comprimé pelliculé
+  - ID: 1183
+----------------------------------------
+[SINGLE] OCTEGRA 400 mg, comprimé pelliculé -IZILOX 400 mg, comprimé pelliculé
+  - ID: 930
+----------------------------------------
+[CLUSTER] TRANDOLAPRIL
+  > ODRIK 0,5 mg, gélule
+    - ID: 663
+    - Common: TRANDOLAPRIL
+  > ODRIK 2 mg, gélule
+    - ID: 662
+    - Common: TRANDOLAPRIL
+  > ODRIK 4 mg, gélule
+    - ID: 661
+    - Common: TRANDOLAPRIL
+----------------------------------------
+[CLUSTER] NINTÉDANIB, ÉSILATE DE NINTÉDANIB
+  > OFEV 100 mg, capsule molle
+    - ID: 1897
+    - Common: NINTÉDANIB, ÉSILATE DE NINTÉDANIB
+  > OFEV 150 mg, capsule molle
+    - ID: 1898
+    - Common: NINTÉDANIB, ÉSILATE DE NINTÉDANIB
+----------------------------------------
+[SINGLE] OFLOCET 200 mg, comprimé pelliculé sécable
+  - ID: 187
+----------------------------------------
+[SINGLE] OMACOR 1000 mg, capsule molle
+  - ID: 1261
+----------------------------------------
+[SINGLE] OMEPRAZOLE BAYER 20 mg, comprimé gastro-résistant
+  - ID: 929
+----------------------------------------
+[SINGLE] ONGLYZA 5 mg, comprimé pelliculé
+  - ID: 1658
+----------------------------------------
+[CLUSTER] AZACITIDINE
+  > ONUREG 200 mg, comprimé pelliculé
+    - ID: 1945
+    - Common: AZACITIDINE
+  > ONUREG 300 mg, comprimé pelliculé
+    - ID: 1946
+    - Common: AZACITIDINE
+----------------------------------------
+[SINGLE] OPTRUMA 60 mg, comprimé pelliculé
+  - ID: 963
+----------------------------------------
+[SINGLE] ORACEFAL 500 mg, gélule
+  - ID: 172
+----------------------------------------
+[SINGLE] ORBENINE 500 mg, gélule
+  - ID: 1136
+----------------------------------------
+[CLUSTER] CEFPODOXIME, CEFPODOXIME PROXÉTIL
+  > ORELOX 100 mg, comprimé pelliculé
+    - ID: 531
+    - Common: CEFPODOXIME, CEFPODOXIME PROXÉTIL
+  > ORELOX ENFANTS ET NOURRISSONS 40 mg/5 ml, granulés pour suspension buvable
+    - ID: 532
+    - Common: CEFPODOXIME, CEFPODOXIME PROXÉTIL
+----------------------------------------
+[CLUSTER] NITISINONE
+  > ORFADIN 10 mg, gélule
+    - ID: 1454
+    - Common: NITISINONE
+  > ORFADIN 2 mg, gélule
+    - ID: 1453
+    - Common: NITISINONE
+  > ORFADIN 20 mg, gélule
+    - ID: 1736
+    - Common: NITISINONE
+  > ORFADIN 5 mg, gélule
+    - ID: 1455
+    - Common: NITISINONE
+----------------------------------------
+[CLUSTER] CÉFIXIME ANHYDRE, CÉFIXIME TRIHYDRATÉE
+  > OROKEN 200 mg, comprimé pelliculé
+    - ID: 587
+    - Common: CÉFIXIME ANHYDRE, CÉFIXIME TRIHYDRATÉE
+  > OROKEN ENFANTS 100 mg/5 ml, poudre pour suspension buvable en flacon
+    - ID: 1804
+    - Common: CÉFIXIME ANHYDRE, CÉFIXIME TRIHYDRATÉE
+----------------------------------------
+[CLUSTER] APRÉMILAST
+  > OTEZLA 10 mg, comprimé pelliculé, OTEZLA 20 mg, comprimé pelliculé, OTEZLA 30 mg, comprimé pelliculé
+    - ID: 1906
+    - Common: APRÉMILAST
+  > OTEZLA 30 mg, comprimé pelliculé
+    - ID: 1908
+    - Common: APRÉMILAST
+----------------------------------------
+[SINGLE] OXYCODONE (CHLORHYDRATE DE) 10 mg + NALOXONE (CHLORHYDRATE DE) DIHYDRATE équivalant à NALOXONE (CHLORHYDRATE DE) 5 mg  -TARGINACT 10 mg/5 mg, comprimé à libération prolongée
+  - ID: 1532
+----------------------------------------
+[SINGLE] OXYCODONE (CHLORHYDRATE DE) 20 mg + NALOXONE (CHLORHYDRATE DE) DIHYDRATE équivalant à NALOXONE (CHLORHYDRATE DE) 10 mg  -TARGINACT 20 mg/10 mg, comprimé à libération prolongée
+  - ID: 1533
+----------------------------------------
+[SINGLE] OXYCODONE (CHLORHYDRATE DE) 40 mg + NALOXONE (CHLORHYDRATE DE) DIHYDRATE équivalant à NALOXONE (CHLORHYDRATE DE) 20 mg  -TARGINACT 40 mg/20 mg, comprimé à libération prolongée
+  - ID: 1534
+----------------------------------------
+[SINGLE] OXYCODONE (CHLORHYDRATE DE) 5 mg + NALOXONE (CHLORHYDRATE DE) DIHYDRATE équivalant à NALOXONE (CHLORHYDRATE DE) 2,5 mg  -TARGINACT 5 mg/2,5 mg, comprimé à libération prolongée
+  - ID: 1531
+----------------------------------------
+[CLUSTER] OXYCODONE
+  > OXYCONTIN L.P. 5 mg, comprimé pelliculé à libération prolongée
+    - ID: 1190
+    - Common: OXYCODONE
+  > OXYCONTIN LP 10 mg, comprimé pelliculé à libération prolongée
+    - ID: 1191
+    - Common: OXYCODONE
+  > OXYCONTIN LP 15 mg, comprimé pelliculé à libération prolongée
+    - ID: 1192
+    - Common: OXYCODONE
+  > OXYCONTIN LP 20 mg, comprimé pelliculé à libération prolongée
+    - ID: 1193
+    - Common: OXYCODONE
+  > OXYCONTIN LP 30 mg, comprimé pelliculé à libération prolongée
+    - ID: 1194
+    - Common: OXYCODONE
+  > OXYCONTIN LP 40 mg, comprimé pelliculé à libération prolongée
+    - ID: 1195
+    - Common: OXYCODONE
+  > OXYCONTIN LP 60 mg, comprimé pelliculé à libération prolongée
+    - ID: 1196
+    - Common: OXYCODONE
+  > OXYCONTIN LP 80 mg, comprimé pelliculé à libération prolongée
+    - ID: 1197
+    - Common: OXYCODONE
+  > OXYNORM 10 mg, gélule
+    - ID: 1355
+    - Common: OXYCODONE
+  > OXYNORM 20 mg, gélule
+    - ID: 1356
+    - Common: OXYCODONE
+  > OXYNORM 5 mg, gélule
+    - ID: 1354
+    - Common: OXYCODONE
+----------------------------------------
+[CLUSTER] TAPENTADOL
+  > PALEXIA LP 100 mg, comprimé à libération prolongée
+    - ID: 1849
+    - Common: TAPENTADOL
+  > PALEXIA LP 150 mg, comprimé à libération prolongée
+    - ID: 1832
+    - Common: TAPENTADOL
+  > PALEXIA LP 200 mg, comprimé à libération prolongée
+    - ID: 1833
+    - Common: TAPENTADOL
+  > PALEXIA LP 25 mg, comprimé à libération prolongée
+    - ID: 1848
+    - Common: TAPENTADOL
+  > PALEXIA LP 250 mg, comprimé à libération prolongée
+    - ID: 1847
+    - Common: TAPENTADOL
+  > PALEXIA LP 50 mg, comprimé à libération prolongée
+    - ID: 1846
+    - Common: TAPENTADOL
+----------------------------------------
+[CLUSTER] PANTOPRAZOLE, PANTOPRAZOLE SODIQUE SESQUIHYDRATÉ
+  > PANTIPP 40 mg, comprimé gastro-résistant
+    - ID: 615
+    - Common: PANTOPRAZOLE, PANTOPRAZOLE SODIQUE SESQUIHYDRATÉ
+  > PANTOZOL CONTROL 20 mg, comprimé gastro-résistant
+    - ID: 711
+    - Common: PANTOPRAZOLE, PANTOPRAZOLE SODIQUE SESQUIHYDRATÉ
+----------------------------------------
+[CLUSTER] RABÉPRAZOLE SODIQUE
+  > PARIET 10 mg, comprimé gastro-résistant
+    - ID: 971
+    - Common: RABÉPRAZOLE SODIQUE
+  > PARIET 20 mg, comprimé gastro-résistant
+    - ID: 972
+    - Common: RABÉPRAZOLE SODIQUE
+----------------------------------------
+[CLUSTER] FAMOTIDINE
+  > PEPDINE 20 mg, comprimé pelliculé
+    - ID: 12
+    - Common: FAMOTIDINE
+  > PEPDINE 40 mg, comprimé pelliculé
+    - ID: 13
+    - Common: FAMOTIDINE
+----------------------------------------
+[SINGLE] PHAEVA, comprimé enrobé
+  - ID: 464
+----------------------------------------
+[CLUSTER] MOXONIDINE
+  > PHYSIOTENS 0,2 mg, comprimé pelliculé
+    - ID: 471
+    - Common: MOXONIDINE
+  > PHYSIOTENS 0,4 mg, comprimé pelliculé
+    - ID: 473
+    - Common: MOXONIDINE
+----------------------------------------
+[CLUSTER] DABIGATRAN ÉTEXILATE
+  > PRADAXA 110 mg, gélule
+    - ID: 1714
+    - Common: DABIGATRAN ÉTEXILATE
+  > PRADAXA 150 mg, gélule
+    - ID: 1715
+    - Common: DABIGATRAN ÉTEXILATE
+  > PRADAXA 75 mg, gélule
+    - ID: 1716
+    - Common: DABIGATRAN ÉTEXILATE
+----------------------------------------
+[SINGLE] PRAXILENE 200 mg, comprimé pelliculé
+  - ID: 68
+----------------------------------------
+[CLUSTER] DARUNAVIR, ÉTHANOLATE DE DARUNAVIR
+  > PREZISTA 150 mg, comprimé pelliculé
+    - ID: 1388
+    - Common: DARUNAVIR, ÉTHANOLATE DE DARUNAVIR
+  > PREZISTA 75 mg, comprimé pelliculé
+    - ID: 1387
+    - Common: DARUNAVIR, ÉTHANOLATE DE DARUNAVIR
+----------------------------------------
+[CLUSTER] DARUNAVIR
+  > PREZISTA 400 mg, comprimé pelliculé
+    - ID: 1390
+    - Common: DARUNAVIR
+  > PREZISTA 600 mg, comprimé pelliculé
+    - ID: 1391
+    - Common: DARUNAVIR
+  > PREZISTA 800 mg, comprimé pelliculé
+    - ID: 1392
+    - Common: DARUNAVIR
+----------------------------------------
+[SINGLE] PRIMPERAN 10 mg, comprimé sécable
+  - ID: 22
+----------------------------------------
+[CLUSTER] TELMISARTAN
+  > PRITOR 20 mg, comprimé
+    - ID: 939
+    - Common: TELMISARTAN
+  > PRITOR 40 mg, comprimé
+    - ID: 940
+    - Common: TELMISARTAN
+  > PRITOR 80 mg, comprimé
+    - ID: 941
+    - Common: TELMISARTAN
+----------------------------------------
+[CLUSTER] HYDROCHLOROTHIAZIDE, TELMISARTAN
+  > PRITORPLUS 40 mg/12,5 mg, comprimé
+    - ID: 1125
+    - Common: HYDROCHLOROTHIAZIDE, TELMISARTAN
+  > PRITORPLUS 80 mg/12,5 mg, comprimé
+    - ID: 1126
+    - Common: HYDROCHLOROTHIAZIDE, TELMISARTAN
+  > PRITORPLUS 80 mg/25 mg, comprimé
+    - ID: 1127
+    - Common: HYDROCHLOROTHIAZIDE, TELMISARTAN
+----------------------------------------
+[CLUSTER] IVABRADINE
+  > PROCORALAN 5 mg, comprimé pelliculé
+    - ID: 1372
+    - Common: IVABRADINE
+  > PROCORALAN 7,5 mg, comprimé pelliculé
+    - ID: 1373
+    - Common: IVABRADINE
+----------------------------------------
+[SINGLE] PRONTALGINE, comprimé
+  - ID: 1368
+----------------------------------------
+[CLUSTER] FLUOXÉTINE
+  > PROZAC 20 mg, comprimé dispersible sécable
+    - ID: 281
+    - Common: FLUOXÉTINE
+  > PROZAC 20 mg, gélule
+    - ID: 280
+    - Common: FLUOXÉTINE
+  > PROZAC 20 mg/5 ml, solution buvable en flacon
+    - ID: 282
+    - Common: FLUOXÉTINE
+----------------------------------------
+[CLUSTER] RANITIDINE
+  > RANIPLEX 150 mg, comprimé effervescent
+    - ID: 10
+    - Common: RANITIDINE
+  > RANIPLEX 150 mg, comprimé pelliculé
+    - ID: 7
+    - Common: RANITIDINE
+  > RANIPLEX 300 mg, comprimé effervescent
+    - ID: 11
+    - Common: RANITIDINE
+  > RANIPLEX 300 mg, comprimé pelliculé
+    - ID: 8
+    - Common: RANITIDINE
+----------------------------------------
+[CLUSTER] ÉLÉTRIPTAN
+  > RELPAX 20 mg, comprimé pelliculé
+    - ID: 1268
+    - Common: ÉLÉTRIPTAN
+  > RELPAX 40 mg, comprimé pelliculé
+    - ID: 1269
+    - Common: ÉLÉTRIPTAN
+----------------------------------------
+[CLUSTER] GALANTAMINE
+  > REMINYL L.P. 16 mg, gélule à libération prolongée
+    - ID: 1040
+    - Common: GALANTAMINE
+  > REMINYL L.P. 24 mg, gélule à libération prolongée
+    - ID: 1041
+    - Common: GALANTAMINE
+  > REMINYL L.P. 8 mg, gélule à libération prolongée
+    - ID: 1039
+    - Common: GALANTAMINE
+----------------------------------------
+[SINGLE] RENAGEL 800 mg, comprimé pelliculé
+  - ID: 1684
+----------------------------------------
+[CLUSTER] ÉNALAPRIL
+  > RENITEC 20 mg, comprimé
+    - ID: 97
+    - Common: ÉNALAPRIL
+  > RENITEC 5 mg, comprimé
+    - ID: 96
+    - Common: ÉNALAPRIL
+----------------------------------------
+[SINGLE] RENVELA 800 mg, comprimé pelliculé
+  - ID: 1215
+----------------------------------------
+[CLUSTER] SILDÉNAFIL
+  > REVATIO 20 mg, comprimé pelliculé
+    - ID: 1353
+    - Common: SILDÉNAFIL
+  > VIAGRA 100 mg, comprimé pelliculé
+    - ID: 893
+    - Common: SILDÉNAFIL
+  > VIAGRA 25 mg, comprimé pelliculé
+    - ID: 892
+    - Common: SILDÉNAFIL
+  > VIAGRA 50 mg, comprimé pelliculé
+    - ID: 891
+    - Common: SILDÉNAFIL
+----------------------------------------
+[CLUSTER] LÉNALIDOMIDE
+  > REVLIMID 10 mg, gélule
+    - ID: 1547
+    - Common: LÉNALIDOMIDE
+  > REVLIMID 15 mg, gélule
+    - ID: 1548
+    - Common: LÉNALIDOMIDE
+  > REVLIMID 2,5 mg, gélule
+    - ID: 1549
+    - Common: LÉNALIDOMIDE
+  > REVLIMID 20 mg, gélule
+    - ID: 1573
+    - Common: LÉNALIDOMIDE
+  > REVLIMID 25 mg, gélule
+    - ID: 1550
+    - Common: LÉNALIDOMIDE
+  > REVLIMID 5 mg, gélule
+    - ID: 1552
+    - Common: LÉNALIDOMIDE
+  > REVLIMID 7,5 mg, gélule
+    - ID: 1574
+    - Common: LÉNALIDOMIDE
+----------------------------------------
+[CLUSTER] ELTROMBOPAG
+  > REVOLADE 25 mg, comprimé pelliculé
+    - ID: 1894
+    - Common: ELTROMBOPAG
+  > REVOLADE 50 mg, comprimé pelliculé
+    - ID: 1895
+    - Common: ELTROMBOPAG
+  > REVOLADE 75 mg, comprimé pelliculé
+    - ID: 1896
+    - Common: ELTROMBOPAG
+----------------------------------------
+[CLUSTER] ATAZANAVIR
+  > REYATAZ 150 mg, gélule
+    - ID: 1343
+    - Common: ATAZANAVIR
+  > REYATAZ 200 mg, gélule
+    - ID: 1344
+    - Common: ATAZANAVIR
+  > REYATAZ 300 mg, gélule
+    - ID: 1345
+    - Common: ATAZANAVIR
+----------------------------------------
+[SINGLE] RILUTEK 50 mg, comprimé pelliculé
+  - ID: 818
+----------------------------------------
+[CLUSTER] RISPÉRIDONE
+  > RISPERDAL 1 mg, comprimé pelliculé
+    - ID: 351
+    - Common: RISPÉRIDONE
+  > RISPERDAL 1 mg/ml, solution buvable
+    - ID: 614
+    - Common: RISPÉRIDONE
+  > RISPERDAL 2 mg, comprimé pelliculé
+    - ID: 352
+    - Common: RISPÉRIDONE
+  > RISPERDAL 4 mg, comprimé pelliculé
+    - ID: 353
+    - Common: RISPÉRIDONE
+  > RISPERDALORO 0,5 mg, comprimé orodispersible
+    - ID: 510
+    - Common: RISPÉRIDONE
+  > RISPERDALORO 1 mg, comprimé orodispersible
+    - ID: 511
+    - Common: RISPÉRIDONE
+  > RISPERDALORO 2 mg, comprimé orodispersible
+    - ID: 512
+    - Common: RISPÉRIDONE
+  > RISPERDALORO 3 mg, comprimé orodispersible
+    - ID: 752
+    - Common: RISPÉRIDONE
+  > RISPERDALORO 4 mg, comprimé orodispersible
+    - ID: 751
+    - Common: RISPÉRIDONE
+----------------------------------------
+[CLUSTER] ISOTRÉTINOÏNE
+  > ROACCUTANE 10 mg, capsule molle
+    - ID: 116
+    - Common: ISOTRÉTINOÏNE
+  > ROACCUTANE 20 mg, capsule molle
+    - ID: 117
+    - Common: ISOTRÉTINOÏNE
+  > ROACCUTANE 5 mg, capsule molle
+    - ID: 115
+    - Common: ISOTRÉTINOÏNE
+----------------------------------------
+[SINGLE] ROVALCYTE 450 mg, comprimé pelliculé
+  - ID: 1245
+----------------------------------------
+[SINGLE] ROVAMYCINE 3 MILLIONS U I, comprimé pelliculé
+  - ID: 502
+----------------------------------------
+[CLUSTER] ROXITHROMYCINE
+  > RULID 100 mg, comprimé pelliculé
+    - ID: 185
+    - Common: ROXITHROMYCINE
+  > RULID 150 mg, comprimé enrobé
+    - ID: 186
+    - Common: ROXITHROMYCINE
+----------------------------------------
+[SINGLE] RYTHMOL 300 mg, comprimé pelliculé sécable
+  - ID: 1446
+----------------------------------------
+[CLUSTER] ACÉBUTOLOL
+  > SECTRAL 200 mg, comprimé pelliculé
+    - ID: 80
+    - Common: ACÉBUTOLOL
+  > SECTRAL 400 mg, comprimé pelliculé
+    - ID: 81
+    - Common: ACÉBUTOLOL
+  > SECTRAL LP 500 mg, comprimé pelliculé à libération prolongée
+    - ID: 1220
+    - Common: ACÉBUTOLOL
+----------------------------------------
+[SINGLE] SELINCRO 18 mg, comprimé pelliculé
+  - ID: 1954
+----------------------------------------
+[CLUSTER] MÉTOPROLOL
+  > SELOKEN 100 mg, comprimé sécable
+    - ID: 77
+    - Common: MÉTOPROLOL
+  > SELOKEN 50 mg, comprimé
+    - ID: 1093
+    - Common: MÉTOPROLOL
+----------------------------------------
+[CLUSTER] OXAZÉPAM
+  > SERESTA 10 mg, comprimé
+    - ID: 1913
+    - Common: OXAZÉPAM
+  > SERESTA 50 mg, comprimé sécable
+    - ID: 1914
+    - Common: OXAZÉPAM
+----------------------------------------
+[CLUSTER] ESCITALOPRAM
+  > SEROPLEX 10 mg, comprimé pelliculé sécable
+    - ID: 1103
+    - Common: ESCITALOPRAM
+  > SEROPLEX 15 mg, comprimé pelliculé sécable
+    - ID: 1104
+    - Common: ESCITALOPRAM
+  > SEROPLEX 20 mg, comprimé pelliculé sécable
+    - ID: 1105
+    - Common: ESCITALOPRAM
+  > SEROPLEX 20 mg/ml, solution buvable en gouttes
+    - ID: 1182
+    - Common: ESCITALOPRAM
+  > SEROPLEX 5 mg, comprimé pelliculé
+    - ID: 1106
+    - Common: ESCITALOPRAM
+----------------------------------------
+[SINGLE] SEROPRAM 20 mg, comprimé pelliculé sécable
+  - ID: 283
+----------------------------------------
+[CLUSTER] SILODOSINE
+  > SILODYX 4 mg, gélule
+    - ID: 1659
+    - Common: SILODOSINE
+  > SILODYX 8 mg, gélule
+    - ID: 1660
+    - Common: SILODOSINE
+  > UROREC 4 mg, gélule
+    - ID: 1630
+    - Common: SILODOSINE
+  > UROREC 8 mg, gélule
+    - ID: 1631
+    - Common: SILODOSINE
+----------------------------------------
+[CLUSTER] CARBIDOPA ANHYDRE, CARBIDOPA MONOHYDRATÉE, LÉVODOPA
+  > SINEMET 100 mg/10 mg, comprimé
+    - ID: 1139
+    - Common: CARBIDOPA ANHYDRE, CARBIDOPA MONOHYDRATÉE, LÉVODOPA
+  > SINEMET 250 mg/25 mg, comprimé sécable
+    - ID: 1140
+    - Common: CARBIDOPA ANHYDRE, CARBIDOPA MONOHYDRATÉE, LÉVODOPA
+  > SINEMET LP 100 mg/25 mg, comprimé à libération prolongée
+    - ID: 538
+    - Common: CARBIDOPA ANHYDRE, CARBIDOPA MONOHYDRATÉE, LÉVODOPA
+  > SINEMET LP 200 mg/50 mg, comprimé à libération prolongée
+    - ID: 539
+    - Common: CARBIDOPA ANHYDRE, CARBIDOPA MONOHYDRATÉE, LÉVODOPA
+----------------------------------------
+[CLUSTER] MONTÉLUKAST SODIQUE
+  > SINGULAIR 10 mg, comprimé pelliculé
+    - ID: 795
+    - Common: MONTÉLUKAST SODIQUE
+  > SINGULAIR 4 mg, comprimé à croquer
+    - ID: 994
+    - Common: MONTÉLUKAST SODIQUE
+  > SINGULAIR 5 mg, comprimé à croquer
+    - ID: 811
+    - Common: MONTÉLUKAST SODIQUE
+----------------------------------------
+[SINGLE] SINGULAIR 4 mg, granulés
+  - ID: 1069
+----------------------------------------
+[CLUSTER] DIOSMECTITE
+  > SMECTA 3 g ORANGE-VANILLE, poudre pour suspension buvable en sachet
+    - ID: 813
+    - Common: DIOSMECTITE
+  > SMECTA 3 g, suspension buvable en sachet
+    - ID: 1198
+    - Common: DIOSMECTITE
+----------------------------------------
+[CLUSTER] AMISULPRIDE
+  > SOLIAN 100 mg, comprimé sécable
+    - ID: 264
+    - Common: AMISULPRIDE
+  > SOLIAN 100 mg/ml, solution buvable
+    - ID: 1744
+    - Common: AMISULPRIDE
+  > SOLIAN 200 mg, comprimé sécable
+    - ID: 265
+    - Common: AMISULPRIDE
+  > SOLIAN 400 mg, comprimé pelliculé sécable
+    - ID: 322
+    - Common: AMISULPRIDE
+----------------------------------------
+[SINGLE] SOLUPRED 20 mg, comprimé effervescent
+  - ID: 135
+----------------------------------------
+[CLUSTER] MÉTASULFOBENZOATE SODIQUE DE PREDNISOLONE, PREDNISOLONE
+  > SOLUPRED 20 mg, comprimé orodispersible
+    - ID: 670
+    - Common: MÉTASULFOBENZOATE SODIQUE DE PREDNISOLONE, PREDNISOLONE
+  > SOLUPRED 5 mg, comprimé effervescent
+    - ID: 134
+    - Common: MÉTASULFOBENZOATE SODIQUE DE PREDNISOLONE, PREDNISOLONE
+----------------------------------------
+[CLUSTER] SOTALOL
+  > SOTALEX 160 mg, comprimé sécable
+    - ID: 76
+    - Common: SOTALOL
+  > SOTALEX 80 mg, comprimé sécable
+    - ID: 75
+    - Common: SOTALOL
+----------------------------------------
+[SINGLE] SPASFON LYOC 160 mg, lyophilisat oral
+  - ID: 1608
+----------------------------------------
+[CLUSTER] ACIDE FOLIQUE
+  > SPECIAFOLDINE 0,4 mg, comprimé
+    - ID: 1807
+    - Common: ACIDE FOLIQUE
+  > SPECIAFOLDINE 5 mg, comprimé
+    - ID: 40
+    - Common: ACIDE FOLIQUE
+----------------------------------------
+[SINGLE] SPORANOX 100 mg, gélule
+  - ID: 343
+----------------------------------------
+[CLUSTER] DASATINIB
+  > SPRYCEL 100 mg, comprimé pelliculé
+    - ID: 1583
+    - Common: DASATINIB
+  > SPRYCEL 140 mg, comprimé pelliculé
+    - ID: 1584
+    - Common: DASATINIB
+  > SPRYCEL 20 mg, comprimé pelliculé
+    - ID: 1585
+    - Common: DASATINIB
+  > SPRYCEL 50 mg, comprimé pelliculé
+    - ID: 1586
+    - Common: DASATINIB
+  > SPRYCEL 70 mg, comprimé pelliculé
+    - ID: 1587
+    - Common: DASATINIB
+----------------------------------------
+[SINGLE] STABLON 12,5 mg, comprimé enrobé
+  - ID: 1002
+----------------------------------------
+[CLUSTER] ENTACAPONE, LÉVODOPA
+  > STALEVO 100 mg/25 mg/200 mg, comprimé pelliculé
+    - ID: 1210
+    - Common: ENTACAPONE, LÉVODOPA
+  > STALEVO 125 mg/31,25 mg/200 mg, comprimé pelliculé
+    - ID: 1211
+    - Common: ENTACAPONE, LÉVODOPA
+  > STALEVO 150 mg/37,5 mg/200 mg, comprimé pelliculé
+    - ID: 1212
+    - Common: ENTACAPONE, LÉVODOPA
+  > STALEVO 175 mg/43,75 mg/200 mg, comprimé pelliculé
+    - ID: 1213
+    - Common: ENTACAPONE, LÉVODOPA
+  > STALEVO 200 mg/50 mg/200 mg, comprimé pelliculé
+    - ID: 1214
+    - Common: ENTACAPONE, LÉVODOPA
+  > STALEVO 50 mg/12,5 mg/200 mg, comprimé pelliculé
+    - ID: 1208
+    - Common: ENTACAPONE, LÉVODOPA
+  > STALEVO 75 mg/18,75 mg/200 mg, comprimé pelliculé
+    - ID: 1209
+    - Common: ENTACAPONE, LÉVODOPA
+----------------------------------------
+[SINGLE] STILNOX 10 mg, comprimé pelliculé sécable
+  - ID: 276
+----------------------------------------
+[SINGLE] STRESAM, gélule
+  - ID: 1634
+----------------------------------------
+[SINGLE] STROMECTOL 3 mg, comprimé
+  - ID: 1336
+----------------------------------------
+[CLUSTER] MALATE DE SUNITINIB
+  > SUNITINIB 25 mg- SUTENT 25 mg, gélule
+    - ID: 1506
+    - Common: MALATE DE SUNITINIB
+  > SUTENT 12,5 mg, gélule
+    - ID: 1505
+    - Common: MALATE DE SUNITINIB
+  > SUTENT 37,5 mg, gélule
+    - ID: 1640
+    - Common: SUNITINIB
+  > SUTENT 50 mg, gélule
+    - ID: 1507
+    - Common: MALATE DE SUNITINIB
+----------------------------------------
+[CLUSTER] AMBROXOL
+  > SURBRONC EXPECTORANT AMBROXOL 30 mg, comprimé sécable
+    - ID: 307
+    - Common: AMBROXOL
+  > SURBRONC EXPECTORANT AMBROXOL SANS SUCRE, solution buvable édulcorée à l'acésulfame potassique et au sorbitol
+    - ID: 308
+    - Common: AMBROXOL
+----------------------------------------
+[CLUSTER] ACIDE TIAPROFÉNIQUE
+  > SURGAM 100 mg, comprimé sécable
+    - ID: 227
+    - Common: ACIDE TIAPROFÉNIQUE
+  > SURGAM 200 mg, comprimé sécable
+    - ID: 228
+    - Common: ACIDE TIAPROFÉNIQUE
+----------------------------------------
+[SINGLE] SUSTIVA 600 mg, comprimé pelliculé
+  - ID: 1131
+----------------------------------------
+[SINGLE] TAGAMET 200 mg, comprimé effervescent
+  - ID: 2
+----------------------------------------
+[CLUSTER] ATORVASTATINE
+  > TAHOR 10 mg, comprimé à croquer
+    - ID: 913
+    - Common: ATORVASTATINE
+  > TAHOR 20 mg, comprimé pelliculé
+    - ID: 914
+    - Common: ATORVASTATINE
+  > TAHOR 40 mg, comprimé pelliculé
+    - ID: 915
+    - Common: ATORVASTATINE
+  > TAHOR 80 mg, comprimé pelliculé
+    - ID: 917
+    - Common: ATORVASTATINE
+----------------------------------------
+[CLUSTER] OSÉLTAMIVIR
+  > TAMIFLU 30 mg, gélule
+    - ID: 1405
+    - Common: OSÉLTAMIVIR
+  > TAMIFLU 45 mg, gélule
+    - ID: 1406
+    - Common: OSÉLTAMIVIR
+  > TAMIFLU 75 mg, gélule
+    - ID: 1407
+    - Common: OSÉLTAMIVIR
+----------------------------------------
+[SINGLE] TANGANILPRO 500 mg, comprimé
+  - ID: 1061
+----------------------------------------
+[CLUSTER] ERLOTINIB
+  > TARCEVA 100 mg, comprimé pelliculé
+    - ID: 1490
+    - Common: ERLOTINIB
+  > TARCEVA 150 mg, comprimé pelliculé
+    - ID: 1491
+    - Common: ERLOTINIB
+  > TARCEVA 25 mg, comprimé pelliculé
+    - ID: 1489
+    - Common: ERLOTINIB
+----------------------------------------
+[SINGLE] TARGINACT 15 mg/7,5 mg, comprimé à libération prolongée
+  - ID: 1598
+----------------------------------------
+[SINGLE] TARGINACT 2,5 mg/1,25 mg, comprimé à libération prolongée
+  - ID: 1599
+----------------------------------------
+[SINGLE] TARGINACT 30 mg/15 mg, comprimé à libération prolongée
+  - ID: 1600
+----------------------------------------
+[CLUSTER] TÉICOPLANINE
+  > TARGOCID 200 mg, poudre et solvant pour solution injectable/pour perfusion ou solution buvable
+    - ID: 1703
+    - Common: TÉICOPLANINE
+  > TARGOCID 400 mg, poudre et solvant pour solution injectable/pour perfusion ou solution buvable
+    - ID: 1702
+    - Common: TÉICOPLANINE
+----------------------------------------
+[SINGLE] TARGRETIN 75 mg, capsule molle
+  - ID: 1808
+----------------------------------------
+[CLUSTER] NILOTINIB
+  > TASIGNA 150 mg, gélule
+    - ID: 1928
+    - Common: NILOTINIB
+  > TASIGNA 200 mg, gélule
+    - ID: 1929
+    - Common: NILOTINIB
+  > TASIGNA 50 mg, gélule
+    - ID: 1930
+    - Common: NILOTINIB
+----------------------------------------
+[SINGLE] TAVANIC 500 mg, comprimé pelliculé sécable
+  - ID: 754
+----------------------------------------
+[CLUSTER] DIMÉTHYLE
+  > TECFIDERA 120 mg, gélule gastro-résistante
+    - ID: 1830
+    - Common: DIMÉTHYLE
+  > TECFIDERA 240 mg, gélule gastro-résistante
+    - ID: 1831
+    - Common: DIMÉTHYLE
+----------------------------------------
+[CLUSTER] CARBAMAZÉPINE
+  > TEGRETOL LP 200 mg, comprimé pelliculé sécable à libération prolongée
+    - ID: 248
+    - Common: CARBAMAZÉPINE
+  > TEGRETOL LP 400 mg, comprimé pelliculé sécable à libération prolongée
+    - ID: 249
+    - Common: CARBAMAZÉPINE
+----------------------------------------
+[SINGLE] TEMERITDUO 5 mg/12,5 mg, comprimé pelliculé
+  - ID: 1575
+----------------------------------------
+[SINGLE] TEMERITDUO 5 mg/25 mg, comprimé pelliculé
+  - ID: 1576
+----------------------------------------
+[CLUSTER] LORAZÉPAM
+  > TEMESTA 1 mg, comprimé sécable
+    - ID: 423
+    - Common: LORAZÉPAM
+  > TEMESTA 2,5 mg, comprimé sécable
+    - ID: 269
+    - Common: LORAZÉPAM
+----------------------------------------
+[CLUSTER] TÉMOZOLOMIDE
+  > TEMODAL 100 mg, gélule
+    - ID: 936
+    - Common: TÉMOZOLOMIDE
+  > TEMODAL 140 mg, gélule
+    - ID: 937
+    - Common: TÉMOZOLOMIDE
+  > TEMODAL 180 mg, gélule
+    - ID: 932
+    - Common: TÉMOZOLOMIDE
+  > TEMODAL 20 mg, gélule
+    - ID: 935
+    - Common: TÉMOZOLOMIDE
+  > TEMODAL 250 mg, gélule
+    - ID: 934
+    - Common: TÉMOZOLOMIDE
+  > TEMODAL 5 mg, gélule
+    - ID: 933
+    - Common: TÉMOZOLOMIDE
+----------------------------------------
+[SINGLE] TENORDATE, gélule
+  - ID: 1346
+----------------------------------------
+[CLUSTER] ATÉNOLOL
+  > TENORMINE 100 mg, comprimé enrobé sécable
+    - ID: 79
+    - Common: ATÉNOLOL
+  > TENORMINE 50 mg, comprimé pelliculé sécable
+    - ID: 78
+    - Common: ATÉNOLOL
+----------------------------------------
+[SINGLE] TENSTATEN 50 mg, gélule
+  - ID: 961
+----------------------------------------
+[CLUSTER] CYAMÉMAZINE
+  > TERCIAN 100 mg, comprimé pelliculé sécable
+    - ID: 1601
+    - Common: CYAMÉMAZINE
+  > TERCIAN 25 mg, comprimé pelliculé sécable
+    - ID: 1413
+    - Common: CYAMÉMAZINE
+----------------------------------------
+[SINGLE] TETRALYSAL 300 mg, gélule
+  - ID: 1188
+----------------------------------------
+[SINGLE] THALIDOMIDE CELGENE 50 mg, gélule
+  - ID: 1697
+----------------------------------------
+[SINGLE] TIAPRIDAL 100 mg, comprimé sécable
+  - ID: 263
+----------------------------------------
+[SINGLE] TICLID 250 mg, comprimé pelliculé
+  - ID: 36
+----------------------------------------
+[SINGLE] TIGREAT 2,5 mg, comprimé pelliculé
+  - ID: 1287
+----------------------------------------
+[CLUSTER] RACÉCADOTRIL
+  > TIORFAN 10 mg NOURRISSONS, poudre orale en sachet-dose
+    - ID: 1692
+    - Common: RACÉCADOTRIL
+  > TIORFAN 100 mg, gélule
+    - ID: 1235
+    - Common: RACÉCADOTRIL
+  > TIORFAN 30 mg ENFANTS, poudre orale en sachet-dose
+    - ID: 1693
+    - Common: RACÉCADOTRIL
+----------------------------------------
+[CLUSTER] ALITRÉTINOÏNE
+  > TOCTINO 10 mg, capsule molle
+    - ID: 1613
+    - Common: ALITRÉTINOÏNE
+  > TOCTINO 30 mg, capsule molle
+    - ID: 1612
+    - Common: ALITRÉTINOÏNE
+----------------------------------------
+[CLUSTER] TRAMADOL
+  > TOPALGIC 50 mg, gélule
+    - ID: 242
+    - Common: TRAMADOL
+  > TOPALGIC L.P. 100 mg, comprimé à libération prolongée
+    - ID: 698
+    - Common: TRAMADOL
+  > TOPALGIC L.P. 150 mg,  comprimé à libération prolongée
+    - ID: 699
+    - Common: TRAMADOL
+  > TOPALGIC L.P. 200 mg, comprimé à libération prolongée
+    - ID: 700
+    - Common: TRAMADOL
+  > TOPALGIC LP 50 mg, comprimé à libération prolongée
+    - ID: 712
+    - Common: TRAMADOL
+----------------------------------------
+[CLUSTER] OXOMÉMAZINE
+  > TOPLEXIL 0,33 mg/ml SANS SUCRE, solution buvable édulcorée à l'acésulfame potassique
+    - ID: 952
+    - Common: OXOMÉMAZINE
+  > TOPLEXIL 0,33 mg/ml, sirop
+    - ID: 912
+    - Common: OXOMÉMAZINE
+----------------------------------------
+[SINGLE] TORENTAL LP 400 mg, comprimé enrobé à libération prolongée
+  - ID: 61
+----------------------------------------
+[CLUSTER] FÉSOTÉRODINE
+  > TOVIAZ 4 mg, comprimé à libération prolongée
+    - ID: 1776
+    - Common: FÉSOTÉRODINE
+  > TOVIAZ 8 mg, comprimé à libération prolongée
+    - ID: 1777
+    - Common: FÉSOTÉRODINE
+----------------------------------------
+[CLUSTER] BOSENTAN
+  > TRACLEER 125 mg, comprimé pelliculé
+    - ID: 1242
+    - Common: BOSENTAN
+  > TRACLEER 32 mg, comprimé dispersible
+    - ID: 1969
+    - Common: BOSENTAN BASE
+  > TRACLEER 62,5 mg, comprimé pelliculé
+    - ID: 1241
+    - Common: BOSENTAN
+----------------------------------------
+[SINGLE] TRANSIPEG 5,9 g, poudre pour solution buvable en sachet
+  - ID: 926
+----------------------------------------
+[CLUSTER] RAMIPRIL
+  > TRIATEC 1,25 mg, comprimé
+    - ID: 372
+    - Common: RAMIPRIL
+  > TRIATEC 10 mg, comprimé sécable
+    - ID: 382
+    - Common: RAMIPRIL
+  > TRIATEC 2,5 mg, comprimé sécable
+    - ID: 373
+    - Common: RAMIPRIL
+  > TRIATEC 5 mg, comprimé sécable
+    - ID: 374
+    - Common: RAMIPRIL
+----------------------------------------
+[CLUSTER] OXCARBAZÉPINE
+  > TRILEPTAL 150 mg, comprimé pelliculé
+    - ID: 588
+    - Common: OXCARBAZÉPINE
+  > TRILEPTAL 300 mg, comprimé pelliculé
+    - ID: 589
+    - Common: OXCARBAZÉPINE
+  > TRILEPTAL 600 mg, comprimé pelliculé
+    - ID: 590
+    - Common: OXCARBAZÉPINE
+----------------------------------------
+[SINGLE] TRINORDIOL, comprimé enrobé
+  - ID: 122
+----------------------------------------
+[SINGLE] TRIZIVIR 300 mg / 150 mg / 300 mg, comprimé pelliculé
+  - ID: 1460
+----------------------------------------
+[SINGLE] TRUVADA 200 mg/245 mg, comprimé pelliculé
+  - ID: 1371
+----------------------------------------
+[SINGLE] TUSSIDANE 1,5 mg/ml SANS SUCRE, solution buvable édulcorée au maltitol liquide et à la saccharine sodique
+  - ID: 1520
+----------------------------------------
+[CLUSTER] AMLODIPINE, TELMISARTAN
+  > TWYNSTA 40 mg/10 mg, comprimé
+    - ID: 1737
+    - Common: AMLODIPINE, TELMISARTAN
+  > TWYNSTA 40 mg/5 mg, comprimé
+    - ID: 1738
+    - Common: AMLODIPINE, TELMISARTAN
+  > TWYNSTA 80 mg/10 mg, comprimé
+    - ID: 1739
+    - Common: AMLODIPINE, TELMISARTAN
+  > TWYNSTA 80 mg/5 mg, comprimé
+    - ID: 1740
+    - Common: AMLODIPINE, TELMISARTAN
+----------------------------------------
+[SINGLE] TYVERB 250 mg, comprimé pelliculé
+  - ID: 1836
+----------------------------------------
+[CLUSTER] SUCRALFATE
+  > ULCAR 1 g, comprimé
+    - ID: 16
+    - Common: SUCRALFATE
+  > ULCAR 1 g, suspension buvable en sachet
+    - ID: 15
+    - Common: SUCRALFATE
+----------------------------------------
+[SINGLE] URIDOZ 3 g, granulé pour solution buvable en sachet
+  - ID: 782
+----------------------------------------
+[CLUSTER] PROGESTÉRONE
+  > UTROGESTAN 100 mg, capsule molle orale ou vaginale
+    - ID: 123
+    - Common: PROGESTÉRONE
+  > UTROGESTAN 200 mg, capsule molle orale ou vaginale
+    - ID: 124
+    - Common: PROGESTÉRONE
+----------------------------------------
+[CLUSTER] CHOLÉCALCIFÉROL
+  > UVEDOSE 100 000 UI, solution buvable en ampoule
+    - ID: 1219
+    - Common: CHOLÉCALCIFÉROL
+  > ZYMAD 200 000 UI, solution buvable en ampoule
+    - ID: 1816
+    - Common: CHOLÉCALCIFÉROL
+  > ZYMAD 50 000 UI, solution buvable en ampoule
+    - ID: 1835
+    - Common: CHOLÉCALCIFÉROL
+  > ZYMAD 80 000 UI, solution buvable en ampoule
+    - ID: 1817
+    - Common: CHOLÉCALCIFÉROL
+----------------------------------------
+[SINGLE] VALDOXAN 25 mg, comprimé pelliculé
+  - ID: 1536
+----------------------------------------
+[CLUSTER] DIAZÉPAM
+  > VALIUM 10 mg, comprimé sécable
+    - ID: 268
+    - Common: DIAZÉPAM
+  > VALIUM ROCHE 2 mg, comprimé sécable
+    - ID: 266
+    - Common: DIAZÉPAM
+  > VALIUM ROCHE 5 mg, comprimé sécable
+    - ID: 267
+    - Common: DIAZÉPAM
+----------------------------------------
+[SINGLE] VARNOLINE CONTINU, comprimé pelliculé
+  - ID: 1137
+----------------------------------------
+[SINGLE] VARNOLINE, comprimé
+  - ID: 120
+----------------------------------------
+[SINGLE] VASTAREL 35 mg, comprimé pelliculé à libération modifiée
+  - ID: 580
+----------------------------------------
+[CLUSTER] PRAVASTATINE SODIQUE
+  > VASTEN 10 mg, comprimé sécable
+    - ID: 379
+    - Common: PRAVASTATINE SODIQUE
+  > VASTEN 20 mg, comprimé sécable
+    - ID: 380
+    - Common: PRAVASTATINE SODIQUE
+  > VASTEN 40 mg, comprimé
+    - ID: 381
+    - Common: PRAVASTATINE SODIQUE
+----------------------------------------
+[SINGLE] VEINAMITOL 3500 mg, poudre pour solution buvable en sachet-dose
+  - ID: 72
+----------------------------------------
+[SINGLE] VELMETIA 50 mg/1000 mg, comprimé pelliculé
+  - ID: 1751
+----------------------------------------
+[CLUSTER] SOLIFÉNACINE
+  > VESICARE 10 mg, comprimé pelliculé
+    - ID: 1422
+    - Common: SOLIFÉNACINE
+  > VESICARE 5 mg, comprimé pelliculé
+    - ID: 1421
+    - Common: SOLIFÉNACINE
+----------------------------------------
+[CLUSTER] VORICONAZOLE
+  > VFEND 200 mg, comprimé pelliculé
+    - ID: 1325
+    - Common: VORICONAZOLE
+  > VFEND 40 mg/ml, poudre pour suspension buvable
+    - ID: 1327
+    - Common: VORICONAZOLE
+  > VFEND 50 mg, comprimé pelliculé
+    - ID: 1326
+    - Common: VORICONAZOLE
+----------------------------------------
+[SINGLE] VIBRAMYCINE 100 mg, gélule.
+  - ID: 141
+----------------------------------------
+[SINGLE] VIBRAMYCINE N 100 mg, comprimé sécable
+  - ID: 140
+----------------------------------------
+[CLUSTER] LACOSAMIDE
+  > VIMPAT 10 mg/mL, sirop
+    - ID: 1590
+    - Common: LACOSAMIDE
+  > VIMPAT 100 mg, comprimé pelliculé
+    - ID: 1493
+    - Common: LACOSAMIDE
+  > VIMPAT 150 mg, comprimé pelliculé
+    - ID: 1503
+    - Common: LACOSAMIDE
+  > VIMPAT 200 mg, comprimé pelliculé
+    - ID: 1494
+    - Common: LACOSAMIDE
+  > VIMPAT 50 mg, comprimé pelliculé
+    - ID: 1492
+    - Common: LACOSAMIDE
+----------------------------------------
+[SINGLE] VIRAMUNE 400 mg, comprimé à libération prolongée
+  - ID: 1397
+----------------------------------------
+[CLUSTER] TÉNOFOVIR DISOPROXIL
+  > VIREAD 123 mg, comprimé pelliculé
+    - ID: 1425
+    - Common: TÉNOFOVIR DISOPROXIL
+  > VIREAD 163 mg, comprimé pelliculé
+    - ID: 1426
+    - Common: TÉNOFOVIR DISOPROXIL
+  > VIREAD 204 mg, comprimé pelliculé
+    - ID: 1427
+    - Common: TÉNOFOVIR DISOPROXIL
+  > VIREAD 245 mg, comprimé pelliculé
+    - ID: 1361
+    - Common: TÉNOFOVIR DISOPROXIL
+----------------------------------------
+[SINGLE] VIRLIX 10 mg/ml, solution buvable en gouttes
+  - ID: 321
+----------------------------------------
+[SINGLE] VISANNE 2 mg, comprimé
+  - ID: 1610
+----------------------------------------
+[CLUSTER] MÉTOPIMAZINE
+  > VOGALENE 15 mg, gélule
+    - ID: 1942
+    - Common: MÉTOPIMAZINE
+  > VOGALENE LYOC 7,5 mg, lyophilisat oral
+    - ID: 1820
+    - Common: MÉTOPIMAZINE
+  > VOGALIB 7,5 mg SANS SUCRE, lyophilisat oral édulcoré à l'aspartam
+    - ID: 1824
+    - Common: MÉTOPIMAZINE
+----------------------------------------
+[CLUSTER] AMBRISENTAN
+  > VOLIBRIS 10 mg, comprimé pelliculé
+    - ID: 1664
+    - Common: AMBRISENTAN
+  > VOLIBRIS 2,5 mg, comprimé pelliculé
+    - ID: 1923
+    - Common: AMBRISENTAN
+  > VOLIBRIS 5 mg, comprimé pelliculé
+    - ID: 1663
+    - Common: AMBRISENTAN
+----------------------------------------
+[CLUSTER] DICLOFÉNAC SODIQUE
+  > VOLTARENE 25 mg, comprimé enrobé gastro-résistant
+    - ID: 206
+    - Common: DICLOFÉNAC SODIQUE
+  > VOLTARENE 50 mg, comprimé enrobé gastro-résistant
+    - ID: 207
+    - Common: DICLOFÉNAC SODIQUE
+  > VOLTARENE LP 75 mg, comprimé enrobé à libération prolongée
+    - ID: 1457
+    - Common: DICLOFÉNAC SODIQUE
+----------------------------------------
+[CLUSTER] PAZOPANIB
+  > VOTRIENT 200 mg, comprimé pelliculé
+    - ID: 1827
+    - Common: PAZOPANIB
+  > VOTRIENT 400 mg, comprimé pelliculé
+    - ID: 1828
+    - Common: PAZOPANIB
+----------------------------------------
+[SINGLE] WELLVONE 750 mg/5 mL, suspension buvable
+  - ID: 1678
+----------------------------------------
+[SINGLE] WYSTAMM 10 mg, comprimé
+  - ID: 1331
+----------------------------------------
+[CLUSTER] BISOPROLOL, HYDROCHLOROTHIAZIDE
+  > WYTENS 10 mg/6,25 mg, comprimé pelliculé
+    - ID: 621
+    - Common: BISOPROLOL, HYDROCHLOROTHIAZIDE
+  > WYTENS 2,5 mg/6,25 mg, comprimé pelliculé
+    - ID: 619
+    - Common: BISOPROLOL, HYDROCHLOROTHIAZIDE
+  > WYTENS 5 mg/6,25 mg, comprimé pelliculé
+    - ID: 620
+    - Common: BISOPROLOL, HYDROCHLOROTHIAZIDE
+----------------------------------------
+[SINGLE] XAGRID 0,5 mg, gélule
+  - ID: 1461
+----------------------------------------
+[CLUSTER] ALPRAZOLAM
+  > XANAX 0,25 mg, comprimé sécable
+    - ID: 271
+    - Common: ALPRAZOLAM
+  > XANAX 0,50 mg, comprimé sécable
+    - ID: 272
+    - Common: ALPRAZOLAM
+  > XANAX 1 mg, comprimé sécable
+    - ID: 581
+    - Common: ALPRAZOLAM
+----------------------------------------
+[CLUSTER] RIVAROXABAN
+  > XARELTO 10 mg, comprimé pelliculé
+    - ID: 1497
+    - Common: RIVAROXABAN
+  > XARELTO 15 mg + 20 mg, comprimé pelliculé
+    - ID: 1557
+    - Common: RIVAROXABAN
+  > XARELTO 15 mg, comprimé pelliculé
+    - ID: 1498
+    - Common: RIVAROXABAN
+  > XARELTO 2,5 mg, comprimé pelliculé
+    - ID: 1649
+    - Common: RIVAROXABAN
+  > XARELTO 20 mg, comprimé pelliculé
+    - ID: 1499
+    - Common: RIVAROXABAN
+----------------------------------------
+[SINGLE] XATRAL LP 10 mg, comprimé à libération prolongée
+  - ID: 422
+----------------------------------------
+[CLUSTER] CAPÉCITABINE
+  > XELODA 150 mg, comprimé pelliculé
+    - ID: 1094
+    - Common: CAPÉCITABINE
+  > XELODA 500 mg, comprimé pelliculé
+    - ID: 1095
+    - Common: CAPÉCITABINE
+----------------------------------------
+[SINGLE] XENAZINE 25 mg, comprimé sécable
+  - ID: 1035
+----------------------------------------
+[SINGLE] XENICAL 120 mg, gélule
+  - ID: 1071
+----------------------------------------
+[CLUSTER] QUÉTIAPINE
+  > XEROQUEL LP 300 mg, comprimé à libération prolongée
+    - ID: 1226
+    - Common: QUÉTIAPINE
+  > XEROQUEL LP 400 mg, comprimé à libération prolongée
+    - ID: 1227
+    - Common: QUÉTIAPINE
+  > XEROQUEL LP 50 mg, comprimé à libération prolongée
+    - ID: 1223
+    - Common: QUÉTIAPINE
+----------------------------------------
+[SINGLE] XIGDUO 5 mg/1000 mg, comprimé pelliculé
+  - ID: 1964
+----------------------------------------
+[SINGLE] XTANDI 40 mg, comprimé pelliculé
+  - ID: 1874
+----------------------------------------
+[SINGLE] XYREM 500 mg/mL, solution buvable
+  - ID: 1602
+----------------------------------------
+[SINGLE] XYZALL 5 mg, comprimé pelliculé
+  - ID: 329
+----------------------------------------
+[SINGLE] YAZ 0,02 mg/3 mg, comprimé pelliculé
+  - ID: 1113
+----------------------------------------
+[CLUSTER] PARACÉTAMOL, TRAMADOL
+  > ZALDIAR 37,5 mg/325 mg, comprimé effervescent
+    - ID: 1073
+    - Common: PARACÉTAMOL, TRAMADOL
+  > ZALDIAR 37,5 mg/325 mg, comprimé pelliculé
+    - ID: 1072
+    - Common: PARACÉTAMOL, TRAMADOL
+----------------------------------------
+[SINGLE] ZANEXTRA 20 mg/10 mg, comprimé pelliculé
+  - ID: 1341
+----------------------------------------
+[SINGLE] ZANEXTRA 20 mg/20 mg, comprimé pelliculé
+  - ID: 1342
+----------------------------------------
+[SINGLE] ZAVESCA 100 mg, gélule
+  - ID: 1296
+----------------------------------------
+[SINGLE] ZEBINIX 800 mg, comprimé
+  - ID: 1696
+----------------------------------------
+[SINGLE] ZELITREX 500 mg, comprimé pelliculé
+  - ID: 655
+----------------------------------------
+[SINGLE] ZESTORETIC 20 mg/12,5 mg, comprimé sécable
+  - ID: 368
+----------------------------------------
+[SINGLE] ZESTRIL 20 mg, comprimé
+  - ID: 99
+----------------------------------------
+[SINGLE] ZESTRIL 5 mg, comprimé sécable
+  - ID: 98
+----------------------------------------
+[SINGLE] ZIAGEN 300 mg, comprimé pelliculé
+  - ID: 1370
+----------------------------------------
+[CLUSTER] CÉFUROXIME, CÉFUROXIME AXÉTIL
+  > ZINNAT 125 mg, comprimé pelliculé
+    - ID: 163
+    - Common: CÉFUROXIME, CÉFUROXIME AXÉTIL
+  > ZINNAT 250 mg, comprimé pelliculé
+    - ID: 164
+    - Common: CÉFUROXIME, CÉFUROXIME AXÉTIL
+  > ZINNAT 500 mg, comprimé pelliculé
+    - ID: 165
+    - Common: CÉFUROXIME, CÉFUROXIME AXÉTIL
+----------------------------------------
+[SINGLE] ZITHROMAX MONODOSE 250 mg, comprimé pelliculé
+  - ID: 527
+----------------------------------------
+[SINGLE] ZOELY 2,5 mg/1,5 mg, comprimé pelliculé
+  - ID: 1845
+----------------------------------------
+[SINGLE] ZOFENIL 30 mg, comprimé pelliculé
+  - ID: 1063
+----------------------------------------
+[CLUSTER] SERTRALINE
+  > ZOLOFT 25 mg, gélule
+    - ID: 455
+    - Common: SERTRALINE
+  > ZOLOFT 50 mg, gélule
+    - ID: 411
+    - Common: SERTRALINE
+----------------------------------------
+[CLUSTER] OMÉPRAZOLE
+  > ZOLTUM 10 mg, gélule gastro-résistante
+    - ID: 350
+    - Common: OMÉPRAZOLE
+  > ZOLTUM 20 mg, gélule gastro-résistante
+    - ID: 14
+    - Common: OMÉPRAZOLE
+----------------------------------------
+[CLUSTER] ZOLMITRIPTAN
+  > ZOMIG 2,5 mg, comprimé pelliculé
+    - ID: 804
+    - Common: ZOLMITRIPTAN
+  > ZOMIGORO 2,5 mg, comprimé orodispersible
+    - ID: 911
+    - Common: ZOLMITRIPTAN
+----------------------------------------
+[SINGLE] ZONDAR 50 mg, gélule
+  - ID: 714
+----------------------------------------
+[CLUSTER] ZONISAMIDE
+  > ZONEGRAN 100 mg, gélule
+    - ID: 1330
+    - Common: ZONISAMIDE
+  > ZONEGRAN 25 mg, gélule
+    - ID: 1328
+    - Common: ZONISAMIDE
+  > ZONEGRAN 50 mg, gélule
+    - ID: 1329
+    - Common: ZONISAMIDE
+----------------------------------------
+[CLUSTER] ONDANSÉTRON
+  > ZOPHREN 4 mg, comprimé pelliculé
+    - ID: 503
+    - Common: ONDANSÉTRON
+  > ZOPHREN 4 mg, lyophilisat oral
+    - ID: 605
+    - Common: ONDANSÉTRON
+  > ZOPHREN 8 mg, comprimé pelliculé
+    - ID: 500
+    - Common: ONDANSÉTRON
+  > ZOPHREN 8 mg, lyophilisat oral
+    - ID: 566
+    - Common: ONDANSÉTRON
+----------------------------------------
+[CLUSTER] ACICLOVIR
+  > ZOVIRAX 200 mg, comprimé
+    - ID: 198
+    - Common: ACICLOVIR
+  > ZOVIRAX 800 mg, comprimé
+    - ID: 199
+    - Common: ACICLOVIR
+----------------------------------------
+[CLUSTER] DOXAZOSINE
+  > ZOXAN LP 4 mg, comprimé à libération prolongée
+    - ID: 814
+    - Common: DOXAZOSINE
+  > ZOXAN LP 8 mg, comprimé à libération prolongée
+    - ID: 1056
+    - Common: DOXAZOSINE
+----------------------------------------
+[CLUSTER] ALLOPURINOL
+  > ZYLORIC 100 mg, comprimé
+    - ID: 235
+    - Common: ALLOPURINOL
+  > ZYLORIC 200 mg, comprimé
+    - ID: 236
+    - Common: ALLOPURINOL
+  > ZYLORIC 300 mg, comprimé
+    - ID: 237
+    - Common: ALLOPURINOL
+----------------------------------------
+[CLUSTER] OLANZAPINE
+  > ZYPREXA 10 mg, comprimé enrobé
+    - ID: 701
+    - Common: OLANZAPINE
+  > ZYPREXA 5 mg, comprimé enrobé
+    - ID: 703
+    - Common: OLANZAPINE
+  > ZYPREXA 7,5 mg, comprimé enrobé
+    - ID: 704
+    - Common: OLANZAPINE
+  > ZYPREXA VELOTAB 10 mg, comprimé orodispersible
+    - ID: 729
+    - Common: OLANZAPINE
+  > ZYPREXA VELOTAB 15 mg, comprimé orodispersible
+    - ID: 796
+    - Common: OLANZAPINE
+  > ZYPREXA VELOTAB 20 mg, comprimé orodispersible
+    - ID: 798
+    - Common: OLANZAPINE
+  > ZYPREXA VELOTAB 5 mg, comprimé orodispersible
+    - ID: 730
+    - Common: OLANZAPINE
+----------------------------------------
+[SINGLE] ZYTIGA 500 mg, comprimé
+  - ID: 1772
+----------------------------------------
+[CLUSTER] LINÉZOLIDE
+  > ZYVOXID 100 mg/5 ml, granulés pour suspension buvable
+    - ID: 1318
+    - Common: LINÉZOLIDE
+  > ZYVOXID 600 mg, comprimé pelliculé
+    - ID: 1228
+    - Common: LINÉZOLIDE
+----------------------------------------

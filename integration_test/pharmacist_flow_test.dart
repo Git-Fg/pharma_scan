@@ -1,0 +1,108 @@
+// integration_test/pharmacist_flow_test.dart
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:integration_test/integration_test.dart';
+import 'package:pharma_scan/core/utils/strings.dart';
+import 'package:pharma_scan/core/utils/test_tags.dart';
+import 'package:pharma_scan/features/explorer/presentation/widgets/medicament_tile.dart';
+import 'package:pharma_scan/main.dart';
+import '../test/robots/explorer_robot.dart';
+import 'test_bootstrap.dart';
+
+void main() {
+  IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+
+  group('Pharmacist Golden Path - Search to Detail Flow', () {
+    testWidgets(
+      'should complete full user journey: Search -> Result -> Detail -> Back',
+      (WidgetTester tester) async {
+        await ensureIntegrationTestDatabase();
+        final container = integrationTestContainer;
+
+        // WHEN: Launch the app
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: const PharmaScanApp(),
+          ),
+        );
+
+        // Wait for app to initialize
+        await tester.pumpAndSettle(const Duration(seconds: 2));
+        await tester.pumpAndSettle();
+
+        final explorerTab = find.byKey(const ValueKey(TestTags.navExplorer));
+        expect(
+          explorerTab,
+          findsOneWidget,
+          reason: 'Explorer tab should be visible',
+        );
+        await tester.tap(explorerTab);
+        await tester.pumpAndSettle();
+
+        // Verify we're on the Explorer screen
+        expect(find.text(Strings.explorer), findsWidgets);
+
+        // Initialize robot for search interactions
+        final robot = ExplorerRobot(tester);
+
+        // Search for a very common molecule present in BDPM (paracetamol)
+        await robot.searchFor('Paracetamol');
+        await tester.pumpAndSettle(const Duration(milliseconds: 500));
+
+        final resultTiles = find.byType(MedicamentTile);
+        expect(
+          resultTiles,
+          findsWidgets,
+          reason: 'Expected at least one search result for Paracetamol.',
+        );
+
+        await tester.tap(resultTiles.first);
+        await tester.pumpAndSettle();
+
+        expect(
+          find.text(Strings.princeps),
+          findsOneWidget,
+          reason: 'Group detail should show Princeps section',
+        );
+        expect(
+          find.text(Strings.generics),
+          findsOneWidget,
+          reason: 'Group detail should show Generics section',
+        );
+
+        // Verify active ingredients are displayed
+        expect(
+          find.textContaining(Strings.activePrinciplesLabel),
+          findsWidgets,
+          reason: 'Group detail should show active principles',
+        );
+
+        final backButton = find.bySemanticsLabel(Strings.back);
+        if (backButton.evaluate().isNotEmpty) {
+          await tester.tap(backButton.first);
+        } else {
+          // Fallback: Navigation handled by AutoRoute
+          // Pop is handled automatically by the router
+        }
+        await tester.pumpAndSettle();
+
+        // Verify return to Search screen
+        expect(
+          find.text(Strings.explorer),
+          findsWidgets,
+          reason: 'Should return to Explorer screen after back navigation',
+        );
+        // Search field should still be visible
+        expect(
+          find.bySemanticsLabel(Strings.searchLabel),
+          findsOneWidget,
+          reason: 'Search field should be visible after returning',
+        );
+      },
+      timeout: const Timeout(Duration(minutes: 5)),
+    );
+  });
+}
