@@ -1,6 +1,9 @@
 # PharmaScan 💊
 
-<img src="https://github.com/user-attachments/assets/e3212341-9e88-4c8f-bcfc-d93a1324879a" height="300" alt="vide1"> <img src="https://github.com/user-attachments/assets/26dd4b71-9646-4a4f-9a17-31af22504669" height="300" alt="vid3">
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/e3212341-9e88-4c8f-bcfc-d93a1324879a" height="300" alt="vide1">
+  <img src="https://github.com/user-attachments/assets/26dd4b71-9646-4a4f-9a17-31af22504669" height="300" alt="vid3">
+</p>
 
 **L'assistant de poche pour le rangement et les équivalences.**
 
