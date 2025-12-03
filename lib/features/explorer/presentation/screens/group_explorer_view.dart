@@ -44,7 +44,7 @@ class GroupExplorerView extends HookConsumerWidget {
         // Re-enable root-level swiping when leaving this route
         ref.read(canSwipeRootProvider.notifier).canSwipe = true;
       };
-    }, []);
+    }, [groupId]);
 
     final stateAsync = ref.watch(groupExplorerControllerProvider(groupId));
 

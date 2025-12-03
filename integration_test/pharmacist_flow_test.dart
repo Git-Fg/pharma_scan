@@ -104,5 +104,67 @@ void main() {
       },
       timeout: const Timeout(Duration(minutes: 5)),
     );
+
+    testWidgets(
+      'Scenario B: Néfopam search should NOT group with Adriblastine (critical edge case)',
+      (WidgetTester tester) async {
+        await ensureIntegrationTestDatabase();
+        final container = integrationTestContainer;
+
+        // WHEN: Launch the app
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: const PharmaScanApp(),
+          ),
+        );
+
+        // Wait for app to initialize
+        await tester.pumpAndSettle(const Duration(seconds: 2));
+        await tester.pumpAndSettle();
+
+        final explorerTab = find.byKey(const ValueKey(TestTags.navExplorer));
+        expect(explorerTab, findsOneWidget);
+        await tester.tap(explorerTab);
+        await tester.pumpAndSettle();
+
+        // Verify we're on the Explorer screen
+        expect(find.text(Strings.explorer), findsWidgets);
+
+        // Initialize robot for search interactions
+        final robot = ExplorerRobot(tester);
+
+        // Search for "Néfopam" (known edge case from DOMAIN_LOGIC.md)
+        await robot.searchFor('Néfopam');
+        await tester.pumpAndSettle(const Duration(milliseconds: 500));
+
+        final resultTiles = find.byType(MedicamentTile);
+        expect(
+          resultTiles,
+          findsWidgets,
+          reason: 'Expected search results for Néfopam',
+        );
+
+        // CRITICAL: Verify that Adriblastine is NOT in the results
+        // This tests the "Suspicious Data" check that prevents incorrect grouping
+        // Check all text on screen for Adriblastine using find.textContaining
+        final adriblastineText = find.textContaining(
+          'ADRIBLASTINE',
+          findRichText: true,
+        );
+        expect(
+          adriblastineText,
+          findsNothing,
+          reason:
+              'CRITICAL: Adriblastine should NOT appear in Néfopam search results. '
+              'This verifies the grouping logic correctly isolates these medications.',
+        );
+      },
+      timeout: const Timeout(Duration(minutes: 5)),
+    );
+
+    // Note: Scenario C (offline mode) would require a connectivity provider
+    // which may not exist in the codebase. This test is deferred until
+    // connectivity management is implemented.
   });
 }

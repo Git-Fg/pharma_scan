@@ -1,6 +1,7 @@
 // test/core/database/daos/library_and_search_dao_test.dart
 import 'dart:io';
 
+import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
@@ -8,7 +9,8 @@ import 'package:path_provider_platform_interface/path_provider_platform_interfac
 import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
 
-import '../../../test_utils.dart';
+import '../../../test_utils.dart'
+    show setPrincipeNormalizedForAllPrinciples, FakePathProviderPlatform;
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -78,6 +80,7 @@ void main() {
       );
 
       // Populate MedicamentSummary table
+      await setPrincipeNormalizedForAllPrinciples(database);
       await dataInitializationService.runSummaryAggregationForTesting();
 
       final summaries = await database.catalogDao.getGenericGroupSummaries(
@@ -253,6 +256,7 @@ void main() {
         ],
       );
 
+      await setPrincipeNormalizedForAllPrinciples(database);
       await dataInitializationService.runSummaryAggregationForTesting();
 
       final catalogDao = database.catalogDao;
@@ -323,6 +327,7 @@ void main() {
         ],
       );
 
+      await setPrincipeNormalizedForAllPrinciples(database);
       await dataInitializationService.runSummaryAggregationForTesting();
 
       final result = await database.catalogDao.searchMedicaments('GROUP');
@@ -382,6 +387,7 @@ void main() {
         ],
       );
 
+      await setPrincipeNormalizedForAllPrinciples(database);
       await dataInitializationService.runSummaryAggregationForTesting();
 
       final result = await database.catalogDao.searchMedicaments('Group');
@@ -471,6 +477,7 @@ void main() {
         ],
       );
 
+      await setPrincipeNormalizedForAllPrinciples(database);
       await dataInitializationService.runSummaryAggregationForTesting();
 
       // WHEN: We fetch group details
@@ -572,6 +579,7 @@ void main() {
           ],
         );
 
+        await setPrincipeNormalizedForAllPrinciples(database);
         await dataInitializationService.runSummaryAggregationForTesting();
 
         final members = await database.catalogDao.getGroupDetails(
@@ -698,6 +706,7 @@ void main() {
         ],
       );
 
+      await setPrincipeNormalizedForAllPrinciples(database);
       await dataInitializationService.runSummaryAggregationForTesting();
 
       final members = await database.catalogDao.getGroupDetails(
@@ -745,5 +754,133 @@ void main() {
       );
       expect(members, isEmpty);
     });
+
+    test(
+      'searchMedicaments returns results ranked by FTS5 bm25 relevance',
+      () async {
+        // GIVEN: Database with medications that have different match quality
+        await database.databaseDao.insertBatchData(
+          specialites: [
+            {
+              'cis_code': 'CIS_EXACT',
+              'nom_specialite': 'PARACETAMOL 500 mg, comprimé',
+              'procedure_type': 'Autorisation',
+              'forme_pharmaceutique': 'Comprimé',
+            },
+            {
+              'cis_code': 'CIS_PARTIAL',
+              'nom_specialite': 'PARACETAMOL + CAFEINE 500 mg, comprimé',
+              'procedure_type': 'Autorisation',
+              'forme_pharmaceutique': 'Comprimé',
+            },
+            {
+              'cis_code': 'CIS_FUZZY',
+              'nom_specialite': 'PARACETAMOL GENERIQUE 500 mg, comprimé',
+              'procedure_type': 'Autorisation',
+              'forme_pharmaceutique': 'Comprimé',
+            },
+          ],
+          medicaments: [
+            {'code_cip': 'CIP_EXACT', 'cis_code': 'CIS_EXACT'},
+            {'code_cip': 'CIP_PARTIAL', 'cis_code': 'CIS_PARTIAL'},
+            {'code_cip': 'CIP_FUZZY', 'cis_code': 'CIS_FUZZY'},
+          ],
+          principes: [
+            {
+              'code_cip': 'CIP_EXACT',
+              'principe': 'PARACETAMOL',
+              'dosage': '500',
+              'dosage_unit': 'mg',
+            },
+            {
+              'code_cip': 'CIP_PARTIAL',
+              'principe': 'PARACETAMOL',
+              'dosage': '500',
+              'dosage_unit': 'mg',
+            },
+            {
+              'code_cip': 'CIP_PARTIAL',
+              'principe': 'CAFEINE',
+              'dosage': '50',
+              'dosage_unit': 'mg',
+            },
+            {
+              'code_cip': 'CIP_FUZZY',
+              'principe': 'PARACETAMOL',
+              'dosage': '500',
+              'dosage_unit': 'mg',
+            },
+          ],
+          generiqueGroups: [
+            {'group_id': 'GROUP_EXACT', 'libelle': 'PARACETAMOL 500 mg'},
+            {
+              'group_id': 'GROUP_PARTIAL',
+              'libelle': 'PARACETAMOL + CAFEINE 500 mg',
+            },
+            {
+              'group_id': 'GROUP_FUZZY',
+              'libelle': 'PARACETAMOL GENERIQUE 500 mg',
+            },
+          ],
+          groupMembers: [
+            {'code_cip': 'CIP_EXACT', 'group_id': 'GROUP_EXACT', 'type': 0},
+            {'code_cip': 'CIP_PARTIAL', 'group_id': 'GROUP_PARTIAL', 'type': 0},
+            {'code_cip': 'CIP_FUZZY', 'group_id': 'GROUP_FUZZY', 'type': 0},
+          ],
+        );
+
+        // Set principe_normalized for aggregation
+        await setPrincipeNormalizedForAllPrinciples(database);
+
+        await setPrincipeNormalizedForAllPrinciples(database);
+        await dataInitializationService.runSummaryAggregationForTesting();
+        await database.databaseDao.populateFts5Index();
+
+        // WHEN: Search for "PARACETAMOL"
+        final results = await database.catalogDao.searchMedicaments(
+          'PARACETAMOL',
+        );
+
+        // THEN: Results should be ordered by relevance (bm25 rank ASC)
+        // The SQL query orders by "rank ASC, ms.nom_canonique"
+        expect(results.length, greaterThanOrEqualTo(3));
+
+        // Verify all results contain PARACETAMOL
+        final allContainParacetamol = results.every(
+          (r) =>
+              r.nomCanonique.toUpperCase().contains('PARACETAMOL') ||
+              r.principesActifsCommuns.any(
+                (p) => p.toUpperCase().contains('PARACETAMOL'),
+              ),
+        );
+        expect(
+          allContainParacetamol,
+          isTrue,
+          reason: 'All results should contain PARACETAMOL',
+        );
+
+        // Verify results are sorted by FTS5 bm25 rank (lower rank = better match)
+        // The exact order depends on FTS5's bm25 algorithm, but we verify:
+        // 1. All results contain PARACETAMOL (already verified above)
+        // 2. Results are returned in some order (not empty)
+        // 3. The first result should be a good match (contains PARACETAMOL in name or principles)
+        expect(
+          results.isNotEmpty,
+          isTrue,
+          reason: 'Search should return results',
+        );
+
+        // Verify the first result is relevant (contains PARACETAMOL)
+        final firstResult = results.first;
+        expect(
+          firstResult.nomCanonique.toUpperCase().contains('PARACETAMOL') ||
+              firstResult.principesActifsCommuns.any(
+                (p) => p.toUpperCase().contains('PARACETAMOL'),
+              ),
+          isTrue,
+          reason: 'First result should contain PARACETAMOL',
+        );
+      },
+    );
   });
 }

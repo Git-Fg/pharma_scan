@@ -23,9 +23,13 @@ class _SwipeBackDetectorState extends State<SwipeBackDetector> {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
+      onHorizontalDragStart: (_) {
+        // Reset drag delta at the start of each gesture
+        _dragDelta = 0;
+      },
       onHorizontalDragUpdate: (details) {
-        // Track horizontal drag for potential back gesture
-        _dragDelta = details.primaryDelta ?? 0;
+        // Accumulate horizontal drag for potential back gesture
+        _dragDelta += details.primaryDelta ?? 0;
       },
       onHorizontalDragEnd: (details) {
         // If swiped right (positive delta) with sufficient velocity/distance

@@ -37,6 +37,7 @@ class ScannerNotifier extends _$ScannerNotifier {
 
   final Map<String, Timer> _dismissTimers = {};
   Timer? _cleanupTimer;
+  String? _pendingCleanupCode;
   String? _lastProcessedCode;
   final Set<String> _processingCips = {};
 
@@ -48,6 +49,7 @@ class ScannerNotifier extends _$ScannerNotifier {
       }
       _dismissTimers.clear();
       _cleanupTimer?.cancel();
+      _pendingCleanupCode = null;
     });
 
     return const ScannerState(bubbles: [], scannedCodes: {});
@@ -184,10 +186,16 @@ class ScannerNotifier extends _$ScannerNotifier {
       _dismissTimers.remove(oldestCode);
 
       _cleanupTimer?.cancel();
+      _pendingCleanupCode = oldestCode;
       _cleanupTimer = Timer(_codeCleanupDelay, () {
-        final currentCodes = Set<String>.from(state.scannedCodes)
-          ..remove(oldestCode);
-        state = state.copyWith(scannedCodes: currentCodes);
+        // Only remove if this code is still the pending cleanup code
+        // (prevents removing wrong code if multiple bubbles added rapidly)
+        if (_pendingCleanupCode == oldestCode) {
+          final currentCodes = Set<String>.from(state.scannedCodes)
+            ..remove(oldestCode);
+          state = state.copyWith(scannedCodes: currentCodes);
+          _pendingCleanupCode = null;
+        }
       });
     }
 
@@ -225,6 +233,7 @@ class ScannerNotifier extends _$ScannerNotifier {
     }
     _dismissTimers.clear();
     _cleanupTimer?.cancel();
+    _pendingCleanupCode = null;
 
     state = const ScannerState(bubbles: [], scannedCodes: {});
   }

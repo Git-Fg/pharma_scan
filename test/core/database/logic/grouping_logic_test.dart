@@ -8,7 +8,7 @@ import 'package:path_provider_platform_interface/path_provider_platform_interfac
 import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
 import '../../../fixtures/seed_builder.dart';
-import '../../../test_utils.dart';
+import '../../../test_utils.dart' show setPrincipeNormalizedForAllPrinciples, FakePathProviderPlatform;
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -67,6 +67,7 @@ void main() {
         );
 
         // WHEN: Run aggregation
+        await setPrincipeNormalizedForAllPrinciples(database);
         await dataInitializationService.runSummaryAggregationForTesting();
 
         // THEN: nomCanonique uses raw name (simplified SQL aggregation)
@@ -117,6 +118,7 @@ void main() {
         );
 
         // WHEN: Run aggregation
+        await setPrincipeNormalizedForAllPrinciples(database);
         await dataInitializationService.runSummaryAggregationForTesting();
 
         // THEN: nomCanonique should use group libelle directly.
@@ -195,6 +197,7 @@ void main() {
         );
 
         // WHEN: Run aggregation
+        await setPrincipeNormalizedForAllPrinciples(database);
         await dataInitializationService.runSummaryAggregationForTesting();
 
         // THEN: All medications should be in the same group with same nomCanonique
@@ -279,6 +282,7 @@ void main() {
         );
 
         // WHEN: Run aggregation
+        await setPrincipeNormalizedForAllPrinciples(database);
         await dataInitializationService.runSummaryAggregationForTesting();
 
         // THEN: Should have 2 different groups with different nomCanonique
@@ -340,6 +344,7 @@ void main() {
         );
 
         // WHEN: Run aggregation
+        await setPrincipeNormalizedForAllPrinciples(database);
         await dataInitializationService.runSummaryAggregationForTesting();
 
         // THEN: nomCanonique uses raw name (simplified SQL aggregation)
@@ -403,7 +408,8 @@ void main() {
       );
 
       // WHEN: Run aggregation and search
-      await dataInitializationService.runSummaryAggregationForTesting();
+      await setPrincipeNormalizedForAllPrinciples(database);
+        await dataInitializationService.runSummaryAggregationForTesting();
 
       final catalogDao = database.catalogDao;
       final candidates = await catalogDao.searchMedicaments('APIXABAN');
@@ -527,7 +533,8 @@ void main() {
         groupMembers: [],
       );
 
-      await dataInitializationService.runSummaryAggregationForTesting();
+      await setPrincipeNormalizedForAllPrinciples(database);
+        await dataInitializationService.runSummaryAggregationForTesting();
 
       // WHEN: We fetch GROUP_A details
       final members = await database.catalogDao.getGroupDetails(
@@ -619,6 +626,7 @@ void main() {
           groupMembers: [],
         );
 
+        await setPrincipeNormalizedForAllPrinciples(database);
         await dataInitializationService.runSummaryAggregationForTesting();
 
         // WHEN: We fetch details, expecting dosage inheritance in view
@@ -752,7 +760,8 @@ void main() {
         ],
       );
 
-      await dataInitializationService.runSummaryAggregationForTesting();
+      await setPrincipeNormalizedForAllPrinciples(database);
+        await dataInitializationService.runSummaryAggregationForTesting();
 
       // WHEN: We get generic group summaries
       final summaries = await database.catalogDao.getGenericGroupSummaries(
@@ -803,7 +812,8 @@ void main() {
         ],
       );
 
-      await dataInitializationService.runSummaryAggregationForTesting();
+      await setPrincipeNormalizedForAllPrinciples(database);
+        await dataInitializationService.runSummaryAggregationForTesting();
 
       // WHEN: We get generic group summaries
       final summaries = await database.catalogDao.getGenericGroupSummaries(

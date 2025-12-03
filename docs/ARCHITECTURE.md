@@ -40,6 +40,24 @@ The architecture prioritizes **simplicity**, **robustness**, and **performance**
 - Lists use custom `Row` + `ShadTheme` styling (no `ListTile`)
 - All user-facing strings come from `lib/core/utils/strings.dart`
 
+**Form State Management:**
+
+- **Standard Forms:** Always use `ShadForm` with `ShadInputFormField` / `ShadSwitchFormField` for form submission. Access values via `formKey.currentState!.value` after `saveAndValidate()`.
+- **Acceptable Exceptions:**
+  - **Search Bars:** Use `useTextEditingController()` for search inputs requiring debouncing or real-time filtering (e.g., `ExplorerSearchBar`)
+  - **Radio Groups:** Use `useState` for `ShadRadioGroup` selections (not form fields)
+  - **Searchable Selects:** Use `useState` for internal search state within `ShadSelect.withSearch`
+
+**Navigation Patterns:**
+
+- **Simple Tab Navigation:** Use `AutoTabsScaffold` when you only need tabs with a bottom navigation bar
+- **Custom Tab Navigation:** Use `AutoTabsRouter.pageView` when you need:
+  - Swipeable tabs (PageView with custom physics)
+  - Custom body structure (e.g., activity banner above tab content)
+  - Conditional bottom navigation (e.g., hide when keyboard is open)
+  - Custom AppBar with actions
+  - PopScope logic for back button handling
+
 **Reference:** `.cursor/rules/flutter-ui.mdc`
 
 ### State Layer (ViewModel)
@@ -121,9 +139,18 @@ The architecture prioritizes **simplicity**, **robustness**, and **performance**
 
 **Type Safety:** Always use generated `*Route` classes. Never use raw strings.
 
-**Patterns:**
+**Tab Navigation Patterns:**
 
-- **Tab Navigation:** `AutoTabsRouter` for custom layouts, `AutoTabsScaffold` for simple cases
+- **Simple Cases:** Use `AutoTabsScaffold` when you only need tabs with a standard bottom navigation bar
+- **Custom Cases:** Use `AutoTabsRouter.pageView` when you need:
+  - Swipeable tabs (PageView with custom physics)
+  - Custom body structure (e.g., activity banner above tab content)
+  - Conditional bottom navigation (e.g., hide when keyboard is open)
+  - Custom AppBar with actions
+  - PopScope logic for back button handling
+
+**Other Patterns:**
+
 - **Nested Stacks:** Use `AutoRouter` wrapper for tab history
 - **Path Parameters:** `@PathParam('paramName')` for dynamic segments
 - **Query Parameters:** `@QueryParam('paramName')` for optional query strings
