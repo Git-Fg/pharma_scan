@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
+import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 class SectionHeader extends StatelessWidget {
@@ -24,7 +25,7 @@ class SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = ShadTheme.of(context);
+    final theme = context.shadTheme;
     final iconColor = theme.colorScheme.mutedForeground;
 
     return Padding(
@@ -112,7 +113,9 @@ Widget buildStickySectionHeader({
 class _InlineSectionHeaderDelegate extends SliverPersistentHeaderDelegate {
   const _InlineSectionHeaderDelegate({
     required this.title,
-    required this.padding, required this.textScaler, this.badgeCount,
+    required this.padding,
+    required this.textScaler,
+    this.badgeCount,
     this.icon,
     this.height,
   });
@@ -151,7 +154,6 @@ class _InlineSectionHeaderDelegate extends SliverPersistentHeaderDelegate {
 
     // Calculate text line height from h4 style
     // h4 style: fontSize 20px, height multiplier 1.4 = 28px line height
-    // This matches Shadcn UI's h4 typography definition
     const h4FontSize = 20.0;
     const h4HeightMultiplier = 1.4;
     const baseTextHeight = h4FontSize * h4HeightMultiplier;
@@ -159,8 +161,6 @@ class _InlineSectionHeaderDelegate extends SliverPersistentHeaderDelegate {
     // Calculate base height: padding + text height
     final baseHeight = paddingVertical + baseTextHeight;
 
-    // Scale the base height based on text scale factor
-    // We cap it at 2.0x to prevent excessive header growth
     return textScaler.scale(baseHeight).clamp(baseHeight, baseHeight * 2.0);
   }
 

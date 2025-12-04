@@ -8,7 +8,9 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:pharma_scan/core/database/daos/catalog_dao.dart';
 import 'package:pharma_scan/core/database/daos/database_dao.dart';
+import 'package:pharma_scan/core/database/daos/restock_dao.dart';
 import 'package:pharma_scan/core/database/daos/settings_dao.dart';
+import 'package:pharma_scan/core/database/tables/restock_items.dart';
 import 'package:pharma_scan/core/database/tables/settings.dart';
 import 'package:pharma_scan/core/services/logger_service.dart';
 import 'package:sqlite3/sqlite3.dart';
@@ -202,8 +204,9 @@ class MedicamentSummary extends Table {
     GroupMembers,
     MedicamentSummary,
     AppSettings,
+    RestockItems,
   ],
-  daos: [SettingsDao, CatalogDao, DatabaseDao],
+  daos: [SettingsDao, CatalogDao, DatabaseDao, RestockDao],
   include: {'queries.drift', 'views.drift'},
 )
 class AppDatabase extends _$AppDatabase {
@@ -213,13 +216,21 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration {
     return MigrationStrategy(
       onCreate: (Migrator m) async {
         await m.createAll();
+      },
+      onUpgrade: (Migrator m, int from, int to) async {
+        if (from < 3) {
+          await m.createTable(restockItems);
+        }
+        if (from < 4) {
+          await m.addColumn(appSettings, appSettings.preferredSorting);
+        }
       },
     );
   }
@@ -234,7 +245,13 @@ void _registerNormalizeTextFunction(Database database) {
     function: (args) {
       final source = args.isEmpty ? '' : args.first?.toString() ?? '';
       if (source.isEmpty) return '';
-      return removeDiacritics(source).toLowerCase();
+      return removeDiacritics(source)
+          .toLowerCase()
+          .replaceAll("'", ' ')
+          .replaceAll('"', ' ')
+          .replaceAll(':', ' ')
+          .replaceAll(RegExp(r'\s+'), ' ')
+          .trim();
     },
   );
 }

@@ -8,6 +8,7 @@ class TestTags {
   // Navigation
   static const String navScanner = 'test_nav_scanner';
   static const String navExplorer = 'test_nav_explorer';
+  static const String navRestock = 'test_nav_restock';
   static const String navSettings = 'test_nav_settings';
 
   // Scanner buttons

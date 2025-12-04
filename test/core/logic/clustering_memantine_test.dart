@@ -1,27 +1,28 @@
 // test/features/explorer/clustering_memantine_test.dart
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pharma_scan/core/domain/types/ids.dart';
 import 'package:pharma_scan/core/logic/sanitizer.dart';
+import 'package:pharma_scan/features/explorer/domain/logic/explorer_grouping_helper.dart';
 import 'package:pharma_scan/features/explorer/domain/models/generic_group_entity.dart';
-import 'package:pharma_scan/features/explorer/presentation/widgets/explorer_grouping_helper.dart';
 
 void main() {
   group('Mémantine Clustering', () {
     test('should cluster Mémantine groups with same commonPrinciples', () {
       // Simuler les groupes de Mémantine avec les commonPrinciples normalisés
-      const group1119 = GenericGroupEntity(
-        groupId: '1119',
+      final group1119 = GenericGroupEntity(
+        groupId: GroupId.validated('1119'),
         commonPrincipes: 'MEMANTINE',
         princepsReferenceName: 'AXURA 10 mg, comprimé pelliculé',
       );
 
-      const group1120 = GenericGroupEntity(
-        groupId: '1120',
+      final group1120 = GenericGroupEntity(
+        groupId: GroupId.validated('1120'),
         commonPrincipes: 'MEMANTINE',
         princepsReferenceName: 'AXURA 20 mg, comprimé pelliculé',
       );
 
-      const group1187 = GenericGroupEntity(
-        groupId: '1187',
+      final group1187 = GenericGroupEntity(
+        groupId: GroupId.validated('1187'),
         commonPrincipes: 'MEMANTINE',
         princepsReferenceName: 'EBIXA 5 mg/pression, solution buvable',
       );

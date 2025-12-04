@@ -1,10 +1,10 @@
-
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
+import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/features/explorer/domain/models/search_filters_model.dart';
 import 'package:pharma_scan/features/explorer/presentation/providers/pharmaceutical_forms_provider.dart';
@@ -38,11 +38,8 @@ Widget buildAdministrationRouteFilterTile(
         routes: routes,
         selectedValue: selectedValue,
         onChanged: (value) {
-          ref
-              .read(searchFiltersProvider.notifier)
-              .updateFilters(
-                currentFilters.copyWith(voieAdministration: value),
-              );
+          ref.read(searchFiltersProvider.notifier).filters = currentFilters
+              .copyWith(voieAdministration: value);
           unawaited(Navigator.of(context).maybePop());
         },
       );
@@ -70,27 +67,39 @@ Widget _buildTile({
   String? subtitle,
   Widget? trailing,
 }) {
-  final theme = ShadTheme.of(context);
   return InkWell(
     child: Container(
       padding: const EdgeInsets.symmetric(
         horizontal: AppDimens.spacingMd,
         vertical: AppDimens.spacingSm,
       ),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: context.shadColors.border),
+        ),
+      ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(title, style: theme.textTheme.p),
+                Text(
+                  title,
+                  style: context.shadTextTheme.p.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
                 if (subtitle != null) ...[
                   const SizedBox(height: 4),
                   Text(
                     subtitle,
-                    style: theme.textTheme.small.copyWith(
-                      color: theme.colorScheme.mutedForeground,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: context.shadTextTheme.small.copyWith(
+                      color: context.shadColors.mutedForeground,
                     ),
                   ),
                 ],
@@ -102,10 +111,8 @@ Widget _buildTile({
             trailing,
           ],
           const SizedBox(width: AppDimens.spacingXs),
-          Icon(
-            LucideIcons.chevronRight,
-            size: 16,
-            color: theme.colorScheme.mutedForeground,
+          const ExcludeSemantics(
+            child: Icon(LucideIcons.chevronRight, size: 16),
           ),
         ],
       ),
@@ -130,7 +137,6 @@ class _SelectTileWithSearch extends HookWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = ShadTheme.of(context);
     final searchValue = useState('');
 
     final filteredRoutes = routes.where((route) {
@@ -174,12 +180,17 @@ class _SelectTileWithSearch extends HookWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(title, style: theme.textTheme.p),
+                  Text(
+                    title,
+                    style: context.shadTextTheme.p.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                   const SizedBox(height: 4),
                   Text(
                     selectedText,
-                    style: theme.textTheme.small.copyWith(
-                      color: theme.colorScheme.mutedForeground,
+                    style: context.shadTextTheme.small.copyWith(
+                      color: context.shadColors.mutedForeground,
                     ),
                   ),
                 ],

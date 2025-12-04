@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:gap/gap.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
+import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
@@ -61,17 +62,17 @@ class UnifiedActivityBanner extends HookWidget {
                   Icon(
                     icon,
                     color: isError
-                        ? ShadTheme.of(context).colorScheme.destructive
-                        : ShadTheme.of(context).colorScheme.primary,
+                        ? context.shadColors.destructive
+                        : context.shadColors.primary,
                   ),
                   const Gap(AppDimens.spacingXs),
                   Expanded(
                     child: Text(
                       title,
-                      style: ShadTheme.of(context).textTheme.h4.copyWith(
+                      style: context.shadTextTheme.h4.copyWith(
                         color: isError
-                            ? ShadTheme.of(context).colorScheme.destructive
-                            : ShadTheme.of(context).colorScheme.foreground,
+                            ? context.shadColors.destructive
+                            : context.shadColors.foreground,
                       ),
                     ),
                   ),
@@ -80,15 +81,15 @@ class UnifiedActivityBanner extends HookWidget {
               const Gap(AppDimens.spacingSm),
               Text(
                 status,
-                style: ShadTheme.of(context).textTheme.small.copyWith(
-                  color: ShadTheme.of(context).colorScheme.mutedForeground,
+                style: context.shadTextTheme.small.copyWith(
+                  color: context.shadColors.mutedForeground,
                 ),
               ),
               if (secondaryStatus != null) ...[
                 const Gap(AppDimens.spacing2xs),
                 Text(
                   secondaryStatus!,
-                  style: ShadTheme.of(context).textTheme.small,
+                  style: context.shadTextTheme.small,
                 ),
               ],
               const Gap(AppDimens.spacingSm),
@@ -108,7 +109,7 @@ class UnifiedActivityBanner extends HookWidget {
                         Expanded(
                           child: Text(
                             progressSummary,
-                            style: ShadTheme.of(context).textTheme.small,
+                            style: context.shadTextTheme.small,
                           ),
                         ),
                       ],

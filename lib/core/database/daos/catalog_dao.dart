@@ -1,24 +1,25 @@
 import 'dart:convert';
 
-import 'package:diacritic/diacritic.dart';
 import 'package:drift/drift.dart';
 import 'package:pharma_scan/core/database/database.dart';
+import 'package:pharma_scan/core/domain/types/ids.dart';
+import 'package:pharma_scan/core/domain/types/semantic_types.dart';
 import 'package:pharma_scan/core/logic/sanitizer.dart';
 import 'package:pharma_scan/core/models/scan_result.dart';
 import 'package:pharma_scan/core/services/logger_service.dart';
+import 'package:pharma_scan/features/explorer/domain/entities/medicament_entity.dart';
 import 'package:pharma_scan/features/explorer/domain/models/generic_group_entity.dart';
 import 'package:pharma_scan/features/explorer/domain/models/search_filters_model.dart';
 
 part 'catalog_dao.g.dart';
 
-String _escapeFts5Query(String query) {
-  final normalized = removeDiacritics(query.trim()).toLowerCase();
-  if (normalized.isEmpty) return '';
+/// Escapes a normalized query for FTS5 (lowercase, escape specials, join with AND).
+String _escapeFts5Query(NormalizedQuery query) {
+  final lowercased = query.toString().toLowerCase();
+  if (lowercased.trim().isEmpty) return '';
 
-  // CRITICAL: Escape FTS5 special characters that can cause syntax errors
-  // Replace apostrophes, quotes, colons, and other special chars with spaces
-  final escaped = normalized
-      .replaceAll("'", ' ') // Apostrophes cause FTS5 syntax errors
+  final escaped = lowercased
+      .replaceAll("'", ' ')
       .replaceAll('"', ' ')
       .replaceAll(':', ' ')
       .replaceAll(RegExp(r'\s+'), ' ')
@@ -53,20 +54,21 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
   /// WHY: Returns the medicament summary row associated with the scanned CIP.
   /// Scanner UI still needs the CIP itself alongside presentation metadata.
   /// Returns Future directly - exceptions bubble up to Riverpod's AsyncValue.
-  Future<ScanResult?> getProductByCip(String codeCip) async {
+  Future<ScanResult?> getProductByCip(Cip13 codeCip) async {
     LoggerService.db('Lookup product for CIP $codeCip');
 
+    final cipString = codeCip.toString();
     final query = select(medicaments).join([
       leftOuterJoin(
         medicamentAvailability,
         medicamentAvailability.codeCip.equalsExp(medicaments.codeCip),
       ),
-    ])..where(medicaments.codeCip.equals(codeCip));
+    ])..where(medicaments.codeCip.equals(cipString));
 
     final row = await query.getSingleOrNull();
 
     if (row == null) {
-      LoggerService.db('No medicament row found for CIP $codeCip');
+      LoggerService.db('No medicament row found for CIP $cipString');
       return null;
     }
 
@@ -86,7 +88,7 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
     }
 
     final result = ScanResult(
-      summary: summary,
+      summary: MedicamentEntity.fromData(summary),
       cip: codeCip,
       price: medicament.prixPublic,
       refundRate: medicament.tauxRemboursement,
@@ -161,7 +163,7 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
   }
 
   Future<List<MedicamentSummaryData>> searchMedicaments(
-    String query, {
+    NormalizedQuery query, {
     SearchFilters? filters,
   }) async {
     final sanitizedQuery = _escapeFts5Query(query);
@@ -182,14 +184,14 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
           variables: queryData.variables,
           readsFrom: {db.medicamentSummary},
         )
-        .asyncMap((row) => db.medicamentSummary.mapFromRow(row))
+        .asyncMap(db.medicamentSummary.mapFromRow)
         .get();
 
     return results;
   }
 
   Stream<List<MedicamentSummaryData>> watchMedicaments(
-    String query, {
+    NormalizedQuery query, {
     SearchFilters? filters,
   }) {
     final sanitizedQuery = _escapeFts5Query(query);
@@ -210,7 +212,7 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
           variables: queryData.variables,
           readsFrom: {db.medicamentSummary},
         )
-        .asyncMap((row) => db.medicamentSummary.mapFromRow(row))
+        .asyncMap(db.medicamentSummary.mapFromRow)
         .watch();
   }
 
@@ -313,7 +315,6 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
     int limit = 100,
     int offset = 0,
   }) async {
-    // Build WHERE expression using Drift's Expression API
     final tbl = medicamentSummary;
 
     // Base filter: group_id must not be null (standalone medications excluded)
@@ -343,7 +344,6 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
       final routeFilter = routeFilters.reduce((a, b) => a | b);
       filterExpression = filterExpression & routeFilter;
     } else if (formKeywords != null && formKeywords.isNotEmpty) {
-      // Build OR expression for form keywords
       final formFilters = formKeywords
           .map((kw) => tbl.formePharmaceutique.like('%$kw%'))
           .toList();
@@ -409,17 +409,19 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
             principesActifsList,
           );
 
-          // Additional safety check: if commonPrincipes is empty or only whitespace,
-          // skip this entity to prevent grouping issues in the UI
           if (commonPrincipes.trim().isEmpty) {
             return null;
           }
 
-          // Extract princeps CIS code
-          final princepsCisCode = row.read(princepsCisExpression);
+          final princepsCisCodeRaw = row.read(princepsCisExpression);
+          final princepsCisCode = princepsCisCodeRaw != null
+              ? (princepsCisCodeRaw.length == 8
+                    ? CisCode.validated(princepsCisCodeRaw)
+                    : CisCode.unsafe(princepsCisCodeRaw))
+              : null;
 
           return GenericGroupEntity(
-            groupId: groupId,
+            groupId: GroupId.validated(groupId),
             commonPrincipes: commonPrincipes,
             princepsReferenceName: princepsReference,
             princepsCisCode: princepsCisCode,

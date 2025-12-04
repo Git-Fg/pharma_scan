@@ -4,8 +4,8 @@ import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:pharma_scan/core/providers/navigation_provider.dart';
 import 'package:pharma_scan/core/router/app_router.dart';
+import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/app_animations.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/utils/test_tags.dart';
@@ -31,7 +31,7 @@ class MainScreen extends HookConsumerWidget {
       return null;
     }, []);
 
-    final titles = [Strings.scanner, Strings.explorer];
+    final titles = [Strings.scanner, Strings.explorer, Strings.restockTitle];
     final activityBannerState = ref.watch(activityBannerViewModelProvider);
 
     final keyboardHeight = MediaQuery.viewInsetsOf(context).bottom;
@@ -45,7 +45,6 @@ class MainScreen extends HookConsumerWidget {
       final presenter = SyncStatusPresenter(next);
       if (next.phase == SyncPhase.success &&
           previous?.phase != SyncPhase.success) {
-        // Show success toast notification
         if (context.mounted) {
           ShadToaster.of(context).show(
             ShadToast(
@@ -58,7 +57,6 @@ class MainScreen extends HookConsumerWidget {
         }
       } else if (next.phase == SyncPhase.error &&
           previous?.phase != SyncPhase.error) {
-        // Show error toast notification only on transition to error
         if (context.mounted) {
           ShadToaster.of(context).show(
             ShadToast.destructive(
@@ -72,19 +70,21 @@ class MainScreen extends HookConsumerWidget {
       }
     });
 
-    final canSwipeRoot = ref.watch(canSwipeRootProvider);
-
-    return AutoTabsRouter.pageView(
-      routes: const [ScannerTabRoute(), ExplorerTabRoute()],
-      physics: canSwipeRoot
-          ? const PageScrollPhysics()
-          : const NeverScrollableScrollPhysics(),
-      builder: (BuildContext context, Widget child, _) {
+    return AutoTabsRouter(
+      routes: const [ScannerTabRoute(), ExplorerTabRoute(), RestockRoute()],
+      builder: (BuildContext context, Widget child) {
         final tabsRouter = AutoTabsRouter.of(context);
+        // WARNING: PopScope usage - see flutter-navigation.mdc section 11
         return PopScope<Object>(
-          canPop: tabsRouter.activeIndex == 0,
+          canPop:
+              tabsRouter.activeIndex == 0 &&
+              !tabsRouter.current.router.canPop(),
           onPopInvokedWithResult: (didPop, _) {
             if (didPop) return;
+            if (tabsRouter.current.router.canPop()) {
+              tabsRouter.current.router.pop();
+              return;
+            }
             if (tabsRouter.activeIndex != 0) {
               tabsRouter.setActiveIndex(0);
             }
@@ -94,11 +94,11 @@ class MainScreen extends HookConsumerWidget {
             appBar: AppBar(
               title: Text(
                 titles[tabsRouter.activeIndex],
-                style: ShadTheme.of(context).textTheme.h4,
+                style: context.shadTextTheme.h4,
               ),
               elevation: 0,
-              backgroundColor: ShadTheme.of(context).colorScheme.background,
-              foregroundColor: ShadTheme.of(context).colorScheme.foreground,
+              backgroundColor: context.shadColors.background,
+              foregroundColor: context.shadColors.foreground,
               actions: [
                 Testable(
                   id: TestTags.navSettings,
@@ -114,7 +114,6 @@ class MainScreen extends HookConsumerWidget {
                 : NavigationBar(
                     selectedIndex: tabsRouter.activeIndex,
                     onDestinationSelected: (index) {
-                      // If tapping already-active Explorer tab, reset stack
                       if (tabsRouter.activeIndex == index && index == 1) {
                         tabsRouter.stackRouterOfIndex(index)?.popUntilRoot();
                       } else {
@@ -161,6 +160,16 @@ class MainScreen extends HookConsumerWidget {
                           ),
                         ),
                         label: Strings.explorer,
+                      ),
+                      NavigationDestination(
+                        icon: const Icon(LucideIcons.list),
+                        selectedIcon: Icon(
+                          LucideIcons.list,
+                          color: ShadTheme.of(
+                            context,
+                          ).colorScheme.primary,
+                        ),
+                        label: Strings.restockTabLabel,
                       ),
                     ],
                   ),

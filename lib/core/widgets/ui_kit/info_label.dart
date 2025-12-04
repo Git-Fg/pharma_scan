@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
+import 'package:pharma_scan/core/theme/theme_extensions.dart';
 
 class InfoLabel extends StatelessWidget {
   const InfoLabel({
@@ -26,8 +26,8 @@ class InfoLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     final effectiveStyle =
         style ??
-        ShadTheme.of(context).textTheme.small.copyWith(
-          color: ShadTheme.of(context).colorScheme.mutedForeground,
+        context.shadTextTheme.small.copyWith(
+          color: context.shadColors.mutedForeground,
         );
     final effectiveIconColor = iconColor ?? effectiveStyle.color;
 

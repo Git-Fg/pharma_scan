@@ -7,6 +7,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:pharma_scan/core/config/app_config.dart';
 import 'package:pharma_scan/core/config/data_sources.dart';
+import 'package:pharma_scan/core/errors/failures.dart';
 import 'package:pharma_scan/core/models/update_frequency.dart';
 import 'package:pharma_scan/core/providers/capability_providers.dart';
 import 'package:pharma_scan/core/providers/core_providers.dart';
@@ -211,30 +212,48 @@ class SyncController extends _$SyncController {
         downloadedFiles[entry.key] = tempFile;
       }
 
-      final saveHashesEither = await db.settingsDao.saveSourceHashes(
-        sourceHashes,
-      );
-      saveHashesEither.fold(
-        ifLeft: (failure) {
-          LoggerService.error(
-            '[SyncController] Failed to save source hashes',
-            failure.message,
-            failure.stackTrace,
-          );
-        },
-        ifRight: (_) {},
-      );
-      final saveDatesEither = await db.settingsDao.saveSourceDates(sourceDates);
-      saveDatesEither.fold(
-        ifLeft: (failure) {
-          LoggerService.error(
-            '[SyncController] Failed to save source dates',
-            failure.message,
-            failure.stackTrace,
-          );
-        },
-        ifRight: (_) {},
-      );
+      try {
+        final saveHashesEither = await db.settingsDao.saveSourceHashes(
+          sourceHashes,
+        );
+        saveHashesEither.fold(
+          ifLeft: (Failure failure) {
+            LoggerService.error(
+              '[SyncController] Failed to save source hashes',
+              failure.message,
+              failure.stackTrace,
+            );
+          },
+          ifRight: (_) {},
+        );
+      } on Exception catch (e, s) {
+        LoggerService.error(
+          '[SyncController] Failed to save source hashes',
+          e,
+          s,
+        );
+      }
+      try {
+        final saveDatesEither = await db.settingsDao.saveSourceDates(
+          sourceDates,
+        );
+        saveDatesEither.fold(
+          ifLeft: (Failure failure) {
+            LoggerService.error(
+              '[SyncController] Failed to save source dates',
+              failure.message,
+              failure.stackTrace,
+            );
+          },
+          ifRight: (_) {},
+        );
+      } on Exception catch (e, s) {
+        LoggerService.error(
+          '[SyncController] Failed to save source dates',
+          e,
+          s,
+        );
+      }
 
       if (hasChanges) {
         currentStep = _SyncStep.applyUpdate;
@@ -260,7 +279,7 @@ class SyncController extends _$SyncController {
       LoggerService.info('Sync completed. Changes applied: $hasChanges');
 
       return hasChanges;
-    } catch (error, stackTrace) {
+    } on Failure catch (error, stackTrace) {
       final errorSubject = currentSubject != null
           ? 'download_$currentSubject'
           : currentStep.name;
@@ -277,6 +296,28 @@ class SyncController extends _$SyncController {
         error,
         stackTrace,
       );
+
+      // Swallow the error after updating state and logging so callers receive
+      // a non-throwing result while UI can react to the error state.
+      return false;
+    } on Object catch (error, stackTrace) {
+      final errorSubject = currentSubject != null
+          ? 'download_$currentSubject'
+          : currentStep.name;
+
+      state = buildState(
+        phase: SyncPhase.error,
+        code: SyncStatusCode.error,
+        subject: errorSubject,
+        errorType: _mapErrorTypeForStep(currentStep),
+      );
+
+      LoggerService.error(
+        'Sync failed with unexpected error at step "${currentStep.name}"${currentSubject != null ? ' ($currentSubject)' : ''}',
+        error,
+        stackTrace,
+      );
+
       rethrow;
     } finally {
       for (final file in downloadedFiles.values) {
@@ -284,19 +325,27 @@ class SyncController extends _$SyncController {
       }
       final clock = ref.read(clockProvider);
       final db = ref.read(appDatabaseProvider);
-      final updateEither = await db.settingsDao.updateSyncTimestamp(
-        clock().millisecondsSinceEpoch,
-      );
-      updateEither.fold(
-        ifLeft: (failure) {
-          LoggerService.error(
-            '[SyncController] Failed to update sync timestamp',
-            failure.message,
-            failure.stackTrace,
-          );
-        },
-        ifRight: (_) {},
-      );
+      try {
+        final updateEither = await db.settingsDao.updateSyncTimestamp(
+          clock().millisecondsSinceEpoch,
+        );
+        updateEither.fold(
+          ifLeft: (failure) {
+            LoggerService.error(
+              '[SyncController] Failed to update sync timestamp',
+              failure.message,
+              failure.stackTrace,
+            );
+          },
+          ifRight: (_) {},
+        );
+      } on Exception catch (e, s) {
+        LoggerService.error(
+          '[SyncController] Failed to update sync timestamp',
+          e,
+          s,
+        );
+      }
       unawaited(_scheduleReset());
     }
   }

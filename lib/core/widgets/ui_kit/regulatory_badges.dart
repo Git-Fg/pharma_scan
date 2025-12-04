@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
+import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
@@ -35,7 +36,7 @@ class RegulatoryBadges extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = ShadTheme.of(context);
+    final theme = context.shadTheme;
     final badges = <Widget>[];
 
     // DANGER / STRICT -> Destructive (Red)
@@ -123,7 +124,6 @@ class RegulatoryBadges extends StatelessWidget {
     }
 
     // SURVEILLANCE -> Outline (Information)
-    // We lose the "Yellow" but gain UI consistency
     if (isSurveillance) {
       badges.add(
         ShadBadge.outline(

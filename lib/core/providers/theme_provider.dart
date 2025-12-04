@@ -49,15 +49,24 @@ class ThemeNotifier extends _$ThemeNotifier {
       (settings) => themeSettingFromStorage(settings.themeMode).asThemeMode,
     );
   }
+}
+
+@riverpod
+class ThemeMutation extends _$ThemeMutation {
+  @override
+  Future<void> build() async {}
 
   Future<void> setTheme(ThemeSetting setting) async {
-    final updateEither = await ref
-        .read(appDatabaseProvider)
-        .settingsDao
-        .updateTheme(setting.name);
-    updateEither.fold(
-      ifLeft: (failure) => throw failure,
-      ifRight: (_) {},
-    );
+    state = const AsyncValue.loading();
+    state = await AsyncValue.guard(() async {
+      final updateEither = await ref
+          .read(appDatabaseProvider)
+          .settingsDao
+          .updateTheme(setting.name);
+      return updateEither.fold<Future<void>>(
+        ifLeft: Future<void>.error,
+        ifRight: (_) => Future<void>.value(),
+      );
+    });
   }
 }

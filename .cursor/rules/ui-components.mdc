@@ -1,0 +1,131 @@
+---
+description: Shadcn UI components, forms, accessibility, and theme patterns
+globs: lib/**/presentation/**/*.dart, lib/core/widgets/**/*.dart
+alwaysApply: false
+---
+
+# UI Components (2025 Standard)
+
+## Core Philosophy
+
+- USE `shadcn_ui` widgets exclusively
+- ICONS: `LucideIcons` only (FORBIDDEN: `Icons.` Material)
+- THEME: Access via `ShadTheme.of(context)` or `context.shadTheme` extension
+- FORBIDDEN: Hardcoded colors, typography, or shapes
+
+## Theme Extension (Recommended)
+
+```
+// lib/core/theme/theme_extensions.dart
+extension ShadThemeContext on BuildContext {
+  ShadThemeData get shadTheme => ShadTheme.of(this);
+  ShadTextTheme get shadTextTheme => shadTheme.textTheme;
+  ShadColorScheme get shadColors => shadTheme.colorScheme;
+  ShadBreakpoints get breakpoints => shadTheme.breakpoints;
+}
+
+// Usage
+Text('Hello', style: context.shadTextTheme.p);
+Icon(LucideIcons.star, color: context.shadColors.primary);
+```
+
+## Application Setup
+
+```
+import 'package:shadcn_ui/shadcn_ui.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+
+class MyApp extends HookConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final appRouter = ref.watch(appRouterProvider);
+    final themeMode = ref.watch(themeProvider).value ?? ThemeMode.system;
+    
+    return ShadApp.custom(
+      themeMode: themeMode,
+      theme: ShadThemeData(
+        brightness: Brightness.light,
+        colorScheme: const ShadGreenColorScheme.light(),
+      ),
+      darkTheme: ShadThemeData(
+        brightness: Brightness.dark,
+        colorScheme: const ShadGreenColorScheme.dark(),
+      ),
+      appBuilder: (context) => MaterialApp.router(
+        supportedLocales: const [Locale('en'), Locale('fr')],
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        builder: (context, child) => ShadAppBuilder(child: child!),
+        routerConfig: appRouter.config(),
+      ),
+    );
+  }
+}
+```
+
+## Form Handling
+
+```
+// ✅ ShadForm with GlobalKey is ONLY allowed pattern
+class MyForm extends HookConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final formKey = useMemoized(() => GlobalKey<ShadFormState>());
+    
+    return ShadForm(
+      key: formKey,
+      child: Column(
+        children: [
+          ShadInputFormField(
+            id: 'email', // CRITICAL: Unique ID
+            label: Text(Strings.email),
+            validator: (v) => v.isEmpty ? Strings.required : null,
+          ),
+          ShadButton(
+            onPressed: () {
+              if (formKey.currentState!.saveAndValidate()) {
+                final data = formKey.currentState!.value;
+                final email = data['email'] as String;
+                // Process data
+              }
+            },
+            child: Text(Strings.submit),
+          ),
+        ],
+      ),
+    );
+  }
+}
+```
+
+**Exception:** `useTextEditingController` is acceptable for non-form inputs (search bars with debouncing).
+
+## Accessibility (Trust by Default)
+
+**Core Principle:** Shadcn widgets with `title`, `label`, `description` provide accessibility automatically.
+
+**When to Add Explicit Semantics:**
+
+1. Custom widgets without Shadcn components
+2. Additional context beyond Shadcn properties
+3. Icon-only buttons without tooltips
+
+**When NOT to Add:**
+
+1. Shadcn widgets with title/label (already accessible)
+2. Redundant information
+3. Standard use cases
+
+## Anti-Patterns
+
+- ❌ Manual form state management (`TextEditingController` in forms)
+- ❌ External UI libraries (Material-only patterns)
+- ❌ `Icons.` Material icons (use `LucideIcons`)
+- ❌ Hardcoded colors/typography
+- ❌ Redundant semantic labels on Shadcn widgets
+- ✅ `ShadForm` with `GlobalKey<ShadFormState>`
+- ✅ Theme via `context.shadTheme`
+- ✅ Trust Shadcn's built-in accessibility

@@ -3,6 +3,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pharma_scan/core/database/daos/catalog_dao.dart';
 import 'package:pharma_scan/core/database/database.dart';
+import 'package:pharma_scan/core/domain/types/ids.dart';
 
 void main() {
   late AppDatabase db;
@@ -86,7 +87,7 @@ void main() {
       availability: 'Rupture de stock',
     );
 
-    final result = await scanDao.getProductByCip('3400000000012');
+    final result = await scanDao.getProductByCip(Cip13.validated('3400000000012'));
 
     expect(result, isNotNull);
     expect(result!.availabilityStatus, equals('Rupture de stock'));
@@ -99,7 +100,7 @@ void main() {
     () async {
       await seedData(agrement: 'oui');
 
-      final result = await scanDao.getProductByCip('3400000000012');
+      final result = await scanDao.getProductByCip(Cip13.validated('3400000000012'));
       expect(result, isNotNull);
       expect(result!.isHospitalOnly, isTrue);
       expect(result.availabilityStatus, isNull);

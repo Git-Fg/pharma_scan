@@ -1,14 +1,17 @@
 import 'dart:async';
 
 import 'package:pharma_scan/core/database/database.dart';
+import 'package:pharma_scan/core/domain/types/ids.dart';
+import 'package:pharma_scan/core/domain/types/semantic_types.dart';
 import 'package:pharma_scan/core/logic/sanitizer.dart';
 import 'package:pharma_scan/core/providers/core_providers.dart';
 import 'package:pharma_scan/core/services/logger_service.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
+import 'package:pharma_scan/features/explorer/domain/entities/medicament_entity.dart';
+import 'package:pharma_scan/features/explorer/domain/logic/explorer_grouping_helper.dart';
 import 'package:pharma_scan/features/explorer/domain/models/generic_group_entity.dart';
 import 'package:pharma_scan/features/explorer/domain/models/search_filters_model.dart';
 import 'package:pharma_scan/features/explorer/domain/models/search_result_item_model.dart';
-import 'package:pharma_scan/features/explorer/presentation/widgets/explorer_grouping_helper.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'search_provider.g.dart';
@@ -20,12 +23,9 @@ class SearchFiltersNotifier extends _$SearchFiltersNotifier {
     voieAdministration: 'orale',
   );
 
-  /// Updates the search filters state.
-  /// Methods are preferred over setters for Notifiers to maintain clarity and documentation.
-  // ignore: use_setters_to_change_properties
-  void updateFilters(SearchFilters filters) {
-    state = filters;
-  }
+  SearchFilters get filters => state;
+
+  set filters(SearchFilters filters) => state = filters;
 
   void clearFilters() {
     state = const SearchFilters();
@@ -38,40 +38,42 @@ Stream<List<SearchResultItem>> searchResults(Ref ref, String rawQuery) {
   if (query.isEmpty) {
     return Stream<List<SearchResultItem>>.value(const <SearchResultItem>[]);
   }
+  final normalizedQuery = NormalizedQuery.fromString(query);
 
   final catalogDao = ref.watch(catalogDaoProvider);
-  return catalogDao.watchMedicaments(query).map((summaries) {
+  return catalogDao.watchMedicaments(normalizedQuery).map((summaries) {
     if (summaries.isEmpty) return const <SearchResultItem>[];
     return _mapSummariesToItems(summaries);
   });
 }
 
-/// Maps summaries to search result items using Explorer grouping logic.
-/// This aligns search results with the Explorer tab's molecule-based accordion structure.
 List<SearchResultItem> _mapSummariesToItems(
   List<MedicamentSummaryData> summaries,
 ) {
+  final entities = summaries.map(MedicamentEntity.fromData).toList();
+
   final groupEntities = <String, GenericGroupEntity>{};
   final standaloneItems = <SearchResultItem>[];
   final seenStandaloneNames = <String>{};
 
-  for (final summary in summaries) {
-    // 1. Handle Standalones
-    if (summary.groupId == null) {
-      final canonicalName = summary.nomCanonique.toUpperCase().trim();
+  for (final entity in entities) {
+    if (entity.groupId == null) {
+      final canonicalName = entity.nomCanonique.toUpperCase().trim();
       if (seenStandaloneNames.contains(canonicalName)) continue;
       seenStandaloneNames.add(canonicalName);
 
-      final commonPrinciples = summary.principesActifsCommuns
+      final commonPrinciples = entity.principesActifsCommuns
           .map(normalizePrincipleOptimal)
           .where((p) => p.isNotEmpty)
           .join(', ');
 
       standaloneItems.add(
         StandaloneResult(
-          cisCode: summary.cisCode,
-          summary: summary,
-          representativeCip: summary.representativeCip ?? summary.cisCode,
+          cisCode: entity.cisCode,
+          summary: entity,
+          representativeCip:
+              entity.representativeCip ??
+              Cip13.validated(entity.cisCode.toString()),
           commonPrinciples: commonPrinciples.isNotEmpty
               ? commonPrinciples
               : Strings.notDetermined,
@@ -80,26 +82,18 @@ List<SearchResultItem> _mapSummariesToItems(
       continue;
     }
 
-    // 2. Handle Groups (Deduplicate by groupId)
-    // Even if FTS matched "Doliprane" (Princeps) and "Paracetamol Bio" (Generic),
-    // they belong to the same groupId. We only want the Group entity once.
-    if (!groupEntities.containsKey(summary.groupId)) {
-      // Determine the best princeps label for the group
-      // If the current row is the princeps or carries the label, good.
-      // Otherwise, we rely on what's in the summary.
+    if (!groupEntities.containsKey(entity.groupId)) {
       final princepsRef =
-          summary.princepsDeReference.isNotEmpty &&
-              summary.princepsDeReference != 'Inconnu'
-          ? summary.princepsDeReference
-          : summary.nomCanonique;
+          entity.princepsDeReference.isNotEmpty &&
+              entity.princepsDeReference != 'Inconnu'
+          ? entity.princepsDeReference
+          : entity.nomCanonique;
 
-      // DEBUG: Log principesActifsCommuns to understand why clustering fails
-      // Check if this is a Mémantine-related group by checking groupId or common principles
-      if (summary.groupId != null) {
+      if (entity.groupId != null) {
         final isMemantine =
-            summary.princepsDeReference.contains('MEMANTINE') ||
-            summary.princepsDeReference.contains('MÉMANTINE') ||
-            summary.principesActifsCommuns.any(
+            entity.princepsDeReference.contains('MEMANTINE') ||
+            entity.princepsDeReference.contains('MÉMANTINE') ||
+            entity.principesActifsCommuns.any(
               (p) =>
                   p.toUpperCase().contains('MEMANTINE') ||
                   p.toUpperCase().contains('MÉMANTINE'),
@@ -107,24 +101,23 @@ List<SearchResultItem> _mapSummariesToItems(
 
         if (isMemantine) {
           LoggerService.debug(
-            '[SearchProvider] Mémantine group ${summary.groupId}: '
-            'princepsDeReference=${summary.princepsDeReference}, '
-            'principesActifsCommuns=${summary.principesActifsCommuns}, '
-            'commonPrinciples=${summary.principesActifsCommuns.map(normalizePrincipleOptimal).where((p) => p.isNotEmpty).join(", ")}',
+            '[SearchProvider] Mémantine group ${entity.groupId}: '
+            'princepsDeReference=${entity.princepsDeReference}, '
+            'principesActifsCommuns=${entity.principesActifsCommuns}, '
+            'commonPrinciples=${entity.principesActifsCommuns.map(normalizePrincipleOptimal).where((p) => p.isNotEmpty).join(", ")}',
           );
         }
       }
 
-      final commonPrinciples = summary.principesActifsCommuns
+      final commonPrinciples = entity.principesActifsCommuns
           .map(normalizePrincipleOptimal)
           .where((p) => p.isNotEmpty)
           .join(', ');
 
-      // Extract princeps CIS code if this row is a princeps
-      final princepsCisCode = summary.isPrinceps ? summary.cisCode : null;
+      final princepsCisCode = entity.isPrinceps ? entity.cisCode : null;
 
-      groupEntities[summary.groupId!] = GenericGroupEntity(
-        groupId: summary.groupId!,
+      groupEntities[entity.groupId!.toString()] = GenericGroupEntity(
+        groupId: entity.groupId!,
         commonPrincipes: commonPrinciples.isNotEmpty
             ? commonPrinciples
             : Strings.notDetermined,
@@ -132,26 +125,22 @@ List<SearchResultItem> _mapSummariesToItems(
         princepsCisCode: princepsCisCode,
       );
     } else {
-      // If we already have this group but the current row is a princeps,
-      // update the princepsCisCode if it wasn't set before
-      final existingEntity = groupEntities[summary.groupId!]!;
-      if (existingEntity.princepsCisCode == null && summary.isPrinceps) {
-        groupEntities[summary.groupId!] = GenericGroupEntity(
+      final existingEntity = groupEntities[entity.groupId!.toString()]!;
+      if (existingEntity.princepsCisCode == null && entity.isPrinceps) {
+        groupEntities[entity.groupId!.toString()] = GenericGroupEntity(
           groupId: existingEntity.groupId,
           commonPrincipes: existingEntity.commonPrincipes,
           princepsReferenceName: existingEntity.princepsReferenceName,
-          princepsCisCode: summary.cisCode,
+          princepsCisCode: entity.cisCode,
         );
       }
     }
   }
 
-  // 3. Apply Clustering Logic (The "Explorer" Magic)
   final groupedObjects = ExplorerGroupingHelper.groupByCommonPrincipes(
     groupEntities.values.toList(),
   );
 
-  // 4. Map to Result Items
   final groupResults = groupedObjects.map((obj) {
     if (obj is GroupCluster) {
       return ClusterResult(

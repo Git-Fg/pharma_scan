@@ -39,7 +39,7 @@ class FakePathProviderPlatform extends PathProviderPlatform {
 /// This is required for aggregation to work correctly.
 /// Call this after inserting batch data and before running aggregation.
 Future<void> setPrincipeNormalizedForAllPrinciples(AppDatabase database) async {
-  final allPrincipes = await (database.select(database.principesActifs)).get();
+  final allPrincipes = await database.select(database.principesActifs).get();
   for (final principe in allPrincipes) {
     final normalized = normalizePrincipleOptimal(principe.principe);
     await (database.update(database.principesActifs)..where(

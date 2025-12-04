@@ -5,18 +5,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:gap/gap.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/logic/sanitizer.dart';
 import 'package:pharma_scan/core/router/app_router.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
+import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/detail_item.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/status_view.dart';
+import 'package:pharma_scan/features/explorer/domain/entities/medicament_entity.dart';
+import 'package:pharma_scan/features/explorer/domain/logic/explorer_grouping_helper.dart';
 import 'package:pharma_scan/features/explorer/domain/models/generic_group_entity.dart';
 import 'package:pharma_scan/features/explorer/domain/models/search_result_item_model.dart';
 import 'package:pharma_scan/features/explorer/presentation/providers/generic_groups_provider.dart';
 import 'package:pharma_scan/features/explorer/presentation/providers/search_provider.dart';
-import 'package:pharma_scan/features/explorer/presentation/widgets/explorer_grouping_helper.dart';
 import 'package:pharma_scan/features/explorer/presentation/widgets/medicament_tile.dart';
 import 'package:pharma_scan/features/explorer/presentation/widgets/molecule_group_tile.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
@@ -104,9 +105,9 @@ class ExplorerContentList extends ConsumerWidget {
     ];
 
     final breakpoint = context.breakpoint;
-    final isSmallScreen = breakpoint < ShadTheme.of(context).breakpoints.sm;
+    final isSmallScreen = breakpoint < context.shadTheme.breakpoints.sm;
     final iconSize = isSmallScreen ? AppDimens.iconSm : AppDimens.iconMd;
-    final theme = ShadTheme.of(context);
+    final theme = context.shadTheme;
     final valueTextStyle = isSmallScreen
         ? theme.textTheme.h3
         : theme.textTheme.h4;
@@ -158,7 +159,7 @@ class ExplorerContentList extends ConsumerWidget {
             child: Icon(
               icon,
               size: iconSize,
-              color: ShadTheme.of(context).colorScheme.primary,
+              color: context.shadColors.primary,
             ),
           ),
           const Gap(AppDimens.spacing2xs),
@@ -174,7 +175,7 @@ class ExplorerContentList extends ConsumerWidget {
             child: Text(
               label,
               style: labelTextStyle.copyWith(
-                color: ShadTheme.of(context).colorScheme.mutedForeground,
+                color: context.shadColors.mutedForeground,
               ),
               textAlign: TextAlign.center,
               maxLines: 2,
@@ -240,15 +241,14 @@ class ExplorerContentList extends ConsumerWidget {
     final principles = hasPrinciples
         ? _formatPrinciples(group.commonPrincipes)
         : Strings.notDetermined;
-    final theme = ShadTheme.of(context);
-
     return MergeSemantics(
       child: Semantics(
         button: true,
         label: '$principles, référence ${group.princepsReferenceName}',
         child: InkWell(
-          onTap: () =>
-              context.router.push(GroupExplorerRoute(groupId: group.groupId)),
+          onTap: () => context.router.push(
+            GroupExplorerRoute(groupId: group.groupId.toString()),
+          ),
           child: Container(
             padding: const EdgeInsets.symmetric(
               horizontal: AppDimens.spacingMd,
@@ -256,7 +256,7 @@ class ExplorerContentList extends ConsumerWidget {
             ),
             decoration: BoxDecoration(
               border: Border(
-                bottom: BorderSide(color: theme.colorScheme.border),
+                bottom: BorderSide(color: context.shadColors.border),
               ),
             ),
             child: Row(
@@ -265,7 +265,7 @@ class ExplorerContentList extends ConsumerWidget {
                 ShadBadge.outline(
                   child: Text(
                     Strings.generics.substring(0, 1),
-                    style: theme.textTheme.small,
+                    style: context.shadTextTheme.small,
                   ),
                 ),
                 const SizedBox(width: AppDimens.spacingSm),
@@ -278,7 +278,7 @@ class ExplorerContentList extends ConsumerWidget {
                         principles,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.p.copyWith(
+                        style: context.shadTextTheme.p.copyWith(
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -287,8 +287,8 @@ class ExplorerContentList extends ConsumerWidget {
                         group.princepsReferenceName,
                         maxLines: 3,
                         overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.small.copyWith(
-                          color: theme.colorScheme.mutedForeground,
+                        style: context.shadTextTheme.small.copyWith(
+                          color: context.shadColors.mutedForeground,
                         ),
                       ),
                     ],
@@ -393,9 +393,9 @@ class ExplorerContentList extends ConsumerWidget {
   Widget _buildSkeletonSliver(BuildContext context) {
     return Builder(
       builder: (context) {
-        final placeholderColor = ShadTheme.of(
-          context,
-        ).colorScheme.muted.withValues(alpha: 0.3);
+        final placeholderColor = context.shadColors.muted.withValues(
+          alpha: 0.3,
+        );
         return SliverList.separated(
           itemCount: 4,
           separatorBuilder: (context, index) => const Gap(AppDimens.spacing2xs),
@@ -472,8 +472,8 @@ class ExplorerContentList extends ConsumerWidget {
             children: [
               Text(
                 Strings.noResults,
-                style: ShadTheme.of(context).textTheme.small.copyWith(
-                  color: ShadTheme.of(context).colorScheme.mutedForeground,
+                style: context.shadTextTheme.small.copyWith(
+                  color: context.shadColors.mutedForeground,
                 ),
               ),
               if (hasFilters) ...[
@@ -543,20 +543,20 @@ class ExplorerContentList extends ConsumerWidget {
   void _handleSearchResultTap(BuildContext context, SearchResultItem result) {
     switch (result) {
       case ClusterResult():
-        // Clusters handle taps internally via MoleculeGroupTile accordion
-        // This case ensures type safety but should not be reached
         break;
       case GroupResult(group: final group):
         unawaited(
-          context.router.push(GroupExplorerRoute(groupId: group.groupId)),
+          context.router.push(
+            GroupExplorerRoute(groupId: group.groupId.toString()),
+          ),
         );
       case PrincepsResult(groupId: final groupId):
         unawaited(
-          context.router.push(GroupExplorerRoute(groupId: groupId)),
+          context.router.push(GroupExplorerRoute(groupId: groupId.toString())),
         );
       case GenericResult(groupId: final groupId):
         unawaited(
-          context.router.push(GroupExplorerRoute(groupId: groupId)),
+          context.router.push(GroupExplorerRoute(groupId: groupId.toString())),
         );
       case StandaloneResult(
         summary: final summary,
@@ -578,7 +578,7 @@ class ExplorerContentList extends ConsumerWidget {
 
   Widget _buildStandaloneDetailOverlay(
     BuildContext context,
-    MedicamentSummaryData summary,
+    MedicamentEntity summary,
     String representativeCip,
   ) {
     final sanitizedPrinciples = summary.principesActifsCommuns
@@ -650,7 +650,7 @@ class ExplorerContentList extends ConsumerWidget {
               ShadBadge.outline(
                 child: Text(
                   Strings.uniqueMedicationNoGroup,
-                  style: ShadTheme.of(context).textTheme.small,
+                  style: context.shadTextTheme.small,
                   overflow: TextOverflow.ellipsis,
                   maxLines: 2,
                 ),
@@ -677,7 +677,7 @@ class _SkeletonBlock extends StatelessWidget {
       width: width,
       decoration: BoxDecoration(
         color: color,
-        borderRadius: ShadTheme.of(context).radius,
+        borderRadius: context.shadTheme.radius,
       ),
     );
   }

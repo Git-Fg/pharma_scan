@@ -1,13 +1,14 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pharma_scan/core/router/app_router.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
+import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/app_animations.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
-import 'package:pharma_scan/core/widgets/ui_kit/product_card.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/product_type_badge.dart';
 import 'package:pharma_scan/features/scanner/presentation/providers/scanner_provider.dart';
+import 'package:pharma_scan/features/scanner/presentation/widgets/scanner_result_card.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 /// Widget that displays the stack of scan result bubbles at the top of the camera screen.
@@ -16,7 +17,7 @@ import 'package:shadcn_ui/shadcn_ui.dart';
 /// - Responsive margins (8px for small screens, 12px otherwise)
 /// - Dismissible swipe-to-remove functionality
 /// - Bubble entrance animations
-class ScannerBubbles extends HookConsumerWidget {
+class ScannerBubbles extends ConsumerWidget {
   const ScannerBubbles({super.key});
 
   @override
@@ -28,14 +29,21 @@ class ScannerBubbles extends HookConsumerWidget {
       child: Builder(
         builder: (context) {
           final breakpoint = context.breakpoint;
-          final horizontalMargin =
-              breakpoint < ShadTheme.of(context).breakpoints.sm ? 8.0 : 12.0;
+          final horizontalMargin = breakpoint < context.shadTheme.breakpoints.sm
+              ? 8.0
+              : 12.0;
 
           return Padding(
             padding: EdgeInsets.symmetric(horizontal: horizontalMargin),
             child: Consumer(
               builder: (context, ref, child) {
-                final scannerState = ref.watch(scannerProvider);
+                final scannerAsync = ref.watch(scannerProvider);
+                final scannerState = scannerAsync.value;
+
+                if (scannerState == null || scannerState.bubbles.isEmpty) {
+                  return const SizedBox.shrink();
+                }
+
                 return Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -70,9 +78,10 @@ class ScannerBubbles extends HookConsumerWidget {
         top: isPrimary ? 0 : AppDimens.spacing2xs / 2,
       ),
       child: Dismissible(
-        key: ValueKey(bubble.cip),
-        onDismissed: (_) =>
-            ref.read(scannerProvider.notifier).removeBubble(bubble.cip),
+        key: ValueKey(bubble.cip.toString()),
+        onDismissed: (_) => ref
+            .read(scannerProvider.notifier)
+            .removeBubble(bubble.cip.toString()),
         child: _buildBubbleContent(context, ref, bubble),
       ),
     );
@@ -85,32 +94,26 @@ class ScannerBubbles extends HookConsumerWidget {
   ) {
     final summary = bubble.summary;
 
-    // Determine product type
     final productType = summary.groupId != null
         ? (summary.isPrinceps ? ProductType.princeps : ProductType.generic)
         : ProductType.standalone;
 
-    // Build badges based on product type
     final badges = <Widget>[
       ProductTypeBadge(type: productType, compact: true),
     ];
 
-    // Condition badge
     if (summary.conditionsPrescription != null &&
         summary.conditionsPrescription!.isNotEmpty) {
       badges.add(
         ShadBadge.outline(
           child: Text(
             summary.conditionsPrescription!,
-            style: ShadTheme.of(context).textTheme.small,
+            style: context.shadTextTheme.small,
           ),
         ),
       );
     }
 
-    // Compact subtitle lines for scanner bubbles:
-    // Line 1: Form & Dosage (e.g., "Comprimé • 10 mg")
-    // Line 2: Titulaire (Lab) & CIP (e.g., "BIOGARAN • CIP: 34009...")
     final compactSubtitle = <String>[];
     final form = summary.formePharmaceutique;
     final dosage = summary.formattedDosage?.trim();
@@ -127,14 +130,15 @@ class ScannerBubbles extends HookConsumerWidget {
     }
 
     final titulaire = summary.titulaire;
+    final cipString = bubble.cip.toString();
     final cipLine = (titulaire != null && titulaire.isNotEmpty)
-        ? '${titulaire.trim()} • ${Strings.cip} ${bubble.cip}'
-        : '${Strings.cip} ${bubble.cip}';
+        ? '${titulaire.trim()} • ${Strings.cip} $cipString'
+        : '${Strings.cip} $cipString';
     compactSubtitle.add(cipLine);
 
-    return ProductCard(
+    return ScannerResultCard(
       key: ValueKey(
-        '${bubble.cip}_${summary.isPrinceps
+        '${cipString}_${summary.isPrinceps
             ? 'princeps'
             : summary.groupId != null
             ? 'generic'
@@ -142,18 +146,12 @@ class ScannerBubbles extends HookConsumerWidget {
       ),
       summary: summary,
       cip: bubble.cip,
-      compact: true,
-      showDetails: false,
-      subtitle: compactSubtitle,
-      groupLabel: summary.groupId != null ? summary.princepsBrandName : null,
       badges: badges,
-      showActions: true,
-      animation: true,
-      onClose: () =>
-          ref.read(scannerProvider.notifier).removeBubble(bubble.cip),
+      subtitle: compactSubtitle,
+      onClose: () => ref.read(scannerProvider.notifier).removeBubble(cipString),
       onExplore: summary.groupId != null
           ? () => context.router.push(
-              GroupExplorerRoute(groupId: summary.groupId!),
+              GroupExplorerRoute(groupId: summary.groupId!.toString()),
             )
           : null,
       price: bubble.price,

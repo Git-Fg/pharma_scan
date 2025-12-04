@@ -91,6 +91,24 @@ class SettingsDao extends DatabaseAccessor<AppDatabase>
     return DateTime.fromMillisecondsSinceEpoch(millis);
   }
 
+  Future<Either<Failure, void>> updatePreferredSorting(String mode) {
+    return Either.catchFutureError(
+      (e, stackTrace) {
+        LoggerService.error(
+          '[SettingsDao] Error in updatePreferredSorting',
+          e,
+          stackTrace,
+        );
+        return DatabaseFailure(e.toString(), stackTrace);
+      },
+      () async {
+        await (update(appSettings)..where((tbl) => tbl.id.equals(1))).write(
+          AppSettingsCompanion(preferredSorting: Value(mode)),
+        );
+      },
+    );
+  }
+
   Future<Either<Failure, void>> updateTheme(String mode) {
     return Either.catchFutureError(
       (e, stackTrace) {
@@ -222,6 +240,24 @@ class SettingsDao extends DatabaseAccessor<AppDatabase>
             sourceHashes: Value('{}'),
             sourceDates: Value('{}'),
           ),
+        );
+      },
+    );
+  }
+
+  Future<Either<Failure, void>> updateHapticFeedback({required bool enabled}) {
+    return Either.catchFutureError(
+      (e, stackTrace) {
+        LoggerService.error(
+          '[SettingsDao] Error updateHapticFeedback',
+          e,
+          stackTrace,
+        );
+        return DatabaseFailure(e.toString(), stackTrace);
+      },
+      () async {
+        await (update(appSettings)..where((tbl) => tbl.id.equals(1))).write(
+          AppSettingsCompanion(hapticFeedbackEnabled: Value(enabled)),
         );
       },
     );

@@ -7,7 +7,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 import 'package:pharma_scan/core/database/database.dart';
+import 'package:pharma_scan/core/domain/types/semantic_types.dart';
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
+
 import '../../test_utils.dart';
 
 void main() {
@@ -30,7 +32,6 @@ void main() {
     });
 
     test('should find search candidates after aggregation', () async {
-      // GIVEN: In-memory database with a simple group (file-based database for aggregation).
       final dbFile = File(p.join(documentsDir.path, 'medicaments.db'));
       final database = AppDatabase.forTesting(
         NativeDatabase(dbFile, setup: configureAppSQLite),
@@ -99,7 +100,9 @@ void main() {
       await dataInitializationService.runSummaryAggregationForTesting();
 
       final catalogDao = database.catalogDao;
-      final candidates = await catalogDao.searchMedicaments('APIXABAN');
+      final candidates = await catalogDao.searchMedicaments(
+        NormalizedQuery.fromString('APIXABAN'),
+      );
 
       // Verify results contain expected medications.
       expect(candidates, isNotEmpty);

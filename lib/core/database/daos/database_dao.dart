@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:pharma_scan/core/database/daos/settings_dao.dart';
 import 'package:pharma_scan/core/database/database.dart';
+import 'package:pharma_scan/core/logic/sanitizer.dart';
 
 part 'database_dao.g.dart';
 
@@ -83,12 +84,20 @@ class DatabaseDao extends DatabaseAccessor<AppDatabase>
         ..insertAll(
           principesActifs,
           principes.map(
-            (row) => PrincipesActifsCompanion(
-              codeCip: Value(row['code_cip'] as String),
-              principe: Value(row['principe'] as String),
-              dosage: Value(row['dosage'] as String?),
-              dosageUnit: Value(row['dosage_unit'] as String?),
-            ),
+            (row) {
+              final principe = row['principe'] as String;
+              return PrincipesActifsCompanion(
+                codeCip: Value(row['code_cip'] as String),
+                principe: Value(principe),
+                principeNormalized: Value(
+                  principe.isNotEmpty
+                      ? normalizePrincipleOptimal(principe)
+                      : null,
+                ),
+                dosage: Value(row['dosage'] as String?),
+                dosageUnit: Value(row['dosage_unit'] as String?),
+              );
+            },
           ),
           mode: InsertMode.replace,
         )

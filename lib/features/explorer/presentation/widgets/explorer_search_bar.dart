@@ -5,6 +5,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:gap/gap.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
+import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/app_animations.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/utils/test_tags.dart';
@@ -56,9 +57,9 @@ class ExplorerSearchBar extends HookConsumerWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: ShadTheme.of(context).colorScheme.background,
+        color: context.shadColors.background,
         border: Border(
-          top: BorderSide(color: ShadTheme.of(context).colorScheme.border),
+          top: BorderSide(color: context.shadColors.border),
         ),
       ),
       padding: const EdgeInsets.fromLTRB(
@@ -110,7 +111,7 @@ class ExplorerSearchBar extends HookConsumerWidget {
             color: ShadTheme.of(
               context,
             ).colorScheme.muted.withValues(alpha: 0.08),
-            borderRadius: ShadTheme.of(context).radius,
+            borderRadius: context.shadTheme.radius,
           ),
           padding: const EdgeInsets.symmetric(horizontal: AppDimens.spacingSm),
           child: ShadInput(
@@ -121,7 +122,7 @@ class ExplorerSearchBar extends HookConsumerWidget {
             leading: Icon(
               LucideIcons.search,
               size: AppDimens.iconSm,
-              color: ShadTheme.of(context).colorScheme.mutedForeground,
+              color: context.shadColors.mutedForeground,
             ),
             trailing: isFetching
                 ? Semantics(
@@ -197,7 +198,7 @@ class ExplorerSearchBar extends HookConsumerWidget {
                 Icon(
                   LucideIcons.slidersHorizontal,
                   size: 18,
-                  color: ShadTheme.of(context).colorScheme.foreground,
+                  color: context.shadColors.foreground,
                 ),
                 if (hasActiveFilters)
                   Positioned(
@@ -209,7 +210,7 @@ class ExplorerSearchBar extends HookConsumerWidget {
                         child: ShadBadge(
                           child: Text(
                             '$filterCount',
-                            style: ShadTheme.of(context).textTheme.small,
+                            style: context.shadTextTheme.small,
                           ),
                         ),
                       ),
@@ -256,7 +257,7 @@ class ExplorerSearchBar extends HookConsumerWidget {
     SearchFilters currentFilters,
     WidgetRef ref,
   ) {
-    final theme = ShadTheme.of(context);
+    final theme = context.shadTheme;
     return ShadSheet(
       title: const Text(Strings.filters),
       actions: [
@@ -293,7 +294,7 @@ class ExplorerSearchBar extends HookConsumerWidget {
     SearchFilters currentFilters,
     WidgetRef ref,
   ) {
-    final theme = ShadTheme.of(context);
+    final theme = context.shadTheme;
     final selectedValue = currentFilters.atcClass;
     final selectedText = selectedValue?.label ?? Strings.allClasses;
 
@@ -353,9 +354,8 @@ class ExplorerSearchBar extends HookConsumerWidget {
           ],
         ),
         onChanged: (value) {
-          ref
-              .read(searchFiltersProvider.notifier)
-              .updateFilters(currentFilters.copyWith(atcClass: value));
+          ref.read(searchFiltersProvider.notifier).filters = currentFilters
+              .copyWith(atcClass: value);
           unawaited(Navigator.of(context).maybePop());
         },
       ),

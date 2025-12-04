@@ -3,9 +3,9 @@ import 'dart:convert';
 import 'package:diacritic/diacritic.dart';
 import 'package:petitparser/petitparser.dart';
 import 'package:pharma_scan/core/constants/chemical_constants.dart';
-import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/logic/medicament_grammar.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
+import 'package:pharma_scan/features/explorer/domain/entities/medicament_entity.dart';
 
 final Parser<String> _medicamentBaseNameParser =
     buildMedicamentBaseNameParser();
@@ -140,7 +140,7 @@ String extractPrincepsLabel(String rawLabel) {
   return trimmed;
 }
 
-String getDisplayTitle(MedicamentSummaryData summary) {
+String getDisplayTitle(MedicamentEntity summary) {
   if (summary.isPrinceps) {
     return extractPrincepsLabel(summary.princepsDeReference);
   }

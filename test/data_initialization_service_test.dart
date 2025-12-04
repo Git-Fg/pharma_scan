@@ -1,12 +1,14 @@
 // test/data_initialization_service_test.dart
 import 'dart:convert';
 import 'dart:io';
+
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
+
 import 'test_utils.dart';
 
 void main() {
@@ -41,8 +43,6 @@ void main() {
     test(
       'should correctly parse CIS_bdpm.txt for clean medication names',
       () async {
-        // GIVEN: Sample TXT content with CIS codes and clean medication names
-        // Column order: [0]=CIS, [1]=Dénomination
         const testContent = '''
 60002283	ARIMIDEX 1 mg, comprimé
 60004932	GLUCOPHAGE 500 mg, comprimé
@@ -93,8 +93,6 @@ void main() {
     );
 
     test('should correctly parse procedure type from CIS_bdpm.txt', () async {
-      // GIVEN: Sample TXT content with procedure type in column 5 (index 5)
-      // Column order: [0]=CIS, [1]=Dénomination, [2]=Forme pharm, [3]=Voies admin, [4]=Statut, [5]=Type de procédure
       const testContent = '''
 60002283	ARIMIDEX 1 mg, comprimé	Comprimé	Orale	Commercialisée	Enreg homéo (Proc. Nat.)
 60004932	GLUCOPHAGE 500 mg, comprimé	Comprimé	Orale	Commercialisée	Autorisation
@@ -146,8 +144,6 @@ void main() {
     test(
       'should correctly parse CIS_CIP_bdpm.txt with correct column indices',
       () async {
-        // GIVEN: Sample TXT content matching real-world BDPM structure
-        // Column order: [0]=CIS, [1]=CIP7, [2]=Libellé, [3-5]=..., [6]=CIP13
         const testContent = '''
 60002283	4949729	plaquette(s) PVC... de 30 comprimé(s)	Présentation active	Déclaration de commercialisation	16/03/2011	3400949497294
 60002283	4949770	autre présentation...	Présentation active	Déclaration	20/05/2011	3400949497706
@@ -200,8 +196,6 @@ void main() {
     test(
       'should correctly parse CIS_COMPO_bdpm.txt filtering for SA only',
       () async {
-        // GIVEN: Sample TXT content with SA (active) and FT (fraction) substances
-        // Column order: [0]=CIS, [1]=Element, [2]=Code, [3]=Dénomination, [6]=Nature
         const testContent = '''
 60002283	comprimé	42215	ANASTROZOLE	1,00 mg	un comprimé	SA	1
 60004932	comprimé	12345	METFORMINE	500,00 mg	un comprimé	FT	1
@@ -257,8 +251,6 @@ void main() {
     test(
       'should correctly parse CIS_GENER_bdpm.txt with group relationships',
       () async {
-        // GIVEN: Sample TXT content with generic groups
-        // Column order: [0]=Group ID, [1]=Libelle, [2]=CIS, [3]=Type (0=princeps, 1=generic)
         const testContent = '''
 1	CIMETIDINE 200 mg	60001234	0	1
 1	CIMETIDINE 200 mg	60005678	1	2
@@ -356,7 +348,6 @@ void main() {
     test(
       'should correctly parse generic types 2 and 4 from CIS_GENER_bdpm.txt',
       () async {
-        // GIVEN: Sample TXT content with generics of types 2 and 4
         const testContent = '''
 10	MEDICAMENT TEST	60001000	0	1
 10	MEDICAMENT TEST	60001001	1	2
@@ -447,7 +438,6 @@ void main() {
     test(
       'should handle one-to-many CIS to CIP13 relationship correctly',
       () async {
-        // GIVEN: One CIS with multiple CIP13s (different packagings)
         final cisToCip13 = <String, List<String>>{};
         final medicamentCips = <String>{};
         final medicaments = <Map<String, dynamic>>[];

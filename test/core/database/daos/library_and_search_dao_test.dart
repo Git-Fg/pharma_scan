@@ -1,16 +1,16 @@
 // test/core/database/daos/library_and_search_dao_test.dart
 import 'dart:io';
 
-import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 import 'package:pharma_scan/core/database/database.dart';
+import 'package:pharma_scan/core/domain/types/semantic_types.dart';
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
 
 import '../../../test_utils.dart'
-    show setPrincipeNormalizedForAllPrinciples, FakePathProviderPlatform;
+    show FakePathProviderPlatform, setPrincipeNormalizedForAllPrinciples;
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -140,7 +140,6 @@ void main() {
     );
 
     test('should return correct database statistics', () async {
-      // GIVEN: A database with medicaments, principes, and groups
       await database.databaseDao.insertBatchData(
         specialites: [
           {
@@ -198,10 +197,8 @@ void main() {
         ],
       );
 
-      // WHEN: We get database stats
       final stats = await database.catalogDao.getDatabaseStats();
 
-      // THEN: Statistics are correct
       expect(stats['total_princeps'], 2); // 4 total - 2 generics = 2 princeps
       expect(stats['total_generiques'], 2);
       expect(stats['total_principes'], 2); // 2 distinct principles
@@ -260,7 +257,9 @@ void main() {
       await dataInitializationService.runSummaryAggregationForTesting();
 
       final catalogDao = database.catalogDao;
-      final candidates = await catalogDao.searchMedicaments('APIXABAN');
+      final candidates = await catalogDao.searchMedicaments(
+        NormalizedQuery.fromString('APIXABAN'),
+      );
       expect(candidates.length, 2);
 
       final princeps = candidates.firstWhere(
@@ -330,7 +329,9 @@ void main() {
       await setPrincipeNormalizedForAllPrinciples(database);
       await dataInitializationService.runSummaryAggregationForTesting();
 
-      final result = await database.catalogDao.searchMedicaments('GROUP');
+      final result = await database.catalogDao.searchMedicaments(
+        NormalizedQuery.fromString('GROUP'),
+      );
       expect(result.length, 2);
 
       // Get specialite data to check procedure type
@@ -390,7 +391,9 @@ void main() {
       await setPrincipeNormalizedForAllPrinciples(database);
       await dataInitializationService.runSummaryAggregationForTesting();
 
-      final result = await database.catalogDao.searchMedicaments('Group');
+      final result = await database.catalogDao.searchMedicaments(
+        NormalizedQuery.fromString('Group'),
+      );
       expect(result.length, 2);
       final names = result.map((s) => s.nomCanonique).toList();
       final sortedNames = [...names]..sort((a, b) => a.compareTo(b));
@@ -838,7 +841,7 @@ void main() {
 
         // WHEN: Search for "PARACETAMOL"
         final results = await database.catalogDao.searchMedicaments(
-          'PARACETAMOL',
+          NormalizedQuery.fromString('PARACETAMOL'),
         );
 
         // THEN: Results should be ordered by relevance (bm25 rank ASC)

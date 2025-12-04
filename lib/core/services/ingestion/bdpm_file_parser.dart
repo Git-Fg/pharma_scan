@@ -266,6 +266,7 @@ class BdpmFileParser {
       return Either.right(principes);
     }
 
+    // Group by composite key: CIS + Substance Code
     final rowsByKey = <String, _CompositionGroup>{};
 
     await for (final line in lines) {
@@ -274,10 +275,14 @@ class BdpmFileParser {
       if (parts.length < 8) continue;
 
       final cis = parts[0].trim();
+      final substanceCode = parts[2].trim(); // Index 2: Substance Code
       final denomination = parts[3].trim();
       final dosageRaw = parts[4].trim();
+      final nature = parts[6].trim(); // Index 6: Nature (SA or FT)
 
-      if (cis.isEmpty || denomination.isEmpty) continue;
+      if (cis.isEmpty || denomination.isEmpty || substanceCode.isEmpty) {
+        continue;
+      }
       if (!cisToCip13.containsKey(cis)) continue;
 
       // Utiliser la grammaire Dart de production (parseMoleculeSegment) pour
@@ -294,29 +299,48 @@ class BdpmFileParser {
 
       final row = _CompositionRow(
         cis: cis,
+        substanceCode: substanceCode,
         denomination: normalizedDenomination,
         dosage: dosageRaw,
+        nature: nature,
       );
-      final key = cis;
+      // Composite key: CIS + Substance Code
+      final key = '${cis}_$substanceCode';
       final group = rowsByKey.putIfAbsent(key, _CompositionGroup.new);
-      group.saRows.add(row);
+      group.rows.add(row);
     }
 
+    // For each group, prioritize FT over SA
     for (final group in rowsByKey.values) {
-      for (final row in group.saRows) {
-        final cip13s = cisToCip13[row.cis];
-        if (cip13s == null) continue;
+      if (group.rows.isEmpty) continue;
 
-        final (dosageValue, dosageUnit) = _parseDosage(row.dosage);
-
-        for (final cip13 in cip13s) {
-          principes.add((
-            codeCip: cip13,
-            principe: row.denomination,
-            dosage: dosageValue?.toString(),
-            dosageUnit: dosageUnit,
-          ));
+      // Find the winner: FT if exists, otherwise SA
+      _CompositionRow? winner;
+      for (final row in group.rows) {
+        if (row.nature.toUpperCase() == 'FT') {
+          winner = row;
+          break; // FT has highest priority, use first FT found
         }
+        if (winner == null && row.nature.toUpperCase() == 'SA') {
+          winner = row; // Use SA as fallback
+        }
+      }
+
+      // If no SA or FT found, use first row as fallback
+      final selectedRow = winner ?? group.rows.first;
+      final cip13s = cisToCip13[selectedRow.cis];
+      if (cip13s == null) continue;
+
+      final (dosageValue, dosageUnit) = _parseDosage(selectedRow.dosage);
+
+      // Emit only one PrincipeRow per (CIS, Substance Code) pair
+      for (final cip13 in cip13s) {
+        principes.add((
+          codeCip: cip13,
+          principe: selectedRow.denomination,
+          dosage: dosageValue?.toString(),
+          dosageUnit: dosageUnit,
+        ));
       }
     }
 
@@ -371,12 +395,8 @@ class BdpmFileParser {
                   ?.replaceAll(RegExp(r'\.$'), '')
                   .trim();
 
-              // Extract base molecule name BEFORE normalization
-              // This removes salt suffixes (Arginine, Tosilate) and salt prefixes
               final moleculeLabel = _removeSaltSuffixes(firstSegment).trim();
-              // Also normalize salt prefix if present (e.g., "CHLORHYDRATE DE METFORMINE" -> "METFORMINE")
               final normalizedMolecule = _normalizeSaltPrefix(moleculeLabel);
-              // Extract just the molecule name (remove salt in parentheses if normalized)
               final cleanedMoleculeLabel = normalizedMolecule
                   .replaceAll(RegExp(r'\s*\([^)]+\)\s*$'), '')
                   .trim();
@@ -676,7 +696,7 @@ typedef GeneriquesParseResult = ({
 class _CompositionGroup {
   _CompositionGroup();
 
-  final List<_CompositionRow> saRows = [];
+  final List<_CompositionRow> rows = [];
 }
 
 (Decimal?, String?) _parseDosage(String dosageStr) {
@@ -698,11 +718,15 @@ class _CompositionGroup {
 class _CompositionRow {
   const _CompositionRow({
     required this.cis,
+    required this.substanceCode,
     required this.denomination,
     required this.dosage,
+    required this.nature,
   });
 
   final String cis;
+  final String substanceCode;
   final String denomination;
   final String dosage;
+  final String nature;
 }

@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:pharma_scan/core/constants/rcp_constants.dart';
 import 'package:pharma_scan/core/services/logger_service.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
+import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/features/explorer/domain/models/rcp_section_model.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-class RcpShortcutsAccordion extends HookConsumerWidget {
+class RcpShortcutsAccordion extends ConsumerWidget {
   const RcpShortcutsAccordion({
     required this.cisCode,
     super.key,
@@ -19,7 +20,7 @@ class RcpShortcutsAccordion extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = ShadTheme.of(context);
+    final theme = context.shadTheme;
 
     return ShadAccordion<String>.multiple(
       children: [
@@ -43,7 +44,7 @@ class RcpShortcutsAccordion extends HookConsumerWidget {
   }
 
   Widget _buildSection(BuildContext context, RcpSection section) {
-    final theme = ShadTheme.of(context);
+    final theme = context.shadTheme;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,

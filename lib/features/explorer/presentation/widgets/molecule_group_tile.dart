@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
+import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/features/explorer/domain/models/generic_group_entity.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
@@ -19,8 +20,6 @@ class MoleculeGroupTile extends HookWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = ShadTheme.of(context);
-
     final sortedGroups = List<GenericGroupEntity>.from(groups)
       ..sort(
         (a, b) =>
@@ -33,9 +32,9 @@ class MoleculeGroupTile extends HookWidget {
 
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: theme.colorScheme.secondary,
-        border: Border.all(color: theme.colorScheme.border),
-        borderRadius: theme.radius,
+        color: context.shadColors.secondary,
+        border: Border.all(color: context.shadColors.border),
+        borderRadius: context.shadTheme.radius,
       ),
       child: ShadAccordion<String>(
         children: [
@@ -47,7 +46,7 @@ class MoleculeGroupTile extends HookWidget {
                 ShadBadge.outline(
                   child: Text(
                     Strings.generics.substring(0, 1),
-                    style: theme.textTheme.small,
+                    style: context.shadTextTheme.small,
                   ),
                 ),
                 const SizedBox(width: AppDimens.spacingSm),
@@ -58,7 +57,7 @@ class MoleculeGroupTile extends HookWidget {
                     children: [
                       Text(
                         moleculeName,
-                        style: theme.textTheme.p.copyWith(
+                        style: context.shadTextTheme.p.copyWith(
                           fontWeight: FontWeight.w600,
                         ),
                         maxLines: 2,
@@ -71,8 +70,8 @@ class MoleculeGroupTile extends HookWidget {
                             princeps,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.small.copyWith(
-                              color: theme.colorScheme.mutedForeground,
+                            style: context.shadTextTheme.small.copyWith(
+                              color: context.shadColors.mutedForeground,
                             ),
                           ),
                         ),
@@ -80,8 +79,8 @@ class MoleculeGroupTile extends HookWidget {
                       const SizedBox(height: 4),
                       Text(
                         Strings.productCount(groups.length),
-                        style: theme.textTheme.small.copyWith(
-                          color: theme.colorScheme.mutedForeground,
+                        style: context.shadTextTheme.small.copyWith(
+                          color: context.shadColors.mutedForeground,
                         ),
                       ),
                     ],

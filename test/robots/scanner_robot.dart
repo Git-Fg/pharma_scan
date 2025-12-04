@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
-import 'package:pharma_scan/core/widgets/ui_kit/product_card.dart';
+import 'package:pharma_scan/features/scanner/presentation/widgets/scanner_result_card.dart';
 
 /// WHY: Encapsulates scanner UI interactions so integration tests remain readable
 /// and resilient to layout changes. Follows the Robot Pattern for test maintainability.
@@ -25,15 +25,15 @@ class ScannerRobot {
   }
 
   /// WHY: Verify that a scan result bubble is displayed with the given medication name.
-  /// Uses ProductCard which replaces all previous bubble types.
+  /// Uses ScannerResultCard for scanner-specific result display.
   Future<void> verifyScanResult(String name) async {
     await tester.pumpAndSettle();
-    // Check for ProductCard widget
-    final hasProductCard = find.byType(ProductCard).evaluate().isNotEmpty;
+    // Check for ScannerResultCard widget
+    final hasResultCard = find.byType(ScannerResultCard).evaluate().isNotEmpty;
     expect(
-      hasProductCard,
+      hasResultCard,
       isTrue,
-      reason: 'Scan result ProductCard should be displayed',
+      reason: 'Scan result ScannerResultCard should be displayed',
     );
 
     // Verify the medication name appears in the card

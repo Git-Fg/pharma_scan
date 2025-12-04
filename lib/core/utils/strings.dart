@@ -224,6 +224,8 @@ class Strings {
       "Aucune photo n'est conservée et vous pouvez annuler à tout moment.";
   static const String pharmascanAnalyzesOnly =
       'PharmaScan analysera uniquement la photo choisie pour y détecter un code-barres.';
+  static const String scannerModeAnalysis = 'Mode : Analyse';
+  static const String scannerModeRestock = 'Mode : Rangement';
   static const String turnOffTorch = 'Éteindre la lampe torche';
   static const String turnOnTorch = 'Allumer la lampe torche';
   static const String importBarcodeFromGallery =
@@ -297,6 +299,19 @@ class Strings {
   static const String dataOperationsIdle = 'En attente';
   static String dataOperationsProgressLabel(double percent, String label) =>
       '${percent.toStringAsFixed(0)}% • $label';
+
+  // Haptics
+  static const String hapticsTitle = 'Confort & retours haptiques';
+  static const String hapticsDescription =
+      'Active ou désactive les vibrations lors du scan.';
+  static const String hapticsVibrationsLabel = 'Vibrations';
+
+  // Sorting Preference
+  static const String sortingTitle = 'Tri par défaut';
+  static const String sortingDescription =
+      'Choisissez comment organiser les médicaments dans les listes.';
+  static const String sortingByPrinceps = 'Par princeps (regroupement tiroirs)';
+  static const String sortingByName = 'Par nom de spécialité';
 
   // Explorer
   static const String searchErrorOccurred =
@@ -431,6 +446,21 @@ class Strings {
       'Principes actifs: $value';
   static String holderWithValue(String value) => 'Titulaire: $value';
   static String formWithValue(String value) => 'Forme: $value';
+
+  // Restock
+  static const String restockTitle = 'Liste de rangement';
+  static const String restockTabLabel = 'Liste';
+  static const String restockEmpty =
+      'Scannez des boîtes en mode Rangement pour remplir cette liste.';
+  static const String restockClearChecked = 'Effacer les cochés';
+  static const String restockClearAll = 'Tout vider';
+  static const String restockClearAllTitle =
+      'Vider complètement la liste de rangement ?';
+  static const String restockClearAllDescription =
+      'Cette action supprimera tous les éléments de la liste. Cette opération est irréversible.';
+  static const String restockClearAllConfirm = 'Vider la liste';
+  static String restockSubtitlePrinceps(String princeps) =>
+      'Ranger avec : $princeps';
 
   static String genericSummaryItem(String name, int count) {
     if (count > 1) {

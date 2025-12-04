@@ -10,6 +10,14 @@ targets:
                 - fts5
               known_functions:
                 normalize_text: "text(text)"
+      riverpod_generator:
+        generate_for:
+          include:
+            - lib/**/*.dart
+          exclude:
+            - test/**/*
+            - integration_test/**/*
+            - tool/**/*
       dart_mappable_builder:
         options:
           caseStyle: camelCase

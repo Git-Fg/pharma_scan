@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
+import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 class ScanWindowOverlay extends StatelessWidget {
@@ -9,7 +10,7 @@ class ScanWindowOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = ShadTheme.of(context);
+    final theme = context.shadTheme;
     final primary = theme.colorScheme.primary;
     final scrimColor = theme.colorScheme.foreground.withValues(alpha: 0.65);
 
@@ -66,9 +67,7 @@ class ScanWindowOverlay extends StatelessWidget {
           width: AppDimens.scannerWindowIconSize,
           height: AppDimens.scannerWindowIconSize,
           decoration: BoxDecoration(
-            color: ShadTheme.of(
-              context,
-            ).colorScheme.background.withValues(alpha: 0.15),
+            color: context.shadColors.background.withValues(alpha: 0.15),
             shape: BoxShape.circle,
           ),
           child: Icon(

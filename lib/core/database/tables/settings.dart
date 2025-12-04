@@ -21,6 +21,15 @@ class AppSettings extends Table {
     const Constant('{}'),
   )(); // JSON map of last update ISO strings
 
+  // Haptics
+  BoolColumn get hapticFeedbackEnabled =>
+      boolean().withDefault(const Constant(true))();
+
+  // Global sorting preference for explorer & restock lists.
+  // Values: 'princeps' (default), 'generic'.
+  TextColumn get preferredSorting =>
+      text().withDefault(const Constant('princeps'))();
+
   @override
   Set<Column> get primaryKey => {id};
 }

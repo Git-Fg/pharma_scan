@@ -11,6 +11,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart' hide ScanWindowOverlay;
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
+import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/app_animations.dart';
 import 'package:pharma_scan/core/utils/hooks/use_mobile_scanner.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
@@ -38,9 +39,44 @@ class CameraScreen extends HookConsumerWidget {
       tabsRouter = AutoTabsRouter.of(context);
       isTabActive = tabsRouter.activeIndex == 0;
       useListenable(tabsRouter);
-    } on Exception {
-      // Not available in test contexts
+    } on Object {
+      // Not available in test contexts or when not inside AutoTabsRouter
+      tabsRouter = null;
     }
+
+    ref.listen(
+      scannerProvider,
+      (previous, next) {
+        if (next is AsyncError &&
+            (previous == null || previous is! AsyncError)) {
+          ShadToaster.of(context).show(
+            ShadToast.destructive(
+              title: const Text(Strings.error),
+              description: Text(next.error.toString()),
+            ),
+          );
+        }
+
+        final previousData = previous?.maybeWhen<ScannerState?>(
+          data: (value) => value,
+          orElse: () => null,
+        );
+        final nextData = next.maybeWhen<ScannerState?>(
+          data: (value) => value,
+          orElse: () => null,
+        );
+
+        if (nextData != null &&
+            nextData.lastRestockMessage != null &&
+            nextData.lastRestockMessage != previousData?.lastRestockMessage) {
+          ShadToaster.of(context).show(
+            ShadToast(
+              title: Text(nextData.lastRestockMessage!),
+            ),
+          );
+        }
+      },
+    );
 
     final scannerController = useMobileScanner(
       enabled: isTabActive && isCameraActive.value,
@@ -121,20 +157,18 @@ class CameraScreen extends HookConsumerWidget {
                         Icon(
                           LucideIcons.videoOff,
                           size: 64,
-                          color: ShadTheme.of(context).colorScheme.destructive,
+                          color: context.shadColors.destructive,
                         ),
                         const Gap(AppDimens.spacingMd),
                         Text(
                           Strings.cameraUnavailable,
-                          style: ShadTheme.of(context).textTheme.h4,
+                          style: context.shadTextTheme.h4,
                         ),
                         const Gap(AppDimens.spacingXs),
                         Text(
                           Strings.checkPermissionsMessage,
-                          style: ShadTheme.of(context).textTheme.small.copyWith(
-                            color: ShadTheme.of(
-                              context,
-                            ).colorScheme.mutedForeground,
+                          style: context.shadTextTheme.small.copyWith(
+                            color: context.shadColors.mutedForeground,
                           ),
                         ),
                       ],
@@ -160,15 +194,13 @@ class CameraScreen extends HookConsumerWidget {
                     Icon(
                       LucideIcons.scan,
                       size: 80,
-                      color: ShadTheme.of(context).colorScheme.muted,
+                      color: context.shadColors.muted,
                     ),
                     const Gap(AppDimens.spacingLg),
                     Text(
                       Strings.readyToScan,
-                      style: ShadTheme.of(context).textTheme.h4.copyWith(
-                        color: ShadTheme.of(
-                          context,
-                        ).colorScheme.mutedForeground,
+                      style: context.shadTextTheme.h4.copyWith(
+                        color: context.shadColors.mutedForeground,
                       ),
                     ),
                   ],
@@ -178,7 +210,7 @@ class CameraScreen extends HookConsumerWidget {
               const ScanWindowOverlay(),
             if (isCameraActive.value && !isInitializing)
               Positioned(
-                top: MediaQuery.of(context).padding.top + AppDimens.spacingMd,
+                top: MediaQuery.paddingOf(context).top + AppDimens.spacingMd,
                 right: AppDimens.spacingMd,
                 child: ValueListenableBuilder<bool>(
                   valueListenable: isTorchOn,
@@ -189,7 +221,7 @@ class CameraScreen extends HookConsumerWidget {
                           ? Strings.turnOffTorch
                           : Strings.turnOnTorch,
                       child: ClipRRect(
-                        borderRadius: ShadTheme.of(context).radius,
+                        borderRadius: context.shadTheme.radius,
                         child: BackdropFilter(
                           filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
                           child: DecoratedBox(
@@ -202,17 +234,15 @@ class CameraScreen extends HookConsumerWidget {
                                   context,
                                 ).colorScheme.border.withValues(alpha: 0.3),
                               ),
-                              borderRadius: ShadTheme.of(context).radius,
+                              borderRadius: context.shadTheme.radius,
                             ),
                             child: ShadIconButton.ghost(
                               icon: Icon(
                                 LucideIcons.zap,
                                 size: AppDimens.iconLg,
                                 color: torchState
-                                    ? ShadTheme.of(context).colorScheme.primary
-                                    : ShadTheme.of(
-                                        context,
-                                      ).colorScheme.foreground,
+                                    ? context.shadColors.primary
+                                    : context.shadColors.foreground,
                               ),
                               onPressed: toggleTorch,
                             ),
@@ -245,7 +275,7 @@ class _GallerySheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = ShadTheme.of(context);
+    final theme = context.shadTheme;
     return ShadSheet(
       title: const Text(Strings.importFromGallery),
       description: const Text(Strings.pharmascanAnalyzesOnly),
@@ -390,7 +420,7 @@ class _ManualCipSheet extends HookConsumerWidget {
               const Gap(AppDimens.spacingMd),
               Text(
                 Strings.searchStartsAutomatically,
-                style: ShadTheme.of(context).textTheme.small,
+                style: context.shadTextTheme.small,
               ),
             ],
           ),

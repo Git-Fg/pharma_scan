@@ -1,30 +1,36 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pharma_scan/core/database/database.dart';
-import 'package:pharma_scan/core/widgets/ui_kit/product_card.dart';
+import 'package:pharma_scan/core/domain/types/ids.dart';
+import 'package:pharma_scan/core/widgets/ui_kit/product_type_badge.dart';
+import 'package:pharma_scan/features/explorer/domain/entities/medicament_entity.dart';
+import 'package:pharma_scan/features/scanner/presentation/widgets/scanner_result_card.dart';
+
 import '../../../helpers/pump_app.dart';
 
 void main() {
-  MedicamentSummaryData buildSummary() {
-    return const MedicamentSummaryData(
-      cisCode: '123456',
-      nomCanonique: 'Test Médicament',
-      isPrinceps: false,
-      principesActifsCommuns: ['Test'],
-      princepsDeReference: 'Test Princeps',
-      formePharmaceutique: 'Comprimé',
-      princepsBrandName: 'Test Brand',
-      procedureType: 'Procédure',
-      titulaire: 'Test Lab',
-      isSurveillance: false,
-      isHospitalOnly: false,
-      isDental: false,
-      isList1: false,
-      isList2: false,
-      isNarcotic: false,
-      isException: false,
-      isRestricted: false,
-      isOtc: true,
+  MedicamentEntity buildSummary() {
+    return MedicamentEntity.fromData(
+      const MedicamentSummaryData(
+        cisCode: '123456',
+        nomCanonique: 'Test Médicament',
+        isPrinceps: false,
+        principesActifsCommuns: ['Test'],
+        princepsDeReference: 'Test Princeps',
+        formePharmaceutique: 'Comprimé',
+        princepsBrandName: 'Test Brand',
+        procedureType: 'Procédure',
+        titulaire: 'Test Lab',
+        isSurveillance: false,
+        isHospitalOnly: false,
+        isDental: false,
+        isList1: false,
+        isList2: false,
+        isNarcotic: false,
+        isException: false,
+        isRestricted: false,
+        isOtc: true,
+      ),
     );
   }
 
@@ -33,9 +39,14 @@ void main() {
     (tester) async {
       await tester.pumpApp(
         Scaffold(
-          body: ProductCard(
+          body: ScannerResultCard(
             summary: buildSummary(),
-            cip: '3400000000012',
+            cip: Cip13.validated('3400000000012'),
+            badges: const [
+              ProductTypeBadge(type: ProductType.standalone, compact: true),
+            ],
+            subtitle: const ['Test subtitle'],
+            onClose: () {},
             availabilityStatus: 'Rupture de stock',
           ),
         ),

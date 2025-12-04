@@ -1,0 +1,86 @@
+---
+description: Responsive design, MediaQuery optimization, and layout patterns
+globs: lib/**/presentation/**/*.dart
+alwaysApply: false
+---
+
+# UI Layout & Responsive Design (2025)
+
+## MediaQuery Optimization (Critical)
+
+**FORBIDDEN:** `MediaQuery.of(context)` (triggers rebuild on ANY metadata change)
+
+**REQUIRED:** Use property-specific selectors:
+
+```
+// ❌ BAD: Triggers rebuild on accessibility changes
+final size = MediaQuery.of(context).size;
+
+// ✅ GOOD: Rebuilds only when size changes
+final size = MediaQuery.sizeOf(context);
+final padding = MediaQuery.paddingOf(context);
+final viewInsets = MediaQuery.viewInsetsOf(context);
+final textScaler = MediaQuery.textScalerOf(context);
+```
+
+## Responsive Design (Shadcn Native)
+
+**Mandate:** Use `ShadResponsiveBuilder` or `context.breakpoint` extension. Raw width checks FORBIDDEN.
+
+### Preferred: ShadResponsiveBuilder
+
+```
+ShadResponsiveBuilder(
+  builder: (context, breakpoint) {
+    return switch (breakpoint) {
+      ShadBreakpointTN() => const MobileView(),
+      ShadBreakpointSM() => const MobileView(),
+      ShadBreakpointMD() => const TabletView(),
+      ShadBreakpointLG() => const DesktopView(),
+      ShadBreakpointXL() => const DesktopView(),
+      ShadBreakpointXXL() => const DesktopView(),
+    };
+  },
+);
+```
+
+### Alternative: context.breakpoint Extension
+
+```
+final breakpoint = context.breakpoint;
+if (breakpoint >= context.shadTheme.breakpoints.md) {
+  return DesktopLayout();
+}
+return MobileLayout();
+```
+
+## Breakpoint Values
+
+Via `ShadTheme.of(context).breakpoints` or `context.breakpoints`:
+
+- `tn` - Tiny (0)
+- `sm` - Small (640)
+- `md` - Medium (768)
+- `lg` - Large (1024)
+- `xl` - Extra Large (1280)
+- `xxl` - Extra Extra Large (1536)
+
+## Layout Principles
+
+**Content Owns Layout:** Each widget handles its own constraints.
+
+- Sheets should NOT calculate keyboard padding → Form inside handles it
+- Cards should NOT handle scrolling → ListView containing them handles it
+- Use `showShadSheet(side: ShadSheetSide.bottom)` directly (native Shadcn)
+
+**Exception:** Use `DraggableScrollableSheet` ONLY for drag-to-snap panels.
+
+## Anti-Patterns
+
+- ❌ `MediaQuery.of(context)` without property selector
+- ❌ Raw `MediaQuery.sizeOf(context).width` checks for responsive design
+- ❌ Parent widgets calculating child padding
+- ❌ Manual sheet sizing calculations
+- ✅ `ShadResponsiveBuilder` with sealed breakpoints
+- ✅ `context.breakpoint` extension
+- ✅ Property-specific `MediaQuery.*Of(context)` selectors

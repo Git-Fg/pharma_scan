@@ -2,6 +2,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pharma_scan/core/database/database.dart';
+import 'package:pharma_scan/core/domain/types/ids.dart';
+import 'package:pharma_scan/features/explorer/domain/entities/medicament_entity.dart';
 import 'package:pharma_scan/features/explorer/domain/models/search_result_item_model.dart';
 import 'package:pharma_scan/features/explorer/presentation/widgets/medicament_tile.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
@@ -9,30 +11,32 @@ import 'package:shadcn_ui/shadcn_ui.dart';
 import '../../helpers/accessibility_test_helpers.dart';
 import '../../helpers/pump_app.dart';
 
-MedicamentSummaryData _buildSummary({
+MedicamentEntity _buildSummary({
   required String name,
   bool isPrinceps = false,
 }) {
-  return MedicamentSummaryData(
-    cisCode: '123456',
-    nomCanonique: name,
-    isPrinceps: isPrinceps,
-    formePharmaceutique: 'Comprimé',
-    principesActifsCommuns: const ['Test'],
-    groupId: 'group1',
-    princepsDeReference: '',
-    princepsBrandName: '',
-    procedureType: 'Procédure',
-    titulaire: 'Test Lab',
-    isSurveillance: false,
-    isHospitalOnly: false,
-    isDental: false,
-    isList1: false,
-    isList2: false,
-    isNarcotic: false,
-    isException: false,
-    isRestricted: false,
-    isOtc: true,
+  return MedicamentEntity.fromData(
+    MedicamentSummaryData(
+      cisCode: '123456',
+      nomCanonique: name,
+      isPrinceps: isPrinceps,
+      formePharmaceutique: 'Comprimé',
+      principesActifsCommuns: const ['Test'],
+      groupId: GroupId.validated('group1'),
+      princepsDeReference: '',
+      princepsBrandName: '',
+      procedureType: 'Procédure',
+      titulaire: 'Test Lab',
+      isSurveillance: false,
+      isHospitalOnly: false,
+      isDental: false,
+      isList1: false,
+      isList2: false,
+      isNarcotic: false,
+      isException: false,
+      isRestricted: false,
+      isOtc: true,
+    ),
   );
 }
 
@@ -42,8 +46,8 @@ void main() {
   ) async {
     final item = PrincepsResult(
       princeps: _buildSummary(name: 'Doliprane', isPrinceps: true),
-      generics: const <MedicamentSummaryData>[],
-      groupId: 'group1',
+      generics: const <MedicamentEntity>[],
+      groupId: GroupId.validated('group1'),
       commonPrinciples: 'Paracétamol',
     );
 
@@ -62,8 +66,8 @@ void main() {
   ) async {
     final item = GenericResult(
       generic: _buildSummary(name: 'Paracétamol Biogaran'),
-      princeps: const <MedicamentSummaryData>[],
-      groupId: 'group1',
+      princeps: const <MedicamentEntity>[],
+      groupId: GroupId.validated('group1'),
       commonPrinciples: 'Paracétamol',
     );
 
@@ -80,8 +84,8 @@ void main() {
   ) async {
     final item = PrincepsResult(
       princeps: _buildSummary(name: 'Doliprane', isPrinceps: true),
-      generics: const <MedicamentSummaryData>[],
-      groupId: 'group1',
+      generics: const <MedicamentEntity>[],
+      groupId: GroupId.validated('group1'),
       commonPrinciples: 'Paracétamol',
     );
 

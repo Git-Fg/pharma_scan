@@ -1,0 +1,110 @@
+---
+description: Flutter Hooks patterns for ephemeral UI state management
+globs: lib/**/presentation/**/*.dart
+alwaysApply: false
+---
+
+# Flutter Hooks (2025)
+
+## Core Principles
+
+- DEFAULT to `ConsumerWidget`; use `HookConsumerWidget` ONLY when hooks needed
+- FORBIDDEN: `StatefulWidget`, `initState`, `dispose`, `didUpdateWidget`
+- Hooks MUST be called unconditionally at top of `build` method
+- Custom hooks MUST start with `use` prefix
+
+## When to Use Hooks
+
+Use `HookConsumerWidget` only for:
+
+- `useTextEditingController` (search bars, forms with debouncing)
+- `useAnimationController` (animations)
+- `useFocusNode` (focus management)
+- `useEffect` (UI-specific side effects)
+
+For non-UI cleanup (timers, subscriptions), use `ref.onDispose` in Provider.
+
+## Migration Cheat Sheet
+
+| Traditional | Hook Equivalent | Notes |
+|-------------|----------------|-------|
+| `TextEditingController` | `useTextEditingController()` | Auto-disposed |
+| `AnimationController` | `useAnimationController(duration: ...)` | No `vsync` needed |
+| `FocusNode` | `useFocusNode()` | Auto-disposed |
+| `mounted` check | `context.mounted` | Flutter 3.7+ property |
+| `FutureBuilder` | `useFuture(...)` | Returns snapshot |
+
+## Patterns
+
+### Animation Controllers
+
+```
+// ✅ No SingleTickerProviderStateMixin needed
+final controller = useAnimationController(
+  duration: const Duration(seconds: 1),
+);
+controller.repeat();
+```
+
+### Lifecycle Management
+
+```
+// ✅ Preferred: useAppLifecycleState + useEffect
+final lifecycleState = useAppLifecycleState();
+useEffect(() {
+  if (lifecycleState == null) return null;
+  switch (lifecycleState) {
+    case AppLifecycleState.resumed:
+      // Resume logic
+      break;
+    case AppLifecycleState.paused:
+      // Pause logic
+      break;
+  }
+  return null;
+}, [lifecycleState]);
+```
+
+### Async Safety
+
+```
+// ✅ Use context.mounted (Flutter 3.7+)
+await futureOp();
+if (context.mounted) {
+  // Safe to update UI
+}
+```
+
+### Shadcn Controllers
+
+```
+// ✅ Popover/Dialog controllers
+final popoverController = useMemoized(() => ShadPopoverController());
+
+useEffect(() {
+  return () => popoverController.dispose();
+}, [popoverController]);
+```
+
+## Riverpod Integration
+
+```
+// ✅ Default: ConsumerWidget
+class MyWidget extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final data = ref.watch(myProvider);
+    return Text(data);
+  }
+}
+
+// ✅ With Hooks: HookConsumerWidget
+class SearchBar extends HookConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final controller = useTextEditingController();
+    final focusNode = useFocusNode();
+    // ...
+  }
+}
+```

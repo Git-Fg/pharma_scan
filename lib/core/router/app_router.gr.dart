@@ -143,6 +143,22 @@ class MainRoute extends PageRouteInfo<void> {
 }
 
 /// generated route for
+/// [RestockScreen]
+class RestockRoute extends PageRouteInfo<void> {
+  const RestockRoute({List<PageRouteInfo>? children})
+    : super(RestockRoute.name, initialChildren: children);
+
+  static const String name = 'RestockRoute';
+
+  static PageInfo page = PageInfo(
+    name,
+    builder: (data) {
+      return const RestockScreen();
+    },
+  );
+}
+
+/// generated route for
 /// [ScannerTabScreen]
 class ScannerTabRoute extends PageRouteInfo<void> {
   const ScannerTabRoute({List<PageRouteInfo>? children})

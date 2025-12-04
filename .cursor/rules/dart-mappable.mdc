@@ -1,0 +1,92 @@
+---
+description: Dart Mappable data models, serialization patterns, and sealed classes
+globs: lib/**/*_model.dart, lib/**/dto/*.dart
+alwaysApply: false
+---
+
+# Dart Mappable (2025 Standard)
+
+## Mandates
+
+- USE `@MappableClass()` with `<ClassName>Mappable` mixin
+- ALL fields must be `final` with `const` constructors
+- INCLUDE `part 'filename.mapper.dart';`
+- FORBIDDEN: `freezed`, `json_serializable`
+
+## Standard Data Class
+
+```
+import 'package:dart_mappable/dart_mappable.dart';
+
+part 'user.mapper.dart';
+
+@MappableClass()
+class User with UserMappable {
+  const User({required this.name, this.age});
+
+  final String name;
+  final int? age;
+
+  static final fromMap = UserMapper.fromMap;
+  static final fromJson = UserMapper.fromJson;
+}
+```
+
+## Sealed Classes (Unions)
+
+```
+@MappableClass(discriminatorKey: 'type')
+sealed class UiState with UiStateMappable {
+  const UiState();
+}
+
+@MappableClass(discriminatorValue: 'loading')
+class Loading extends UiState with LoadingMappable {
+  const Loading();
+}
+
+@MappableClass(discriminatorValue: 'success')
+class Success extends UiState with SuccessMappable {
+  const Success(this.data);
+  final List<String> data;
+}
+
+@MappableClass(discriminatorValue: 'error')
+class ErrorState extends UiState with ErrorStateMappable {
+  const ErrorState(this.message);
+  final String message;
+}
+```
+
+## Pattern Matching (Dart 3)
+
+```
+// ✅ Use switch expressions (not .map/.when)
+final result = switch (uiState) {
+  Loading() => 'Loading...',
+  Success(data: final data) => 'Data: ${data.length}',
+  ErrorState(message: final msg) => 'Error: $msg',
+};
+```
+
+## Configuration
+
+**JSON Keys:** Use `@MappableField(key: 'custom_key')` for custom naming
+
+**build.yaml:**
+
+```
+dart_mappable_builder:
+  options:
+    caseStyle: camelCase
+    generateMethods: [decode, encode, copy, stringify, equals]
+```
+
+## Anti-Patterns
+
+- ❌ Freezed for new models
+- ❌ Mutable fields in data models
+- ❌ Missing `part '*.mapper.dart';`
+- ❌ `.map()` or `.when()` (use `switch` expressions)
+- ✅ `sealed class` for unions
+- ✅ `const` constructors

@@ -1,5 +1,5 @@
-
-import 'package:pharma_scan/core/database/database.dart';
+import 'package:pharma_scan/core/domain/types/ids.dart';
+import 'package:pharma_scan/features/explorer/domain/entities/medicament_entity.dart';
 
 /// WHY: Dedicated data structure for scanner results enables us to
 /// transport CIP-level metadata (price, refund) alongside the summary.
@@ -15,8 +15,8 @@ class ScanResult {
     this.libellePresentation,
   });
 
-  final MedicamentSummaryData summary;
-  final String cip;
+  final MedicamentEntity summary;
+  final Cip13 cip;
   final double? price;
   final String? refundRate;
   final String? boxStatus;

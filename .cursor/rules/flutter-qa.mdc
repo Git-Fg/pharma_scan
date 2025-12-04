@@ -1,227 +1,111 @@
 ---
-description: QA and testing protocols: quality gates, testing strategies, mocking, and test patterns.
-globs: test/**/*, integration_test/**/*
-alwaysApply: true
+description: QA protocols, testing patterns, mocking strategy, and quality gates
+globs: test/**/*.dart, integration_test/**/*.dart
+alwaysApply: false
 ---
 
-# QA & Testing Protocols
+# QA & Testing (2025 Standard)
 
-## 1. The Quality Gate
+## Quality Gate (Run Before Every Commit)
 
-You are responsible for the build health. Run this sequence (stop immediately if any step fails):
-
-```bash
+```
 dart run build_runner build --delete-conflicting-outputs
 dart fix --apply
 dart analyze --fatal-infos --fatal-warnings
 flutter test
 ```
 
-**Important:** With `very_good_analysis`, `dart analyze` will be significantly stricter. Run `dart fix --apply` **aggressively** (up to 3 times) before manual review, as Very Good Analysis catches many style issues that are automatable by the CLI. Some fixes expose new opportunities for other fixes, so multiple passes may be necessary.
+**Auto-Fix Discipline:** If analyzer surfaces fixable warnings, run `dart fix --apply` (up to 3x) before manual review.
 
-Whenever the analyzer surfaces auto-fixable warnings or errors, rerun `dart fix --apply` before launching another analysis or test pass.
+## Mocking Strategy
 
-## 2. Testing Strategy
+**Library:** `mocktail` exclusively (FORBIDDEN: `mockito`)
 
-* **Unit Tests:** Focus on logic in `lib/core/`.
-  * Test business logic, parsers, and utilities in isolation.
-* **Integration Tests:** Validate flows using real DB logic (Drift in-memory).
-  * Test complete user flows and data pipelines.
-* **Widget Tests:** Test UI components in isolation with mocked providers.
-* **Updates:** If you change logic (e.g., `DatabaseService`), you MUST update the relevant integration test.
-
-### 2.1 Golden Tests for Data Parsing
-
-* **Python Oracle:** Use your test data generator script (via `uv run tool/your_parser.py`) to generate JSON golden files for complex parsing logic.
-* **Dart Golden Tests:**
-  * Create golden tests that validate parsing logic produces expected canonical outputs.
-  * Filter entries by strict parsing mode.
-  * Apply parsing functions to validate that the grammar produces non-empty canonical names for critical cases.
-* **Golden Tests for Aggregation – to maintain:**
-  * When evolving ETL logic, add/update integration tests that:
-    * load a small subset of golden JSON data,
-    * run the ETL on a test database (in-memory),
-    * compare aggregated segments to the JSON.
-* **Rule:** Any modification to parsing grammar (Python or Dart) must be accompanied by:
-  * regeneration of JSON golden files via your parser script,
-  * and passing the corresponding Dart golden tests.
-
-## 3. Test Data
-
-* Use your test data preparation script to cache test data files in `tool/data/` (shared cache directory, ignored by Git).
-* Use `AppDatabase.forTesting(NativeDatabase.memory())` for isolation.
-* **Mandatory:** Before asserting business logic, you must run your data population helper in tests to hydrate the aggregated tables.
-
-## 4. Resilience Tests (Layout & Constraints)
-
-**Mandate:** Encourage the addition of widget tests with specific size constraints to verify adaptability without overflow.
-
-* **Layout Tests:** Test widgets in constrained environments (e.g., 400px width vs 1000px width) to ensure they adapt correctly.
-* **Overflow Prevention:** Verify that widgets handle edge cases (long text, empty lists, null values) without causing overflow errors.
-
-**Example Pattern:**
-
-```dart
-// ✅ RECOMMENDED: Test widget at different sizes
-testWidgets('Widget adapts to narrow screen', (tester) async {
-  await tester.binding.setSurfaceSize(const Size(400, 800));
-  await tester.pumpWidget(MyWidget());
-  expect(find.byType(MyWidget), findsOneWidget);
-  // Verify no overflow errors
-});
-
-testWidgets('Widget adapts to wide screen', (tester) async {
-  await tester.binding.setSurfaceSize(const Size(1000, 800));
-  await tester.pumpWidget(MyWidget());
-  expect(find.byType(MyWidget), findsOneWidget);
-  // Verify layout changes appropriately
-});
 ```
+import 'package:mocktail/mocktail.dart';
 
-## 5. State Tests (AsyncValue Coverage)
-
-**Mandate:** MUST test error (`AsyncError`) and loading (`AsyncLoading`) states in widget tests using Riverpod overrides.
-
-* **Full Coverage:** Every widget consuming Riverpod providers MUST test all `AsyncValue` states:
-  * `AsyncLoading`: Show loading indicator or skeleton
-  * `AsyncData`: Display data correctly
-  * `AsyncError`: Show error UI with appropriate messaging
-
-**Example Pattern:**
-
-```dart
-// ✅ REQUIRED: Test all AsyncValue states
-testWidgets('Widget handles loading state', (tester) async {
-  await tester.pumpWidget(
-    ProviderScope(
-      overrides: [
-        itemsProvider.overrideWith((ref) => Stream.value([]).asyncMap(
-          (data) async {
-            await Future.delayed(Duration(seconds: 1));
-            return AsyncLoading<List<Item>>();
-          },
-        ).first),
-      ],
-      child: MyWidget(),
-    ),
-  );
-  expect(find.byType(CircularProgressIndicator), findsOneWidget);
-});
-
-testWidgets('Widget handles error state', (tester) async {
-  final error = Exception('Test error');
-  await tester.pumpWidget(
-    ProviderScope(
-      overrides: [
-        itemsProvider.overrideWith(
-          (ref) => Stream.value(AsyncError<List<Item>>(error, StackTrace.empty)),
-        ),
-      ],
-      child: MyWidget(),
-    ),
-  );
-  expect(find.text('Error: Test error'), findsOneWidget);
-});
-
-testWidgets('Widget displays data correctly', (tester) async {
-  final items = [Item(id: 1, name: 'Test')];
-  await tester.pumpWidget(
-    ProviderScope(
-      overrides: [
-        itemsProvider.overrideWith(
-          (ref) => Stream.value(AsyncData(items)),
-        ),
-      ],
-      child: MyWidget(),
-    ),
-  );
-  expect(find.text('Test'), findsOneWidget);
-});
-```
-
-## 6. The Robot Testing Pattern (Optional/Recommended)
-
-* **When to Use:** Robot classes are **recommended** for complex, multi-step user flows that are reused across multiple tests. They help keep complex tests readable and maintainable.
-* **When NOT to Use:** For simple unit/widget tests with straightforward interactions, **direct finders and actions are perfectly fine**. Don't over-engineer simple tests.
-* **Solution (for complex flows):** Encapsulate finder/gesture logic inside Robot classes stored in `test/robots/`.
-  * Constructor signature: `class ExplorerRobot { ExplorerRobot(this.tester); final WidgetTester tester; }`
-  * Expose semantic actions: `Future<void> searchFor(String term)`, `void expectResultCount(int count)`.
-* **Usage (complex flows):** Tests read like user stories: `final robot = ExplorerRobot(tester); await robot.searchFor('Test Query'); robot.expectResultCount(3);`.
-* **Direct Testing (simple tests):** For simple tests, **explicitly authorized** to use `await tester.tap(find.byKey(...))`, `find.text(...)`, `find.byType(...)`, etc. directly in test bodies. Keep it simple.
-
-**Example - Simple Test (Direct Approach):**
-```dart
-// ✅ PERFECTLY FINE: Direct finders for simple tests
-testWidgets('displays item name', (tester) async {
-  await tester.pumpWidget(MyWidget(item: testItem));
-  expect(find.text('Test Item'), findsOneWidget);
-  await tester.tap(find.byKey(Key('details-button')));
-  await tester.pumpAndSettle();
-  expect(find.text('Details'), findsOneWidget);
-});
-```
-
-**Example - Complex Flow (Robot Pattern):**
-```dart
-// ✅ RECOMMENDED: Robot for complex, reusable flows
-testWidgets('full search and filter flow', (tester) async {
-  final robot = ExplorerRobot(tester);
-  await robot.searchFor('Test Query');
-  await robot.openFilterSheet();
-  await robot.selectFilter('Category');
-  robot.expectResultCount(5);
-});
-```
-
-## 7. Mocking Strategy (Mocktail Only)
-
-* **Library:** Use `mocktail` everywhere. Do NOT reintroduce `mockito` or generated stubs.
-* **Shared Setup:** Place reusable mock classes and `registerFallbackValue` helpers inside `test/mocks.dart`.
-* **Pattern:**
-
-```dart
-class MockDatabaseService extends Mock implements DriftDatabaseService {}
+class MockDatabaseService extends Mock implements DatabaseService {}
 
 void main() {
   late MockDatabaseService database;
-
+  
   setUp(() {
     database = MockDatabaseService();
     registerFallbackValue(const ItemSummary());
   });
-
+  
   test('returns empty list', () async {
-    when(() => database.fetchSomething()).thenAnswer((_) async => []);
+    when(() => database.fetchItems()).thenAnswer((_) async => []);
     // ...
   });
 }
 ```
 
-## 8. String Literals in Tests (Strict Ban)
+## Robot Pattern (Complex Flows)
 
-* **Rule:** NEVER use string literals (e.g., `'Search'`, `'Error'`, `'Close'`) in `find.text()`, `find.byTooltip()`, or `find.bySemanticsLabel()` calls.
-* **Requirement:** You MUST import your `Strings.dart` file and use the `Strings.*` constants.
-* **Dynamic Text:** If a test needs to verify a string with variables (e.g., "3 items", "Categories (5)"), create a static helper method in `Strings` (e.g., `Strings.itemCount(3)`, `Strings.categoryCount(5)`) and use it in both the UI and the test.
-* **Rationale:** `Strings` class is the single source of truth for both UI and tests. This ensures tests automatically adapt to copy changes and prevents synchronization drift between UI and test expectations.
+**When to Use:** Multi-step flows reused across tests
 
-**Example Pattern:**
+**When NOT to Use:** Simple tests (use direct finders)
 
-```dart
-// ❌ FORBIDDEN: Hardcoded string literals in tests
-expect(find.text('Search'), findsOneWidget);
-expect(find.byTooltip('Open settings'), findsOneWidget);
-expect(find.text('Categories (3)'), findsOneWidget);
-
-// ✅ REQUIRED: Use Strings constants
-import 'package:your_app/core/utils/strings.dart';
-
-expect(find.text(Strings.search), findsOneWidget);
-expect(find.byTooltip(Strings.openSettings), findsOneWidget);
-expect(find.text(Strings.categoryCount(3)), findsOneWidget);
-
-// ❌ FORBIDDEN: Manual string interpolation in tests
-expect(find.text('Code ${code}'), findsOneWidget);
-
-// ✅ REQUIRED: Use Strings helper or construct consistently
-expect(find.text('${Strings.code} ${code}'), findsOneWidget);
 ```
+// ✅ Complex flow: Robot pattern
+class ExplorerRobot {
+  ExplorerRobot(this.tester);
+  final WidgetTester tester;
+  
+  Future<void> searchFor(String term) async { ... }
+  void expectResultCount(int count) { ... }
+}
+
+testWidgets('full search flow', (tester) async {
+  final robot = ExplorerRobot(tester);
+  await robot.searchFor('Test Query');
+  robot.expectResultCount(5);
+});
+
+// ✅ Simple test: Direct finders
+testWidgets('displays item name', (tester) async {
+  await tester.pumpWidget(MyWidget(item: testItem));
+  expect(find.text('Test Item'), findsOneWidget);
+});
+```
+
+## String Literals Ban
+
+**FORBIDDEN:** String literals in `find.text()`, `find.byTooltip()`, `find.bySemanticsLabel()`
+
+**REQUIRED:** Use `Strings.*` constants
+
+```
+// ❌ FORBIDDEN
+expect(find.text('Search'), findsOneWidget);
+
+// ✅ REQUIRED
+import 'package:your_app/core/utils/strings.dart';
+expect(find.text(Strings.search), findsOneWidget);
+```
+
+## Layout Resilience Tests
+
+```
+testWidgets('adapts to narrow screen', (tester) async {
+  await tester.binding.setSurfaceSize(const Size(400, 800));
+  await tester.pumpWidget(MyWidget());
+  expect(find.byType(MyWidget), findsOneWidget);
+});
+
+testWidgets('adapts to wide screen', (tester) async {
+  await tester.binding.setSurfaceSize(const Size(1000, 800));
+  await tester.pumpWidget(MyWidget());
+  // Verify layout changes appropriately
+});
+```
+
+## Anti-Patterns
+
+- ❌ String literals in tests (use `Strings.*`)
+- ❌ `mockito` (use `mocktail`)
+- ❌ Over-engineering simple tests with Robots
+- ✅ Robot pattern for complex flows
+- ✅ Direct finders for simple tests
+- ✅ `Strings.*` for all text expectations

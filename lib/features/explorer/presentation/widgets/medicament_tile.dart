@@ -1,7 +1,7 @@
-
 import 'package:flutter/material.dart';
 import 'package:pharma_scan/core/logic/sanitizer.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
+import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/product_type_badge.dart';
 import 'package:pharma_scan/features/explorer/domain/models/search_result_item_model.dart';
@@ -15,8 +15,6 @@ class MedicamentTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = ShadTheme.of(context);
-
     final (
       String title,
       String? subtitle,
@@ -24,9 +22,9 @@ class MedicamentTile extends StatelessWidget {
       String? details,
     ) = switch (item) {
       ClusterResult() => throw StateError(
-          'ClusterResult should not be rendered by MedicamentTile. '
-          'Use MoleculeGroupTile instead.',
-        ),
+        'ClusterResult should not be rendered by MedicamentTile. '
+        'Use MoleculeGroupTile instead.',
+      ),
       GroupResult(group: final group) => (
         group.commonPrincipes.isNotEmpty
             ? group.commonPrincipes
@@ -72,9 +70,9 @@ class MedicamentTile extends StatelessWidget {
     // Build semantic label based on medication type
     final semanticLabel = switch (item) {
       ClusterResult() => throw StateError(
-          'ClusterResult should not be rendered by MedicamentTile. '
-          'Use MoleculeGroupTile instead.',
-        ),
+        'ClusterResult should not be rendered by MedicamentTile. '
+        'Use MoleculeGroupTile instead.',
+      ),
       PrincepsResult(princeps: final princeps, generics: final generics) =>
         Strings.searchResultSemanticsForPrinceps(
           princeps.nomCanonique,
@@ -115,7 +113,7 @@ class MedicamentTile extends StatelessWidget {
             ),
             decoration: BoxDecoration(
               border: Border(
-                bottom: BorderSide(color: theme.colorScheme.border),
+                bottom: BorderSide(color: context.shadColors.border),
               ),
             ),
             child: Row(
@@ -134,7 +132,7 @@ class MedicamentTile extends StatelessWidget {
                         title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.p.copyWith(
+                        style: context.shadTextTheme.p.copyWith(
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -144,8 +142,8 @@ class MedicamentTile extends StatelessWidget {
                           subtitle,
                           maxLines: 3,
                           overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.small.copyWith(
-                            color: theme.colorScheme.mutedForeground,
+                          style: context.shadTextTheme.small.copyWith(
+                            color: context.shadColors.mutedForeground,
                           ),
                         ),
                       ],
@@ -161,8 +159,8 @@ class MedicamentTile extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.end,
-                      style: theme.textTheme.small.copyWith(
-                        color: theme.colorScheme.mutedForeground,
+                      style: context.shadTextTheme.small.copyWith(
+                        color: context.shadColors.mutedForeground,
                       ),
                     ),
                   ),

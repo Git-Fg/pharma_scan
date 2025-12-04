@@ -1,342 +1,46 @@
----
-description: AutoRoute navigation standards and type-safe routing (AutoRoute 10.3.0).
-globs: lib/core/router/**/*.dart, lib/**/*route*.dart
-alwaysApply: true
+
 ---
 
-# Navigation Standards (AutoRoute 10.3.0)
+description: AutoRoute navigation patterns, router injection, and route configuration
+globs: lib/core/router/**/*.dart, lib/**/*_route.dart
+alwaysApply: false
+---
 
-## 1. Core Principles
+# Navigation (AutoRoute 11.0.0)
 
-* **Library:** STRICTLY use `auto_route` (^10.3.0) and `auto_route_generator` (^10.3.0).
+## Router Provider Pattern
 
-* **Prohibition:** `go_router` and `Navigator.push` with material routes are FORBIDDEN.
-
-* **Type Safety:** Always use generated `*Route` classes. Never use raw strings for navigation paths.
-
-* **Code Generation:** Always run `dart run build_runner build --delete-conflicting-outputs` after modifying routes or adding `@RoutePage` annotations.
-
-## 2. Router Configuration
-
-* **Location:** `lib/core/router/app_router.dart`.
-
-* **Class:** Must extend `RootStackRouter`.
-
-* **Annotation:** `@AutoRouterConfig(replaceInRouteName: 'Screen|Page|View,Route')`.
-
-* **Route Type:** Override `defaultRouteType` to specify Material, Cupertino, or Adaptive routing.
-
-```dart
-@AutoRouterConfig(replaceInRouteName: 'Screen|Page|View,Route')
-class AppRouter extends RootStackRouter {
-  @override
-  RouteType get defaultRouteType => const RouteType.material();
-
-  @override
-  List<AutoRoute> get routes => [
-    AutoRoute(page: MainRoute.page, initial: true, path: '/'),
-    // ... other routes
-  ];
-}
 ```
-
-* **Provider:** Expose router via Riverpod provider with `keepAlive: true`:
-
-```dart
 @Riverpod(keepAlive: true)
 AppRouter appRouter(Ref ref) => AppRouter();
 ```
 
-## 3. Route Definition
+## Notifier Injection
 
-* **Pages:** Every screen widget must be annotated with `@RoutePage()`.
-
-* **Named Routes:** Use `@RoutePage(name: 'CustomRouteName')` when the generated name doesn't match your needs.
-
-* **Path Parameters:** Use `@PathParam('paramName')` annotation on constructor fields for dynamic segments.
-
-```dart
-@RoutePage()
-class GroupExplorerView extends HookConsumerWidget {
-  const GroupExplorerView({
-    @PathParam('groupId') required this.groupId,
-    super.key,
-  });
-
-  final String groupId;
-  // ...
-}
 ```
-
-* **Query Parameters:** Use `@QueryParam('paramName')` for optional query string parameters.
-
-```dart
-@RoutePage()
-class SearchScreen extends StatelessWidget {
-  const SearchScreen({
-    @QueryParam('q') this.query,
-    super.key,
-  });
-
-  final String? query;
-  // ...
-}
-```
-
-* **Shorthand:** When parameter name matches path/query name, use `@pathParam` or `@queryParam` (lowercase) without quotes.
-
-## 4. Navigation Actions
-
-* **Push:** `context.router.push(DetailRoute(id: 1))` or `context.router.push(GroupExplorerRoute(groupId: '123'))`
-
-* **Replace:** `context.router.replace(LoginRoute())`
-
-* **Pop:** `context.router.maybePop()` (preferred) or `context.router.pop()`
-
-* **Navigate:** `context.router.navigate(HomeRoute())` - pops until route exists, or pushes if not
-
-* **Back:** `context.router.back()` - navigates to previous location
-
-* **Push All:** `context.router.pushAll([Route1(), Route2()])` - adds multiple routes to stack
-
-* **Replace All:** `context.router.replaceAll([LoginRoute()])` - rebuilds stack with new routes
-
-* **Type Safety:** Always use generated Route classes. Never use string paths like `'/home'`.
-
-## 5. Tab Navigation
-
-### AutoTabsRouter (Recommended for Custom Layouts)
-
-Use `AutoTabsRouter` when you need full control over the Scaffold layout (AppBar, custom bottom navigation, etc.).
-
-* **Builder Signature:** `builder: (BuildContext context, Widget child)` - NO animation parameter.
-
-* **Access TabsRouter:** Use `AutoTabsRouter.of(context)` to get the tabs controller.
-
-* **Pattern:**
-
-```dart
-@RoutePage()
-class MainScreen extends HookConsumerWidget {
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return AutoTabsRouter(
-      routes: const [ScannerRoute(), ExplorerTabRoute()],
-      builder: (BuildContext context, Widget child) {
-        final tabsRouter = AutoTabsRouter.of(context);
-        return Scaffold(
-          appBar: AppBar(
-            title: Text(titles[tabsRouter.activeIndex]),
-          ),
-          bottomNavigationBar: NavigationBar(
-            selectedIndex: tabsRouter.activeIndex,
-            onDestinationSelected: tabsRouter.setActiveIndex,
-            // ...
-          ),
-          body: child,
-        );
-      },
-    );
+@riverpod
+class MyNotifier extends _$MyNotifier {
+  void performAction() {
+    final router = ref.read(appRouterProvider);
+    router.push(const DetailRoute());
   }
 }
 ```
 
-### AutoTabsScaffold (Simplified)
+## Widget Navigation
 
-Use `AutoTabsScaffold` for simpler cases where you only need to customize the bottom navigation bar.
+For simple callbacks, `context.router` remains acceptable:
 
-* **Pattern:**
-
-```dart
-@RoutePage()
-class MainScreen extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return AutoTabsScaffold(
-      routes: const [ScannerRoute(), ExplorerTabRoute()],
-      bottomNavigationBuilder: (_, tabsRouter) {
-        return BottomNavigationBar(
-          currentIndex: tabsRouter.activeIndex,
-          onTap: tabsRouter.setActiveIndex,
-          // ...
-        );
-      },
-    );
-  }
-}
 ```
-
-## 6. Nested Navigation (Stacks)
-
-To maintain history within a tab (e.g., Explorer -> Detail), use nested routes with an `AutoRouter` wrapper.
-
-* **Router Configuration:**
-
-```dart
-AutoRoute(
-  path: 'explorer',
-  page: ExplorerTabRoute.page, // Wrapper extending AutoRouter
-  children: [
-    AutoRoute(path: '', page: DatabaseRoute.page), // Initial child
-    AutoRoute(path: 'group/:groupId', page: GroupExplorerRoute.page),
-  ],
-)
-```
-
-* **Wrapper Implementation:**
-
-```dart
-@RoutePage(name: 'ExplorerTabRoute')
-class ExplorerTabScreen extends AutoRouter {
-  const ExplorerTabScreen({super.key});
-}
-```
-
-* **Navigation:** Use `context.router.push(GroupExplorerRoute(groupId: '123'))` from within the nested stack.
-
-## 7. Route Guards
-
-* **Definition:** Create guards by extending `AutoRouteGuard`.
-
-* **Usage:** Add to router configuration:
-
-```dart
-@override
-List<AutoRouteGuard> get guards => [
-  AuthGuard(),
-  // ... other guards
-];
-```
-
-* **Pattern:**
-
-```dart
-class AuthGuard extends AutoRouteGuard {
-  @override
-  void onNavigation(NavigationResolver resolver, StackRouter router) {
-    if (isAuthenticated) {
-      resolver.next();
-    } else {
-      router.push(const LoginRoute());
-    }
-  }
-}
-```
-
-## 8. Redirects
-
-* **Pattern:**
-
-```dart
-@override
-List<AutoRoute> get routes => [
-  RedirectRoute(path: '/old-path', redirectTo: '/new-path'),
-  AutoRoute(path: '/new-path', page: NewRoute.page),
-];
-```
-
-* **With Parameters:**
-
-```dart
-RedirectRoute(path: 'books/:id', redirectTo: '/books/:id/details'),
-```
-
-## 9. Deep Linking
-
-* **Configuration:** Deep linking works automatically with path parameters.
-
-* **Example:** `/explorer/group/123` automatically navigates to `GroupExplorerRoute(groupId: '123')`.
-
-* **Validation:** Use `deepLinkBuilder` in router config for custom validation:
-
-```dart
-routerConfig: appRouter.config(
-  deepLinkBuilder: (deepLink) {
-    if (deepLink.path.startsWith('/products')) {
-      return deepLink;
-    }
-    return DeepLink.defaultPath;
-  },
-)
-```
-
-## 10. Returning Results
-
-* **Push with Result:**
-
-```dart
-final result = await context.router.push<bool>(LoginRoute());
-if (result == true) {
-  // Handle success
-}
-```
-
-* **Pop with Result:**
-
-```dart
-context.router.maybePop<bool>(true);
-```
-
-## 11. Testing
-
-* **Test Router:** Use `AppRouter().config()` in test setup:
-
-```dart
-final testRouter = AppRouter();
-return MaterialApp.router(
-  routerConfig: testRouter.config(),
-  // ...
+ShadButton(
+  onPressed: () => context.router.push(const DetailRoute()),
+  child: Text(Strings.navigate),
 );
 ```
 
-* **Navigation Testing:** Use `context.router.push()` in tests, not string paths.
-
-## 12. Common Patterns
-
-### Initial Route
-
-```dart
-AutoRoute(
-  page: HomeRoute.page,
-  initial: true,
-  path: '/',
-)
-```
-
-### Empty Path for Default Child
-
-```dart
-AutoRoute(
-  path: 'dashboard',
-  page: DashboardRoute.page,
-  children: [
-    AutoRoute(path: '', page: OverviewRoute.page), // Default child
-    AutoRoute(path: 'settings', page: SettingsRoute.page),
-  ],
-)
-```
-
-### Custom Route Names
-
-```dart
-@RoutePage(name: 'ScannerRoute')
-class CameraScreen extends StatelessWidget {
-  // ...
-}
-```
-
-## 13. Anti-Patterns (FORBIDDEN)
-
-* ❌ **String Paths:** `context.router.pushPath('/home')` - Use `HomeRoute()` instead
-* ❌ **Manual Navigator:** `Navigator.push(context, MaterialPageRoute(...))` - Use AutoRoute
-* ❌ **Builder with Animation:** `builder: (context, child, animation)` - Use `(context, child)` only
-* ❌ **Raw Route Data:** Accessing `RouteData` directly instead of using constructor parameters
-* ❌ **String-based Navigation:** Any navigation using string paths instead of generated Route classes
-
 ## Reference Implementation
 
-* **Router:** `lib/core/router/app_router.dart`
-* **Provider:** `lib/core/router/router_provider.dart`
-* **Tab Navigation:** See your main screen implementation
-* **Path Parameters:** See your detail screen implementations
-* **Nested Routes:** See your tab route wrapper pattern
+- Router: `lib/core/router/app_router.dart`
+- Provider: `lib/core/router/router_provider.dart`
+- Tab Navigation: See main screen implementation
+- Path Parameters: See detail screen implementations

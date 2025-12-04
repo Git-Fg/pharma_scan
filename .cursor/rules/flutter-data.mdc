@@ -1,125 +1,106 @@
 ---
-description: Drift database patterns, optimization, query standards, and domain model principles.
+description: Drift database patterns, SQL-first logic, FTS5 search, and query optimization
 globs: lib/core/database/**/*.dart, **/*.drift
-alwaysApply: true
+alwaysApply: false
 ---
 
-# Flutter Data Layer Standards
+# Flutter Data Layer (2025 Standard)
 
-**Context:** Drift database patterns, optimization, query standards, and domain model principles. Focus on SQL-first logic, FTS5 search, performance optimization, and offline-first patterns.
+## SQL-First Logic
 
-## 1. SQL-First Logic
+**Mandate:** Can this logic (grouping, sorting, filtering) be done in a SQL View? If yes, use SQL.
 
-**Mandate:** Can this logic (grouping, sorting, filtering) be done in a SQL View instead of a Dart loop? If yes, use SQL.
+- **SQL > Dart:** Never map/group rows in Dart if SQL View returns exact shape
+- **Performance:** Views leverage SQLite optimizer
+- **Reference:** See database views file for aggregated patterns
 
-* **SQL > Dart:** Never use Dart to map/group database rows if a SQL View can return the exact shape needed.
-* **Performance:** Views leverage SQLite's optimizer and are more efficient than fetching raw rows and processing in Dart.
-* **Reference Implementation:** See your database views file for aggregated view patterns.
+## Build Runner (2025 Reality)
 
-## 2. Domain Model Principle
+- Dart Macros cancelled → `build_runner` is persistent standard
+- Use `dart_mappable` ONLY for: Network DTOs, UI State
+- **NEVER** for Database entities (use Extension Types wrapping Drift)
 
-### Drift-as-Domain Principle
+## Query Patterns
 
-* **Drift Classes = Domain Entities:** Use generated `Item`, `ItemSummary` classes directly in UI.
-* **FORBIDDEN:** Creating mapped "Domain Entities" that mirror Database Rows 1:1 without adding behavior. Do not create `ItemDto` if it is identical to `Item`.
-* **Mappers:** Only create mappers if data needs to be transformed significantly for a specific View (e.g., ChartData).
-* **Dart Extensions:** Use **Dart Extensions** (`extension on ItemRow`) for computed properties (formatting prices, getters).
-
-### No DTOs/ViewModels
-
-Use database rows (Drift classes) directly in the UI. Use **Dart Extensions** for computed properties.
-
-**The "Passthrough" Rule:** If a Class/Provider merely passes data from A to B without logic, **DELETE IT**. Connect A to B directly.
-
-### DTOs Separation (Using `dart_mappable`)
-
-When you need to transform database rows into domain entities (for cross-layer communication or API contracts), use `dart_mappable`:
-
-* **Domain Entities:** Pure Dart classes with `@MappableClass()` annotation
-* **Mappers:** Extensions or static methods that convert Drift classes → Domain Entities
-* **Usage:** Only when data needs significant transformation or when exposing to external APIs
-
-## 3. Query Patterns
-
-* **Streams:** Prefer `watch()` for all UI data sources.
-
-* **Single vs List:** Use `watchSingleOrNull()` for detail views to handle deletion gracefully.
-
-* **DAOs:** All queries must reside in a DAO (e.g., `CatalogDao` for reads, `DatabaseDao` for writes/ingestion, `SettingsDao` for config). No raw queries in Widgets.
-
-## 4. Optimization
-
-* **Transactions:** Always wrap multiple `insert/update/delete` operations in `transaction(() async { ... })`.
-
-* **Batching:** Use `batch((batch) { ... })` for bulk inserts (Initialization).
-
-* **Indexing:** Ensure your queries file defines indices on columns used in `WHERE` and `JOIN` clauses.
-
-## 5. Search (FTS5)
-
-* **Normalization:** Always sanitize input using `_escapeFts5Query` (removes diacritics) before querying FTS tables.
-
-* **Trigrams:** Rely on the configured `tokenize='trigram'` for fuzzy matching.
-
-**Reference Implementation:** See your database queries file for FTS5 virtual table definition and search index helpers.
-
-### FTS5 Native Tokenization
-
-* **Rule:** Define FTS5 tables in `.drift` files (`CREATE VIRTUAL TABLE ... USING fts5(tokenize='trigram')`) so drift tracks them and migrations stay declarative.
-* **Normalization:** Use the SQLite `normalize_text` function (registered in your database configuration via the `diacritic` package) to lowercase + strip diacritics inside SQL. Dart should never mutate strings before hitting the index.
-* **Queries:** Always normalize user queries with the same logic to keep MATCH semantics consistent across languages.
-* **Dependency:** `sqlite3_flutter_libs` MUST be kept up to date to ensure trigram tokenizer support.
-* **Impact:** Without trigram support, search queries will fail at runtime.
-* **Verification:** Before updating `sqlite3_flutter_libs`, verify the new version supports FTS5 trigram tokenizer.
-
-## 6. Database Safety
-
-* **Concurrent Deletions:** Always use `watchSingleOrNull()` instead of `watchSingle()` to avoid crashes on concurrent deletions.
-* **Dynamic Queries:** Use Drift's Expression API for dynamic queries—never string interpolation.
-* **Large Sets:** Since Drift 2.24.0+, `.isIn()` handles large sets automatically—no manual chunking needed.
-
-```dart
-// ✅ CORRECT: Direct usage, Drift handles large sets
-final query = db.select(db.table)..where((t) => t.id.isIn(ids));
-final rows = await query.get();
-
-// ❌ FORBIDDEN: Manual chunking boilerplate
-for (var i = 0; i < ids.length; i += 900) { /* ... */ }
 ```
+// ✅ Streams for UI data
+@riverpod
+Stream<List<Item>> items(Ref ref) {
+  final dao = ref.watch(catalogDaoProvider);
+  return dao.watchItems();
+}
 
-## 7. Drift Managers Mandate
-
-* **Rule:** For bulk data movements, push the work into SQL (views, inserts, helpers) and let Drift generate the APIs. Dart loops with per-row `customStatement()` calls are forbidden.
-* **Rationale:** SQL-side operations are faster, deterministic, and benefit from SQLite's optimizer.
-* **Reference Implementation:** Your database queries file should own the `search_index` virtual table plus insert helpers. DAO methods should call those generated statements.
-
-```dart
-// ✅ CORRECT: Let SQL do the heavy work
-await database.deleteSearchIndex();
-await database.insertSearchIndexFromSummary();
-
-// ❌ FORBIDDEN: Loop and insert manually from Dart
-for (final row in rows) {
-  await customStatement('INSERT INTO search_index ...');
+// ✅ watchSingleOrNull for detail views (handles deletion)
+@riverpod
+Stream<Item?> itemDetail(Ref ref, String id) {
+  final dao = ref.watch(catalogDaoProvider);
+  return dao.watchSingleOrNull(id);
 }
 ```
 
-## 8. Offline-First Patterns
+## Optimization
 
-### Local-First Architecture
+- **Transactions:** Wrap multiple writes in `transaction(() async { ... })`
+- **Batching:** Use `batch((batch) { ... })` for bulk inserts
+- **Indexing:** Define indices in `.drift` files on `WHERE`/`JOIN` columns
 
-* **Primary Data Source:** Local database (Drift) is the source of truth.
-* **Sync Strategy:** Implement background sync for remote data when needed.
-* **Caching:** Use database as cache layer for network responses.
+## FTS5 Search
 
-### Data Flow
+**FTS5 Native Tokenization:**
 
-1. **Read:** Query local database → Display in UI
-2. **Write:** Write to local database → Sync to remote (if applicable)
-3. **Sync:** Background process updates local database from remote source
+```
+// Define in .drift file
+CREATE VIRTUAL TABLE search_index USING fts5(
+  content,
+  tokenize='trigram'
+);
+```
 
-### Conflict Resolution
+**Normalization:**
 
-* **Last Write Wins:** For simple cases, use timestamps to determine latest data.
-* **Merge Strategy:** For complex cases, implement domain-specific merge logic.
-* **User Intervention:** For critical conflicts, prompt user to resolve.
+- Use `normalize_text()` SQLite function (via `diacritic` package)
+- Sanitize input: `escapeFts5Query()` before querying
+- **Dart NEVER mutates strings** before hitting index
+
+**Dependency:** Keep `sqlite3_flutter_libs` updated (verify trigram support)
+
+## Database Safety
+
+```
+// ✅ watchSingleOrNull (prevents crashes on concurrent deletions)
+Stream<Item?> watchItem(String id) => dao.watchSingleOrNull(id);
+
+// ✅ .isIn handles large sets (Drift 2.24+, no manual chunking)
+final query = db.select(db.table)..where((t) => t.id.isIn(ids));
+
+// ❌ FORBIDDEN: String interpolation in queries
+// ✅ Use Expression API for dynamic queries
+```
+
+## Drift Managers Mandate
+
+**For bulk operations:** Push work into SQL views/inserts, let Drift generate APIs.
+
+```
+// ✅ SQL-side bulk operations
+await database.deleteSearchIndex();
+await database.insertSearchIndexFromSummary();
+
+// ❌ FORBIDDEN: Dart loops with per-row customStatement
+```
+
+## Offline-First Architecture
+
+- **Primary Source:** Local database (Drift) is source of truth
+- **Sync:** Implement background sync for remote data when needed
+- **Caching:** Use database as cache layer for network responses
+
+## Anti-Patterns
+
+- ❌ Dart loops for grouping/sorting (use SQL Views)
+- ❌ String interpolation in queries (use Expression API)
+- ❌ Manual chunking for `.isIn()` (Drift handles it)
+- ❌ `watchSingle` (use `watchSingleOrNull`)
+- ✅ SQL Views for aggregations
+- ✅ Transactions for multi-write operations
+- ✅ FTS5 with trigram tokenizer

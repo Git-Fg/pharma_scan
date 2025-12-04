@@ -1,46 +1,34 @@
 // test/core/database/logic/grouping_logic_test.dart
-import 'dart:io';
-
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:path/path.dart' as p;
-import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 import 'package:pharma_scan/core/database/database.dart';
+import 'package:pharma_scan/core/domain/types/semantic_types.dart';
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
+
 import '../../../fixtures/seed_builder.dart';
-import '../../../test_utils.dart' show setPrincipeNormalizedForAllPrinciples, FakePathProviderPlatform;
+import '../../../test_utils.dart' show setPrincipeNormalizedForAllPrinciples;
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('Grouping Logic - Parsing & Aggregation', () {
-    late Directory documentsDir;
     late AppDatabase database;
     late DataInitializationService dataInitializationService;
 
     setUp(() async {
-      documentsDir = await Directory.systemTemp.createTemp('pharma_scan_test_');
-      PathProviderPlatform.instance = FakePathProviderPlatform(
-        documentsDir.path,
-      );
-      final dbFile = File(p.join(documentsDir.path, 'medicaments.db'));
       database = AppDatabase.forTesting(
-        NativeDatabase(dbFile, setup: configureAppSQLite),
+        NativeDatabase.memory(setup: configureAppSQLite),
       );
       dataInitializationService = DataInitializationService(database: database);
     });
 
     tearDown(() async {
       await database.close();
-      if (documentsDir.existsSync()) {
-        await documentsDir.delete(recursive: true);
-      }
     });
 
     test(
       'should construct clean nomCanonique for standalone medications without contamination',
       () async {
-        // GIVEN: Standalone medication with single active principle
         await database.databaseDao.insertBatchData(
           specialites: [
             {
@@ -66,11 +54,9 @@ void main() {
           groupMembers: [],
         );
 
-        // WHEN: Run aggregation
         await setPrincipeNormalizedForAllPrinciples(database);
         await dataInitializationService.runSummaryAggregationForTesting();
 
-        // THEN: nomCanonique uses raw name (simplified SQL aggregation)
         final summary = await (database.select(
           database.medicamentSummary,
         )..where((tbl) => tbl.cisCode.equals('CIS_STANDALONE'))).getSingle();
@@ -83,7 +69,6 @@ void main() {
     test(
       'should use group libelle as nomCanonique for grouped medications',
       () async {
-        // GIVEN: Grouped medication
         await database.databaseDao.insertBatchData(
           specialites: [
             {
@@ -117,11 +102,9 @@ void main() {
           ],
         );
 
-        // WHEN: Run aggregation
         await setPrincipeNormalizedForAllPrinciples(database);
         await dataInitializationService.runSummaryAggregationForTesting();
 
-        // THEN: nomCanonique should use group libelle directly.
         final summary = await (database.select(
           database.medicamentSummary,
         )..where((tbl) => tbl.cisCode.equals('CIS_GROUPED'))).getSingle();
@@ -136,7 +119,6 @@ void main() {
     test(
       'should group medications correctly by therapeutic equivalence',
       () async {
-        // GIVEN: Multiple medications with same active principle and dosage
         await database.databaseDao.insertBatchData(
           specialites: [
             {
@@ -196,11 +178,9 @@ void main() {
           ],
         );
 
-        // WHEN: Run aggregation
         await setPrincipeNormalizedForAllPrinciples(database);
         await dataInitializationService.runSummaryAggregationForTesting();
 
-        // THEN: All medications should be in the same group with same nomCanonique
         final summaries = await (database.select(
           database.medicamentSummary,
         )..where((tbl) => tbl.groupId.equals('GROUP_APIXABAN_5'))).get();
@@ -231,7 +211,6 @@ void main() {
     test(
       'should separate medications with different dosages into different groups',
       () async {
-        // GIVEN: Medications with same principle but different dosages
         await database.databaseDao.insertBatchData(
           specialites: [
             {
@@ -281,11 +260,9 @@ void main() {
           ],
         );
 
-        // WHEN: Run aggregation
         await setPrincipeNormalizedForAllPrinciples(database);
         await dataInitializationService.runSummaryAggregationForTesting();
 
-        // THEN: Should have 2 different groups with different nomCanonique
         final summaries = await database
             .select(database.medicamentSummary)
             .get();
@@ -311,7 +288,6 @@ void main() {
     test(
       'should handle multi-ingredient standalone medications correctly',
       () async {
-        // GIVEN: Standalone medication with multiple active principles
         await database.databaseDao.insertBatchData(
           specialites: [
             {
@@ -343,11 +319,9 @@ void main() {
           groupMembers: [],
         );
 
-        // WHEN: Run aggregation
         await setPrincipeNormalizedForAllPrinciples(database);
         await dataInitializationService.runSummaryAggregationForTesting();
 
-        // THEN: nomCanonique uses raw name (simplified SQL aggregation)
         final summary = await (database.select(
           database.medicamentSummary,
         )..where((tbl) => tbl.cisCode.equals('CIS_MULTI'))).getSingle();
@@ -362,7 +336,6 @@ void main() {
     );
 
     test('search should return results with clean medication names', () async {
-      // GIVEN: Database with grouped medications
       await database.databaseDao.insertBatchData(
         specialites: [
           {
@@ -407,14 +380,14 @@ void main() {
         ],
       );
 
-      // WHEN: Run aggregation and search
       await setPrincipeNormalizedForAllPrinciples(database);
-        await dataInitializationService.runSummaryAggregationForTesting();
+      await dataInitializationService.runSummaryAggregationForTesting();
 
       final catalogDao = database.catalogDao;
-      final candidates = await catalogDao.searchMedicaments('APIXABAN');
+      final candidates = await catalogDao.searchMedicaments(
+        NormalizedQuery.fromString('APIXABAN'),
+      );
 
-      // THEN: All candidates should have clean nomCanonique (from group libelle)
       expect(candidates.length, 2);
 
       for (final candidate in candidates) {
@@ -435,27 +408,18 @@ void main() {
   });
 
   group('classifyProductGroup - Complex SQL Logic', () {
-    late Directory documentsDir;
     late AppDatabase database;
     late DataInitializationService dataInitializationService;
 
     setUp(() async {
-      documentsDir = await Directory.systemTemp.createTemp('pharma_scan_test_');
-      PathProviderPlatform.instance = FakePathProviderPlatform(
-        documentsDir.path,
-      );
-      final dbFile = File(p.join(documentsDir.path, 'medicaments.db'));
       database = AppDatabase.forTesting(
-        NativeDatabase(dbFile, setup: configureAppSQLite),
+        NativeDatabase.memory(setup: configureAppSQLite),
       );
       dataInitializationService = DataInitializationService(database: database);
     });
 
     tearDown(() async {
       await database.close();
-      if (documentsDir.existsSync()) {
-        await documentsDir.delete(recursive: true);
-      }
     });
 
     test('correctly splits Princeps, Generics, and Related Princeps', () async {
@@ -534,7 +498,7 @@ void main() {
       );
 
       await setPrincipeNormalizedForAllPrinciples(database);
-        await dataInitializationService.runSummaryAggregationForTesting();
+      await dataInitializationService.runSummaryAggregationForTesting();
 
       // WHEN: We fetch GROUP_A details
       final members = await database.catalogDao.getGroupDetails(
@@ -660,27 +624,18 @@ void main() {
   });
 
   group('getGenericGroupSummaries - Algorithmic Grouping', () {
-    late Directory documentsDir;
     late AppDatabase database;
     late DataInitializationService dataInitializationService;
 
     setUp(() async {
-      documentsDir = await Directory.systemTemp.createTemp('pharma_scan_test_');
-      PathProviderPlatform.instance = FakePathProviderPlatform(
-        documentsDir.path,
-      );
-      final dbFile = File(p.join(documentsDir.path, 'medicaments.db'));
       database = AppDatabase.forTesting(
-        NativeDatabase(dbFile, setup: configureAppSQLite),
+        NativeDatabase.memory(setup: configureAppSQLite),
       );
       dataInitializationService = DataInitializationService(database: database);
     });
 
     tearDown(() async {
       await database.close();
-      if (documentsDir.existsSync()) {
-        await documentsDir.delete(recursive: true);
-      }
     });
 
     test('groups medications by shared principles correctly', () async {
@@ -761,7 +716,7 @@ void main() {
       );
 
       await setPrincipeNormalizedForAllPrinciples(database);
-        await dataInitializationService.runSummaryAggregationForTesting();
+      await dataInitializationService.runSummaryAggregationForTesting();
 
       // WHEN: We get generic group summaries
       final summaries = await database.catalogDao.getGenericGroupSummaries(
@@ -813,7 +768,7 @@ void main() {
       );
 
       await setPrincipeNormalizedForAllPrinciples(database);
-        await dataInitializationService.runSummaryAggregationForTesting();
+      await dataInitializationService.runSummaryAggregationForTesting();
 
       // WHEN: We get generic group summaries
       final summaries = await database.catalogDao.getGenericGroupSummaries(

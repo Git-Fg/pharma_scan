@@ -83,6 +83,10 @@ void main() {
 
     expect(fieldRect.bottom, lessThanOrEqualTo(screenHeight));
     expect(tester.takeException(), isNull);
+
+    // Clean up: ensure all timers are cancelled before test ends
+    await tester.pumpAndSettle(const Duration(seconds: 1));
+    await tester.binding.pump();
   });
 }
 

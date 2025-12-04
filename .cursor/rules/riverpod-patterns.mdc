@@ -1,0 +1,100 @@
+---
+description: Riverpod state management patterns and provider architecture
+globs: lib/**/*_provider.dart, lib/**/*_notifier.dart
+alwaysApply: false
+---
+
+# Riverpod Patterns (2025)
+
+## Mandates
+
+- USE `@riverpod` annotations exclusively (manual Provider creation forbidden)
+- DEFAULT to `ConsumerWidget`; `HookConsumerWidget` only for ephemeral UI state
+- HANDLE mutations with `AsyncValue.guard` in Notifiers
+- LISTEN errors via `ref.listen` in widgets (never in build logic)
+- PREFER Stream providers (`watch`) over Future providers (`get`) for UI data
+
+## Provider Selection
+
+| Use Case | Type | Annotation |
+|----------|------|------------|
+| Data fetch | `Future<T>` | `@riverpod` |
+| Real-time DB | `Stream<T>` | `@riverpod` |
+| Complex logic | `AsyncNotifier` | `@riverpod` |
+| Static config | keepAlive | `@Riverpod(keepAlive: true)` |
+
+## Implementation Patterns
+
+### A. Stream Pattern (Reactive Data)
+
+```
+@riverpod
+Stream<List<Item>> searchResults(Ref ref, String query) {
+  final dao = ref.watch(catalogDaoProvider);
+  return dao.watchItems(query);
+}
+```
+
+### B. AsyncNotifier Pattern (Mutations)
+
+```
+@riverpod
+class MyNotifier extends _$MyNotifier {
+  @override
+  Future<MyState> build() async => await _fetchInitialState();
+
+  Future<void> saveData(Data data) async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() => repository.save(data));
+  }
+}
+```
+
+### C. Error Listening (UI Layer)
+
+```
+class MyWidget extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    ref.listen(myNotifierProvider, (prev, next) {
+      if (next is AsyncError) {
+        ShadToaster.of(context).show(
+          ShadToast.destructive(
+            title: Text(Strings.error),
+            description: Text(next.error.toString()),
+          ),
+        );
+      }
+    });
+    
+    final state = ref.watch(myNotifierProvider);
+    return state.when(
+      data: (data) => MyContent(data: data),
+      loading: () => CircularProgressIndicator(),
+      error: (error, _) => ErrorView(error: error),
+    );
+  }
+}
+```
+
+### D. Router Injection
+
+```
+// Provider
+@Riverpod(keepAlive: true)
+AppRouter appRouter(Ref ref) => AppRouter();
+
+// Usage in Notifier
+void performAction() {
+  final router = ref.read(appRouterProvider);
+  router.push(const DetailRoute());
+}
+```
+
+## Anti-Patterns
+
+- ❌ `StateProvider` (deprecated)
+- ❌ `ref.watch` in callbacks/lifecycle methods (use `ref.read`)
+- ❌ Side effects in `build()` (use `ref.listen`)
+- ❌ `Either` crossing into Notifier layer
+- ❌ Manual `Provider` creation (use `@riverpod`)

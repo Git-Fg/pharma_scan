@@ -12,8 +12,8 @@ import 'package:path_provider_platform_interface/path_provider_platform_interfac
 import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/logic/sanitizer.dart';
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
+import 'package:pharma_scan/features/explorer/domain/logic/explorer_grouping_helper.dart';
 import 'package:pharma_scan/features/explorer/domain/models/generic_group_entity.dart';
-import 'package:pharma_scan/features/explorer/presentation/widgets/explorer_grouping_helper.dart';
 
 import '../test_utils.dart';
 

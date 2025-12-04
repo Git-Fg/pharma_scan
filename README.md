@@ -15,22 +15,21 @@ En toute honnêteté, elle ne représente rien de révolutionnaire, mais j'avais
 
 L'idée est simple : fluidifier le flux de travail "Réception -> Rangement".
 
-Elle permet de scanner rapidement et efficacement les codes Data Matrix GS1 des boîtes de médicaments, afin d'en afficher le **princeps lié** (le nom de marque original) sans avoir à cliquer sur un quelconque bouton. C'est l'outil idéal quand vous avez une boîte de *Générique X* en main et que vous devez la ranger dans le tiroir du *Princeps Y*.
+Elle permet de :
+
+1. **Scanner & Analyser** : Identifier instantanément le **princeps lié** d'un générique pour savoir dans quel tiroir le ranger.
+2. **Lister & Ranger (Nouveau)** : Scanner une caisse entière en rafale ("Bip-Bip-Bip") pour constituer une **liste de rangement intelligente**. Les produits sont automatiquement triés par ordre alphabétique de leur Princeps (ou de leur nom), transformant le vrac en une liste ordonnée.
 
 En bonus, elle offre un accès direct vers :
 
-- 📉 Les informations de rupture et tension (via la base officielle).
-- 🔗 Les produits liés et les groupes génériques complets.
-- 💶 Les prix et taux de remboursement.
-- 📄 Les RCP (Résumé des Caractéristiques du Produit) via l'ANSM.
+- 📉 Les alertes de rupture/tension.
+- 📄 Les RCP et notices officielles.
 
 ## Philosophie "Zéro Friction"
 
-La plupart des applis demandent trop de clics. PharmaScan prend le contre-pied :
-
-1. **Scanner "Always-On"** : La caméra reste active. Vous scannez une boîte, le résultat s'affiche, vous scannez la suivante. Pas besoin de fermer/rouvrir.
-2. **Offline-First** : Tout est stocké en local sur votre téléphone. Ça marche au sous-sol, sans réseau, et c'est instantané.
-3. **Zéro Pub / Zéro Télémétrie** : Vos données restent chez vous. Notamment, la télémétrie technique par défaut du scanner (Google ML Kit) a été désactivée manuellement.
+1. **Scanner "Always-On"** : La caméra ne s'arrête jamais. Changez de mode (Analyse ou Rangement) à la volée.
+2. **Feedback Sensoriel** : Grâce aux retours haptiques (vibrations nuancées), vous savez si un produit est trouvé ou inconnu sans même regarder l'écran.
+3. **Offline-First** : Tout est stocké en local (SQLite). Ça marche au sous-sol, c'est instantané.
 
 ## Comment ça marche (Techniquement)
 

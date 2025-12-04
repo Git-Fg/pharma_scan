@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
+import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 enum StatusType { empty, error, loading }
@@ -39,8 +40,8 @@ class StatusView extends StatelessWidget {
                 ? LucideIcons.searchX
                 : LucideIcons.triangleAlert);
         final iconColor = type == StatusType.empty
-            ? ShadTheme.of(context).colorScheme.mutedForeground
-            : ShadTheme.of(context).colorScheme.destructive;
+            ? context.shadColors.mutedForeground
+            : context.shadColors.destructive;
 
         return Center(
           child: Padding(
@@ -56,13 +57,13 @@ class StatusView extends StatelessWidget {
                 ),
                 const Gap(AppDimens.spacingMd),
                 if (title != null)
-                  Text(title!, style: ShadTheme.of(context).textTheme.h4),
+                  Text(title!, style: context.shadTextTheme.h4),
                 if (description != null) ...[
                   const Gap(AppDimens.spacingXs),
                   Text(
                     description!,
-                    style: ShadTheme.of(context).textTheme.small.copyWith(
-                      color: ShadTheme.of(context).colorScheme.mutedForeground,
+                    style: context.shadTextTheme.small.copyWith(
+                      color: context.shadColors.mutedForeground,
                     ),
                   ),
                 ],

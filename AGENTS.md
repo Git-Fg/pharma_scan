@@ -17,6 +17,12 @@ You have access to specialized rule files organized in 5 major pillars. Load and
 - **flutter-qa.mdc:** Testing patterns and quality gates
 - **flutter-navigation.mdc:** AutoRoute patterns
 
+**Error Handling (Refined 2025 Standard):**
+
+- Notifiers and AsyncNotifiers MUST NOT use `try-catch` for business errors; mutations use `state = await AsyncValue.guard(() async { ... })`.
+- UI widgets MUST react to `AsyncError` via `ref.listen` (toast/dialog), never by inspecting errors directly in `build()`.
+- `dart_either`'s `Either` is confined to services/DAOs; it must never be exposed to Notifiers or UI. Notifiers consume `Future<T>`/`Stream<T>`, not `Future<Either<L, R>>`.
+
 **Specialized Rules:**
 
 - **security.mdc:** Security and privacy guidelines (CRITICAL)
@@ -88,7 +94,7 @@ When searching for documentation on dart_either, use `hoc081098/dart_either` lib
 
 1. **The "Passthrough" Rule:** If a Class/Provider merely passes data from A to B without logic, **DELETE IT**. Connect A to B directly.
 
-2. **No DTOs/ViewModels:** Use database rows (Drift classes) directly in the UI. Use **Dart Extensions** (`extension on ItemRow`) for computed properties (formatting prices, getters).
+2. **Extension Types for Zero-Cost Abstraction:** Use **Extension Types** (Dart 3) to wrap database rows before exposing to UI. This provides decoupling without runtime overhead. **FORBIDDEN:** Exposing raw Drift classes directly in UI. **FORBIDDEN:** Traditional DTOs/ViewModels (classes with allocation) that mirror database rows 1:1.
 
 3. **Read vs. Write Error Handling:**
 
@@ -100,6 +106,24 @@ When searching for documentation on dart_either, use `hoc081098/dart_either` lib
 
 5. **Code Deletion:** The highest value action is deleting code. If a feature can be delivered by removing an abstraction layer, do it.
 </simplicity_heuristics>
+
+<comment_discipline>
+**Comment & Documentation Discipline (No AI Slop):**
+
+1. **No Narration:** Do NOT add comments that merely restate what the code does, walk through control flow step-by-step, or read like tutorials for basic Dart/Flutter/Riverpod concepts.
+2. **Keep Only What Matters:** Comments are reserved for:
+   - Domain rules or business constraints that are not obvious from the code
+   - External system quirks (e.g., FTS5, AutoRoute, platform bugs) and why a workaround exists
+   - Non-trivial layout or performance constraints that would be hard to rediscover
+3. **Forbidden Patterns (Outside docs/tests/rules):**
+   - Numbered “step-by-step” sections that narrate algorithms already clear from code
+   - DEBUG notes, temporary investigative comments, or design diaries
+   - Decorative section banners that add no information (unless they group genuinely complex domains)
+4. **Generated vs. Hand-Written:**
+   - Never edit or worry about comments in generated files (`*.g.dart`, `*.drift.dart`, `app_router.gr.dart`, etc.).
+   - In hand-written code under `lib/**`, prefer **fewer, denser** comments; if in doubt, delete.
+5. **Source of Truth:** Architectural and pattern explanations live in `.cursor/rules/*.mdc` and `docs/**`. In code, reference those rules only when a local deviation or critical rationale must be called out.
+</comment_discipline>
 
 <workflow_phases>
 
@@ -155,6 +179,7 @@ When searching for documentation on dart_either, use `hoc081098/dart_either` lib
 7.  **Strict Exclusions for Generated Code:** Generated files (`.g.dart`, `.freezed.dart`, `.mapper.dart`, `.drift.dart`) must be excluded from linter analysis. Use `analysis_options.yaml` exclusions, not inline suppressions.
 8.  **Strict Linting:** `very_good_analysis` is enforced. Documentation rules (`public_member_api_docs`) are disabled to reduce noise.
 9.  **Language Policy:** User-facing strings MUST be localized. Agent instructions and rule files remain in English for clarity and consistency with AI tooling.
+10. **Build System Pragmatism:** Do not suggest waiting for Macros. Use `build_runner`. When refactoring data layers, aggressively prefer Extension Types over copying data into new classes.
 </constraints>
 
 <data_layer>

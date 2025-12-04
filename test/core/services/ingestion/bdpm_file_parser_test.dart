@@ -158,7 +158,7 @@ void main() {
       expect(entry.dosageUnit, equals('mg'));
     });
 
-    test('transforms salt prefix to suffix in parentheses', () async {
+    test('removes salt prefix from principle name', () async {
       const content = '''
 123456\tfield1\tfield2\tCHLORHYDRATE DE METFORMINE\t500 mg\tfield5\tSA\tL3
 ''';
@@ -178,7 +178,7 @@ void main() {
 
       expect(result, hasLength(1));
       final entry = result.first;
-      expect(entry.principe, equals('METFORMINE (CHLORHYDRATE DE)'));
+      expect(entry.principe, equals('METFORMINE'));
       expect(entry.dosage, equals('500'));
       expect(entry.dosageUnit, equals('mg'));
     });
@@ -228,12 +228,13 @@ void main() {
 
       expect(result, hasLength(1));
       final entry = result.first;
-      expect(entry.principe, equals('Metformine (Chlorhydrate de)'));
+      // _normalizeSaltPrefix preserves case of the molecule part
+      expect(entry.principe, equals('Metformine'));
       expect(entry.dosage, equals('500'));
       expect(entry.dosageUnit, equals('mg'));
     });
 
-    test("transforms salt prefix with elision (D')", () async {
+    test("removes salt prefix with elision (D')", () async {
       const content = '''
 123456\tfield1\tfield2\tCHLORHYDRATE D'ALFUZOSINE\t10 mg\tfield5\tSA\tL6
 ''';
@@ -253,14 +254,14 @@ void main() {
 
       expect(result, hasLength(1));
       final entry = result.first;
-      expect(entry.principe, equals("ALFUZOSINE (CHLORHYDRATE D')"));
+      expect(entry.principe, equals('ALFUZOSINE'));
       expect(entry.dosage, equals('10'));
       expect(entry.dosageUnit, equals('mg'));
     });
   });
 
   group('BdpmFileParser.parseGeneriques', () {
-    test('transforms salt prefix in group libelle', () async {
+    test('removes salt prefix from group libelle', () async {
       const content = '''
 GROUP1\tCHLORHYDRATE DE METFORMINE\t123456\t0
 ''';
@@ -283,7 +284,7 @@ GROUP1\tCHLORHYDRATE DE METFORMINE\t123456\t0
       expect(result.generiqueGroups, hasLength(1));
       final group = result.generiqueGroups.first;
       expect(group.groupId, equals('GROUP1'));
-      expect(group.libelle, equals('METFORMINE (CHLORHYDRATE DE)'));
+      expect(group.libelle, equals('METFORMINE'));
       expect(result.groupMembers, hasLength(1));
     });
 
@@ -313,7 +314,7 @@ GROUP2\tMETFORMINE\t123456\t0
       expect(group.libelle, equals('METFORMINE'));
     });
 
-    test('handles different salt types in group libelle', () async {
+    test('removes different salt types from group libelle', () async {
       const content = '''
 GROUP3\tSULFATE DE MORPHINE\t123456\t0
 GROUP4\tMALÉATE DE DIPHENHYDRAMINE\t123456\t1
@@ -338,12 +339,12 @@ GROUP4\tMALÉATE DE DIPHENHYDRAMINE\t123456\t1
       final group1 = result.generiqueGroups.firstWhere(
         (g) => g.groupId == 'GROUP3',
       );
-      expect(group1.libelle, equals('MORPHINE (SULFATE DE)'));
+      expect(group1.libelle, equals('MORPHINE'));
 
       final group2 = result.generiqueGroups.firstWhere(
         (g) => g.groupId == 'GROUP4',
       );
-      expect(group2.libelle, equals('DIPHENHYDRAMINE (MALÉATE DE)'));
+      expect(group2.libelle, equals('DIPHENHYDRAMINE'));
     });
 
     test('extracts princeps label from two-segment label', () async {
@@ -450,8 +451,8 @@ GROUP8\tCHLORHYDRATE DE METFORMINE - GLUCOPHAGE\t123456\t0
       expect(result.generiqueGroups, hasLength(1));
       final group = result.generiqueGroups.first;
       expect(group.groupId, equals('GROUP8'));
-      // First segment should have salt normalization applied
-      expect(group.libelle, equals('METFORMINE (CHLORHYDRATE DE)'));
+      // First segment should have salt prefix removed (not transformed to suffix)
+      expect(group.libelle, equals('METFORMINE'));
       // Last segment (princeps) should not have salt normalization
       expect(group.princepsLabel, equals('GLUCOPHAGE'));
       // Molecule label should be cleaned (salt prefix and suffix removed)

@@ -1,4 +1,5 @@
 import 'package:dart_mappable/dart_mappable.dart';
+import 'package:pharma_scan/core/domain/types/ids.dart';
 
 part 'generic_group_entity.mapper.dart';
 
@@ -11,8 +12,8 @@ class GenericGroupEntity with GenericGroupEntityMappable {
     this.princepsCisCode,
   });
 
-  final String groupId;
+  final GroupId groupId;
   final String commonPrincipes;
   final String princepsReferenceName;
-  final String? princepsCisCode;
+  final CisCode? princepsCisCode;
 }

@@ -1,7 +1,8 @@
 // test/features/explorer/grouping_logic_test.dart
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pharma_scan/core/domain/types/ids.dart';
+import 'package:pharma_scan/features/explorer/domain/logic/explorer_grouping_helper.dart';
 import 'package:pharma_scan/features/explorer/domain/models/generic_group_entity.dart';
-import 'package:pharma_scan/features/explorer/presentation/widgets/explorer_grouping_helper.dart';
 
 void main() {
   group('Explorer Grouping Logic - Néfopam Isolation Test', () {
@@ -12,38 +13,33 @@ void main() {
     test(
       'REAL BUG: Items that should have empty commonPrincipes should NOT be grouped even if database has same value',
       () {
-        // GIVEN: Simulating the REAL bug - items that in reality should have empty commonPrincipes
-        // but might incorrectly have the same value in the database
-        // The fix: Items with empty commonPrincipes (after filtering) should get unique keys
         final testItems = [
           // Néfopam - has valid commonPrincipes
-          const GenericGroupEntity(
-            groupId: 'GROUP_NEFOPAM',
+          GenericGroupEntity(
+            groupId: GroupId.validated('GROUP_NEFOPAM'),
             commonPrincipes: 'NÉFOPAM',
             princepsReferenceName: 'ACUPAN',
           ),
           // Adriblastine - in reality should have empty commonPrincipes
           // But if database incorrectly has 'NÉFOPAM', it would be grouped (BUG)
           // The fix ensures empty items get unique keys, so they won't be grouped
-          const GenericGroupEntity(
-            groupId: 'GROUP_ADRIBLASTINE',
+          GenericGroupEntity(
+            groupId: GroupId.validated('GROUP_ADRIBLASTINE'),
             commonPrincipes: '', // Empty - should get unique key
             princepsReferenceName: 'ADRIBLASTINE',
           ),
           // Anafranil - same as Adriblastine
-          const GenericGroupEntity(
-            groupId: 'GROUP_ANAFRANIL',
+          GenericGroupEntity(
+            groupId: GroupId.validated('GROUP_ANAFRANIL'),
             commonPrincipes: '', // Empty - should get unique key
             princepsReferenceName: 'ANAFRANIL',
           ),
         ];
 
-        // WHEN: Group items
         final grouped = ExplorerGroupingHelper.groupByCommonPrincipes(
           testItems,
         );
 
-        // THEN: Verify the fix works
         // 1. Néfopam should be in its own cluster (has valid commonPrincipes)
         final nefopamCluster = grouped.firstWhere(
           (item) {
@@ -115,7 +111,6 @@ void main() {
     test(
       'Items with empty commonPrincipes should NOT be grouped together',
       () {
-        // GIVEN: Test data simulating the REAL bug scenario
         // The issue: Items with the SAME commonPrincipes value are being grouped together
         // even though they shouldn't be (e.g., Adriblastine has NÉFOPAM as commonPrincipes)
         //
@@ -129,41 +124,40 @@ void main() {
         // are handled correctly.
         final testItems = [
           // Néfopam group - has NÉFOPAM as commonPrincipes
-          const GenericGroupEntity(
-            groupId: 'GROUP_NEFOPAM',
+          GenericGroupEntity(
+            groupId: GroupId.validated('GROUP_NEFOPAM'),
             commonPrincipes: 'NÉFOPAM',
             princepsReferenceName: 'ACUPAN',
           ),
           // Adriblastine - should have empty or different commonPrincipes, NOT NÉFOPAM
           // But if it incorrectly has NÉFOPAM, it would be grouped (this is the bug)
           // The fix: Items with empty commonPrincipes get unique keys
-          const GenericGroupEntity(
-            groupId: 'GROUP_ADRIBLASTINE',
+          GenericGroupEntity(
+            groupId: GroupId.validated('GROUP_ADRIBLASTINE'),
             commonPrincipes:
                 '', // Empty - should get unique key and NOT be grouped
             princepsReferenceName: 'ADRIBLASTINE',
           ),
           // Anafranil - same as Adriblastine
-          const GenericGroupEntity(
-            groupId: 'GROUP_ANAFRANIL',
+          GenericGroupEntity(
+            groupId: GroupId.validated('GROUP_ANAFRANIL'),
             commonPrincipes:
                 '', // Empty - should get unique key and NOT be grouped
             princepsReferenceName: 'ANAFRANIL',
           ),
           // Paracetamol - has valid principles, should group correctly
-          const GenericGroupEntity(
-            groupId: 'GROUP_PARACETAMOL_1',
+          GenericGroupEntity(
+            groupId: GroupId('GROUP_PARACETAMOL_1'),
             commonPrincipes: 'PARACETAMOL',
             princepsReferenceName: 'DOLIPRANE',
           ),
-          const GenericGroupEntity(
-            groupId: 'GROUP_PARACETAMOL_2',
+          GenericGroupEntity(
+            groupId: GroupId('GROUP_PARACETAMOL_2'),
             commonPrincipes: 'PARACETAMOL',
             princepsReferenceName: 'EFFERALGAN',
           ),
         ];
 
-        // WHEN: Group items using the grouping logic
         final grouped = ExplorerGroupingHelper.groupByCommonPrincipes(
           testItems,
         );
@@ -298,36 +292,33 @@ void main() {
     test(
       'Items with same commonPrincipes should be grouped, but empty ones should be separate',
       () {
-        // GIVEN: Real scenario - items that might have same commonPrincipes in database
-        // but should be handled correctly
         final testItems = [
           // Néfopam with valid commonPrincipes
-          const GenericGroupEntity(
-            groupId: 'GROUP_NEFOPAM',
+          GenericGroupEntity(
+            groupId: GroupId.validated('GROUP_NEFOPAM'),
             commonPrincipes: 'NÉFOPAM',
             princepsReferenceName: 'ACUPAN',
           ),
           // Another Néfopam item (should be grouped with above)
-          const GenericGroupEntity(
-            groupId: 'GROUP_NEFOPAM_2',
+          GenericGroupEntity(
+            groupId: GroupId('GROUP_NEFOPAM_2'),
             commonPrincipes: 'NÉFOPAM',
             princepsReferenceName: 'ACUPAN GENERIQUE',
           ),
           // Adriblastine with empty commonPrincipes (should be separate)
-          const GenericGroupEntity(
-            groupId: 'GROUP_ADRIBLASTINE',
+          GenericGroupEntity(
+            groupId: GroupId.validated('GROUP_ADRIBLASTINE'),
             commonPrincipes: '',
             princepsReferenceName: 'ADRIBLASTINE',
           ),
           // Anafranil with empty commonPrincipes (should be separate)
-          const GenericGroupEntity(
-            groupId: 'GROUP_ANAFRANIL',
+          GenericGroupEntity(
+            groupId: GroupId.validated('GROUP_ANAFRANIL'),
             commonPrincipes: '',
             princepsReferenceName: 'ANAFRANIL',
           ),
         ];
 
-        // WHEN: Group items
         final grouped = ExplorerGroupingHelper.groupByCommonPrincipes(
           testItems,
         );
@@ -397,21 +388,19 @@ void main() {
     test(
       'Néfopam with salt (Chlorhydrate de Néfopam) should only link to Acupan',
       () {
-        // GIVEN: Néfopam with salt name variation
         final testItems = [
-          const GenericGroupEntity(
-            groupId: 'GROUP_NEFOPAM_SALT',
+          GenericGroupEntity(
+            groupId: GroupId('GROUP_NEFOPAM_SALT'),
             commonPrincipes: '', // Empty - simulates missing principles
             princepsReferenceName: 'ACUPAN',
           ),
-          const GenericGroupEntity(
-            groupId: 'GROUP_ADRIBLASTINE',
+          GenericGroupEntity(
+            groupId: GroupId.validated('GROUP_ADRIBLASTINE'),
             commonPrincipes: '',
             princepsReferenceName: 'ADRIBLASTINE',
           ),
         ];
 
-        // WHEN: Group items
         final grouped = ExplorerGroupingHelper.groupByCommonPrincipes(
           testItems,
         );

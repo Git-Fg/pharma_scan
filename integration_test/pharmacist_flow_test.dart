@@ -21,7 +21,6 @@ void main() {
         await ensureIntegrationTestDatabase();
         final container = integrationTestContainer;
 
-        // WHEN: Launch the app
         await tester.pumpWidget(
           UncontrolledProviderScope(
             container: container,
@@ -111,7 +110,6 @@ void main() {
         await ensureIntegrationTestDatabase();
         final container = integrationTestContainer;
 
-        // WHEN: Launch the app
         await tester.pumpWidget(
           UncontrolledProviderScope(
             container: container,
@@ -135,10 +133,36 @@ void main() {
         final robot = ExplorerRobot(tester);
 
         // Search for "Néfopam" (known edge case from DOMAIN_LOGIC.md)
+        // Note: This test verifies that Néfopam and Adriblastine are not incorrectly grouped.
+        // If Néfopam is not in the database, the test will skip the grouping verification
+        // but will still verify the search functionality works.
         await robot.searchFor('Néfopam');
-        await tester.pumpAndSettle(const Duration(milliseconds: 500));
+        // Wait longer for search results to load (FTS5 search can take time)
+        await tester.pumpAndSettle(const Duration(seconds: 2));
 
         final resultTiles = find.byType(MedicamentTile);
+        final noResults = find.text(Strings.noResults);
+
+        // Check if we have results or a "no results" message
+        var hasResults = resultTiles.evaluate().isNotEmpty;
+        var hasNoResultsMessage = noResults.evaluate().isNotEmpty;
+
+        if (!hasResults && !hasNoResultsMessage) {
+          // Wait a bit more in case results are still loading
+          await tester.pumpAndSettle(const Duration(seconds: 1));
+          // Re-evaluate after waiting
+          hasResults = resultTiles.evaluate().isNotEmpty;
+          hasNoResultsMessage = noResults.evaluate().isNotEmpty;
+        }
+
+        // CRITICAL: If no results found, the test MUST fail to prevent silent breakage.
+        // This ensures search functionality is properly tested and database seeding is correct.
+        expect(
+          hasResults,
+          isTrue,
+          reason: 'Search for Néfopam MUST return results. Check DB seeding.',
+        );
+
         expect(
           resultTiles,
           findsWidgets,

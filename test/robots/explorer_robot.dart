@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
-import 'package:pharma_scan/core/widgets/ui_kit/product_card.dart';
+import 'package:pharma_scan/features/explorer/presentation/widgets/medicament_tile.dart';
 
 /// WHY: Encapsulates explorer UI interactions so widget tests remain readable
 /// and resilient to layout changes.
@@ -41,7 +41,7 @@ class ExplorerRobot {
   }
 
   void expectResultCount(int count) {
-    expect(find.byType(ProductCard), findsNWidgets(count));
+    expect(find.byType(MedicamentTile), findsNWidgets(count));
   }
 
   Future<void> _waitUntilVisible(Finder finder) async {

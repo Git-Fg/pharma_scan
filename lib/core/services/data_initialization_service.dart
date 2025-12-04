@@ -39,7 +39,7 @@ class DataInitializationService {
        _fileDownloadService = fileDownloadService ?? FileDownloadService();
 
   static const _currentDataVersion =
-      '2025-01-30-sync-fix'; // Fixed incremental sync data corruption by ensuring all 7 BDPM files are available to parser
+      '2025-02-14-fts5-normalization-fix'; // Fixed search normalization mismatch: NormalizedQuery now uses linguistic normalization only (aligns with FTS5 normalize_text SQL function)
   static const String dataVersion = _currentDataVersion;
 
   final AppDatabase _db;

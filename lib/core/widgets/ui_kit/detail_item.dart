@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
+import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 class DetailItem extends StatelessWidget {
@@ -31,7 +32,7 @@ class DetailItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = ShadTheme.of(context);
+    final theme = context.shadTheme;
     final mutedForeground = theme.colorScheme.mutedForeground;
     final textColor = isHighlight ? null : theme.colorScheme.foreground;
 

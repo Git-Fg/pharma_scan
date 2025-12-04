@@ -11,8 +11,8 @@ import 'package:pharma_scan/core/providers/preferences_provider.dart';
 import 'package:pharma_scan/core/providers/theme_provider.dart';
 import 'package:pharma_scan/core/router/app_router.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
+import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
-import 'package:pharma_scan/core/widgets/ui_kit/section_header.dart';
 import 'package:pharma_scan/features/home/providers/sync_provider.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
@@ -27,9 +27,42 @@ class SettingsScreen extends HookConsumerWidget {
 
     final themeState = ref.watch(themeProvider);
     final frequencyState = ref.watch(appPreferencesProvider);
+    final hapticSettingsState = ref.watch(hapticSettingsProvider);
+    final sortingState = ref.watch(sortingPreferenceProvider);
     final isFrequencyLoading = frequencyState.isLoading;
     final isResetting = useState(false);
     final isCheckingUpdates = useState(false);
+
+    void showDestructiveErrorToast(Object error) {
+      ShadToaster.of(context).show(
+        ShadToast.destructive(
+          title: const Text(Strings.error),
+          description: Text(error.toString()),
+        ),
+      );
+    }
+
+    ref
+      ..listen(themeMutationProvider, (prev, next) {
+        next.whenOrNull(
+          error: (error, _) => showDestructiveErrorToast(error),
+        );
+      })
+      ..listen(updateFrequencyMutationProvider, (prev, next) {
+        next.whenOrNull(
+          error: (Object error, _) => showDestructiveErrorToast(error),
+        );
+      })
+      ..listen(hapticMutationProvider, (prev, next) {
+        next.whenOrNull(
+          error: (Object error, _) => showDestructiveErrorToast(error),
+        );
+      })
+      ..listen(sortingPreferenceMutationProvider, (prev, next) {
+        next.whenOrNull(
+          error: (Object error, _) => showDestructiveErrorToast(error),
+        );
+      });
 
     final themeModeValue = themeState.maybeWhen(
       data: (mode) => mode,
@@ -38,6 +71,14 @@ class SettingsScreen extends HookConsumerWidget {
     final selectedFrequency = frequencyState.maybeWhen(
       data: (freq) => freq,
       orElse: () => null,
+    );
+    final hapticEnabled = hapticSettingsState.maybeWhen(
+      data: (enabled) => enabled,
+      orElse: () => true,
+    );
+    final sortingPreference = sortingState.maybeWhen(
+      data: (pref) => pref,
+      orElse: () => SortingPreference.princeps,
     );
 
     useEffect(() {
@@ -172,7 +213,7 @@ class SettingsScreen extends HookConsumerWidget {
       appBar: AppBar(
         title: Text(
           Strings.settings,
-          style: ShadTheme.of(context).textTheme.h4,
+          style: context.shadTextTheme.h4,
         ),
         leading: IconButton(
           icon: const Icon(LucideIcons.arrowLeft),
@@ -181,192 +222,285 @@ class SettingsScreen extends HookConsumerWidget {
       ),
       body: Stack(
         children: [
-          CustomScrollView(
-            slivers: [
-              // Appearance Section
-              const SliverToBoxAdapter(
-                child: SectionHeader(
-                  title: Strings.appearance,
-                  icon: LucideIcons.palette,
-                ),
-              ),
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppDimens.spacingMd,
-                ),
-                sliver: SliverToBoxAdapter(
-                  child: FocusTraversalGroup(
-                    child: Semantics(
-                      label: Strings.themeSelectorLabel,
-                      hint: Strings.selectThemeHint,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+          SingleChildScrollView(
+            padding: const EdgeInsets.all(AppDimens.spacingMd),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                ShadCard(
+                  title: const Text(Strings.appearance),
+                  description: const Text(Strings.appearanceDescription),
+                  child: ShadSelect<ThemeSetting>(
+                    key: ValueKey('theme_${themeController.value}'),
+                    initialValue: themeController.value,
+                    placeholder: const Text(Strings.themeSelectorLabel),
+                    selectedOptionBuilder: (context, value) {
+                      final (label, icon) = switch (value) {
+                        ThemeSetting.system => (
+                          Strings.systemTheme,
+                          LucideIcons.monitor,
+                        ),
+                        ThemeSetting.light => (
+                          Strings.lightTheme,
+                          LucideIcons.sun,
+                        ),
+                        ThemeSetting.dark => (
+                          Strings.darkTheme,
+                          LucideIcons.moon,
+                        ),
+                      };
+                      return Row(
                         children: [
-                          Padding(
-                            padding: const EdgeInsets.only(
-                              bottom: AppDimens.spacingXs,
-                            ),
-                            child: Text(
-                              Strings.appearanceDescription,
-                              style: ShadTheme.of(context).textTheme.muted,
-                            ),
-                          ),
-                          ShadRadioGroup<ThemeSetting>(
-                            key: ValueKey('theme_${themeController.value}'),
-                            initialValue: themeController.value,
-                            onChanged: (value) {
-                              if (value != null) {
-                                unawaited(
-                                  ref
-                                      .read(themeProvider.notifier)
-                                      .setTheme(value),
-                                );
-                              }
-                            },
-                            items: [
-                              _buildThemeRadio(
-                                context,
-                                ThemeSetting.system,
-                                Strings.systemTheme,
-                                LucideIcons.monitor,
-                              ),
-                              _buildThemeRadio(
-                                context,
-                                ThemeSetting.light,
-                                Strings.lightTheme,
-                                LucideIcons.sun,
-                              ),
-                              _buildThemeRadio(
-                                context,
-                                ThemeSetting.dark,
-                                Strings.darkTheme,
-                                LucideIcons.moon,
-                              ),
-                            ],
-                          ),
+                          Icon(icon, size: AppDimens.iconSm),
+                          const Gap(AppDimens.spacingSm),
+                          Text(label),
                         ],
+                      );
+                    },
+                    onChanged: (value) {
+                      if (value != null) {
+                        unawaited(
+                          ref
+                              .read(themeMutationProvider.notifier)
+                              .setTheme(value),
+                        );
+                      }
+                    },
+                    options: const [
+                      ShadOption(
+                        value: ThemeSetting.system,
+                        child: Row(
+                          children: [
+                            Icon(
+                              LucideIcons.monitor,
+                              size: AppDimens.iconSm,
+                            ),
+                            Gap(AppDimens.spacingSm),
+                            Text(Strings.systemTheme),
+                          ],
+                        ),
                       ),
-                    ),
+                      ShadOption(
+                        value: ThemeSetting.light,
+                        child: Row(
+                          children: [
+                            Icon(LucideIcons.sun, size: AppDimens.iconSm),
+                            Gap(AppDimens.spacingSm),
+                            Text(Strings.lightTheme),
+                          ],
+                        ),
+                      ),
+                      ShadOption(
+                        value: ThemeSetting.dark,
+                        child: Row(
+                          children: [
+                            Icon(
+                              LucideIcons.moon,
+                              size: AppDimens.iconSm,
+                            ),
+                            Gap(AppDimens.spacingSm),
+                            Text(Strings.darkTheme),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ),
-              // Sync Section
-              const SliverToBoxAdapter(
-                child: SectionHeader(
-                  title: Strings.sync,
-                  icon: LucideIcons.refreshCw,
-                ),
-              ),
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppDimens.spacingMd,
-                ),
-                sliver: SliverToBoxAdapter(
-                  child: FocusTraversalGroup(
-                    child: Semantics(
-                      label: Strings.syncFrequencyLabel,
-                      hint: Strings.selectSyncFrequencyHint,
-                      enabled: !isFrequencyLoading,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.only(
-                              bottom: AppDimens.spacingXs,
-                            ),
-                            child: Text(
-                              Strings.determinesCheckFrequency,
-                              style: ShadTheme.of(context).textTheme.muted,
-                            ),
-                          ),
-                          ShadRadioGroup<UpdateFrequency>(
-                            key: ValueKey('frequency_$selectedFrequency'),
-                            initialValue: selectedFrequency,
-                            enabled: !isFrequencyLoading,
-                            onChanged: (value) {
-                              if (value != null) {
-                                unawaited(
-                                  ref
-                                      .read(appPreferencesProvider.notifier)
-                                      .setUpdateFrequency(value),
-                                );
-                              }
-                            },
-                            items: [
-                              _buildFreqRadio(
-                                context,
-                                UpdateFrequency.none,
-                                Strings.never,
-                                LucideIcons.ban,
-                              ),
-                              _buildFreqRadio(
-                                context,
-                                UpdateFrequency.daily,
-                                Strings.daily,
-                                LucideIcons.calendarDays,
-                              ),
-                              _buildFreqRadio(
-                                context,
-                                UpdateFrequency.weekly,
-                                Strings.weekly,
-                                LucideIcons.calendarRange,
-                              ),
-                              _buildFreqRadio(
-                                context,
-                                UpdateFrequency.monthly,
-                                Strings.monthly,
-                                LucideIcons.calendar,
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              // Data Section
-              const SliverToBoxAdapter(
-                child: SectionHeader(
-                  title: Strings.data,
-                  icon: LucideIcons.database,
-                ),
-              ),
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppDimens.spacingMd,
-                ),
-                sliver: SliverToBoxAdapter(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
+                const Gap(AppDimens.spacingMd),
+                ShadCard(
+                  title: const Text(Strings.hapticsTitle),
+                  description: const Text(Strings.hapticsDescription),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Padding(
-                        padding: const EdgeInsets.only(
-                          left: AppDimens.spacingMd,
-                          bottom: AppDimens.spacingXs,
-                        ),
-                        child: Text(
-                          Strings.dataSectionDescription,
-                          style: ShadTheme.of(context).textTheme.small.copyWith(
-                            color: ShadTheme.of(
-                              context,
-                            ).colorScheme.mutedForeground,
+                      const Row(
+                        children: [
+                          Icon(
+                            LucideIcons.vibrate,
+                            size: AppDimens.iconSm,
                           ),
+                          Gap(AppDimens.spacingSm),
+                          Text(Strings.hapticsVibrationsLabel),
+                        ],
+                      ),
+                      ShadSwitch(
+                        value: hapticEnabled,
+                        onChanged: (value) {
+                          unawaited(
+                            ref
+                                .read(hapticMutationProvider.notifier)
+                                .setEnabled(enabled: value),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                const Gap(AppDimens.spacingMd),
+                ShadCard(
+                  title: const Text(Strings.sortingTitle),
+                  description: const Text(Strings.sortingDescription),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(
+                            LucideIcons.arrowUpDown,
+                            size: AppDimens.iconSm,
+                          ),
+                          Gap(AppDimens.spacingSm),
+                          Text(Strings.sortingTitle),
+                        ],
+                      ),
+                      ShadSelect<SortingPreference>(
+                        key: ValueKey('sorting_$sortingPreference'),
+                        initialValue: sortingPreference,
+                        placeholder: const Text(Strings.sortingTitle),
+                        selectedOptionBuilder: (context, value) {
+                          final label = switch (value) {
+                            SortingPreference.generic => Strings.sortingByName,
+                            SortingPreference.princeps =>
+                              Strings.sortingByPrinceps,
+                          };
+                          return Text(label);
+                        },
+                        onChanged: (value) {
+                          if (value != null) {
+                            unawaited(
+                              ref
+                                  .read(
+                                    sortingPreferenceMutationProvider.notifier,
+                                  )
+                                  .setSortingPreference(value),
+                            );
+                          }
+                        },
+                        options: const [
+                          ShadOption(
+                            value: SortingPreference.princeps,
+                            child: Text(Strings.sortingByPrinceps),
+                          ),
+                          ShadOption(
+                            value: SortingPreference.generic,
+                            child: Text(Strings.sortingByName),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const Gap(AppDimens.spacingMd),
+                ShadCard(
+                  title: const Text(Strings.sync),
+                  description: const Text(Strings.determinesCheckFrequency),
+                  child: ShadSelect<UpdateFrequency>(
+                    key: ValueKey('frequency_$selectedFrequency'),
+                    initialValue: selectedFrequency,
+                    placeholder: const Text(Strings.syncFrequencyLabel),
+                    enabled: !isFrequencyLoading,
+                    selectedOptionBuilder: (context, value) {
+                      final (label, icon) = switch (value) {
+                        UpdateFrequency.none => (
+                          Strings.never,
+                          LucideIcons.ban,
+                        ),
+                        UpdateFrequency.daily => (
+                          Strings.daily,
+                          LucideIcons.calendarDays,
+                        ),
+                        UpdateFrequency.weekly => (
+                          Strings.weekly,
+                          LucideIcons.calendarRange,
+                        ),
+                        UpdateFrequency.monthly => (
+                          Strings.monthly,
+                          LucideIcons.calendar,
+                        ),
+                      };
+                      return Row(
+                        children: [
+                          Icon(icon, size: AppDimens.iconSm),
+                          const Gap(AppDimens.spacingSm),
+                          Text(label),
+                        ],
+                      );
+                    },
+                    onChanged: (value) {
+                      if (value != null) {
+                        unawaited(
+                          ref
+                              .read(
+                                updateFrequencyMutationProvider.notifier,
+                              )
+                              .setUpdateFrequency(value),
+                        );
+                      }
+                    },
+                    options: const [
+                      ShadOption(
+                        value: UpdateFrequency.none,
+                        child: Row(
+                          children: [
+                            Icon(LucideIcons.ban, size: AppDimens.iconSm),
+                            Gap(AppDimens.spacingSm),
+                            Text(Strings.never),
+                          ],
                         ),
                       ),
-                      _buildTile(
-                        context: context,
-                        prefix: const Icon(LucideIcons.refreshCw),
-                        title: isCheckingUpdates.value
-                            ? Strings.checkingUpdatesInProgress
-                            : Strings.checkUpdatesNow,
-                        subtitle: isCheckingUpdates.value
-                            ? Strings.pleaseWaitSync
-                            : Strings.checkUpdatesTitle,
-                        enabled: !isCheckingUpdates.value,
-                        onTap: isCheckingUpdates.value ? null : runManualSync,
-                        trailing: isCheckingUpdates.value
+                      ShadOption(
+                        value: UpdateFrequency.daily,
+                        child: Row(
+                          children: [
+                            Icon(
+                              LucideIcons.calendarDays,
+                              size: AppDimens.iconSm,
+                            ),
+                            Gap(AppDimens.spacingSm),
+                            Text(Strings.daily),
+                          ],
+                        ),
+                      ),
+                      ShadOption(
+                        value: UpdateFrequency.weekly,
+                        child: Row(
+                          children: [
+                            Icon(
+                              LucideIcons.calendarRange,
+                              size: AppDimens.iconSm,
+                            ),
+                            Gap(AppDimens.spacingSm),
+                            Text(Strings.weekly),
+                          ],
+                        ),
+                      ),
+                      ShadOption(
+                        value: UpdateFrequency.monthly,
+                        child: Row(
+                          children: [
+                            Icon(
+                              LucideIcons.calendar,
+                              size: AppDimens.iconSm,
+                            ),
+                            Gap(AppDimens.spacingSm),
+                            Text(Strings.monthly),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Gap(AppDimens.spacingMd),
+                ShadCard(
+                  title: const Text(Strings.data),
+                  description: const Text(Strings.dataSectionDescription),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      ShadButton.outline(
+                        width: double.infinity,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        leading: isCheckingUpdates.value
                             ? const SizedBox(
                                 width: AppDimens.iconSm,
                                 height: AppDimens.iconSm,
@@ -374,78 +508,77 @@ class SettingsScreen extends HookConsumerWidget {
                                   strokeWidth: 2,
                                 ),
                               )
-                            : const Icon(
-                                LucideIcons.chevronRight,
-                                size: 16,
-                              ),
+                            : const Icon(LucideIcons.refreshCw),
+                        onPressed: isCheckingUpdates.value
+                            ? null
+                            : runManualSync,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              isCheckingUpdates.value
+                                  ? Strings.checkingUpdatesInProgress
+                                  : Strings.checkUpdatesNow,
+                            ),
+                            const Gap(4),
+                            Text(
+                              isCheckingUpdates.value
+                                  ? Strings.pleaseWaitSync
+                                  : Strings.checkUpdatesTitle,
+                              style: context.shadTextTheme.small,
+                            ),
+                          ],
+                        ),
                       ),
-                      ShadSeparator.horizontal(
-                        thickness: 1,
-                        color: ShadTheme.of(context).colorScheme.border,
-                      ),
-                      _buildTile(
-                        context: context,
-                        prefix: const Icon(LucideIcons.databaseZap),
-                        title: Strings.forceReset,
-                        subtitle: Strings.forceResetDescription,
-                        onTap: showResetConfirmation,
-                        trailing: const Icon(
-                          LucideIcons.chevronRight,
-                          size: 16,
+                      const Gap(AppDimens.spacingSm),
+                      ShadButton.outline(
+                        width: double.infinity,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        leading: const Icon(LucideIcons.databaseZap),
+                        onPressed: showResetConfirmation,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text(Strings.forceReset),
+                            const Gap(4),
+                            Text(
+                              Strings.forceResetDescription,
+                              style: context.shadTextTheme.small,
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
                 ),
-              ),
-              // Diagnostics Section
-              const SliverToBoxAdapter(
-                child: SectionHeader(
-                  title: Strings.diagnostics,
-                  icon: LucideIcons.terminal,
-                ),
-              ),
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppDimens.spacingMd,
-                ),
-                sliver: SliverToBoxAdapter(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(
-                          left: AppDimens.spacingMd,
-                          bottom: AppDimens.spacingXs,
+                const Gap(AppDimens.spacingMd),
+                ShadCard(
+                  title: const Text(Strings.diagnostics),
+                  description: const Text(Strings.diagnosticsDescription),
+                  child: ShadButton.outline(
+                    width: double.infinity,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    leading: const Icon(LucideIcons.terminal),
+                    onPressed: () => context.router.push(const LogsRoute()),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text(Strings.showLogs),
+                        const Gap(4),
+                        Text(
+                          Strings.openDetailedViewForSupport,
+                          style: context.shadTextTheme.small,
                         ),
-                        child: Text(
-                          Strings.diagnosticsDescription,
-                          style: ShadTheme.of(context).textTheme.small.copyWith(
-                            color: ShadTheme.of(
-                              context,
-                            ).colorScheme.mutedForeground,
-                          ),
-                        ),
-                      ),
-                      _buildTile(
-                        context: context,
-                        prefix: const Icon(LucideIcons.terminal),
-                        title: Strings.showLogs,
-                        subtitle: Strings.openDetailedViewForSupport,
-                        onTap: () => context.router.push(const LogsRoute()),
-                        trailing: const Icon(
-                          LucideIcons.chevronRight,
-                          size: 16,
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              // Bottom spacing
-              const SliverToBoxAdapter(child: Gap(AppDimens.spacingXl)),
-            ],
+                const Gap(AppDimens.spacingXl),
+              ],
+            ),
           ),
           if (isResetting.value)
             Positioned.fill(
@@ -464,118 +597,13 @@ class SettingsScreen extends HookConsumerWidget {
                       const Gap(AppDimens.spacingMd),
                       Text(
                         Strings.resetting,
-                        style: ShadTheme.of(context).textTheme.p,
+                        style: context.shadTextTheme.p,
                       ),
                     ],
                   ),
                 ),
               ),
             ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTile({
-    required BuildContext context,
-    required String title,
-    Widget? prefix,
-    String? subtitle,
-    VoidCallback? onTap,
-    Widget? trailing,
-    bool enabled = true,
-  }) {
-    final theme = ShadTheme.of(context);
-    return Container(
-      decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: theme.colorScheme.border)),
-      ),
-      child: InkWell(
-        onTap: enabled ? onTap : null,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppDimens.spacingMd,
-            vertical: AppDimens.spacingSm,
-          ),
-          child: Row(
-            children: [
-              if (prefix != null) ...[
-                prefix,
-                const SizedBox(width: AppDimens.spacingSm),
-              ],
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.p.copyWith(
-                        color: enabled
-                            ? theme.colorScheme.foreground
-                            : theme.colorScheme.mutedForeground,
-                      ),
-                    ),
-                    if (subtitle != null) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        subtitle,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.small.copyWith(
-                          color: theme.colorScheme.mutedForeground,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              if (trailing != null) ...[
-                const SizedBox(width: AppDimens.spacingSm),
-                ExcludeSemantics(child: trailing),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  ShadRadio<UpdateFrequency> _buildFreqRadio(
-    BuildContext context,
-    UpdateFrequency value,
-    String label,
-    IconData icon,
-  ) {
-    return ShadRadio<UpdateFrequency>(
-      value: value,
-      label: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: AppDimens.iconSm),
-          const SizedBox(width: AppDimens.spacingSm),
-          Text(label),
-        ],
-      ),
-    );
-  }
-
-  ShadRadio<ThemeSetting> _buildThemeRadio(
-    BuildContext context,
-    ThemeSetting value,
-    String label,
-    IconData icon,
-  ) {
-    return ShadRadio<ThemeSetting>(
-      value: value,
-      label: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: AppDimens.iconSm),
-          const SizedBox(width: AppDimens.spacingSm),
-          Text(label),
         ],
       ),
     );

@@ -12,6 +12,7 @@ import 'package:pharma_scan/core/providers/navigation_provider.dart';
 import 'package:pharma_scan/core/router/app_router.dart';
 import 'package:pharma_scan/core/services/logger_service.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
+import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/formatters.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/widgets/swipe_back_detector.dart';
@@ -37,12 +38,19 @@ class GroupExplorerView extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Disable root-level swiping when in nested route
     useEffect(() {
-      ref.read(canSwipeRootProvider.notifier).canSwipe = false;
+      final notifier = ref.read(canSwipeRootProvider.notifier);
+      unawaited(
+        Future.microtask(() {
+          notifier.canSwipe = false;
+        }),
+      );
       return () {
-        // Re-enable root-level swiping when leaving this route
-        ref.read(canSwipeRootProvider.notifier).canSwipe = true;
+        unawaited(
+          Future.microtask(() {
+            notifier.canSwipe = true;
+          }),
+        );
       };
     }, [groupId]);
 
@@ -200,7 +208,7 @@ class GroupExplorerView extends HookConsumerWidget {
     BuildContext context,
     GroupExplorerState state,
   ) {
-    final theme = ShadTheme.of(context);
+    final theme = context.shadTheme;
     final metadataBadges = <Widget>[
       if (state.distinctForms.isNotEmpty)
         ...state.distinctForms.map(
@@ -261,7 +269,6 @@ class GroupExplorerView extends HookConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // 1. Title/Subtitle Section (Molecule > Brand)
           if (state.commonPrincipes.isNotEmpty) ...[
             Text(
               state.commonPrincipes.join(', '),
@@ -284,7 +291,6 @@ class GroupExplorerView extends HookConsumerWidget {
               style: theme.textTheme.small,
             ),
           ),
-          // 2. Unified Badges Row
           if (allBadges.isNotEmpty) ...[
             const Gap(AppDimens.spacingSm),
             Wrap(
@@ -293,10 +299,8 @@ class GroupExplorerView extends HookConsumerWidget {
               children: allBadges,
             ),
           ],
-          // 3. Financial Row
           const Gap(AppDimens.spacingSm),
           _buildMetadataTiles(context, priceLabel, refundValue),
-          // 4. Action Buttons
           _buildActionBar(context, state),
         ],
       ),
@@ -308,7 +312,7 @@ class GroupExplorerView extends HookConsumerWidget {
     String priceLabel,
     String refundValue,
   ) {
-    final theme = ShadTheme.of(context);
+    final theme = context.shadTheme;
 
     return Container(
       decoration: BoxDecoration(
@@ -411,14 +415,11 @@ class GroupExplorerView extends HookConsumerWidget {
       return const SliverToBoxAdapter(child: SizedBox.shrink());
     }
 
-    // 1. Group members by pharmaceutical form
     final groupedByForm = groupBy(
       members,
       (m) => m.formLabel ?? Strings.notDefined,
     );
 
-    // 2. Decide layout strategy based on form count
-    // Case A: Single form -> Use Standard Flat List (Cleaner, no extra click)
     if (groupedByForm.keys.length <= 1) {
       return SliverMainAxisGroup(
         slivers: [
@@ -454,7 +455,6 @@ class GroupExplorerView extends HookConsumerWidget {
       );
     }
 
-    // Case B: Multiple forms -> Use Accordion to reduce scrolling
     return SliverMainAxisGroup(
       slivers: [
         SliverToBoxAdapter(
@@ -479,7 +479,7 @@ class GroupExplorerView extends HookConsumerWidget {
                       Expanded(
                         child: Text(
                           formName,
-                          style: ShadTheme.of(context).textTheme.p.copyWith(
+                          style: context.shadTextTheme.p.copyWith(
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -549,14 +549,12 @@ class GroupExplorerView extends HookConsumerWidget {
 
     return SliverMainAxisGroup(
       slivers: [
-        // Sticky Header
         buildStickySectionHeader(
           context: context,
           title: Strings.relatedTherapies,
           badgeCount: relatedMembers.length,
           icon: LucideIcons.link,
         ),
-        // Related List
         SliverPadding(
           padding: const EdgeInsets.symmetric(horizontal: AppDimens.spacingMd),
           sliver: SliverList(
@@ -633,11 +631,9 @@ class GroupExplorerView extends HookConsumerWidget {
         (hasPrice ? Strings.refundNotAvailable : null);
     final shouldShowRefund = refundLabel != null;
 
-    // Build title text
     final titleText =
         '${member.displayName}${member.dosageLabel != null && member.dosageLabel!.isNotEmpty ? ' • ${member.dosageLabel}' : ''}';
 
-    // Build subtitle with key information
     final subtitleParts = <String>[];
     if (member.codeCip.isNotEmpty) {
       subtitleParts.add('${Strings.cip} ${member.codeCip}');
@@ -649,7 +645,6 @@ class GroupExplorerView extends HookConsumerWidget {
         ? subtitleParts.join(' • ')
         : null;
 
-    // Build details (price and refund)
     final detailsParts = <String>[];
     if (hasPrice) {
       detailsParts.add(priceText);
@@ -659,7 +654,6 @@ class GroupExplorerView extends HookConsumerWidget {
     }
     final details = detailsParts.isNotEmpty ? detailsParts.join(' • ') : null;
 
-    // Build enhanced subtitle with availability status if present
     final enhancedSubtitleParts = <String>[];
     if (subtitle != null) {
       enhancedSubtitleParts.add(subtitle);
@@ -695,7 +689,7 @@ class GroupExplorerView extends HookConsumerWidget {
                 decoration: BoxDecoration(
                   border: Border(
                     bottom: BorderSide(
-                      color: ShadTheme.of(context).colorScheme.border,
+                      color: context.shadColors.border,
                     ),
                   ),
                 ),
@@ -723,12 +717,9 @@ class GroupExplorerView extends HookConsumerWidget {
                               enhancedSubtitle,
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
-                              style: ShadTheme.of(context).textTheme.small
-                                  .copyWith(
-                                    color: ShadTheme.of(
-                                      context,
-                                    ).colorScheme.mutedForeground,
-                                  ),
+                              style: context.shadTextTheme.small.copyWith(
+                                color: context.shadColors.mutedForeground,
+                              ),
                             ),
                           ],
                         ],
@@ -743,10 +734,8 @@ class GroupExplorerView extends HookConsumerWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           textAlign: TextAlign.end,
-                          style: ShadTheme.of(context).textTheme.small.copyWith(
-                            color: ShadTheme.of(
-                              context,
-                            ).colorScheme.mutedForeground,
+                          style: context.shadTextTheme.small.copyWith(
+                            color: context.shadColors.mutedForeground,
                           ),
                         ),
                       ),
@@ -764,12 +753,10 @@ class GroupExplorerView extends HookConsumerWidget {
             ),
           ),
         ),
-        // Regulatory badges below tile (they don't fit in custom tile structure)
         if (hasRegulatoryBadges) ...[
           const Gap(AppDimens.spacingSm),
           regulatoryBadgesWidget,
         ],
-        // Navigation button for related therapies
         if (showNavigationIndicator && navigationGroupId != null) ...[
           const Gap(AppDimens.spacingSm),
           ShadButton.outline(
@@ -779,7 +766,7 @@ class GroupExplorerView extends HookConsumerWidget {
             trailing: Icon(
               LucideIcons.arrowRight,
               size: AppDimens.iconSm,
-              color: ShadTheme.of(context).colorScheme.foreground,
+              color: context.shadColors.foreground,
             ),
             child: const Text(Strings.showMedicamentDetails),
           ),
@@ -832,7 +819,7 @@ class GroupExplorerView extends HookConsumerWidget {
                 color: Colors.transparent,
                 child: InkWell(
                   onTap: () => _launchUrl(context, ansmUrl),
-                  borderRadius: ShadTheme.of(context).radius,
+                  borderRadius: context.shadTheme.radius,
                   child: Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: AppDimens.spacingMd,
@@ -840,12 +827,12 @@ class GroupExplorerView extends HookConsumerWidget {
                     ),
                     decoration: BoxDecoration(
                       border: Border.all(
-                        color: ShadTheme.of(context).colorScheme.destructive,
+                        color: context.shadColors.destructive,
                       ),
-                      borderRadius: ShadTheme.of(context).radius,
-                      color: ShadTheme.of(
-                        context,
-                      ).colorScheme.destructive.withValues(alpha: 0.1),
+                      borderRadius: context.shadTheme.radius,
+                      color: context.shadColors.destructive.withValues(
+                        alpha: 0.1,
+                      ),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -853,15 +840,13 @@ class GroupExplorerView extends HookConsumerWidget {
                         Icon(
                           LucideIcons.triangleAlert,
                           size: AppDimens.iconSm,
-                          color: ShadTheme.of(context).colorScheme.destructive,
+                          color: context.shadColors.destructive,
                         ),
                         const Gap(AppDimens.spacingXs),
                         Text(
                           Strings.shortageAlert,
-                          style: ShadTheme.of(context).textTheme.small.copyWith(
-                            color: ShadTheme.of(
-                              context,
-                            ).colorScheme.destructive,
+                          style: context.shadTextTheme.small.copyWith(
+                            color: context.shadColors.destructive,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -879,7 +864,7 @@ class GroupExplorerView extends HookConsumerWidget {
               leading: Icon(
                 LucideIcons.info,
                 size: AppDimens.iconSm,
-                color: ShadTheme.of(context).colorScheme.secondaryForeground,
+                color: context.shadColors.secondaryForeground,
               ),
               child: const Text(Strings.ficheInfo),
             ),
@@ -891,7 +876,7 @@ class GroupExplorerView extends HookConsumerWidget {
               leading: Icon(
                 LucideIcons.fileText,
                 size: AppDimens.iconSm,
-                color: ShadTheme.of(context).colorScheme.foreground,
+                color: context.shadColors.foreground,
               ),
               child: const Text(Strings.rcpDocument),
             ),
@@ -919,16 +904,11 @@ class GroupExplorerView extends HookConsumerWidget {
   }
 
   bool _isInScannerContext(BuildContext context) {
-    try {
-      final parentRoute = context.router.parent();
-      return parentRoute?.routeData.name == 'ScannerTabRoute';
-    } on Exception {
-      return false;
-    }
+    final parentRoute = context.router.parent();
+    return parentRoute?.routeData.name == 'ScannerTabRoute';
   }
 
   void _navigateToExplorer(BuildContext context, String groupId) {
-    // Navigate to Explorer tab and push the same group
     unawaited(
       context.router.navigate(const ExplorerTabRoute()).then((_) {
         if (context.mounted) {

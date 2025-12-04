@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
@@ -20,7 +21,7 @@ class ProductTypeBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = ShadTheme.of(context);
+    final theme = context.shadTheme;
     final (badge, tooltip) = switch (type) {
       ProductType.princeps => (
         ShadBadge.secondary(

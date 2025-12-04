@@ -1,5 +1,6 @@
 import 'package:dart_mappable/dart_mappable.dart';
-import 'package:pharma_scan/core/database/database.dart';
+import 'package:pharma_scan/core/domain/types/ids.dart';
+import 'package:pharma_scan/features/explorer/domain/entities/medicament_entity.dart';
 import 'package:pharma_scan/features/explorer/domain/models/generic_group_entity.dart';
 
 part 'search_result_item_model.mapper.dart';
@@ -25,9 +26,9 @@ class PrincepsResult extends SearchResultItem with PrincepsResultMappable {
     required this.commonPrinciples,
   });
 
-  final MedicamentSummaryData princeps;
-  final List<MedicamentSummaryData> generics;
-  final String groupId;
+  final MedicamentEntity princeps;
+  final List<MedicamentEntity> generics;
+  final GroupId groupId;
   final String commonPrinciples;
 }
 
@@ -40,9 +41,9 @@ class GenericResult extends SearchResultItem with GenericResultMappable {
     required this.commonPrinciples,
   });
 
-  final MedicamentSummaryData generic;
-  final List<MedicamentSummaryData> princeps;
-  final String groupId;
+  final MedicamentEntity generic;
+  final List<MedicamentEntity> princeps;
+  final GroupId groupId;
   final String commonPrinciples;
 }
 
@@ -55,9 +56,9 @@ class StandaloneResult extends SearchResultItem with StandaloneResultMappable {
     required this.commonPrinciples,
   });
 
-  final String cisCode;
-  final MedicamentSummaryData summary;
-  final String representativeCip;
+  final CisCode cisCode;
+  final MedicamentEntity summary;
+  final Cip13 representativeCip;
   final String commonPrinciples;
 }
 

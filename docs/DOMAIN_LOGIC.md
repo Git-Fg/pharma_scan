@@ -91,6 +91,7 @@ The Base de Données Publique des Médicaments (BDPM) is the official French med
 **URL:** `https://base-donnees-publique.medicaments.gouv.fr/telechargement.php`
 
 **File Format:**
+
 * **Encoding:** `ISO-8859-1` (Latin-1) or `Windows-1252`
 * **Separator:** Tabulation (`\t`)
 * **Delimiters:** None (no quotes)
@@ -129,6 +130,7 @@ The Base de Données Publique des Médicaments (BDPM) is the official French med
 5. **Parse Compositions** (`CIS_COMPO_bdpm.txt`)
    * Depends on `cisToCip13` for valid CIS filtering
    * Replicate principles across all CIP13 of the CIS
+   * **Deduplication Strategy:** Group composition rows by (CIS + Substance Code). If a row with type "FT" (Fraction Thérapeutique) exists for a given substance code, discard all rows with type "SA" (Substance Active) for that same substance code. This ensures FT (the chemical base) takes precedence over SA (the salt form) for display and grouping purposes.
 
 6. **Parse Generics** (`CIS_GENER_bdpm.txt`)
    * Depends on `cisToCip13` and `medicamentCips` for validation
@@ -141,6 +143,7 @@ The Base de Données Publique des Médicaments (BDPM) is the official French med
 #### Stage 3: Database Insertion
 
 **Batch Insert:** All parsed data inserted in a single transaction:
+
 * `Specialites`, `Medicaments`, `PrincipesActifs`
 * `GeneriqueGroups`, `GroupMembers`
 * `MedicamentAvailability`
@@ -150,6 +153,7 @@ The Base de Données Publique des Médicaments (BDPM) is the official French med
 #### Stage 4: Group Metadata Refinement
 
 **Function:** `DatabaseDao.refineGroupMetadata()`
+
 * Validate `princepsLabel` against type 0 members
 * Clean `moleculeLabel`
 * Improve metadata quality
@@ -169,6 +173,7 @@ The Base de Données Publique des Médicaments (BDPM) is the official French med
 #### Stage 6: FTS5 Search Index
 
 **Function:** `DatabaseDao.populateFts5Index()`
+
 * Delete existing index
 * Re-insert from `MedicamentSummary` with normalization
 
@@ -270,6 +275,7 @@ CREATE VIRTUAL TABLE search_index USING fts5(
 ```
 
 **Columns:**
+
 * `cis_code`: UNINDEXED (link to `MedicamentSummary`)
 * `canonical_name`: Normalized canonical name
 * `princeps_name`: Normalized princeps name
@@ -303,10 +309,12 @@ User queries must be normalized using the same `diacritic` helper to match index
 PharmaScan supports scanning medication barcodes (DataMatrix) using GS1 standards.
 
 **Format:** GS1 DataMatrix contains:
+
 * Application Identifier (AI) codes
 * Data fields (CIP13, batch number, expiry date, etc.)
 
 **Parsing Rules:**
+
 * Extract CIP13 from GS1 code
 * Validate CIP13 format (13 digits)
 * Lookup medication in database using CIP13
@@ -321,46 +329,54 @@ PharmaScan supports scanning medication barcodes (DataMatrix) using GS1 standard
 
 #### `Specialites`
 
-- **PK:** `cisCode` (Text, 8 digits)
+* **PK:** `cisCode` (Text, 8 digits)
+
 * Stores specialty metadata (name, form, routes, etc.)
 
 #### `Medicaments`
 
-- **PK:** `codeCip` (Text, 13 digits)
+* **PK:** `codeCip` (Text, 13 digits)
+
 * **FK:** `cisCode` → `Specialites`
 * Stores presentation data (price, reimbursement, etc.)
 
 #### `PrincipesActifs`
 
-- **PK:** `id` (Int, auto-increment)
+* **PK:** `id` (Int, auto-increment)
+
 * **FK:** `codeCip` → `Medicaments`
 * Stores active principles with normalization
 
 #### `GeneriqueGroups`
 
-- **PK:** `groupId` (Text)
+* **PK:** `groupId` (Text)
+
 * Stores generic group metadata
 
 #### `GroupMembers`
 
-- **PK:** `codeCip` (Text)
+* **PK:** `codeCip` (Text)
+
 * **FK:** `groupId` → `GeneriqueGroups`
 * Links medications to groups (type: 0=Princeps, 1=Generic)
 
 #### `MedicamentAvailability`
 
-- **PK:** `codeCip` (Text)
+* **PK:** `codeCip` (Text)
+
 * Stores ANSM availability status (rupture, tension)
 
 ### 6.2 Aggregated Table
 
 #### `MedicamentSummary`
 
-- **PK:** `cisCode` (Text)
+* **PK:** `cisCode` (Text)
+
 * Denormalized, pre-aggregated view for UI
 * Populated via SQL views: `view_aggregated_grouped` and `view_aggregated_standalone`
 
 **Key Columns:**
+
 * `nomCanonique`: Canonical name (normalized)
 * `isPrinceps`: Boolean (is princeps medication)
 * `groupId`: Generic group ID (NULL for standalone)
@@ -378,12 +394,14 @@ PharmaScan supports scanning medication barcodes (DataMatrix) using GS1 standard
 **Tool:** `tool/parser_lab.py` (via `uv run tool/parser_lab.py`)
 
 **Purpose:**
+
 * Generate JSON golden files for parsing validation
 * Test normalization strategies
 * Analyze grouping logic
 * Validate data transformations
 
 **Output Files:**
+
 * `tool/data/golden_parsing_test.json` (line-level, by composition)
 * `tool/data/golden_parsing_by_cis.json` (CIS-level, aggregated SA/FT segments)
 
@@ -402,6 +420,7 @@ uv run tool/parser_lab.py
    * Applies `parseMoleculeSegment` to validate canonical name generation
 
 **Rule:** Any modification to medication grammar (Python or Dart) must be accompanied by:
+
 * Regeneration of JSON golden files via `parser_lab.py`
 * Passing the corresponding Dart golden tests
 
@@ -485,3 +504,35 @@ uv run tool/parser_lab.py
 ---
 
 **Note:** For technical architecture patterns, see `docs/ARCHITECTURE.md`. For maintenance procedures, see `docs/MAINTENANCE.md`.
+
+---
+
+## 11. Logique de Rangement (Restock)
+
+### Mode Rangement (Restock Mode)
+
+* **Définition :** Un mode du scanner dédié à l'inventaire rapide ou à la réception de commande.
+* **Comportement :** Le scan ne bloque pas la caméra (pas de popup). Il ajoute silencieusement le produit à une liste persistante (`RestockItems`) et émet une vibration de succès.
+* **Dédoublonnage :** Scanner un produit déjà présent dans la liste incrémente sa quantité (`quantity + 1`) au lieu de créer une nouvelle ligne.
+
+### Stratégies de Tri (Sorting Strategy)
+
+La liste de rangement peut être triée selon deux axes, configurables dans les réglages globaux :
+
+1. **Tri par Princeps (Défaut - "Tiroir Logic") :**
+
+   * Les génériques sont classés sous la lettre de leur Princeps de référence.
+   * *Exemple :* "Amoxicilline Biogaran" est classé à la lettre **C** (pour Clamoxyl).
+   * **But :** Faciliter le rangement physique dans les pharmacies classées par molécules/princeps.
+
+2. **Tri par Produit (Classique) :**
+
+   * Les produits sont classés par leur nom commercial propre.
+   * *Exemple :* "Amoxicilline Biogaran" est classé à la lettre **A**.
+
+### Focus Princeps (UI Logic)
+
+Une règle d'affichage prioritaire pour les génériques :
+
+* Si un produit est un générique et que son princeps est connu, le nom du **Princeps** devient le titre principal (H4 Bold), et le nom réel du produit passe en sous-titre.
+* Cette inversion hiérarchique vise à réduire la charge cognitive lors de la recherche du tiroir adéquat.

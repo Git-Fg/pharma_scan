@@ -1,13 +1,15 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
+import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/utils/test_tags.dart';
 import 'package:pharma_scan/core/widgets/adaptive_bottom_panel.dart';
 import 'package:pharma_scan/core/widgets/testable.dart';
+import 'package:pharma_scan/features/scanner/presentation/providers/scanner_provider.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 /// Widget that displays the bottom control panel for the scanner screen.
@@ -17,7 +19,7 @@ import 'package:shadcn_ui/shadcn_ui.dart';
 /// - Gallery and Manual Entry buttons
 /// - Responsive layout with blur backdrop
 /// - Entrance animations
-class ScannerControls extends HookConsumerWidget {
+class ScannerControls extends ConsumerWidget {
   const ScannerControls({
     required this.isCameraActive,
     required this.isInitializing,
@@ -43,7 +45,7 @@ class ScannerControls extends HookConsumerWidget {
           AdaptiveBottomPanel(
                 children: [
                   ClipRRect(
-                    borderRadius: ShadTheme.of(context).radius,
+                    borderRadius: context.shadTheme.radius,
                     child: BackdropFilter(
                       filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
                       child: Container(
@@ -64,6 +66,47 @@ class ScannerControls extends HookConsumerWidget {
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
+                            Builder(
+                              builder: (context) {
+                                final scannerState = ref.watch(scannerProvider);
+                                final mode = scannerState.maybeWhen(
+                                  data: (value) => value.mode,
+                                  orElse: () => ScannerMode.analysis,
+                                );
+                                final isRestockMode =
+                                    mode == ScannerMode.restock;
+
+                                return Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        isRestockMode
+                                            ? Strings.scannerModeRestock
+                                            : Strings.scannerModeAnalysis,
+                                        style: context.shadTextTheme.small,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    ShadSwitch(
+                                      value: isRestockMode,
+                                      onChanged: (value) {
+                                        ref
+                                            .read(scannerProvider.notifier)
+                                            .setMode(
+                                              value
+                                                  ? ScannerMode.restock
+                                                  : ScannerMode.analysis,
+                                            );
+                                      },
+                                    ),
+                                  ],
+                                );
+                              },
+                            ),
+                            const Gap(AppDimens.spacingMd),
                             Center(
                               child: Testable(
                                 id: isCameraActive

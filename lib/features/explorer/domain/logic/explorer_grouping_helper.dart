@@ -108,16 +108,17 @@ class ExplorerGroupingHelper {
       if (item.princepsCisCode != null && item.commonPrincipes.isNotEmpty) {
         final normalized = normalizeCommonPrincipes(item.commonPrincipes);
         if (normalized.length > 2) {
-          final existing = cisToPrincipleMap[item.princepsCisCode];
+          final cisCodeString = item.princepsCisCode!.toString();
+          final existing = cisToPrincipleMap[cisCodeString];
           if (existing == null) {
             // First mapping for this CIS
-            cisToPrincipleMap[item.princepsCisCode!] = normalized;
+            cisToPrincipleMap[cisCodeString] = normalized;
           } else {
             // Conflict resolution: prefer shorter/cleaner principle name
             if (normalized.length < existing.length ||
                 (normalized.length == existing.length &&
                     normalized.compareTo(existing) < 0)) {
-              cisToPrincipleMap[item.princepsCisCode!] = normalized;
+              cisToPrincipleMap[cisCodeString] = normalized;
             }
           }
         }
@@ -125,24 +126,15 @@ class ExplorerGroupingHelper {
     }
 
     // ===== PHASE 1: GROUPING =====
-    // CRITICAL FIX: Prevent grouping of unrelated items by using stricter validation
-
-    // First, identify suspicious commonPrincipes values that appear in too many groups
-    // This indicates potential data quality issues where unrelated groups have the same value
     final commonPrincipesCounts = <String, int>{};
     final commonPrincipesToGroupIds = <String, Set<String>>{};
 
     for (final item in items) {
-      // Determine grouping key with priority order:
-      // 1. Princeps CIS hard link
-      // 2. Text normalization (soft link)
       String? groupingKey;
       if (item.princepsCisCode != null &&
-          cisToPrincipleMap.containsKey(item.princepsCisCode)) {
-        // Priority 1: Hard link via Princeps CIS
-        groupingKey = cisToPrincipleMap[item.princepsCisCode];
+          cisToPrincipleMap.containsKey(item.princepsCisCode!.toString())) {
+        groupingKey = cisToPrincipleMap[item.princepsCisCode!.toString()];
       } else if (item.commonPrincipes.isNotEmpty) {
-        // Priority 2: Soft link via text normalization
         groupingKey = normalizeCommonPrincipes(item.commonPrincipes);
       }
 
@@ -154,33 +146,24 @@ class ExplorerGroupingHelper {
               groupingKey,
               () => <String>{},
             )
-            .add(item.groupId);
+            .add(item.groupId.toString());
       }
     }
 
-    // CRITICAL FIX: Identify suspicious commonPrincipes that appear in multiple groups
-    // with very different princepsReferenceName values - this indicates data quality issues
     final suspiciousPrincipes = <String>{};
 
     for (final entry in commonPrincipesToGroupIds.entries) {
       if (entry.value.length > 1) {
-        // CRITICAL FIX: If the grouping key is a single principle (not a comma-separated list),
-        // it represents a specific active principle and should NOT be marked as suspicious.
-        // This handles cases like "MEMANTINE" where different princeps (AXURA, EBIXA) are
-        // legitimate variations of the same molecule.
         final isSinglePrinciple = !entry.key.contains(',');
         if (isSinglePrinciple && entry.key.length >= 4) {
-          // Single principle with reasonable length - trust it, don't mark as suspicious
           continue;
         }
 
-        // Get all items with this grouping key (using same resolution logic as Phase 1)
         final itemsWithSamePrincipes = items.where((item) {
-          // Determine grouping key using same priority logic as Phase 1
           String? groupingKey;
           if (item.princepsCisCode != null &&
-              cisToPrincipleMap.containsKey(item.princepsCisCode)) {
-            groupingKey = cisToPrincipleMap[item.princepsCisCode];
+              cisToPrincipleMap.containsKey(item.princepsCisCode!.toString())) {
+            groupingKey = cisToPrincipleMap[item.princepsCisCode!.toString()];
           } else if (item.commonPrincipes.isNotEmpty) {
             groupingKey = normalizeCommonPrincipes(item.commonPrincipes);
           }
@@ -189,21 +172,15 @@ class ExplorerGroupingHelper {
               groupingKey.length > 2;
         }).toList();
 
-        // Normalize and check similarity - if they're completely different, it's suspicious
         final normalizedPrinceps = itemsWithSamePrincipes
             .map(
               (item) => normalizePrincipleOptimal(item.princepsReferenceName),
             )
             .toList();
 
-        // If we have more than 2 groups, check if princeps names are very different
-        // This catches cases like Néfopam grouping with Adriblastine/Anafranil
         if (entry.value.length > 2) {
           final uniquePrinceps = normalizedPrinceps.toSet();
 
-          // CRITICAL FIX: Check if names share a common prefix BEFORE checking count
-          // If all names share a common 4+ character prefix, they're related (e.g., "ABSTRAL 100", "ABSTRAL 200")
-          // and should NOT be flagged as suspicious, even if there are many unique names
           var allShareCommonPrefix = false;
           if (uniquePrinceps.length > 1) {
             // Find the longest common prefix across all names
@@ -222,23 +199,17 @@ class ExplorerGroupingHelper {
                 }
               }
             }
-            // If we found a common prefix of at least 4 characters, they're related
             allShareCommonPrefix = commonPrefixLength >= 4;
           }
 
-          // Only flag as suspicious if:
-          // 1. There are more than 3 unique princeps names AND
-          // 2. They don't all share a common prefix (indicating truly unrelated groups)
           if (uniquePrinceps.length > 3 && !allShareCommonPrefix) {
             suspiciousPrincipes.add(entry.key);
           } else if (!allShareCommonPrefix) {
-            // Even with 3 or fewer unique names, check if they're very different
             var hasVeryDifferentNames = false;
             for (var i = 0; i < normalizedPrinceps.length; i++) {
               for (var j = i + 1; j < normalizedPrinceps.length; j++) {
                 final name1 = normalizedPrinceps[i];
                 final name2 = normalizedPrinceps[j];
-                // Check if they share at least 4 character prefix
                 final minLen = name1.length < name2.length
                     ? name1.length
                     : name2.length;
@@ -252,7 +223,6 @@ class ExplorerGroupingHelper {
                     break;
                   }
                 } else {
-                  // Very short names - if completely different, it's suspicious
                   if (name1 != name2 &&
                       !name1.contains(name2) &&
                       !name2.contains(name1)) {
@@ -274,24 +244,16 @@ class ExplorerGroupingHelper {
 
     final groupedByPrincipes = <String, List<GenericGroupEntity>>{};
     for (final item in items) {
-      // Determine grouping key with priority order:
-      // 1. Princeps CIS hard link
-      // 2. Text normalization (soft link)
-      // 3. Unique key (fallback)
       String groupingKey;
       if (item.princepsCisCode != null &&
-          cisToPrincipleMap.containsKey(item.princepsCisCode)) {
-        // Priority 1: Hard link via Princeps CIS
-        groupingKey = cisToPrincipleMap[item.princepsCisCode]!;
+          cisToPrincipleMap.containsKey(item.princepsCisCode!.toString())) {
+        groupingKey = cisToPrincipleMap[item.princepsCisCode!.toString()]!;
       } else if (item.commonPrincipes.isNotEmpty) {
-        // Priority 2: Soft link via text normalization
         groupingKey = normalizeCommonPrincipes(item.commonPrincipes);
       } else {
-        // Fallback: use unique key
         groupingKey = 'UNIQUE_${item.groupId}';
       }
 
-      // Apply suspicious principles check
       if (groupingKey.length <= 2 ||
           suspiciousPrincipes.contains(groupingKey)) {
         groupingKey = 'UNIQUE_${item.groupId}';
@@ -315,7 +277,6 @@ class ExplorerGroupingHelper {
             ? formatPrinciples(clusterPrincipes)
             : Strings.notDetermined;
 
-        // Calculate dominant princeps for sorting
         final sortKey = _calculateDominantPrinceps(entry.value);
 
         result.add(
@@ -333,7 +294,6 @@ class ExplorerGroupingHelper {
 
     // ===== PHASE 3: SORTING =====
     result.sort((a, b) {
-      // Get sort key: dominant princeps for clusters, princepsReferenceName for single entities
       String keyA;
       if (a is GroupCluster) {
         keyA = a.sortKey;
@@ -354,7 +314,6 @@ class ExplorerGroupingHelper {
             : Strings.notDetermined;
       }
 
-      // Normalize and compare alphabetically
       final normalizedA = normalizePrincipleOptimal(keyA);
       final normalizedB = normalizePrincipleOptimal(keyB);
       return normalizedA.compareTo(normalizedB);
