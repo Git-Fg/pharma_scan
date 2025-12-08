@@ -1,15 +1,17 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:pharma_scan/core/providers/theme_provider.dart';
+import 'package:pharma_scan/core/router/app_router.dart';
 import 'package:pharma_scan/core/router/router_provider.dart';
 import 'package:pharma_scan/core/services/logger_service.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/features/home/providers/initialization_provider.dart';
+import 'package:pharma_scan/features/scanner/presentation/providers/scanner_provider.dart';
+import 'package:quick_actions/quick_actions.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:talker_riverpod_logger/talker_riverpod_logger.dart';
 
@@ -22,8 +24,6 @@ void main() async {
       LoggerService.info('🚀 App Starting...');
     }),
   );
-
-  unawaited(SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge));
 
   runApp(
     ProviderScope(
@@ -63,15 +63,49 @@ class PharmaScanApp extends HookConsumerWidget {
     final themeAsync = ref.watch(themeProvider);
     final themeMode = themeAsync.value ?? ThemeMode.system;
 
+    useEffect(() {
+      const quickActions = QuickActions();
+      unawaited(
+        quickActions.initialize((type) {
+          switch (type) {
+            case 'action_scan':
+              unawaited(appRouter.navigate(const ScannerTabRoute()));
+              ref.read(scannerProvider.notifier).setMode(ScannerMode.restock);
+            case 'action_search':
+              unawaited(appRouter.navigate(const ExplorerTabRoute()));
+          }
+        }),
+      );
+      unawaited(
+        quickActions.setShortcutItems(const [
+          ShortcutItem(
+            type: 'action_scan',
+            localizedTitle: Strings.shortcutScanToRestock,
+            icon: 'scan',
+          ),
+          ShortcutItem(
+            type: 'action_search',
+            localizedTitle: Strings.shortcutSearchDatabase,
+            icon: 'search',
+          ),
+        ]),
+      );
+      return null;
+    }, [appRouter]);
+
     return ShadApp.custom(
       themeMode: themeMode,
       theme: ShadThemeData(
         brightness: Brightness.light,
-        colorScheme: const ShadSlateColorScheme.light(),
+        colorScheme: const ShadGreenColorScheme.light(
+          primary: Color(0xFF0F766E),
+        ),
       ),
       darkTheme: ShadThemeData(
         brightness: Brightness.dark,
-        colorScheme: const ShadSlateColorScheme.dark(),
+        colorScheme: const ShadGreenColorScheme.dark(
+          primary: Color(0xFF14B8A6),
+        ),
       ),
       appBuilder: (context) {
         return MaterialApp.router(

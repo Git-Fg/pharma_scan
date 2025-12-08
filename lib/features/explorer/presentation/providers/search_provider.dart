@@ -1,14 +1,13 @@
 import 'dart:async';
 
-import 'package:pharma_scan/core/database/database.dart';
+import 'package:pharma_scan/core/database/daos/catalog_dao.dart';
 import 'package:pharma_scan/core/domain/types/ids.dart';
 import 'package:pharma_scan/core/domain/types/semantic_types.dart';
 import 'package:pharma_scan/core/logic/sanitizer.dart';
 import 'package:pharma_scan/core/providers/core_providers.dart';
-import 'package:pharma_scan/core/services/logger_service.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/features/explorer/domain/entities/medicament_entity.dart';
-import 'package:pharma_scan/features/explorer/domain/logic/explorer_grouping_helper.dart';
+import 'package:pharma_scan/features/explorer/domain/logic/grouping_algorithms.dart';
 import 'package:pharma_scan/features/explorer/domain/models/generic_group_entity.dart';
 import 'package:pharma_scan/features/explorer/domain/models/search_filters_model.dart';
 import 'package:pharma_scan/features/explorer/domain/models/search_result_item_model.dart';
@@ -48,9 +47,16 @@ Stream<List<SearchResultItem>> searchResults(Ref ref, String rawQuery) {
 }
 
 List<SearchResultItem> _mapSummariesToItems(
-  List<MedicamentSummaryData> summaries,
+  List<MedicamentSummaryWithLab> summaries,
 ) {
-  final entities = summaries.map(MedicamentEntity.fromData).toList();
+  final entities = summaries
+      .map(
+        (row) => MedicamentEntity.fromData(
+          row.summary,
+          labName: row.labName,
+        ),
+      )
+      .toList();
 
   final groupEntities = <String, GenericGroupEntity>{};
   final standaloneItems = <SearchResultItem>[];
@@ -58,11 +64,11 @@ List<SearchResultItem> _mapSummariesToItems(
 
   for (final entity in entities) {
     if (entity.groupId == null) {
-      final canonicalName = entity.nomCanonique.toUpperCase().trim();
+      final canonicalName = entity.data.nomCanonique.toUpperCase().trim();
       if (seenStandaloneNames.contains(canonicalName)) continue;
       seenStandaloneNames.add(canonicalName);
 
-      final commonPrinciples = entity.principesActifsCommuns
+      final commonPrinciples = entity.data.principesActifsCommuns
           .map(normalizePrincipleOptimal)
           .where((p) => p.isNotEmpty)
           .join(', ');
@@ -84,37 +90,17 @@ List<SearchResultItem> _mapSummariesToItems(
 
     if (!groupEntities.containsKey(entity.groupId)) {
       final princepsRef =
-          entity.princepsDeReference.isNotEmpty &&
-              entity.princepsDeReference != 'Inconnu'
-          ? entity.princepsDeReference
-          : entity.nomCanonique;
+          entity.data.princepsDeReference.isNotEmpty &&
+              entity.data.princepsDeReference != 'Inconnu'
+          ? entity.data.princepsDeReference
+          : entity.data.nomCanonique;
 
-      if (entity.groupId != null) {
-        final isMemantine =
-            entity.princepsDeReference.contains('MEMANTINE') ||
-            entity.princepsDeReference.contains('MÉMANTINE') ||
-            entity.principesActifsCommuns.any(
-              (p) =>
-                  p.toUpperCase().contains('MEMANTINE') ||
-                  p.toUpperCase().contains('MÉMANTINE'),
-            );
-
-        if (isMemantine) {
-          LoggerService.debug(
-            '[SearchProvider] Mémantine group ${entity.groupId}: '
-            'princepsDeReference=${entity.princepsDeReference}, '
-            'principesActifsCommuns=${entity.principesActifsCommuns}, '
-            'commonPrinciples=${entity.principesActifsCommuns.map(normalizePrincipleOptimal).where((p) => p.isNotEmpty).join(", ")}',
-          );
-        }
-      }
-
-      final commonPrinciples = entity.principesActifsCommuns
+      final commonPrinciples = entity.data.principesActifsCommuns
           .map(normalizePrincipleOptimal)
           .where((p) => p.isNotEmpty)
           .join(', ');
 
-      final princepsCisCode = entity.isPrinceps ? entity.cisCode : null;
+      final princepsCisCode = entity.data.isPrinceps ? entity.cisCode : null;
 
       groupEntities[entity.groupId!.toString()] = GenericGroupEntity(
         groupId: entity.groupId!,
@@ -126,7 +112,7 @@ List<SearchResultItem> _mapSummariesToItems(
       );
     } else {
       final existingEntity = groupEntities[entity.groupId!.toString()]!;
-      if (existingEntity.princepsCisCode == null && entity.isPrinceps) {
+      if (existingEntity.princepsCisCode == null && entity.data.isPrinceps) {
         groupEntities[entity.groupId!.toString()] = GenericGroupEntity(
           groupId: existingEntity.groupId,
           commonPrincipes: existingEntity.commonPrincipes,
@@ -137,9 +123,7 @@ List<SearchResultItem> _mapSummariesToItems(
     }
   }
 
-  final groupedObjects = ExplorerGroupingHelper.groupByCommonPrincipes(
-    groupEntities.values.toList(),
-  );
+  final groupedObjects = groupByCommonPrincipes(groupEntities.values.toList());
 
   final groupResults = groupedObjects.map((obj) {
     if (obj is GroupCluster) {

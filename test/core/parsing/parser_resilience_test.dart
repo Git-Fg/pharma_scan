@@ -79,10 +79,10 @@ void main() {
             reason: 'Should parse valid parts even with invalid price',
           );
           final medicament = result.medicaments.firstWhere(
-            (m) => m.codeCip == '3400930302613',
+            (m) => m.codeCip.value == '3400930302613',
           );
           expect(
-            medicament.prixPublic,
+            medicament.prixPublic.value,
             isNull,
             reason: 'Invalid price should result in null prixPublic',
           );
@@ -188,7 +188,7 @@ void main() {
         '60002283': ['3400930302613'],
       };
 
-      final resultEither = await BdpmFileParser.parseCompositions(
+      final resultEither = await BdpmFileParser.parsePrincipesActifs(
         _streamFromContent(content),
         cisToCip13,
       );

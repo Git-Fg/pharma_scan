@@ -1,4 +1,4 @@
-
+import 'package:dart_mappable/dart_mappable.dart';
 import 'package:pharma_scan/core/providers/core_providers.dart';
 import 'package:pharma_scan/core/services/logger_service.dart';
 import 'package:pharma_scan/features/explorer/domain/models/generic_group_entity.dart';
@@ -6,8 +6,10 @@ import 'package:pharma_scan/features/explorer/presentation/providers/search_prov
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'generic_groups_provider.g.dart';
+part 'generic_groups_provider.mapper.dart';
 
-class GenericGroupsState {
+@MappableClass()
+class GenericGroupsState with GenericGroupsStateMappable {
   const GenericGroupsState({
     required this.items,
     required this.hasMore,
@@ -17,21 +19,9 @@ class GenericGroupsState {
   final List<GenericGroupEntity> items;
   final bool hasMore;
   final bool isLoadingMore;
-
-  GenericGroupsState copyWith({
-    List<GenericGroupEntity>? items,
-    bool? hasMore,
-    bool? isLoadingMore,
-  }) {
-    return GenericGroupsState(
-      items: items ?? this.items,
-      hasMore: hasMore ?? this.hasMore,
-      isLoadingMore: isLoadingMore ?? this.isLoadingMore,
-    );
-  }
 }
 
-@riverpod
+@Riverpod(keepAlive: true)
 class GenericGroupsNotifier extends _$GenericGroupsNotifier {
   static const _pageSize = 40;
 
@@ -49,6 +39,8 @@ class GenericGroupsNotifier extends _$GenericGroupsNotifier {
   }
 
   Future<void> loadMore() async {
+    if (!ref.mounted) return;
+
     final currentState = state.value;
     if (currentState == null ||
         !currentState.hasMore ||
@@ -62,6 +54,8 @@ class GenericGroupsNotifier extends _$GenericGroupsNotifier {
 
     final result = await AsyncValue.guard(() => _fetchGroups(reset: false));
     _isFetchingMore = false;
+
+    if (!ref.mounted) return;
 
     result.when(
       data: (data) => state = AsyncValue.data(data),
@@ -81,12 +75,10 @@ class GenericGroupsNotifier extends _$GenericGroupsNotifier {
     final catalogDao = ref.read(catalogDaoProvider);
     final filters = ref.read(searchFiltersProvider);
 
-    // Convert filter to routeKeywords format expected by getGenericGroupSummaries
     final routeKeywords = filters.voieAdministration != null
         ? [filters.voieAdministration!]
         : null;
 
-    // Convert enum to code string for database query
     final atcClassCode = filters.atcClass?.code;
 
     final groups = await catalogDao.getGenericGroupSummaries(

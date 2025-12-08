@@ -4,9 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pharma_scan/core/router/app_router.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
-import 'package:pharma_scan/core/utils/app_animations.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
-import 'package:pharma_scan/core/widgets/ui_kit/product_type_badge.dart';
+import 'package:pharma_scan/core/widgets/ui_kit/product_badges.dart';
 import 'package:pharma_scan/features/scanner/presentation/providers/scanner_provider.dart';
 import 'package:pharma_scan/features/scanner/presentation/widgets/scanner_result_card.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
@@ -29,7 +28,7 @@ class ScannerBubbles extends ConsumerWidget {
       child: Builder(
         builder: (context) {
           final breakpoint = context.breakpoint;
-          final horizontalMargin = breakpoint < context.shadTheme.breakpoints.sm
+          final horizontalMargin = breakpoint < context.breakpoints.sm
               ? 8.0
               : 12.0;
 
@@ -55,7 +54,7 @@ class ScannerBubbles extends ConsumerWidget {
                         i,
                       ),
                   ],
-                ).animate(effects: AppAnimations.bubbleEnter);
+                );
               },
             ),
           );
@@ -94,20 +93,19 @@ class ScannerBubbles extends ConsumerWidget {
   ) {
     final summary = bubble.summary;
 
-    final productType = summary.groupId != null
-        ? (summary.isPrinceps ? ProductType.princeps : ProductType.generic)
-        : ProductType.standalone;
-
     final badges = <Widget>[
-      ProductTypeBadge(type: productType, compact: true),
+      ProductTypeBadge(
+        memberType: summary.data.memberType,
+        compact: true,
+      ),
     ];
 
-    if (summary.conditionsPrescription != null &&
-        summary.conditionsPrescription!.isNotEmpty) {
+    if (summary.data.conditionsPrescription != null &&
+        summary.data.conditionsPrescription!.isNotEmpty) {
       badges.add(
         ShadBadge.outline(
           child: Text(
-            summary.conditionsPrescription!,
+            summary.data.conditionsPrescription!,
             style: context.shadTextTheme.small,
           ),
         ),
@@ -115,8 +113,8 @@ class ScannerBubbles extends ConsumerWidget {
     }
 
     final compactSubtitle = <String>[];
-    final form = summary.formePharmaceutique;
-    final dosage = summary.formattedDosage?.trim();
+    final form = summary.data.formePharmaceutique;
+    final dosage = summary.data.formattedDosage?.trim();
 
     if (form != null &&
         form.isNotEmpty &&
@@ -138,7 +136,7 @@ class ScannerBubbles extends ConsumerWidget {
 
     return ScannerResultCard(
       key: ValueKey(
-        '${cipString}_${summary.isPrinceps
+        '${cipString}_${summary.data.isPrinceps
             ? 'princeps'
             : summary.groupId != null
             ? 'generic'
@@ -150,7 +148,7 @@ class ScannerBubbles extends ConsumerWidget {
       subtitle: compactSubtitle,
       onClose: () => ref.read(scannerProvider.notifier).removeBubble(cipString),
       onExplore: summary.groupId != null
-          ? () => context.router.push(
+          ? () => AutoRouter.of(context).push(
               GroupExplorerRoute(groupId: summary.groupId!.toString()),
             )
           : null,
@@ -160,6 +158,8 @@ class ScannerBubbles extends ConsumerWidget {
       availabilityStatus: bubble.availabilityStatus,
       isHospitalOnly: bubble.isHospitalOnly,
       exactMatchLabel: bubble.libellePresentation,
+      expDate: bubble.expDate,
+      isExpired: bubble.isExpired,
     );
   }
 }

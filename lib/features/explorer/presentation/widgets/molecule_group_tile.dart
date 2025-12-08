@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:gap/gap.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
@@ -49,7 +50,7 @@ class MoleculeGroupTile extends HookWidget {
                     style: context.shadTextTheme.small,
                   ),
                 ),
-                const SizedBox(width: AppDimens.spacingSm),
+                const Gap(AppDimens.spacingSm),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -64,7 +65,7 @@ class MoleculeGroupTile extends HookWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                       if (uniquePrinceps.isNotEmpty) ...[
-                        const SizedBox(height: 4),
+                        const Gap(4),
                         ...uniquePrinceps.map(
                           (princeps) => Text(
                             princeps,
@@ -76,7 +77,7 @@ class MoleculeGroupTile extends HookWidget {
                           ),
                         ),
                       ],
-                      const SizedBox(height: 4),
+                      const Gap(4),
                       Text(
                         Strings.productCount(groups.length),
                         style: context.shadTextTheme.small.copyWith(

@@ -6,6 +6,8 @@ class Strings {
   // Navigation
   static const String scanner = 'Scanner';
   static const String explorer = 'Explorer';
+  static const String shortcutScanToRestock = 'Scan to Restock';
+  static const String shortcutSearchDatabase = 'Search Database';
 
   // Sync & Updates
   static const String updateCompleted = 'Mise à jour terminée';
@@ -13,6 +15,9 @@ class Strings {
   static const String syncFailed = 'Synchronisation échouée';
   static const String syncFailedMessage =
       'Impossible de synchroniser les données BDPM.';
+  static const String dataStaleWarning = '⚠️ Base obsolète';
+  static const String dataFresh = 'Base à jour :';
+  static const String dataUnknown = 'Base non synchronisée';
 
   // Buttons & Actions
   static const String close = 'Fermer';
@@ -24,10 +29,18 @@ class Strings {
   static const String shortageAlert = 'Pénurie';
   static const String ficheInfo = 'Fiche';
   static const String rcpDocument = 'RCP';
-  static const String rcpQuickAccessTitle = 'Accès rapide RCP';
+  static const String undo = 'Annuler';
 
   // Medication Labels
   static const String generic = 'GÉNÉRIQUE';
+  static const String genericTypePrinceps = 'Princeps';
+  static const String genericTypeGeneric = 'Générique';
+  static const String genericTypeComplementarity =
+      'Générique compl. posologique';
+  static const String genericTypeSubstitutable = 'Générique substituable';
+  static const String genericTypeSubstitutableType3 =
+      'Générique substituable (Type 3)';
+  static const String genericTypeUnknown = 'Type générique inconnu';
   static const String associatedPrinceps = 'Princeps Associé(s)';
   static const String noPrincepsFound = 'Aucun princeps trouvé.';
   static const String noPrincepsAssociated = 'Aucun princeps associé';
@@ -44,6 +57,7 @@ class Strings {
   static const String dosage = 'dosage';
   static const String activePrinciples = 'principes actifs';
   static const String condition = 'condition';
+  static const String authorizationDateLabel = 'Autorisé le';
   static const String price = 'Prix public';
   static const String refundRate = 'Taux de remboursement';
   static const String priceShort = 'Prix';
@@ -58,8 +72,19 @@ class Strings {
   // Error Messages
   static const String unknown = 'Inconnu';
   static const String unknownLab = 'Laboratoire Inconnu';
+  static const String unknownReference = 'Référence inconnue';
   static const String group = 'Groupe';
   static const String unableToOpenUrl = "Impossible d'ouvrir l'URL";
+  static String dnsResolutionFailed(String hostname) =>
+      'DNS resolution failed for $hostname. This typically indicates an '
+      'Android emulator DNS configuration issue.\n\n'
+      'Possible fixes:\n'
+      '1. Restart the Android emulator\n'
+      '2. Configure DNS servers via ADB:\n'
+      '   adb shell settings put global private_dns_mode off\n'
+      '   adb shell settings put global private_dns_specifier "8.8.8.8"\n'
+      '3. Check emulator network connectivity\n'
+      '4. Use a physical device instead of emulator';
 
   // Settings & Actions
   static const String openSettings = 'Ouvrir les réglages';
@@ -106,6 +131,9 @@ class Strings {
       "Préparation de l'initialisation des données BDPM…";
   static const String initializationUsingExistingData =
       'Utilisation des données locales existantes.';
+  static const String downloadTooLargeForMemory =
+      'Fichier trop volumineux pour être chargé en mémoire (>100 Mo). '
+      'Utilisez le téléchargement sur disque.';
   static String initializationDownloadingFile(String filename) =>
       'Téléchargement de $filename…';
   static String initializationUsingCachedFile(String filename) =>
@@ -116,6 +144,8 @@ class Strings {
       'Génération de la table résumée…';
   static const String initializationAggregatingFtsIndex =
       'Indexation de la recherche (FTS5)…';
+  static String initializationDownloadProgress(int completed, int total) =>
+      'Téléchargement : $completed/$total fichiers reçus';
   static const String resetDatabaseTitle = 'Réinitialiser la base de données ?';
   static const String resetDatabaseDescription =
       'Cette action supprimera toutes les données locales et les re-téléchargera. Cette opération est irréversible et peut prendre plusieurs minutes.';
@@ -146,6 +176,16 @@ class Strings {
       'Entrez les 13 chiffres du code CIP.';
   static const String cipPlaceholder = 'Ex : 3400934056781';
   static const String search = 'Rechercher';
+  static const String duplicateSerialUnknown =
+      'Boîte déjà scannée (série inconnue)';
+  static String duplicateSerial(String serial) =>
+      'Boîte déjà scannée ($serial)';
+  static const String duplicateScannedTitle = 'Produit déjà scanné';
+  static const String duplicateScannedDescription =
+      'Ce numéro de série est déjà comptabilisé.';
+  static const String duplicateAdjustQuantity = 'Ajuster la quantité totale ?';
+  static const String duplicateCancel = 'Annuler';
+  static const String duplicateUpdate = 'Mettre à jour';
 
   // Explorer
   static const String searchPlaceholder =
@@ -168,6 +208,13 @@ class Strings {
   static const String relatedTherapies = 'Thérapies Associées';
   static const String sharedActiveIngredients = 'Principe(s) actif(s) partagés';
   static const String notDetermined = 'Non déterminé';
+  static const String technicalInformation = 'Informations techniques';
+  static const String rawLabelAnsm = 'Libellé ANSM (brut)';
+  static const String princepsCisReference = 'CIS princeps de référence';
+  static const String parsingMethodRelational = 'Relationnelle';
+  static const String parsingMethodTextSplit = 'Découpage simple';
+  static const String parsingMethodSmartSplit = 'Découpage smart';
+  static const String parsingMethodFallback = 'Fallback';
 
   // Settings
   static const String settings = 'Réglages';
@@ -194,6 +241,8 @@ class Strings {
   static const String totalPrinceps = 'Princeps';
   static const String totalGenerics = 'Génériques';
   static const String totalPrinciples = 'Principes Actifs';
+  static const String databaseStatsTitle = 'Statistiques BDPM';
+  static const String databaseStatsDescription = 'Volumes actuels synchronisés';
 
   // Scanner States
   static const String readyToScan = 'Prêt à scanner';
@@ -332,6 +381,10 @@ class Strings {
   static const String princepsLabel = 'Princeps';
   static const String genericsLabel = 'Génériques';
   static const String genericLabel = 'Générique';
+  static const String genericsAvailable = 'Génériques disponibles';
+  static const String heroFallbackGeneric =
+      'Aucun princeps identifié, générique mis en avant';
+  static const String technicalDetails = 'Détails techniques';
   static const String activeIngredientsLabel = 'Principe(s) actif(s)';
   static const String brandPrincepsLabel = 'Marque princeps';
   static const String procedureType = 'Type de procédure';
@@ -355,12 +408,16 @@ class Strings {
   // Badge Labels
   static const String badgePrinceps = 'PRINCEPS';
   static const String badgeGeneric = 'GÉNÉRIQUE';
+  static const String badgeGenericComplementary = 'Générique complémentaire';
+  static const String badgeGenericSubstitutable = 'Substituable';
   static const String badgeStandalone = 'UNIQUE';
   static const String uniqueMedicationBadge = 'MÉDICAMENT UNIQUE';
   static const String productStoppedBadge = 'Produit arrêté';
   static const String productCommercializedBadge = 'Commercialisé';
   static const String stockShortageBadge = 'Rupture de stock';
   static const String stockTensionBadge = "Tension d'approvisionnement";
+  static const String availabilityLabel = 'Disponibilité';
+  static const String laboratoryLabel = 'Laboratoire';
   static const String hospitalBadge = '🏥 Usage hospitalier';
   static const String badgeList1 = 'Liste I';
   static const String badgeList2 = 'Liste II';
@@ -374,10 +431,20 @@ class Strings {
   // Badge Tooltips
   static const String badgePrincepsTooltip = 'Médicament de référence original';
   static const String badgeGenericTooltip = 'Médicament générique';
+  static const String badgeGenericComplementaryTooltip =
+      '⚠️ ATTENTION : Ne pas substituer automatiquement (complémentarité posologique)';
+  static const String badgeGenericSubstitutableTooltip =
+      'Générique substituable';
   static const String badgeStandaloneTooltip = 'Médicament unique';
   static const String hospitalTooltip = 'Usage hospitalier';
   static const String shortageTooltip = 'Tension ou Rupture';
   static const String stoppedTooltip = 'Non commercialisé';
+  static const String nonCommercialise = 'Non commercialisé';
+  static const String revokedStatusTitle = 'ATTENTION : Statut Abrogé';
+  static const String revokedStatusDescription =
+      "L'AMM de ce médicament a été retirée. Ne pas délivrer.";
+  static const String expiredProductTitle = 'PRODUIT PÉRIMÉ';
+  static String expiredProductDate(String date) => 'Date limite : $date';
 
   // Medication Information
   static const String noActivePrincipleReported =
@@ -450,6 +517,7 @@ class Strings {
   // Restock
   static const String restockTitle = 'Liste de rangement';
   static const String restockTabLabel = 'Liste';
+  static const String restockEmptyTitle = 'Aucune boîte à ranger';
   static const String restockEmpty =
       'Scannez des boîtes en mode Rangement pour remplir cette liste.';
   static const String restockClearChecked = 'Effacer les cochés';
@@ -459,8 +527,12 @@ class Strings {
   static const String restockClearAllDescription =
       'Cette action supprimera tous les éléments de la liste. Cette opération est irréversible.';
   static const String restockClearAllConfirm = 'Vider la liste';
+  static const String restockClearCheckedDescription =
+      'Cette action supprimera uniquement les éléments cochés de la liste.';
+  static const String restockClearCheckedConfirm = 'Supprimer les cochés';
   static String restockSubtitlePrinceps(String princeps) =>
       'Ranger avec : $princeps';
+  static const String itemDeleted = 'Élément supprimé';
 
   static String genericSummaryItem(String name, int count) {
     if (count > 1) {
@@ -517,6 +589,17 @@ class Strings {
   static const String showLogsButtonLabel = 'Afficher les logs';
   static const String showLogsButtonHint =
       'Ouvre la console des journaux applicatifs';
+
+  // Scan History
+  static const String historyTitle = 'Historique';
+  static const String historySubtitle = 'Derniers produits scannés';
+  static const String historyEmpty = 'Aucun historique récent';
+  static const String historyClear = 'Tout effacer';
+  static const String historyClearConfirmTitle = "Effacer l'historique ?";
+  static const String historyClearConfirmDescription =
+      'Cette action est irréversible.';
+  static String historyError(String message) => 'Erreur : $message';
+  static String historyPrincepsReference(String princeps) => 'Ref: $princeps';
 
   // Tile Semantic Labels
   static const String tapToModify = 'Modifier';

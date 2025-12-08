@@ -1,11 +1,7 @@
-
 ---
-
 description: Extension Types for zero-cost domain abstractions and ID types
-globs: lib/**/domain/**/*.dart, lib/core/database/**/*.dart
 alwaysApply: false
 ---
-
 # Domain Modeling (2025 Standard)
 
 ## Extension Types Pattern
@@ -17,81 +13,80 @@ alwaysApply: false
 - Zero runtime overhead (compile-time only)
 - Decouples UI from database schema
 - Type safety without allocation
+- Direct interface implementation (`implements`) reduces boilerplate
 
 ## Wrapping Database Rows
 
-```
-// ✅ Extension Type wrapping Drift class
-extension type MedicamentEntity(MedicamentSummaryData _data) {
-  String get canonicalName => _data.nomCanonique;
-  String get pharmaceuticalForm => _data.formePharmaceutique ?? '';
-  bool get isPrinceps => _data.isPrinceps;
-  
+```dart
+// ✅ Extension Type wrapping Drift class (generic example)
+extension type ProductEntity(ProductSummaryData _data) {
+  String get name => _data.name;
+  String get category => _data.category ?? '';
+  bool get isFeatured => _data.isFeatured;
+
   // Computed properties
-  String get displayName => canonicalName;
-  bool get hasCommonPrinciples => _data.principesActifsCommuns.isNotEmpty;
-  
-  factory MedicamentEntity.fromData(MedicamentSummaryData data) {
-    return MedicamentEntity(data);
+  String get displayName => name;
+  bool get hasTags => _data.tags.isNotEmpty;
+
+  factory ProductEntity.fromData(ProductSummaryData data) {
+    return ProductEntity(data);
   }
 }
 
 // Usage in Provider
 @riverpod
-Stream<List<MedicamentEntity>> medicaments(Ref ref, String query) {
-  final dao = ref.watch(catalogDaoProvider);
-  return dao.watchMedicaments(query).map((summaries) {
-    return summaries.map(MedicamentEntity.fromData).toList();
+Stream<List<ProductEntity>> products(Ref ref, String query) {
+  final dao = ref.watch(productDaoProvider);
+  return dao.watchProducts(query).map((rows) {
+    return rows.map(ProductEntity.fromData).toList();
   });
 }
 ```
 
 ## ID Types (Eliminate Primitive Obsession)
 
-```
+```dart
 // ✅ Strongly-typed IDs with validation
-extension type Cip13(String _value) implements String {
-  Cip13(this._value) 
-    : assert(_value.length == 13, 'CIP must be 13 digits');
-  
+extension type ProductId(String _value) implements String {
+  ProductId(this._value) : assert(_value.isNotEmpty, 'ProductId required');
+
   @override
   String toString() => _value;
 }
 
-extension type CisCode(String _value) implements String {
-  CisCode(this._value) 
-    : assert(_value.length == 8, 'CIS must be 8 digits');
-  
+extension type OrderId(String _value) implements String {
+  OrderId(this._value) : assert(_value.length == 8, 'OrderId must be 8 chars');
+
   @override
   String toString() => _value;
 }
 
 // Usage
-final cip = Cip13('3401360000123'); // ✅ Valid
-// final invalid = Cip13('123'); // ❌ Assertion error (debug)
+final id = ProductId('SKU-123'); // ✅ Valid
+// final invalid = OrderId('123'); // ❌ Assertion error (debug)
 ```
 
 ## Semantic Types (Guaranteed Invariants)
 
-```
-// ✅ Type guarantees normalization
+```dart
+// ✅ Type guarantees normalization (search-specific, lightweight)
 extension type NormalizedQuery(String _value) implements String {
   factory NormalizedQuery(String input) {
-    final normalized = normalizePrincipleOptimal(input);
+    final normalized = normalizeForSearch(input);
     return NormalizedQuery._(normalized);
   }
-  
+
   NormalizedQuery._(this._value);
-  
+
   @override
   String toString() => _value;
 }
 
 // Usage in DAO
-Future<List<Data>> searchMedicaments(
-  NormalizedQuery query, // ✅ Guaranteed normalized
+Future<List<Data>> searchProducts(
+  NormalizedQuery query, // ✅ Already normalized for search
 ) async {
-  return _performSearch(query); // No re-normalization needed
+  return _performSearch(query);
 }
 ```
 
@@ -103,10 +98,11 @@ Future<List<Data>> searchMedicaments(
 
 ## Rules
 
-- **FORBIDDEN:** Raw Drift classes in UI widgets
+- **ALLOWED:** Accessing raw Drift fields via `.data` or `implements` for read-only display
 - **FORBIDDEN:** Traditional DTOs/ViewModels with allocation
 - **REQUIRED:** All DB rows wrapped in Extension Types before UI exposure
 - **REQUIRED:** Location `lib/features/*/domain/entities/`
+- **PREFERRED:** Use `implements` on Extension Types when wrapping a single class
 
 ## Extension Types vs Dart Extensions
 
@@ -121,3 +117,8 @@ Future<List<Data>> searchMedicaments(
 - ✅ Extension Types for zero-cost abstraction
 - ✅ Strong ID types
 - ✅ Semantic guarantees via factory constructors
+
+## Safety for Semantic/ID Types
+
+- **FORBIDDEN:** Unchecked `as` casts when constructing extension types (`ProductId`, `OrderId`, `GroupId`, `NormalizedQuery`, etc.).
+- **REQUIRED:** Use private constructors or validated factories (e.g., `NormalizedQuery._(...)`, `ProductId.validated(...)`) so invariants are enforced without runtime casts.

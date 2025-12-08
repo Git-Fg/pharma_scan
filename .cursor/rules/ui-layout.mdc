@@ -1,9 +1,7 @@
 ---
 description: Responsive design, MediaQuery optimization, and layout patterns
-globs: lib/**/presentation/**/*.dart
 alwaysApply: false
 ---
-
 # UI Layout & Responsive Design (2025)
 
 ## MediaQuery Optimization (Critical)
@@ -12,7 +10,7 @@ alwaysApply: false
 
 **REQUIRED:** Use property-specific selectors:
 
-```
+```dart
 // ❌ BAD: Triggers rebuild on accessibility changes
 final size = MediaQuery.of(context).size;
 
@@ -29,7 +27,7 @@ final textScaler = MediaQuery.textScalerOf(context);
 
 ### Preferred: ShadResponsiveBuilder
 
-```
+```dart
 ShadResponsiveBuilder(
   builder: (context, breakpoint) {
     return switch (breakpoint) {
@@ -46,7 +44,7 @@ ShadResponsiveBuilder(
 
 ### Alternative: context.breakpoint Extension
 
-```
+```dart
 final breakpoint = context.breakpoint;
 if (breakpoint >= context.shadTheme.breakpoints.md) {
   return DesktopLayout();
@@ -75,6 +73,12 @@ Via `ShadTheme.of(context).breakpoints` or `context.breakpoints`:
 
 **Exception:** Use `DraggableScrollableSheet` ONLY for drag-to-snap panels.
 
+## Spacing (Gap Package)
+
+- Use `Gap` for inline spacing in rows/columns; avoid `SizedBox` when it only creates space.
+- For slivers, prefer `SliverGap` over wrapping `Gap` in `SliverToBoxAdapter`.
+- `SizedBox` remains acceptable only when constraining a child (e.g., loader size) rather than spacing between siblings.
+
 ## Anti-Patterns
 
 - ❌ `MediaQuery.of(context)` without property selector
@@ -84,3 +88,11 @@ Via `ShadTheme.of(context).breakpoints` or `context.breakpoints`:
 - ✅ `ShadResponsiveBuilder` with sealed breakpoints
 - ✅ `context.breakpoint` extension
 - ✅ Property-specific `MediaQuery.*Of(context)` selectors
+
+## Scaffold Protocol (The "No-Nested-Scaffold" Rule)
+
+**Mandate:** Do not define an `appBar` in the root `MainScreen`.
+
+- **Root Layer:** `MainScreen` contains `AutoTabsRouter` + `BottomNavigationBar` only.
+- **Leaf Layer:** Each Tab Route must define its own `Scaffold` with `appBar` (if needed).
+- **Reasoning:** Prevents "Double Header" visual bugs and allows feature-specific AppBars (e.g., "Clear List" action on Restock vs "Settings" on Explorer).

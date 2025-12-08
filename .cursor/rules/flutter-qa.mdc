@@ -1,14 +1,11 @@
 ---
-description: QA protocols, testing patterns, mocking strategy, and quality gates
-globs: test/**/*.dart, integration_test/**/*.dart
-alwaysApply: false
+alwaysApply: true
 ---
-
 # QA & Testing (2025 Standard)
 
 ## Quality Gate (Run Before Every Commit)
 
-```
+```bash
 dart run build_runner build --delete-conflicting-outputs
 dart fix --apply
 dart analyze --fatal-infos --fatal-warnings
@@ -21,7 +18,7 @@ flutter test
 
 **Library:** `mocktail` exclusively (FORBIDDEN: `mockito`)
 
-```
+```dart
 import 'package:mocktail/mocktail.dart';
 
 class MockDatabaseService extends Mock implements DatabaseService {}
@@ -41,33 +38,24 @@ void main() {
 }
 ```
 
-## Robot Pattern (Complex Flows)
+## Interaction Patterns
 
-**When to Use:** Multi-step flows reused across tests
+1. **Unit/Widget Tests (`test/**/*.dart`):**
+   - ✅ Use direct interactions: `tester.tap()`, `tester.pump()`, `find.byType()`, `find.byKey()`, `find.text(Strings.*)`.
+   - ❌ Do not create Robot/PageObject classes for widget tests (overkill for solo dev).
 
-**When NOT to Use:** Simple tests (use direct finders)
+2. **Integration Tests (`integration_test/**/*.dart`):**
+   - ✅ Use Robot Pattern (Page Objects) to encapsulate multi-step user journeys and reduce fragility.
 
-```
-// ✅ Complex flow: Robot pattern
+```dart
+// ✅ Integration robot example
 class ExplorerRobot {
   ExplorerRobot(this.tester);
   final WidgetTester tester;
   
-  Future<void> searchFor(String term) async { ... }
-  void expectResultCount(int count) { ... }
+  Future<void> searchFor(String term) async { /* ... */ }
+  void expectResultCount(int count) { /* ... */ }
 }
-
-testWidgets('full search flow', (tester) async {
-  final robot = ExplorerRobot(tester);
-  await robot.searchFor('Test Query');
-  robot.expectResultCount(5);
-});
-
-// ✅ Simple test: Direct finders
-testWidgets('displays item name', (tester) async {
-  await tester.pumpWidget(MyWidget(item: testItem));
-  expect(find.text('Test Item'), findsOneWidget);
-});
 ```
 
 ## String Literals Ban
@@ -76,7 +64,7 @@ testWidgets('displays item name', (tester) async {
 
 **REQUIRED:** Use `Strings.*` constants
 
-```
+```dart
 // ❌ FORBIDDEN
 expect(find.text('Search'), findsOneWidget);
 
@@ -87,7 +75,7 @@ expect(find.text(Strings.search), findsOneWidget);
 
 ## Layout Resilience Tests
 
-```
+```dart
 testWidgets('adapts to narrow screen', (tester) async {
   await tester.binding.setSurfaceSize(const Size(400, 800));
   await tester.pumpWidget(MyWidget());

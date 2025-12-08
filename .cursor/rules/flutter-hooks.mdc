@@ -1,9 +1,7 @@
 ---
 description: Flutter Hooks patterns for ephemeral UI state management
-globs: lib/**/presentation/**/*.dart
 alwaysApply: false
 ---
-
 # Flutter Hooks (2025)
 
 ## Core Principles
@@ -12,6 +10,7 @@ alwaysApply: false
 - FORBIDDEN: `StatefulWidget`, `initState`, `dispose`, `didUpdateWidget`
 - Hooks MUST be called unconditionally at top of `build` method
 - Custom hooks MUST start with `use` prefix
+- Hooks stay UI-only: app data and lifecycle streams come from Riverpod providers (prefer `Stream` providers over manual `listen` + `ref.onDispose`)
 
 ## When to Use Hooks
 
@@ -21,6 +20,8 @@ Use `HookConsumerWidget` only for:
 - `useAnimationController` (animations)
 - `useFocusNode` (focus management)
 - `useEffect` (UI-specific side effects)
+- `useAutomaticKeepAlive` (keep-alive wrappers instead of `StatefulWidget`)
+- `useRef` for lightweight mutable values (e.g., gesture deltas) when no rebuild needed
 
 For non-UI cleanup (timers, subscriptions), use `ref.onDispose` in Provider.
 
@@ -38,7 +39,7 @@ For non-UI cleanup (timers, subscriptions), use `ref.onDispose` in Provider.
 
 ### Animation Controllers
 
-```
+```dart
 // ✅ No SingleTickerProviderStateMixin needed
 final controller = useAnimationController(
   duration: const Duration(seconds: 1),
@@ -48,7 +49,7 @@ controller.repeat();
 
 ### Lifecycle Management
 
-```
+```dart
 // ✅ Preferred: useAppLifecycleState + useEffect
 final lifecycleState = useAppLifecycleState();
 useEffect(() {
@@ -67,7 +68,7 @@ useEffect(() {
 
 ### Async Safety
 
-```
+```dart
 // ✅ Use context.mounted (Flutter 3.7+)
 await futureOp();
 if (context.mounted) {
@@ -77,7 +78,7 @@ if (context.mounted) {
 
 ### Shadcn Controllers
 
-```
+```dart
 // ✅ Popover/Dialog controllers
 final popoverController = useMemoized(() => ShadPopoverController());
 
@@ -86,9 +87,28 @@ useEffect(() {
 }, [popoverController]);
 ```
 
+### Keep-Alive Without StatefulWidget
+
+```dart
+class MyListWrapper extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    useAutomaticKeepAlive();
+    return child;
+  }
+}
+```
+
+### Lightweight Mutable State (No Rebuild)
+
+```dart
+final dragDelta = useRef<double>(0);
+// mutate dragDelta.value inside gesture callbacks; no setState needed
+```
+
 ## Riverpod Integration
 
-```
+```dart
 // ✅ Default: ConsumerWidget
 class MyWidget extends ConsumerWidget {
   @override

@@ -1,6 +1,8 @@
 // test/fixtures/seed_builder.dart
 import 'dart:async';
 
+import 'package:drift/drift.dart';
+import 'package:pharma_scan/core/database/daos/database_dao.dart';
 import 'package:pharma_scan/core/database/database.dart';
 
 /// WHY: Fluent builder pattern for creating test database seed data.
@@ -9,11 +11,13 @@ import 'package:pharma_scan/core/database/database.dart';
 class SeedBuilder {
   SeedBuilder();
 
-  final List<Map<String, dynamic>> _specialites = [];
-  final List<Map<String, dynamic>> _medicaments = [];
-  final List<Map<String, dynamic>> _principes = [];
-  final List<Map<String, dynamic>> _generiqueGroups = [];
-  final List<Map<String, dynamic>> _groupMembers = [];
+  final List<SpecialitesCompanion> _specialites = [];
+  final List<MedicamentsCompanion> _medicaments = [];
+  final List<PrincipesActifsCompanion> _principes = [];
+  final List<GeneriqueGroupsCompanion> _generiqueGroups = [];
+  final List<GroupMembersCompanion> _groupMembers = [];
+  final List<LaboratoriesCompanion> _laboratories = [];
+  final Map<String, int> _labIds = {};
   String? _currentGroupId;
   int _cisCounter = 1;
 
@@ -23,11 +27,18 @@ class SeedBuilder {
   SeedBuilder inGroup(String groupId, String label) {
     // Check if group already exists
     final existingGroup = _generiqueGroups
-        .where((g) => g['group_id'] == groupId)
+        .where((g) => g.groupId.value == groupId)
         .isNotEmpty;
 
     if (!existingGroup) {
-      _generiqueGroups.add({'group_id': groupId, 'libelle': label});
+      _generiqueGroups.add(
+        GeneriqueGroupsCompanion(
+          groupId: Value(groupId),
+          libelle: Value(label),
+          rawLabel: Value(label),
+          parsingMethod: const Value('relational'),
+        ),
+      );
     }
 
     _currentGroupId = groupId;
@@ -97,38 +108,66 @@ class SeedBuilder {
     String? form,
     String? lab,
   }) {
-    // Add specialite entry
-    _specialites.add({
-      'cis_code': cisCode,
-      'nom_specialite': name,
-      'procedure_type': 'Autorisation',
-      'forme_pharmaceutique': ?form,
-      'titulaire': ?lab,
+    final labName = lab ?? 'LAB_$cisCode';
+    final labId = _labIds.putIfAbsent(labName, () {
+      final newId = _labIds.length + 1;
+      _laboratories.add(
+        LaboratoriesCompanion(
+          id: Value(newId),
+          name: Value(labName),
+        ),
+      );
+      return newId;
     });
 
+    // Add specialite entry
+    _specialites.add(
+      SpecialitesCompanion(
+        cisCode: Value(cisCode),
+        nomSpecialite: Value(name),
+        procedureType: const Value('Autorisation'),
+        formePharmaceutique: Value(form),
+        titulaireId: Value(labId),
+      ),
+    );
+
     // Add medicament entry
-    _medicaments.add({'code_cip': cip, 'cis_code': cisCode});
+    _medicaments.add(
+      MedicamentsCompanion(
+        codeCip: Value(cip),
+        cisCode: Value(cisCode),
+      ),
+    );
 
     // Add principe entry (default molecule if dosage provided)
     if (dosage != null) {
-      _principes.add({
-        'code_cip': cip,
-        'principe': 'ACTIVE_PRINCIPLE',
-        'dosage': dosage,
-        'dosage_unit': 'mg',
-      });
+      _principes.add(
+        PrincipesActifsCompanion(
+          codeCip: Value(cip),
+          principe: const Value('ACTIVE_PRINCIPLE'),
+          dosage: Value(dosage),
+          dosageUnit: const Value('mg'),
+        ),
+      );
     } else {
       // Add default principe even without dosage
-      _principes.add({'code_cip': cip, 'principe': 'ACTIVE_PRINCIPLE'});
+      _principes.add(
+        PrincipesActifsCompanion(
+          codeCip: Value(cip),
+          principe: const Value('ACTIVE_PRINCIPLE'),
+        ),
+      );
     }
 
     // Add group member entry if in a group
     if (_currentGroupId != null) {
-      _groupMembers.add({
-        'code_cip': cip,
-        'group_id': _currentGroupId,
-        'type': type,
-      });
+      _groupMembers.add(
+        GroupMembersCompanion(
+          codeCip: Value(cip),
+          groupId: Value(_currentGroupId!),
+          type: Value(type),
+        ),
+      );
     }
   }
 
@@ -149,21 +188,22 @@ class SeedBuilder {
   ///   .addGeneric('Paracetamol Biogaran', 'CIP_G')
   ///   .build();
   /// await dbService.insertBatchData(
-  ///   specialites: data['specialites']!,
-  ///   medicaments: data['medicaments']!,
-  ///   principes: data['principes']!,
-  ///   generiqueGroups: data['generiqueGroups']!,
-  ///   groupMembers: data['groupMembers']!,
+  ///   specialites: data.specialites,
+  ///   medicaments: data.medicaments,
+  ///   principes: data.principes,
+  ///   generiqueGroups: data.generiqueGroups,
+  ///   groupMembers: data.groupMembers,
   /// );
   /// ```
-  Map<String, List<Map<String, dynamic>>> build() {
-    return {
-      'specialites': _specialites,
-      'medicaments': _medicaments,
-      'principes': _principes,
-      'generiqueGroups': _generiqueGroups,
-      'groupMembers': _groupMembers,
-    };
+  IngestionBatch build() {
+    return IngestionBatch(
+      specialites: _specialites,
+      medicaments: _medicaments,
+      principes: _principes,
+      generiqueGroups: _generiqueGroups,
+      groupMembers: _groupMembers,
+      laboratories: _laboratories,
+    );
   }
 
   /// WHY: Convenience method to directly call insertBatchData with the built data.
@@ -179,12 +219,6 @@ class SeedBuilder {
   /// ```
   Future<void> insertInto(AppDatabase database) async {
     final data = build();
-    await database.databaseDao.insertBatchData(
-      specialites: data['specialites']!,
-      medicaments: data['medicaments']!,
-      principes: data['principes']!,
-      generiqueGroups: data['generiqueGroups']!,
-      groupMembers: data['groupMembers']!,
-    );
+    await database.databaseDao.insertBatchData(batchData: data);
   }
 }

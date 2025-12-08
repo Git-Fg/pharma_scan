@@ -1,23 +1,30 @@
-
 ---
-
 description: AutoRoute navigation patterns, router injection, and route configuration
-globs: lib/core/router/**/*.dart, lib/**/*_route.dart
 alwaysApply: false
 ---
-
 # Navigation (AutoRoute 11.0.0)
+
+## Navigation Triggering
+
+1. **Inside UI (Widgets):**
+   - ✅ Use `context.router.push(...)` / `context.router.replace(...)` directly.
+   - ❌ Do not inject the router via `ref.read(appRouterProvider)` inside `build()` or callbacks.
+   - Rationale: `BuildContext` already exposes the typed AutoRoute extensions; keeps UI simple and avoids passing `ref` only for navigation.
+
+2. **Inside Logic (Notifiers/Services):**
+   - ✅ Use `ref.read(appRouterProvider)` when no `BuildContext` is available.
+   - Rationale: Logic layers cannot access `context`, so router provider remains the correct injection point.
 
 ## Router Provider Pattern
 
-```
+```dart
 @Riverpod(keepAlive: true)
 AppRouter appRouter(Ref ref) => AppRouter();
 ```
 
-## Notifier Injection
+## Notifier Injection Example
 
-```
+```dart
 @riverpod
 class MyNotifier extends _$MyNotifier {
   void performAction() {
@@ -27,11 +34,9 @@ class MyNotifier extends _$MyNotifier {
 }
 ```
 
-## Widget Navigation
+## Widget Navigation Example
 
-For simple callbacks, `context.router` remains acceptable:
-
-```
+```dart
 ShadButton(
   onPressed: () => context.router.push(const DetailRoute()),
   child: Text(Strings.navigate),

@@ -9,6 +9,16 @@ import 'package:pharma_scan/features/restock/presentation/providers/restock_prov
 import 'package:pharma_scan/features/restock/presentation/screens/restock_screen.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
+class _StaticRestockNotifier extends RestockNotifier {
+  _StaticRestockNotifier(this.items);
+
+  final List<RestockItemEntity> items;
+
+  @override
+  Stream<List<RestockItemEntity>> build() =>
+      Stream<List<RestockItemEntity>>.value(items);
+}
+
 void main() {
   group('RestockScreen sorting & grouping', () {
     Future<void> pumpRestockScreen(
@@ -19,8 +29,8 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            restockListProvider.overrideWith(
-              (ref) => Stream<List<RestockItemEntity>>.value(items),
+            restockProvider.overrideWith(
+              () => _StaticRestockNotifier(items),
             ),
             sortingPreferenceProvider.overrideWith(
               (ref) => Stream<SortingPreference>.value(preference),

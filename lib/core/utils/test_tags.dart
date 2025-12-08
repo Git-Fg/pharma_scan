@@ -1,7 +1,3 @@
-/// Centralized test tag identifiers for E2E testing.
-///
-/// All test tags use ID-based matching via Semantics.identifier.
-/// This ensures stable test selectors that don't break when UI text changes.
 class TestTags {
   TestTags._();
 

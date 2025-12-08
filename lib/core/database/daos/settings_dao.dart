@@ -1,11 +1,8 @@
 import 'dart:convert';
 
-import 'package:dart_either/dart_either.dart';
 import 'package:drift/drift.dart';
 import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/database/tables/settings.dart';
-import 'package:pharma_scan/core/errors/failures.dart';
-import 'package:pharma_scan/core/services/logger_service.dart';
 
 part 'settings_dao.g.dart';
 
@@ -31,34 +28,10 @@ class SettingsDao extends DatabaseAccessor<AppDatabase>
     return settings;
   }
 
-  Stream<AppSetting> watchSettings() {
-    final selectSettings = (select(appSettings)
-      ..where((tbl) => tbl.id.equals(1)));
-
-    return selectSettings.watchSingleOrNull().asyncExpand((row) async* {
-      if (row != null) {
-        yield row;
-        return;
-      }
-
-      try {
-        await into(appSettings).insert(
-          const AppSettingsCompanion(id: Value(1)),
-          mode: InsertMode.insertOrIgnore,
-        );
-        final settings = await (select(
-          appSettings,
-        )..where((tbl) => tbl.id.equals(1))).getSingle();
-        yield settings;
-      } catch (e, stackTrace) {
-        LoggerService.error(
-          '[SettingsDao] Error in watchSettings',
-          e,
-          stackTrace,
-        );
-        rethrow;
-      }
-    });
+  Stream<AppSetting> watchSettings() async* {
+    await _ensureSettingsRow();
+    final query = select(appSettings)..where((tbl) => tbl.id.equals(1));
+    yield* query.watchSingle();
   }
 
   Future<String?> getBdpmVersion() async {
@@ -66,21 +39,14 @@ class SettingsDao extends DatabaseAccessor<AppDatabase>
     return settings.bdpmVersion;
   }
 
-  Future<Either<Failure, void>> updateBdpmVersion(String? version) {
-    return Either.catchFutureError(
-      (e, stackTrace) {
-        LoggerService.error(
-          '[SettingsDao] Error in updateBdpmVersion',
-          e,
-          stackTrace,
-        );
-        return DatabaseFailure(e.toString(), stackTrace);
-      },
-      () async {
-        await (update(appSettings)..where((tbl) => tbl.id.equals(1))).write(
-          AppSettingsCompanion(bdpmVersion: Value(version)),
-        );
-      },
+  Future<void> _ensureSettingsRow() async {
+    await getSettings();
+  }
+
+  Future<void> updateBdpmVersion(String? version) async {
+    await _ensureSettingsRow();
+    await (update(appSettings)..where((tbl) => tbl.id.equals(1))).write(
+      AppSettingsCompanion(bdpmVersion: Value(version)),
     );
   }
 
@@ -91,75 +57,31 @@ class SettingsDao extends DatabaseAccessor<AppDatabase>
     return DateTime.fromMillisecondsSinceEpoch(millis);
   }
 
-  Future<Either<Failure, void>> updatePreferredSorting(String mode) {
-    return Either.catchFutureError(
-      (e, stackTrace) {
-        LoggerService.error(
-          '[SettingsDao] Error in updatePreferredSorting',
-          e,
-          stackTrace,
-        );
-        return DatabaseFailure(e.toString(), stackTrace);
-      },
-      () async {
-        await (update(appSettings)..where((tbl) => tbl.id.equals(1))).write(
-          AppSettingsCompanion(preferredSorting: Value(mode)),
-        );
-      },
+  Future<void> updatePreferredSorting(String mode) async {
+    await _ensureSettingsRow();
+    await (update(appSettings)..where((tbl) => tbl.id.equals(1))).write(
+      AppSettingsCompanion(preferredSorting: Value(mode)),
     );
   }
 
-  Future<Either<Failure, void>> updateTheme(String mode) {
-    return Either.catchFutureError(
-      (e, stackTrace) {
-        LoggerService.error(
-          '[SettingsDao] Error in updateTheme',
-          e,
-          stackTrace,
-        );
-        return DatabaseFailure(e.toString(), stackTrace);
-      },
-      () async {
-        await (update(appSettings)..where((tbl) => tbl.id.equals(1))).write(
-          AppSettingsCompanion(themeMode: Value(mode)),
-        );
-      },
+  Future<void> updateTheme(String mode) async {
+    await _ensureSettingsRow();
+    await (update(appSettings)..where((tbl) => tbl.id.equals(1))).write(
+      AppSettingsCompanion(themeMode: Value(mode)),
     );
   }
 
-  Future<Either<Failure, void>> updateSyncFrequency(String frequency) {
-    return Either.catchFutureError(
-      (e, stackTrace) {
-        LoggerService.error(
-          '[SettingsDao] Error in updateSyncFrequency',
-          e,
-          stackTrace,
-        );
-        return DatabaseFailure(e.toString(), stackTrace);
-      },
-      () async {
-        await (update(appSettings)..where((tbl) => tbl.id.equals(1))).write(
-          AppSettingsCompanion(updateFrequency: Value(frequency)),
-        );
-      },
+  Future<void> updateSyncFrequency(String frequency) async {
+    await _ensureSettingsRow();
+    await (update(appSettings)..where((tbl) => tbl.id.equals(1))).write(
+      AppSettingsCompanion(updateFrequency: Value(frequency)),
     );
   }
 
-  Future<Either<Failure, void>> updateSyncTimestamp(int epochMillis) {
-    return Either.catchFutureError(
-      (e, stackTrace) {
-        LoggerService.error(
-          '[SettingsDao] Error in updateSyncTimestamp',
-          e,
-          stackTrace,
-        );
-        return DatabaseFailure(e.toString(), stackTrace);
-      },
-      () async {
-        await (update(appSettings)..where((tbl) => tbl.id.equals(1))).write(
-          AppSettingsCompanion(lastSyncEpoch: Value(epochMillis)),
-        );
-      },
+  Future<void> updateSyncTimestamp(int epochMillis) async {
+    await _ensureSettingsRow();
+    await (update(appSettings)..where((tbl) => tbl.id.equals(1))).write(
+      AppSettingsCompanion(lastSyncEpoch: Value(epochMillis)),
     );
   }
 
@@ -168,23 +90,12 @@ class SettingsDao extends DatabaseAccessor<AppDatabase>
     return _decodeStringMap(settings.sourceHashes);
   }
 
-  Future<Either<Failure, void>> saveSourceHashes(
+  Future<void> saveSourceHashes(
     Map<String, String> hashes,
-  ) {
-    return Either.catchFutureError(
-      (e, stackTrace) {
-        LoggerService.error(
-          '[SettingsDao] Error in saveSourceHashes',
-          e,
-          stackTrace,
-        );
-        return DatabaseFailure(e.toString(), stackTrace);
-      },
-      () async {
-        await (update(appSettings)..where((tbl) => tbl.id.equals(1))).write(
-          AppSettingsCompanion(sourceHashes: Value(jsonEncode(hashes))),
-        );
-      },
+  ) async {
+    await _ensureSettingsRow();
+    await (update(appSettings)..where((tbl) => tbl.id.equals(1))).write(
+      AppSettingsCompanion(sourceHashes: Value(jsonEncode(hashes))),
     );
   }
 
@@ -201,86 +112,42 @@ class SettingsDao extends DatabaseAccessor<AppDatabase>
     return result;
   }
 
-  Future<Either<Failure, void>> saveSourceDates(
+  Future<void> saveSourceDates(
     Map<String, DateTime> dates,
-  ) {
-    return Either.catchFutureError(
-      (e, stackTrace) {
-        LoggerService.error(
-          '[SettingsDao] Error in saveSourceDates',
-          e,
-          stackTrace,
-        );
-        return DatabaseFailure(e.toString(), stackTrace);
-      },
-      () async {
-        final encoded = dates.map(
-          (key, value) => MapEntry(key, value.toIso8601String()),
-        );
-        await (update(appSettings)..where((tbl) => tbl.id.equals(1))).write(
-          AppSettingsCompanion(sourceDates: Value(jsonEncode(encoded))),
-        );
-      },
+  ) async {
+    await _ensureSettingsRow();
+    final encoded = dates.map(
+      (key, value) => MapEntry(key, value.toIso8601String()),
+    );
+    await (update(appSettings)..where((tbl) => tbl.id.equals(1))).write(
+      AppSettingsCompanion(sourceDates: Value(jsonEncode(encoded))),
     );
   }
 
-  Future<Either<Failure, void>> clearSourceMetadata() {
-    return Either.catchFutureError(
-      (e, stackTrace) {
-        LoggerService.error(
-          '[SettingsDao] Error in clearSourceMetadata',
-          e,
-          stackTrace,
-        );
-        return DatabaseFailure(e.toString(), stackTrace);
-      },
-      () async {
-        await (update(appSettings)..where((tbl) => tbl.id.equals(1))).write(
-          const AppSettingsCompanion(
-            sourceHashes: Value('{}'),
-            sourceDates: Value('{}'),
-          ),
-        );
-      },
+  Future<void> clearSourceMetadata() async {
+    await _ensureSettingsRow();
+    await (update(appSettings)..where((tbl) => tbl.id.equals(1))).write(
+      const AppSettingsCompanion(
+        sourceHashes: Value('{}'),
+        sourceDates: Value('{}'),
+      ),
     );
   }
 
-  Future<Either<Failure, void>> updateHapticFeedback({required bool enabled}) {
-    return Either.catchFutureError(
-      (e, stackTrace) {
-        LoggerService.error(
-          '[SettingsDao] Error updateHapticFeedback',
-          e,
-          stackTrace,
-        );
-        return DatabaseFailure(e.toString(), stackTrace);
-      },
-      () async {
-        await (update(appSettings)..where((tbl) => tbl.id.equals(1))).write(
-          AppSettingsCompanion(hapticFeedbackEnabled: Value(enabled)),
-        );
-      },
+  Future<void> updateHapticFeedback({required bool enabled}) async {
+    await _ensureSettingsRow();
+    await (update(appSettings)..where((tbl) => tbl.id.equals(1))).write(
+      AppSettingsCompanion(hapticFeedbackEnabled: Value(enabled)),
     );
   }
 
-  Future<Either<Failure, void>> resetSettingsMetadata() {
-    return Either.catchFutureError(
-      (e, stackTrace) {
-        LoggerService.error(
-          '[SettingsDao] Error in resetSettingsMetadata',
-          e,
-          stackTrace,
-        );
-        return DatabaseFailure(e.toString(), stackTrace);
-      },
-      () async {
-        await (update(appSettings)..where((tbl) => tbl.id.equals(1))).write(
-          const AppSettingsCompanion(
-            bdpmVersion: Value(null),
-            lastSyncEpoch: Value(null),
-          ),
-        );
-      },
+  Future<void> resetSettingsMetadata() async {
+    await _ensureSettingsRow();
+    await (update(appSettings)..where((tbl) => tbl.id.equals(1))).write(
+      const AppSettingsCompanion(
+        bdpmVersion: Value(null),
+        lastSyncEpoch: Value(null),
+      ),
     );
   }
 

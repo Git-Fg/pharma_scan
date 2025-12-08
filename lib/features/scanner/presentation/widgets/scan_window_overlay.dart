@@ -1,18 +1,62 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
+import 'package:pharma_scan/features/scanner/presentation/providers/scanner_provider.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
-class ScanWindowOverlay extends StatelessWidget {
+enum _ReticleState { idle, detecting, success }
+
+class ScanWindowOverlay extends HookConsumerWidget {
   const ScanWindowOverlay({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final breakpoint = context.breakpoint;
+    final windowSize = breakpoint >= context.breakpoints.md
+        ? 300.0
+        : AppDimens.scannerWindowSize;
     final theme = context.shadTheme;
-    final primary = theme.colorScheme.primary;
-    final scrimColor = theme.colorScheme.foreground.withValues(alpha: 0.65);
+    final borderRadius = theme.radius.topLeft.x;
+    final scrimColor = Colors.black.withValues(alpha: 0.3);
+
+    final scannerAsync = ref.watch(scannerProvider);
+    final bubblesCount = scannerAsync.value?.bubbles.length ?? 0;
+    final isLoading = scannerAsync.isLoading;
+
+    final reticleState = useState<_ReticleState>(_ReticleState.idle);
+    final previousCount = useRef<int>(0);
+    final successResetTimer = useRef<Timer?>(null);
+
+    useEffect(() {
+      final prev = previousCount.value;
+      previousCount.value = bubblesCount;
+
+      if (bubblesCount > prev) {
+        reticleState.value = _ReticleState.success;
+        successResetTimer.value?.cancel();
+        successResetTimer.value = Timer(const Duration(milliseconds: 650), () {
+          reticleState.value = _ReticleState.idle;
+        });
+      } else if (reticleState.value != _ReticleState.success) {
+        reticleState.value = isLoading
+            ? _ReticleState.detecting
+            : _ReticleState.idle;
+      }
+
+      return null;
+    }, [bubblesCount, isLoading]);
+
+    useEffect(
+      () => () {
+        successResetTimer.value?.cancel();
+      },
+      const [],
+    );
 
     return IgnorePointer(
       child: Stack(
@@ -21,72 +65,122 @@ class ScanWindowOverlay extends StatelessWidget {
           CustomPaint(
             painter: _ScanScrimPainter(
               scrimColor: scrimColor,
-              windowSize: AppDimens.scannerWindowSize,
-              borderRadius: AppDimens.scannerWindowBorderRadius,
+              windowSize: windowSize,
+              borderRadius: borderRadius,
             ),
           ),
           Center(
-            child: _buildAnimatedCorner(context, primary),
-          ),
-          Center(
-            child: _buildAnimatedIcon(context, primary),
+            child: _Reticle(
+              windowSize: windowSize,
+              borderRadius: borderRadius,
+              state: reticleState.value,
+            ),
           ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildAnimatedCorner(BuildContext context, Color primary) {
-    return SizedBox(
-          width: AppDimens.scannerWindowSize,
-          height: AppDimens.scannerWindowSize,
-          child: CustomPaint(
-            painter: _ScanCornerPainter(
-              color: primary,
-              cornerLength: AppDimens.scannerWindowCornerLength,
-              cornerThickness: AppDimens.scannerWindowCornerThickness,
-              borderRadius: AppDimens.scannerWindowBorderRadius,
+class _Reticle extends HookWidget {
+  const _Reticle({
+    required this.windowSize,
+    required this.borderRadius,
+    required this.state,
+  });
+
+  final double windowSize;
+  final double borderRadius;
+  final _ReticleState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.shadTheme;
+    const baseColor = Colors.white;
+    final detectingColor = theme.colorScheme.primary.withValues(alpha: 0.65);
+    final successColor = theme.colorScheme.primary;
+
+    final breathingController = useAnimationController(
+      duration: const Duration(milliseconds: 1500),
+    );
+    unawaited(breathingController.repeat(reverse: true));
+    final breathingScale = useAnimation(
+      Tween<double>(begin: 1, end: 1.05).animate(
+        CurvedAnimation(
+          parent: breathingController,
+          curve: Curves.easeInOut,
+        ),
+      ),
+    );
+
+    final targetScale = switch (state) {
+      _ReticleState.success => 0.9,
+      _ReticleState.detecting => 1.02,
+      _ReticleState.idle => breathingScale,
+    };
+
+    final targetColor = switch (state) {
+      _ReticleState.success => successColor,
+      _ReticleState.detecting => detectingColor,
+      _ReticleState.idle => baseColor,
+    };
+
+    final iconContainerSize =
+        windowSize *
+        (AppDimens.scannerWindowIconSize / AppDimens.scannerWindowSize);
+    final iconInnerSize =
+        windowSize *
+        (AppDimens.scannerWindowIconInnerSize / AppDimens.scannerWindowSize);
+
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 1, end: targetScale),
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeOut,
+      builder: (context, scale, child) {
+        return AnimatedOpacity(
+          opacity: state == _ReticleState.success ? 1 : 0.9,
+          duration: const Duration(milliseconds: 220),
+          child: Transform.scale(
+            scale: scale,
+            child: child,
+          ),
+        );
+      },
+      child: SizedBox(
+        width: windowSize,
+        height: windowSize,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            CustomPaint(
+              painter: _ScanCornerPainter(
+                color: targetColor,
+                cornerLength: AppDimens.scannerWindowCornerLength,
+                cornerThickness: AppDimens.scannerWindowCornerThickness,
+                borderRadius: borderRadius,
+              ),
             ),
-          ),
-        )
-        .animate(
-          onPlay: (controller) {
-            unawaited(controller.repeat(reverse: true));
-          },
-        )
-        .fade(
-          begin: 0.35,
-          end: 0.9,
-          duration: 1800.ms,
-          curve: Curves.easeInOutSine,
-        );
-  }
-
-  Widget _buildAnimatedIcon(BuildContext context, Color primary) {
-    return Container(
-          width: AppDimens.scannerWindowIconSize,
-          height: AppDimens.scannerWindowIconSize,
-          decoration: BoxDecoration(
-            color: context.shadColors.background.withValues(alpha: 0.15),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            LucideIcons.scanLine,
-            color: primary.withValues(alpha: 0.9),
-            size: AppDimens.scannerWindowIconInnerSize,
-          ),
-        )
-        .animate(
-          onPlay: (controller) {
-            unawaited(controller.repeat(reverse: true));
-          },
-        )
-        .fade(
-          begin: 0.4,
-          end: 0.85,
-          duration: 1800.ms,
-          curve: Curves.easeInOutSine,
-        );
+            Container(
+              width: iconContainerSize,
+              height: iconContainerSize,
+              decoration: BoxDecoration(
+                color: context.shadColors.background.withValues(alpha: 0.18),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: targetColor.withValues(alpha: 0.4),
+                  width: 1.5,
+                ),
+              ),
+              child: Icon(
+                LucideIcons.scanLine,
+                color: targetColor,
+                size: iconInnerSize,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -153,19 +247,20 @@ class _ScanCornerPainter extends CustomPainter {
 
     final width = size.width;
     final height = size.height;
+    final inset = math.max(cornerThickness / 2, 1).toDouble();
     final path = Path()
-      ..moveTo(0, cornerLength)
-      ..lineTo(0, 0)
-      ..lineTo(cornerLength, 0)
-      ..moveTo(width - cornerLength, 0)
-      ..lineTo(width, 0)
-      ..lineTo(width, cornerLength)
-      ..moveTo(width, height - cornerLength)
-      ..lineTo(width, height)
-      ..lineTo(width - cornerLength, height)
-      ..moveTo(cornerLength, height)
-      ..lineTo(0, height)
-      ..lineTo(0, height - cornerLength);
+      ..moveTo(inset, cornerLength)
+      ..lineTo(inset, inset)
+      ..lineTo(cornerLength, inset)
+      ..moveTo((width - cornerLength), inset)
+      ..lineTo((width - inset), inset)
+      ..lineTo(width - inset, cornerLength)
+      ..moveTo(width - inset, height - cornerLength)
+      ..lineTo(width - inset, height - inset)
+      ..lineTo(width - cornerLength, height - inset)
+      ..moveTo(cornerLength, height - inset)
+      ..lineTo(inset, (height - inset))
+      ..lineTo(inset, (height - cornerLength));
 
     canvas.drawPath(path, cornerPaint);
 

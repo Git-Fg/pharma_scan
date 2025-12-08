@@ -9,7 +9,7 @@ import 'package:diacritic/diacritic.dart';
 /// once at construction, eliminating redundant normalization calls throughout the codebase.
 ///
 /// **2025 Standard:** All search queries must use `NormalizedQuery` to ensure
-/// consistent normalization. See `.cursor/rules/flutter-architecture.mdc` for details.
+/// consistent normalization. See `.cursor/rules/domain-modeling.mdc` for details.
 ///
 /// **Normalization Strategy:** Uses linguistic normalization only (removeDiacritics + lowercase + trim)
 /// to align with the FTS5 `normalize_text` SQL function. This preserves salts (e.g., "Chlorhydrate")

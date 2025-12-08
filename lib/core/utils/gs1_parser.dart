@@ -9,16 +9,19 @@ class Gs1DataMatrix with Gs1DataMatrixMappable {
     this.serial, // AI (21)
     this.lot, // AI (10)
     this.expDate, // AI (17)
+    this.manufacturingDate, // AI (11)
   });
 
   final String? gtin;
   final String? serial;
   final String? lot;
   final DateTime? expDate;
+  final DateTime? manufacturingDate;
 }
 
 class Gs1Parser {
   static const String _internalSeparator = '|';
+  static const List<String> _knownAIs = ['01', '10', '11', '17', '21'];
 
   static Gs1DataMatrix parse(String? rawValue) {
     if (rawValue == null || rawValue.isEmpty) {
@@ -37,6 +40,7 @@ class Gs1Parser {
     String? serial;
     String? lot;
     DateTime? expDate;
+    DateTime? manufacturingDate;
 
     var i = 0;
     while (i < normalized.length) {
@@ -64,6 +68,14 @@ class Gs1Parser {
               i++;
             }
           }
+        case '11':
+          if (i + 6 <= normalized.length) {
+            manufacturingDate = _parseExpiry(normalized.substring(i, i + 6));
+            i += 6;
+            if (i < normalized.length && normalized[i] == _internalSeparator) {
+              i++;
+            }
+          }
         case '17':
           if (i + 6 <= normalized.length) {
             expDate = _parseExpiry(normalized.substring(i, i + 6));
@@ -87,7 +99,17 @@ class Gs1Parser {
             i++;
           }
         default:
-          final nextPos = _findFieldEnd(normalized, i);
+          final separatorIndex = normalized.indexOf(_internalSeparator, i);
+          var nextPos = separatorIndex != -1
+              ? separatorIndex
+              : normalized.length;
+          for (var j = i; j < normalized.length - 1; j++) {
+            final potentialAI = normalized.substring(j, j + 2);
+            if (_knownAIs.contains(potentialAI)) {
+              nextPos = j;
+              break;
+            }
+          }
           i = nextPos;
           if (i < normalized.length && normalized[i] == _internalSeparator) {
             i++;
@@ -100,6 +122,7 @@ class Gs1Parser {
       serial: serial,
       lot: lot,
       expDate: expDate,
+      manufacturingDate: manufacturingDate,
     );
   }
 
@@ -109,26 +132,24 @@ class Gs1Parser {
       return separatorIndex;
     }
 
-    final knownAIs = ['01', '10', '17', '21'];
-    for (var i = startIndex; i < data.length - 1; i++) {
-      final potentialAI = data.substring(i, i + 2);
-      if (knownAIs.contains(potentialAI)) {
-        return i;
-      }
-    }
     return data.length;
   }
 
   static DateTime? _parseExpiry(String exp) {
     if (exp.length != 6) return null;
-    try {
-      final yy = int.parse(exp.substring(0, 2));
-      final mm = int.parse(exp.substring(2, 4));
-      final dd = int.parse(exp.substring(4, 6));
-      final year = yy < 50 ? 2000 + yy : 1900 + yy;
-      return DateTime.utc(year, mm, dd);
-    } on Exception catch (_) {
-      return null;
+    final yy = int.tryParse(exp.substring(0, 2));
+    final mm = int.tryParse(exp.substring(2, 4));
+    final ddRaw = int.tryParse(exp.substring(4, 6));
+    if (yy == null || mm == null || ddRaw == null) return null;
+    if (mm < 1 || mm > 12 || ddRaw < 0 || ddRaw > 31) return null;
+
+    final year = yy < 50 ? 2000 + yy : 1900 + yy;
+
+    var day = ddRaw;
+    if (day == 0) {
+      day = DateTime.utc(year, mm + 1, 0).day;
     }
+
+    return DateTime.utc(year, mm, day);
   }
 }

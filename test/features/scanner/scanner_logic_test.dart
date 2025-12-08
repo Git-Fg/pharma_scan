@@ -3,13 +3,21 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:pharma_scan/core/config/app_config.dart';
 import 'package:pharma_scan/core/database/database.dart';
+import 'package:pharma_scan/core/domain/types/ids.dart';
 import 'package:pharma_scan/core/providers/core_providers.dart';
 import 'package:pharma_scan/core/providers/preferences_provider.dart';
-import 'package:pharma_scan/core/services/haptic_service.dart';
+import 'package:pharma_scan/core/services/data_initialization_service.dart';
 import 'package:pharma_scan/features/scanner/presentation/providers/scanner_provider.dart';
 
-class MockHapticService extends Mock implements HapticService {}
+import '../../test_utils.dart'
+    show
+        generateGs1String,
+        generateSimpleGs1String,
+        getRealCip,
+        loadRealBdpmData,
+        setPrincipeNormalizedForAllPrinciples;
 
 class MockBarcode extends Mock implements Barcode {
   @override
@@ -19,9 +27,7 @@ class MockBarcode extends Mock implements Barcode {
   @override
   BarcodeFormat get format => BarcodeFormat.ean13;
 
-  void setRawValue(String? value) {
-    _rawValue = value;
-  }
+  set rawValue(String? value) => _rawValue = value;
 }
 
 class MockBarcodeCapture extends Mock implements BarcodeCapture {
@@ -37,24 +43,46 @@ void main() {
 
   group('Scanner Logic - GS1 String -> Parsing -> DB Lookup -> State', () {
     late AppDatabase database;
-    late MockHapticService mockHaptics;
     late ProviderContainer container;
+    late String validCipWithSummary;
+
+    Future<String> findCipWithSummary(AppDatabase db) async {
+      final meds = await db.select(db.medicaments).get();
+      for (final med in meds) {
+        final summary = await (db.select(
+          db.medicamentSummary,
+        )..where((s) => s.cisCode.equals(med.cisCode))).getSingleOrNull();
+        if (summary != null) {
+          final scanResult = await db.catalogDao.getProductByCip(
+            Cip13(med.codeCip),
+          );
+          if (scanResult != null) {
+            return med.codeCip;
+          }
+        }
+      }
+      throw Exception('No medicament with matching MedicamentSummary found');
+    }
 
     setUp(() async {
       database = AppDatabase.forTesting(
         NativeDatabase.memory(setup: configureAppSQLite),
       );
-      mockHaptics = MockHapticService();
 
-      when(() => mockHaptics.success()).thenAnswer((_) async {});
-      when(() => mockHaptics.error()).thenAnswer((_) async {});
-      when(() => mockHaptics.warning()).thenAnswer((_) async {});
+      // Load real BDPM data instead of hardcoded values
+      await loadRealBdpmData(database);
+
+      // Create MedicamentSummary for lookups
+      await setPrincipeNormalizedForAllPrinciples(database);
+      final dataInit = DataInitializationService(database: database);
+      await dataInit.runSummaryAggregationForTesting();
+
+      validCipWithSummary = await findCipWithSummary(database);
 
       container = ProviderContainer(
         overrides: [
           appDatabaseProvider.overrideWithValue(database),
           catalogDaoProvider.overrideWithValue(database.catalogDao),
-          hapticServiceProvider.overrideWithValue(mockHaptics),
           hapticSettingsProvider.overrideWith(
             (ref) => Stream<bool>.value(true),
           ),
@@ -62,49 +90,27 @@ void main() {
       );
     });
 
-    tearDown(() {
+    tearDown(() async {
       container.dispose();
+      await database.close();
     });
 
     test(
       'processBarcodeCapture with valid CIP adds bubble to state',
       () async {
-        await database.databaseDao.insertBatchData(
-          specialites: [
-            {
-              'cis_code': 'CIS_VALID',
-              'nom_specialite': 'PARACETAMOL 500 mg, comprimé',
-              'procedure_type': 'Autorisation',
-              'forme_pharmaceutique': 'Comprimé',
-              'titulaire': 'LAB_VALID',
-            },
-          ],
-          medicaments: [
-            {'code_cip': '3400930302613', 'cis_code': 'CIS_VALID'},
-          ],
-          principes: [
-            {
-              'code_cip': '3400930302613',
-              'principe': 'PARACETAMOL',
-              'dosage': '500',
-              'dosage_unit': 'mg',
-            },
-          ],
-          generiqueGroups: [],
-          groupMembers: [],
-        );
+        // Use CIP that is guaranteed to have a MedicamentSummary entry
+        final gs1String = generateGs1String(validCipWithSummary);
 
         final notifier = container.read(scannerProvider.notifier);
         await notifier.build();
+        final effects = <ScannerSideEffect>[];
+        final sub = notifier.sideEffects.listen(effects.add);
 
-        final barcode = MockBarcode()
-          ..setRawValue('01034009303026132132780924334799');
+        final barcode = MockBarcode()..rawValue = gs1String;
         final capture = MockBarcodeCapture([barcode]);
 
-        notifier.processBarcodeCapture(capture);
-        await Future<void>.delayed(const Duration(milliseconds: 500));
-
-        verify(() => mockHaptics.success()).called(1);
+        await notifier.processBarcodeCapture(capture);
+        await Future<void>.delayed(Duration.zero);
 
         final finalState = container.read(scannerProvider);
         final bubbles = finalState.maybeWhen(
@@ -117,51 +123,33 @@ void main() {
           equals(1),
           reason: 'Valid CIP should add bubble',
         );
+        expect(bubbles.first.cip.toString(), equals(validCipWithSummary));
+
         expect(
-          bubbles.first.cip.toString(),
-          equals('3400930302613'),
-          reason: 'Bubble should contain correct CIP',
+          effects.whereType<ScannerHaptic>().any(
+            (effect) => effect.type == ScannerHapticType.success,
+          ),
+          isTrue,
+          reason: 'Success haptic side effect should be emitted',
         );
+        await sub.cancel();
       },
     );
 
     test(
       'processBarcodeCapture with same CIP twice moves bubble to top (does NOT duplicate)',
       () async {
-        await database.databaseDao.insertBatchData(
-          specialites: [
-            {
-              'cis_code': 'CIS_DUPLICATE',
-              'nom_specialite': 'PARACETAMOL 500 mg, comprimé',
-              'procedure_type': 'Autorisation',
-              'forme_pharmaceutique': 'Comprimé',
-              'titulaire': 'LAB_DUPLICATE',
-            },
-          ],
-          medicaments: [
-            {'code_cip': '3400930302613', 'cis_code': 'CIS_DUPLICATE'},
-          ],
-          principes: [
-            {
-              'code_cip': '3400930302613',
-              'principe': 'PARACETAMOL',
-              'dosage': '500',
-              'dosage_unit': 'mg',
-            },
-          ],
-          generiqueGroups: [],
-          groupMembers: [],
-        );
+        // Use real CIP from loaded BDPM data
+        final realCip = await getRealCip(database);
+        final gs1String = generateGs1String(realCip);
 
         final notifier = container.read(scannerProvider.notifier);
         await notifier.build();
 
-        final barcode = MockBarcode()
-          ..setRawValue('01034009303026132132780924334799');
+        final barcode = MockBarcode()..rawValue = gs1String;
         final capture = MockBarcodeCapture([barcode]);
 
-        notifier.processBarcodeCapture(capture);
-        await Future<void>.delayed(const Duration(milliseconds: 500));
+        await notifier.processBarcodeCapture(capture);
 
         final firstState = container.read(scannerProvider);
         final firstBubbles = firstState.maybeWhen(
@@ -170,8 +158,9 @@ void main() {
         );
         expect(firstBubbles.length, equals(1));
 
-        notifier.processBarcodeCapture(capture);
+        await notifier.processBarcodeCapture(capture);
         await Future<void>.delayed(const Duration(milliseconds: 500));
+        await Future<void>.delayed(Duration.zero);
 
         final secondState = container.read(scannerProvider);
         final secondBubbles = secondState.maybeWhen(
@@ -188,12 +177,164 @@ void main() {
     );
 
     test(
-      'processBarcodeCapture with unknown CIP triggers error effect, no bubble added',
+      'processBarcodeCapture debounces duplicate scans but allows re-scan after cooldown',
       () async {
+        final realCip = await getRealCip(database);
+        final gs1String = generateGs1String(realCip);
+
         final notifier = container.read(scannerProvider.notifier);
         await notifier.build();
 
-        final barcode = MockBarcode()..setRawValue('010123456789012');
+        final barcode = MockBarcode()..rawValue = gs1String;
+        final capture = MockBarcodeCapture([barcode]);
+
+        // First scan adds a bubble.
+        await notifier.processBarcodeCapture(capture);
+        final initialState = container.read(scannerProvider);
+        final initialBubbles = initialState.maybeWhen(
+          data: (state) => state.bubbles,
+          orElse: () => <ScanBubble>[],
+        );
+        expect(initialBubbles.length, equals(1));
+
+        // Immediate duplicate scan is ignored (debounced).
+        await notifier.processBarcodeCapture(capture);
+        final debouncedState = container.read(scannerProvider);
+        final debouncedBubbles = debouncedState.maybeWhen(
+          data: (state) => state.bubbles,
+          orElse: () => <ScanBubble>[],
+        );
+        expect(
+          debouncedBubbles.length,
+          equals(1),
+          reason: 'Debounce should ignore immediate duplicate scans',
+        );
+
+        // Manually clear the bubble and wait for cleanup to remove code guard.
+        notifier.removeBubble(realCip);
+        await Future<void>.delayed(AppConfig.scannerCodeCleanupDelay * 2);
+
+        await notifier.processBarcodeCapture(capture);
+        final finalState = container.read(scannerProvider);
+        final finalBubbles = finalState.maybeWhen(
+          data: (state) => state.bubbles,
+          orElse: () => <ScanBubble>[],
+        );
+
+        expect(
+          finalBubbles.length,
+          equals(1),
+          reason: 'Bubble should reappear after cooldown cleanup',
+        );
+        expect(finalBubbles.first.cip.toString(), equals(realCip));
+      },
+    );
+
+    test(
+      'processBarcodeCapture bypasses cooldown when force is true and replays bubble',
+      () async {
+        final realCip = await getRealCip(database);
+        final gs1String = generateGs1String(realCip);
+
+        final notifier = container.read(scannerProvider.notifier);
+        await notifier.build();
+        final effects = <ScannerSideEffect>[];
+        final sub = notifier.sideEffects.listen(effects.add);
+
+        final barcode = MockBarcode()..rawValue = gs1String;
+        final capture = MockBarcodeCapture([barcode]);
+
+        await notifier.processBarcodeCapture(capture);
+        await notifier.processBarcodeCapture(capture, force: true);
+        await Future<void>.delayed(const Duration(milliseconds: 150));
+
+        final finalState = container.read(scannerProvider);
+        final bubbles = finalState.maybeWhen(
+          data: (state) => state.bubbles,
+          orElse: () => <ScanBubble>[],
+        );
+
+        expect(
+          bubbles.length,
+          equals(1),
+          reason:
+              'Force processing should refresh the bubble instead of deduping',
+        );
+
+        final successCount = effects.whereType<ScannerHaptic>().where(
+          (effect) => effect.type == ScannerHapticType.success,
+        );
+        expect(
+          successCount.length,
+          equals(2),
+          reason: 'Force should bypass cooldown and emit success again',
+        );
+        await sub.cancel();
+      },
+    );
+
+    test(
+      'processBarcodeCapture cooldown is per-item: different CIPs are not blocked',
+      () async {
+        final cipA = await findCipWithSummary(database);
+        var cipB = await getRealCip(database);
+        if (cipB == cipA) {
+          final meds = await database.select(database.medicaments).get();
+          cipB = meds.firstWhere((m) => m.codeCip != cipA).codeCip;
+        }
+
+        final gs1A = generateGs1String(cipA);
+        final gs1B = generateGs1String(cipB);
+
+        final notifier = container.read(scannerProvider.notifier);
+        await notifier.build();
+
+        final barcodeA = MockBarcode()..rawValue = gs1A;
+        final barcodeB = MockBarcode()..rawValue = gs1B;
+        final capture = MockBarcodeCapture([barcodeA, barcodeB]);
+
+        await notifier.processBarcodeCapture(capture);
+
+        final state = container.read(scannerProvider);
+        final bubbles = state.maybeWhen(
+          data: (s) => s.bubbles,
+          orElse: () => <ScanBubble>[],
+        );
+
+        expect(
+          bubbles.length,
+          equals(2),
+          reason: 'Distinct CIPs should both be processed despite cooldown map',
+        );
+        expect(
+          bubbles.map((b) => b.cip.toString()).toSet(),
+          containsAll(<String>{cipA, cipB}),
+        );
+      },
+    );
+
+    test(
+      'processBarcodeCapture with unknown CIP triggers error effect, no bubble added',
+      () async {
+        // Use a CIP that doesn't exist in the database
+        var nonExistentCip = '9999999999999';
+        while (await database.catalogDao.getProductByCip(
+              Cip13(nonExistentCip),
+            ) !=
+            null) {
+          nonExistentCip = (int.parse(nonExistentCip) - 1).toString().padLeft(
+            13,
+            '0',
+          );
+        }
+        final gs1String = generateSimpleGs1String(nonExistentCip);
+
+        final notifier = container.read(scannerProvider.notifier);
+        await notifier.build();
+        final effects = <ScannerSideEffect>[];
+        final sub = notifier.sideEffects.listen(effects.add);
+
+        final barcode = MockBarcode()..rawValue = gs1String;
         final capture = MockBarcodeCapture([barcode]);
 
         final initialState = container.read(scannerProvider);
@@ -205,10 +346,8 @@ void main() {
           equals(0),
         );
 
-        notifier.processBarcodeCapture(capture);
-        await Future<void>.delayed(const Duration(milliseconds: 500));
-
-        verify(() => mockHaptics.error()).called(1);
+        await notifier.processBarcodeCapture(capture);
+        await Future<void>.delayed(Duration.zero);
 
         final finalState = container.read(scannerProvider);
         final bubbles = finalState.maybeWhen(
@@ -221,50 +360,35 @@ void main() {
           equals(0),
           reason: 'Unknown CIP should not add bubble',
         );
+        await sub.cancel();
       },
     );
 
     test(
       'setMode(restock) changes behavior to call restockDao instead of updating bubbles',
       () async {
-        await database.databaseDao.insertBatchData(
-          specialites: [
-            {
-              'cis_code': 'CIS_RESTOCK',
-              'nom_specialite': 'PARACETAMOL 500 mg, comprimé',
-              'procedure_type': 'Autorisation',
-              'forme_pharmaceutique': 'Comprimé',
-              'titulaire': 'LAB_RESTOCK',
-            },
-          ],
-          medicaments: [
-            {'code_cip': '3400930302613', 'cis_code': 'CIS_RESTOCK'},
-          ],
-          principes: [
-            {
-              'code_cip': '3400930302613',
-              'principe': 'PARACETAMOL',
-              'dosage': '500',
-              'dosage_unit': 'mg',
-            },
-          ],
-          generiqueGroups: [],
-          groupMembers: [],
+        // Resolve a CIP that can be looked up via CatalogDao
+        final restockCip = await findCipWithSummary(database);
+        final product = await database.catalogDao.getProductByCip(
+          Cip13(restockCip),
         );
+        expect(product, isNotNull, reason: 'Restock CIP must exist in catalog');
+
+        final gs1String = generateGs1String(restockCip);
 
         final notifier = container.read(scannerProvider.notifier);
         await notifier.build();
+        final effects = <ScannerSideEffect>[];
+        final sub = notifier.sideEffects.listen(effects.add);
 
         notifier.setMode(ScannerMode.restock);
 
-        final barcode = MockBarcode()
-          ..setRawValue('01034009303026132132780924334799');
+        final barcode = MockBarcode()..rawValue = gs1String;
         final capture = MockBarcodeCapture([barcode]);
 
-        notifier.processBarcodeCapture(capture);
+        await notifier.processBarcodeCapture(capture);
         await Future<void>.delayed(const Duration(milliseconds: 500));
-
-        verify(() => mockHaptics.success()).called(1);
+        await Future<void>.delayed(Duration.zero);
 
         final finalState = container.read(scannerProvider);
         final bubbles = finalState.maybeWhen(
@@ -288,9 +412,114 @@ void main() {
         );
         expect(
           restockItems.first.cip.toString(),
-          equals('3400930302613'),
-          reason: 'Restock item should contain correct CIP',
+          equals(validCipWithSummary),
+          reason: 'Restock item should contain correct CIP from real data',
         );
+        expect(
+          effects.whereType<ScannerHaptic>().any(
+            (effect) => effect.type == ScannerHapticType.success,
+          ),
+          isTrue,
+          reason: 'Restock success should emit haptic side effect',
+        );
+        await sub.cancel();
+      },
+    );
+
+    test(
+      'restock mode emits duplicate event and does not increment on duplicate serial',
+      () async {
+        final restockCip = await findCipWithSummary(database);
+        final gs1String = generateGs1String(restockCip, serial: 'SER-DEDUP');
+
+        final notifier = container.read(scannerProvider.notifier);
+        await notifier.build();
+        final effects = <ScannerSideEffect>[];
+        final sub = notifier.sideEffects.listen(effects.add);
+
+        notifier.setMode(ScannerMode.restock);
+
+        final barcode = MockBarcode()..rawValue = gs1String;
+        final capture = MockBarcodeCapture([barcode]);
+
+        await notifier.processBarcodeCapture(capture);
+        await Future<void>.delayed(const Duration(milliseconds: 2100));
+        await notifier.processBarcodeCapture(capture);
+        await Future<void>.delayed(Duration.zero);
+
+        final restockRows = await database.select(database.restockItems).get();
+        expect(restockRows.single.quantity, 1);
+
+        final scannedRows = await database.select(database.scannedBoxes).get();
+        expect(scannedRows.single.serialNumber, 'SER-DEDUP');
+        expect(
+          effects.whereType<ScannerDuplicateDetected>().length,
+          equals(1),
+          reason: 'Duplicate side effect should be emitted once',
+        );
+        expect(
+          effects
+              .whereType<ScannerHaptic>()
+              .where(
+                (effect) => effect.type == ScannerHapticType.warning,
+              )
+              .length,
+          equals(1),
+          reason: 'Warning haptic should be emitted on duplicate',
+        );
+        await sub.cancel();
+      },
+    );
+
+    test(
+      'restock mode respects cooldown: immediate duplicate scan is ignored',
+      () async {
+        final restockCip = await findCipWithSummary(database);
+        final gs1String = generateGs1String(restockCip, serial: 'SER-COOLDOWN');
+
+        final notifier = container.read(scannerProvider.notifier);
+        await notifier.build();
+        final effects = <ScannerSideEffect>[];
+        final sub = notifier.sideEffects.listen(effects.add);
+
+        notifier.setMode(ScannerMode.restock);
+
+        final barcode = MockBarcode()..rawValue = gs1String;
+        final capture = MockBarcodeCapture([barcode]);
+
+        await notifier.processBarcodeCapture(capture);
+        await notifier.processBarcodeCapture(capture);
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+
+        final restockItems = await database.restockDao
+            .watchRestockItems()
+            .first;
+        expect(
+          restockItems.length,
+          equals(1),
+          reason: 'Cooldown should prevent immediate duplicate from adding',
+        );
+        expect(restockItems.single.quantity, equals(1));
+
+        final duplicateEvents = effects
+            .whereType<ScannerDuplicateDetected>()
+            .length;
+        expect(
+          duplicateEvents,
+          equals(0),
+          reason: 'Cooldown skip should avoid duplicate warning',
+        );
+
+        final successHaptics = effects.whereType<ScannerHaptic>().where(
+          (e) => e.type == ScannerHapticType.success,
+        );
+        expect(
+          successHaptics.length,
+          equals(1),
+          reason: 'Only first scan should emit success haptic',
+        );
+
+        await sub.cancel();
       },
     );
   });

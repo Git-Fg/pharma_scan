@@ -99,6 +99,12 @@ The Base de Données Publique des Médicaments (BDPM) is the official French med
 * **Date Format:** `JJ/MM/AAAA` → Convert to `DATE (YYYY-MM-DD)`
 * **Decimal Format:** Comma `,` (e.g., `12,50`) → Convert to `FLOAT` (`12.50`)
 
+### 2.1 Schema Layer (BDPM Schema)
+
+* **Location:** `lib/core/services/ingestion/schema/`
+* **Content:** `bdpm_parsers.dart` (locale-safe primitives) and `bdpm_schema.dart` (one row struct per BDPM TXT file).
+* **Usage:** Every ingestion parser converts `Stream<String>` → `Bdpm*Row` first, then maps to DB DTOs. Column order is defined in `bdpm_schema.dart`; adjust only there when ANSM changes formats.
+
 ### 2.2 Pipeline Stages
 
 #### Stage 1: Download and Cache
@@ -187,89 +193,57 @@ The Base de Données Publique des Médicaments (BDPM) is the official French med
 
 ---
 
-## 3. Normalization Logic
+## 3. Stratégie de Parsing (Hybrid Relational)
 
-### 3.1 Principle Active Normalization
+### 3.1 Philosophie : "La Base avant le Texte"
 
-**Function:** `normalizePrincipleOptimal` (`lib/core/logic/sanitizer.dart`)
+Au lieu de parser les libellés textuels complexes (et sales) des groupes génériques, nous privilégions la structure relationnelle de la BDPM.
 
-This function transforms raw active principle names into canonical names for grouping. It achieves **94.5% consistency** in principle grouping.
+**L'algorithme des 3 Tiers :**
 
-**Normalization Steps:**
+1. **Tier 1 (Relationnel - Prioritaire) :**
 
-1. **Base Normalization**
-   * Remove diacritics (`removeDiacritics`)
-   * Convert to uppercase
-   * Remove "ACIDE" prefix
+    * On identifie le Princeps (Type 0) du groupe.
+    * On joint avec `CIS_COMPO` : Si une ligne `FT` (Fraction Thérapeutique) existe, c'est le nom officiel de la molécule. Sinon, on prend la `SA` (Substance Active).
+    * On joint avec `CIS_bdpm` : C'est le nom commercial officiel du Princeps.
+    * *Fiabilité : 100%*.
 
-2. **Stereochemical Prefix Handling**
-   * `(S)-LACTATE DE SODIUM` → `LACTATE DE SODIUM`
-   * Pattern: `^\(([RS])\s*\)\s*-\s*(.+)$`
+2. **Tier 2 (Split Simple) :**
 
-3. **Inverted Format Handling**
-   * `SODIUM (VALPROATE DE)` → `VALPROATE`
-   * `MÉMANTINE (CHLORHYDRATE DE)` → `MÉMANTINE`
-   * Pattern: `^([A-Z0-9\-]+)\s*\(\s*([^()]+?)\s+DE\s*\)$`
+    * Si le relationnel échoue (médicament radié/historique), on coupe le libellé brut sur `" - "`.
+    * Partie Gauche = Molécule. Partie Droite = Princeps.
 
-4. **Pure Inorganic Salt Protection**
-   * Protects: `MAGNESIUM`, `SODIUM`, `BICARBONATE DE SODIUM`, `CHLORURE DE POTASSIUM`
-   * These names are returned as-is (no salt removal)
+3. **Tier 3 (Smart Split - Dernier Recours) :**
 
-5. **Lexical Noise Removal**
-   * Removes: `SOLUTION DE`, `CONCENTRAT DE`, `FORME PULVERULENTE`, `LIQUIDE`
+    * Si le formatage est sale (tirets manquants, mauvais charset), on applique des Regex correctives (injecter des espaces avant les Majuscules de marque) avant de splitter.
 
-6. **Molecular Core Extraction**
-   * Uses PetitParser grammar (`buildMedicamentBaseNameParser()`)
-   * Extracts base name ignoring variants
+### ADR : Maintien de l'approche hybride (Princeps + Normalisation Nom)
 
-7. **Salt Prefix Removal**
-   * Removes prefixes: `CHLORHYDRATE DE`, `SULFATE DE`, `MALÉATE DE`, etc.
-   * **Reference:** `lib/core/constants/chemical_constants.dart`
+* **Décision :** Nous conservons l'approche hybride actuelle (lien princeps prioritaire + normalisation de nom) plutôt que l'usage du Code Substance unique.
+* **Raison :** Les jeux BDPM présentent des incohérences (codes substance manquants ou multiples pour un même produit). Les tests terrain montrent que l'approche hybride est plus robuste pour l'usage « tiroir » en pharmacie.
+* **Conséquence :** Pas de regroupement direct par Code Substance tant que la qualité BDPM ne s'améliore pas. Revenir à ce point si de nouvelles données stabilisent le Code Substance.
 
-8. **Controlled Mineral Removal**
-   * Removes `DE SODIUM`, `DE POTASSIUM`, etc. only for organic molecules
-   * Protects pure electrolytes (handled by step 4)
+### 3.2 Transparence de la Donnée
 
-9. **Salt Suffix Removal**
-   * Removes suffixes: `ARGININE`, `TOSILATE`, `BASE`, etc.
-   * **Reference:** `lib/core/constants/chemical_constants.dart`
-
-10. **Special Cases**
-    * `OMEGA-3` / `OMEGA 3` → `OMEGA-3`
-    * `CALCITONINE` variants → `CALCITONINE`
-    * Orthographic corrections: `CARBOCYSTEINE` → `CARBOCISTEINE`
-
-11. **Final Cleanup**
-    * Remove terminal parentheses
-    * Normalize multiple spaces
-    * Remove trailing commas
-
-**Example Transformations:**
-
-| Input (Raw) | Output (Canonical) | Transformation |
-| :--- | :--- | :--- |
-| `CHLORHYDRATE DE METFORMINE` | `METFORMINE` | Salt prefix removal |
-| `METFORMINE BASE` | `METFORMINE` | Base suffix removal |
-| `SODIUM (VALPROATE DE)` | `VALPROATE` | Inverted format |
-| `CHLORHYDRATE D'AMANTADINE` | `AMANTADINE` | Prefix with apostrophe |
-| `BICARBONATE DE SODIUM` | `BICARBONATE DE SODIUM` | Protected (pure electrolyte) |
-| `(S)-LACTATE DE SODIUM` | `LACTATE DE SODIUM` | Stereochemical prefix |
-| `ACIDE TRANEXAMIQUE` | `TRANEXAMIQUE` | "ACIDE" removal |
+L'application stocke et peut afficher le `RAW_LABEL_ANSM` et la `parsing_method` utilisée pour permettre la vérification humaine en cas de doute.
 
 ---
 
-## 4. Search Engine
+## 4. Search Architecture (FTS5)
 
-### 4.1 FTS5 Implementation
+This section is the source of truth for PharmaScan search behavior (schema, normalization, and query strategy). Rule files stay generic.
+
+**Scope:** This section owns all PharmaScan-specific FTS5 choices (tokenizer, normalization functions). Technical guardrails remain in `.cursor/rules/`.
+
+### 4.1 FTS5 Implementation (Divide & Conquer)
 
 **Virtual Table:** `search_index`
 
 ```sql
 CREATE VIRTUAL TABLE search_index USING fts5(
   cis_code UNINDEXED,
-  canonical_name,
-  princeps_name,
-  active_principles,
+  molecule_name,
+  brand_name,
   tokenize='trigram'
 );
 ```
@@ -277,28 +251,34 @@ CREATE VIRTUAL TABLE search_index USING fts5(
 **Columns:**
 
 * `cis_code`: UNINDEXED (link to `MedicamentSummary`)
-* `canonical_name`: Normalized canonical name
-* `princeps_name`: Normalized princeps name
-* `active_principles`: Concatenated normalized active principles
+* `molecule_name`: Clean molecule/libellé (optimisé côté ingestion)
+* `brand_name`: Princeps brand name (optimisé côté ingestion)
 
-**Tokenization:** `trigram` enables fuzzy matching (typos, variations).
+**Tokenization:** `trigram` enables typo tolerance.
 
-### 4.2 Normalization Function
+### 4.2 Normalization Function (Single Source of Truth)
 
-**SQL Function:** `normalize_text`
+**Canonical Function:** `normalizeForSearch` in `lib/core/logic/sanitizer.dart`
 
-Registered in `configureAppSQLite()` via the `diacritic` package:
+**Behavior (2025 standard for trigram FTS):**
 
 1. Removes diacritics (`removeDiacritics`)
-2. Converts to lowercase
+2. Lowercases
+3. Replaces `- ' " : .` with spaces (prevents trigram token splits on punctuation)
+4. Collapses whitespace and trims
 
-**Usage:** All `search_index` columns are normalized via this function during insertion.
+**SQL UDF:** `normalize_text`
 
-### 4.3 Query Normalization
+* Registered in `configureAppSQLite()` and delegates to `normalizeForSearch` (no inline duplication).
+* Applied to `molecule_name` and `brand_name` at insert time.
+* Guarantees parity between query normalization and indexed content.
 
-User queries must be normalized using the same `diacritic` helper to match index content.
+### 4.3 Query Normalization & Targeting
 
-**Reference:** `CatalogDao._escapeFts5Query`
+* Client-side normalization uses the same `normalizeForSearch` (shared with SQL UDF) to ensure `Search Query == Indexed Content`.
+* FTS query targets columns explicitly per term: `{molecule_name brand_name} : "term"` joined with `AND` across terms.
+* Typos are handled by the trigram tokenizer; no heuristic regex needed.
+* Escape user-supplied query terms via `escapeFts5Query()` before issuing FTS searches to avoid operator injection and keep queries deterministic.
 
 ---
 
@@ -319,7 +299,28 @@ PharmaScan supports scanning medication barcodes (DataMatrix) using GS1 standard
 * Validate CIP13 format (13 digits)
 * Lookup medication in database using CIP13
 
-**Reference:** `lib/core/services/gs1_parser.dart`
+**Implementation Notes:**
+
+* Current implementation is a small hand-rolled state machine in `lib/core/utils/gs1_parser.dart` (single pass, branch-per-AI) for minimal allocations in scan flows.
+* For any new structured parsing (multi-token or nested grammars), prefer PetitParser over bespoke loops to avoid duplicating parser behavior.
+* If GS1 parsing needs to expand to additional AI codes or richer validation, consider migrating the current parser to PetitParser for readability and testability; keep the single-pass version only if perf measurements justify it.
+
+**Reference:** `lib/core/utils/gs1_parser.dart`
+
+### 5.2 GS1 Compliance Rules
+
+* Supported AIs: `01` (GTIN/CIP14→CIP13), `10` (batch), `11` (manufacturing date), `17` (expiry), `21` (serial).
+* Variable-length fields (`10`, `21`) end strictly at FNC1 (`\x1D`) or end-of-string—no heuristic lookahead for other AIs.
+* Dates YYMMDD: if day is `00`, use the last day of the month (applies to `11` and `17`).
+* Optional GTIN guard: GTIN starting with `034` corresponds to FR pharma/parapharma; derived CIP13 strips the leading 0.
+* Normalization: whitespace and FNC1 are normalized to a single internal separator before parsing.
+
+### 5.3 Duplicate Handling Strategy (Restock mode)
+
+* Parse GS1 → CIP13 and AI 21 serial.
+* If serial already exists for the CIP (DB unique constraint), emit `DuplicateScanEvent` (cip, serial, productName, currentQuantity) and stop insertion; haptic: warning.
+* Otherwise, insert into `scanned_boxes` and increment `restock_items`; haptic: success.
+* UI responds to `DuplicateScanEvent` with a dialog allowing quantity override; confirmation calls `forceUpdateQuantity` and clears the event.
 
 ---
 
@@ -374,6 +375,7 @@ PharmaScan supports scanning medication barcodes (DataMatrix) using GS1 standard
 
 * Denormalized, pre-aggregated view for UI
 * Populated via SQL views: `view_aggregated_grouped` and `view_aggregated_standalone`
+* Deep dive on aggregation SQL: `docs/view_aggregated_grouped.md`
 
 **Key Columns:**
 
@@ -413,16 +415,10 @@ uv run tool/parser_lab.py
 
 ### 7.2 Golden Test Workflow
 
-1. **Generate Golden Files:** Run `parser_lab.py` to generate JSON golden files
-2. **Dart Golden Tests:**
-   * `test/core/medicament_grammar_golden_test.dart` validates parsing logic
-   * Filters entries with `parsing_mode == "strict"`
-   * Applies `parseMoleculeSegment` to validate canonical name generation
+1. **Generate Golden Files:** Run `parser_lab.py` to generate JSON golden files (still useful for relational cross-checks).
+2. **Dart Tests:** Hybrid parsing is now covered by targeted unit tests (`test/core/ingestion/hybrid_parsing_test.dart`) instead of grammar-based goldens.
 
-**Rule:** Any modification to medication grammar (Python or Dart) must be accompanied by:
-
-* Regeneration of JSON golden files via `parser_lab.py`
-* Passing the corresponding Dart golden tests
+**Rule:** Any modification to parsing must keep the 3-tier hybrid contract green (relational > text split > smart split) and keep golden files in sync when they are used for data sanity checks.
 
 ---
 
@@ -464,15 +460,14 @@ uv run tool/parser_lab.py
 * **Implementation:** Uses `showModalBottomSheet` or `showShadSheet` with `side: ShadSheetSide.bottom` on mobile, and may use `ShadDialog` or `ShadPopover` on larger screens.
 * **Purpose:** Provides consistent user experience across device sizes while respecting platform conventions.
 
-### Domain Entity
+### Domain Entity (Extension Type)
 
-* **Definition:** A pure Dart class (using `dart_mappable`) that represents a business concept without database-specific annotations.
+* **Definition:** An extension type wrapper around Drift rows that enforces invariants without runtime allocation.
 * **Characteristics:**
-  * Immutable (all fields are `final`).
-  * Uses standard Dart classes with `@MappableClass()` annotation and mixin.
-  * No dependencies on Drift-generated classes.
-  * Used throughout the application layers (UI, services, business logic).
-* **Example:** `ScanResult`, `ClusterSummary`, `GenericGroupSummary`.
+  * Zero-cost abstraction: exposes only the allowed surface from the underlying row.
+  * Adds computed getters/validation where needed; no JSON/mapping ceremony.
+  * Keeps UI/services decoupled from raw Drift classes while preserving type safety.
+* **Example:** `extension type ClusterSummaryExt(MedicamentSummaryRow row)` to expose normalized getters for clustering/search UI.
 
 ### Mapper
 
@@ -515,6 +510,13 @@ uv run tool/parser_lab.py
 * **Comportement :** Le scan ne bloque pas la caméra (pas de popup). Il ajoute silencieusement le produit à une liste persistante (`RestockItems`) et émet une vibration de succès.
 * **Dédoublonnage :** Scanner un produit déjà présent dans la liste incrémente sa quantité (`quantity + 1`) au lieu de créer une nouvelle ligne.
 
+### Débouncing du Scanner (Caméra vs Galerie)
+
+* **Clé unique par boîte :** `${cip}::${serial ?? ''}` stockée dans une Map `_scanCooldowns`.
+* **Caméra (par défaut) :** Cooldown de 2s par clé pour ignorer les scans répétés du même objet pendant la fenêtre courte.
+* **Galerie (force = true) :** Bypass complet du cooldown et des doublons ; si une bulle existe déjà pour ce CIP, elle est retirée avant traitement pour rejouer l’animation d’ajout.
+* **Nettoyage :** Les entrées de cooldown sont purgées périodiquement (TTL ~5 min) pour éviter la croissance en longue session.
+
 ### Stratégies de Tri (Sorting Strategy)
 
 La liste de rangement peut être triée selon deux axes, configurables dans les réglages globaux :
@@ -536,3 +538,11 @@ Une règle d'affichage prioritaire pour les génériques :
 
 * Si un produit est un générique et que son princeps est connu, le nom du **Princeps** devient le titre principal (H4 Bold), et le nom réel du produit passe en sous-titre.
 * Cette inversion hiérarchique vise à réduire la charge cognitive lors de la recherche du tiroir adéquat.
+
+---
+
+## 12. UI & Présentation (Hero + Compact)
+
+* **Hiérarchie visuelle forte :** Le princeps (ou, à défaut, le premier générique) est présenté en `PrincepsHeroCard` (surface ShadCard bordure primary) avec badges réglementaires et indicateurs prix/remboursement mis en avant.
+* **Liste compacte des génériques :** Les membres génériques utilisent `CompactGenericTile` (ligne 48–56px) affichant uniquement le laboratoire, les icônes d’état (prix, hôpital) et les badges critiques (rupture/arrêt). Le tri pénurie → hôpital → nom est conservé depuis le provider.
+* **Progressive Disclosure :** Le tap sur le hero ou une tuile ouvre `MedicationDetailSheet` via `showShadSheet(side: bottom)`, qui contient toutes les métadonnées (CIP, titulaire complet, prix/remboursement, conditions, disponibilité, badges). Les listes restent scannables, le détail reste à la demande.

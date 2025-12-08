@@ -1,5 +1,6 @@
 import 'package:pharma_scan/core/providers/core_providers.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
+import 'package:pharma_scan/features/explorer/domain/entities/group_detail_entity.dart';
 import 'package:pharma_scan/features/explorer/domain/extensions/view_group_detail_extensions.dart';
 import 'package:pharma_scan/features/explorer/presentation/providers/group_explorer_state.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -13,12 +14,15 @@ class GroupExplorerController extends _$GroupExplorerController {
     final catalogDao = ref.watch(catalogDaoProvider);
 
     final membersStream = catalogDao.watchGroupDetails(groupId);
-    final members = await membersStream.first;
+    final members = (await membersStream.first)
+        .map(GroupDetailEntity.fromData)
+        .toList();
 
-    final relatedMembers = await catalogDao.fetchRelatedPrinceps(groupId);
+    final relatedMembers = (await catalogDao.fetchRelatedPrinceps(
+      groupId,
+    )).map(GroupDetailEntity.fromData).toList();
 
     if (members.isEmpty) {
-      // Return empty state if no members
       return const GroupExplorerState(
         title: '',
         princeps: [],
@@ -33,7 +37,6 @@ class GroupExplorerController extends _$GroupExplorerController {
       );
     }
 
-    // Perform all transformations
     final metadata = members.toGroupHeaderMetadata();
     final partitioned = members.partitionByPrinceps();
     final princepsMembers = partitioned.princeps.sortedBySmartComparator();
@@ -44,6 +47,7 @@ class GroupExplorerController extends _$GroupExplorerController {
         members.buildRefundLabel() ?? Strings.refundNotAvailable;
     final princepsCisCode = members.extractPrincepsCisCode();
     final ansmAlertUrl = members.extractAnsmAlertUrl();
+    final firstMember = members.isNotEmpty ? members.first : null;
 
     return GroupExplorerState(
       title: metadata.title,
@@ -58,6 +62,10 @@ class GroupExplorerController extends _$GroupExplorerController {
       refundLabel: refundLabel,
       ansmAlertUrl: ansmAlertUrl,
       princepsCisCode: princepsCisCode,
+      rawLabelAnsm: firstMember?.rawLabel,
+      parsingMethod: firstMember?.parsingMethod,
+      princepsCisReference:
+          firstMember?.princepsCisReference ?? princepsCisCode,
     );
   }
 }

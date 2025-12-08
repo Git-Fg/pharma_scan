@@ -7,7 +7,7 @@
 /// - **Self-Documenting:** Method signatures clearly indicate expected ID type
 ///
 /// **2025 Standard:** All ID types must use Extension Types instead of raw `String`.
-/// See `.cursor/rules/flutter-architecture.mdc` for details.
+/// See `.cursor/rules/domain-modeling.mdc` for details.
 library;
 
 /// CIP-13 code (Code Identifiant de Présentation).
@@ -20,6 +20,7 @@ extension type Cip13(String _value) implements String {
   /// Factory constructor that validates and creates a [Cip13].
   ///
   /// **Validation:** In debug mode, asserts that the value is exactly 13 characters.
+  /// Note: assertions run only in debug builds.
   ///
   /// Throws an assertion error if validation fails (debug mode only).
   factory Cip13.validated(String value) {

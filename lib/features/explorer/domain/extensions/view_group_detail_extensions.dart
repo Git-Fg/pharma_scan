@@ -1,10 +1,10 @@
 import 'package:collection/collection.dart';
-import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/logic/sanitizer.dart';
 import 'package:pharma_scan/core/utils/formatters.dart';
+import 'package:pharma_scan/features/explorer/domain/entities/group_detail_entity.dart';
 
-/// Extension on ViewGroupDetail for presentation logic
-extension ViewGroupDetailPresentation on ViewGroupDetail {
+/// Extension on GroupDetailEntity for presentation logic
+extension GroupDetailPresentation on GroupDetailEntity {
   /// Display name for the medication (princeps or generic)
   String get displayName {
     if (isPrinceps) {
@@ -50,8 +50,8 @@ extension ViewGroupDetailPresentation on ViewGroupDetail {
   }
 }
 
-/// Extension on `List<ViewGroupDetail>` for aggregation and grouping logic
-extension ViewGroupDetailListExtensions on List<ViewGroupDetail> {
+/// Extension on `List<GroupDetailEntity>` for aggregation and grouping logic
+extension GroupDetailListExtensions on List<GroupDetailEntity> {
   /// Group header metadata extracted from members
   ({
     String title,
@@ -137,12 +137,12 @@ extension ViewGroupDetailListExtensions on List<ViewGroupDetail> {
 
   /// Partition list into princeps and generics
   ({
-    List<ViewGroupDetail> princeps,
-    List<ViewGroupDetail> generics,
+    List<GroupDetailEntity> princeps,
+    List<GroupDetailEntity> generics,
   })
   partitionByPrinceps() {
-    final princeps = <ViewGroupDetail>[];
-    final generics = <ViewGroupDetail>[];
+    final princeps = <GroupDetailEntity>[];
+    final generics = <GroupDetailEntity>[];
 
     for (final member in this) {
       if (member.isPrinceps) {
@@ -167,15 +167,15 @@ extension ViewGroupDetailListExtensions on List<ViewGroupDetail> {
   }
 
   /// Sort using smart comparator (shortage first, then hospital-only, then name)
-  List<ViewGroupDetail> sortedBySmartComparator() {
-    return List<ViewGroupDetail>.from(this)..sort(_smartMedicationComparator);
+  List<GroupDetailEntity> sortedBySmartComparator() {
+    return List<GroupDetailEntity>.from(this)..sort(_smartMedicationComparator);
   }
 }
 
 /// Smart comparator for medications (shortage first, then hospital-only, then name)
 int _smartMedicationComparator(
-  ViewGroupDetail a,
-  ViewGroupDetail b,
+  GroupDetailEntity a,
+  GroupDetailEntity b,
 ) {
   final aShortage = a.trimmedAvailabilityStatus != null;
   final bShortage = b.trimmedAvailabilityStatus != null;

@@ -44,177 +44,186 @@ class ScannerControls extends ConsumerWidget {
       child:
           AdaptiveBottomPanel(
                 children: [
-                  ClipRRect(
-                    borderRadius: context.shadTheme.radius,
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                      child: Container(
-                        padding: const EdgeInsets.all(
-                          AppDimens.spacingLg,
-                        ),
-                        decoration: BoxDecoration(
-                          color: ShadTheme.of(
-                            context,
-                          ).colorScheme.background.withValues(alpha: 0.9),
-                          border: Border.all(
-                            color: ShadTheme.of(
-                              context,
-                            ).colorScheme.border.withValues(alpha: 0.5),
-                          ),
-                        ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Builder(
-                              builder: (context) {
-                                final scannerState = ref.watch(scannerProvider);
-                                final mode = scannerState.maybeWhen(
-                                  data: (value) => value.mode,
-                                  orElse: () => ScannerMode.analysis,
-                                );
-                                final isRestockMode =
-                                    mode == ScannerMode.restock;
-
-                                return Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        isRestockMode
-                                            ? Strings.scannerModeRestock
-                                            : Strings.scannerModeAnalysis,
-                                        style: context.shadTextTheme.small,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                    ShadSwitch(
-                                      value: isRestockMode,
-                                      onChanged: (value) {
-                                        ref
-                                            .read(scannerProvider.notifier)
-                                            .setMode(
-                                              value
-                                                  ? ScannerMode.restock
-                                                  : ScannerMode.analysis,
-                                            );
-                                      },
-                                    ),
-                                  ],
-                                );
-                              },
+                  Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 600),
+                      child: ClipRRect(
+                        borderRadius: context.shadTheme.radius,
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                          child: Container(
+                            padding: const EdgeInsets.all(
+                              AppDimens.spacingLg,
                             ),
-                            const Gap(AppDimens.spacingMd),
-                            Center(
-                              child: Testable(
-                                id: isCameraActive
-                                    ? TestTags.scanStopBtn
-                                    : TestTags.scanStartBtn,
-                                child: SizedBox(
-                                  width: 88,
-                                  height: 88,
-                                  child: ShadIconButton(
-                                    onPressed: isInitializing
-                                        ? null
-                                        : onToggleCamera,
-                                    icon: Icon(
-                                      isCameraActive
-                                          ? LucideIcons.cameraOff
-                                          : LucideIcons.scanLine,
-                                      size: AppDimens.iconXl,
-                                      color: ShadTheme.of(
-                                        context,
-                                      ).colorScheme.primaryForeground,
-                                    ),
-                                    gradient: LinearGradient(
-                                      colors: [
-                                        ShadTheme.of(
-                                          context,
-                                        ).colorScheme.primary,
-                                        ShadTheme.of(
-                                          context,
-                                        ).colorScheme.primary.withValues(
-                                          alpha: 0.85,
+                            decoration: BoxDecoration(
+                              color: ShadTheme.of(
+                                context,
+                              ).colorScheme.background.withValues(alpha: 0.9),
+                              border: Border.all(
+                                color: ShadTheme.of(
+                                  context,
+                                ).colorScheme.border.withValues(alpha: 0.5),
+                              ),
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Builder(
+                                  builder: (context) {
+                                    final scannerState = ref.watch(
+                                      scannerProvider,
+                                    );
+                                    final mode = scannerState.maybeWhen(
+                                      data: (value) => value.mode,
+                                      orElse: () => ScannerMode.analysis,
+                                    );
+                                    final isRestockMode =
+                                        mode == ScannerMode.restock;
+
+                                    return Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            isRestockMode
+                                                ? Strings.scannerModeRestock
+                                                : Strings.scannerModeAnalysis,
+                                            style: context.shadTextTheme.small,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        ShadSwitch(
+                                          value: isRestockMode,
+                                          onChanged: (value) {
+                                            ref
+                                                .read(scannerProvider.notifier)
+                                                .setMode(
+                                                  value
+                                                      ? ScannerMode.restock
+                                                      : ScannerMode.analysis,
+                                                );
+                                          },
                                         ),
                                       ],
-                                    ),
-                                    shadows: [
-                                      BoxShadow(
-                                        color:
+                                    );
+                                  },
+                                ),
+                                const Gap(AppDimens.spacingMd),
+                                Center(
+                                  child: Testable(
+                                    id: isCameraActive
+                                        ? TestTags.scanStopBtn
+                                        : TestTags.scanStartBtn,
+                                    child: SizedBox(
+                                      width: 88,
+                                      height: 88,
+                                      child: ShadIconButton(
+                                        onPressed: isInitializing
+                                            ? null
+                                            : onToggleCamera,
+                                        icon: Icon(
+                                          isCameraActive
+                                              ? LucideIcons.cameraOff
+                                              : LucideIcons.scanLine,
+                                          size: AppDimens.iconXl,
+                                          color: ShadTheme.of(
+                                            context,
+                                          ).colorScheme.primaryForeground,
+                                        ),
+                                        gradient: LinearGradient(
+                                          colors: [
+                                            ShadTheme.of(
+                                              context,
+                                            ).colorScheme.primary,
                                             ShadTheme.of(
                                               context,
                                             ).colorScheme.primary.withValues(
-                                              alpha: 0.35,
+                                              alpha: 0.85,
                                             ),
-                                        blurRadius: 20,
-                                        offset: const Offset(0, 12),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const Gap(AppDimens.spacingLg),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Testable(
-                                    id: TestTags.scanGalleryBtn,
-                                    child: Semantics(
-                                      button: true,
-                                      label: Strings.importBarcodeFromGallery,
-                                      child: FittedBox(
-                                        fit: BoxFit.scaleDown,
-                                        child: ShadButton.secondary(
-                                          onPressed: isInitializing
-                                              ? null
-                                              : onGallery,
-                                          leading: const Icon(
-                                            LucideIcons.image,
-                                            size: AppDimens.iconSm,
-                                          ),
-                                          child: const Text(
-                                            Strings.gallery,
-                                            overflow: TextOverflow.ellipsis,
-                                            maxLines: 1,
-                                          ),
+                                          ],
                                         ),
+                                        shadows: [
+                                          BoxShadow(
+                                            color:
+                                                ShadTheme.of(
+                                                      context,
+                                                    ).colorScheme.primary
+                                                    .withValues(
+                                                      alpha: 0.35,
+                                                    ),
+                                            blurRadius: 20,
+                                            offset: const Offset(0, 12),
+                                          ),
+                                        ],
                                       ),
                                     ),
                                   ),
                                 ),
-                                const Gap(AppDimens.spacingMd),
-                                Expanded(
-                                  child: Testable(
-                                    id: TestTags.scanManualBtn,
-                                    child: Semantics(
-                                      button: true,
-                                      label: Strings.manuallyEnterCipCode,
-                                      child: FittedBox(
-                                        fit: BoxFit.scaleDown,
-                                        child: ShadButton.secondary(
-                                          onPressed: isInitializing
-                                              ? null
-                                              : onManualEntry,
-                                          leading: const Icon(
-                                            LucideIcons.keyboard,
-                                            size: AppDimens.iconSm,
-                                          ),
-                                          child: const Text(
-                                            Strings.manualEntry,
-                                            overflow: TextOverflow.ellipsis,
-                                            maxLines: 1,
+                                const Gap(AppDimens.spacingLg),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Testable(
+                                        id: TestTags.scanGalleryBtn,
+                                        child: Semantics(
+                                          button: true,
+                                          label:
+                                              Strings.importBarcodeFromGallery,
+                                          child: FittedBox(
+                                            fit: BoxFit.scaleDown,
+                                            child: ShadButton.secondary(
+                                              onPressed: isInitializing
+                                                  ? null
+                                                  : onGallery,
+                                              leading: const Icon(
+                                                LucideIcons.image,
+                                                size: AppDimens.iconSm,
+                                              ),
+                                              child: const Text(
+                                                Strings.gallery,
+                                                overflow: TextOverflow.ellipsis,
+                                                maxLines: 1,
+                                              ),
+                                            ),
                                           ),
                                         ),
                                       ),
                                     ),
-                                  ),
+                                    const Gap(AppDimens.spacingMd),
+                                    Expanded(
+                                      child: Testable(
+                                        id: TestTags.scanManualBtn,
+                                        child: Semantics(
+                                          button: true,
+                                          label: Strings.manuallyEnterCipCode,
+                                          child: FittedBox(
+                                            fit: BoxFit.scaleDown,
+                                            child: ShadButton.secondary(
+                                              onPressed: isInitializing
+                                                  ? null
+                                                  : onManualEntry,
+                                              leading: const Icon(
+                                                LucideIcons.keyboard,
+                                                size: AppDimens.iconSm,
+                                              ),
+                                              child: const Text(
+                                                Strings.manualEntry,
+                                                overflow: TextOverflow.ellipsis,
+                                                maxLines: 1,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
-                          ],
+                          ),
                         ),
                       ),
                     ),

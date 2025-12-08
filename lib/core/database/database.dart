@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:diacritic/diacritic.dart';
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:path/path.dart' as p;
@@ -11,7 +10,9 @@ import 'package:pharma_scan/core/database/daos/database_dao.dart';
 import 'package:pharma_scan/core/database/daos/restock_dao.dart';
 import 'package:pharma_scan/core/database/daos/settings_dao.dart';
 import 'package:pharma_scan/core/database/tables/restock_items.dart';
+import 'package:pharma_scan/core/database/tables/scanned_boxes.dart';
 import 'package:pharma_scan/core/database/tables/settings.dart';
+import 'package:pharma_scan/core/logic/sanitizer.dart';
 import 'package:pharma_scan/core/services/logger_service.dart';
 import 'package:sqlite3/sqlite3.dart';
 import 'package:sqlite3_flutter_libs/sqlite3_flutter_libs.dart';
@@ -55,8 +56,10 @@ class Specialites extends Table {
   TextColumn get formePharmaceutique => text().nullable()();
   TextColumn get voiesAdministration => text().nullable()();
   TextColumn get etatCommercialisation => text().nullable()();
-  TextColumn get titulaire => text().nullable()();
+  IntColumn get titulaireId =>
+      integer().nullable().references(Laboratories, #id)();
   TextColumn get conditionsPrescription => text().nullable()();
+  DateTimeColumn get dateAmm => dateTime().nullable()();
   TextColumn get atcCode => text().nullable()();
   BoolColumn get isSurveillance =>
       boolean().withDefault(const Constant(false))();
@@ -109,6 +112,8 @@ class GeneriqueGroups extends Table {
   TextColumn get libelle => text()();
   TextColumn get princepsLabel => text().nullable()();
   TextColumn get moleculeLabel => text().nullable()();
+  TextColumn get rawLabel => text().nullable()();
+  TextColumn get parsingMethod => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {groupId};
@@ -119,7 +124,8 @@ class GeneriqueGroups extends Table {
 class GroupMembers extends Table {
   TextColumn get codeCip => text().references(Medicaments, #codeCip)();
   TextColumn get groupId => text().references(GeneriqueGroups, #groupId)();
-  IntColumn get type => integer()(); // 0 for princeps, 1 for generic
+  IntColumn get type =>
+      integer()(); // 0 princeps, 1 standard, 2 complémentarité, 4 substituable
 
   @override
   Set<Column> get primaryKey => {codeCip};
@@ -149,6 +155,8 @@ class MedicamentSummary extends Table {
   BoolColumn get isPrinceps => boolean()();
   TextColumn get groupId =>
       text().nullable()(); // nullable for medications without groups
+  IntColumn get memberType =>
+      integer().withDefault(const Constant(0))(); // raw BDPM generic type
   TextColumn get principesActifsCommuns => text().map(
     const StringListConverter(),
   )(); // JSON array of common active ingredients
@@ -158,8 +166,10 @@ class MedicamentSummary extends Table {
   TextColumn get voiesAdministration => text().nullable()(); // semicolon routes
   TextColumn get princepsBrandName => text()();
   TextColumn get procedureType => text().nullable()();
-  TextColumn get titulaire => text().nullable()();
+  IntColumn get titulaireId =>
+      integer().nullable().references(Laboratories, #id)();
   TextColumn get conditionsPrescription => text().nullable()();
+  DateTimeColumn get dateAmm => dateTime().nullable()();
   BoolColumn get isSurveillance =>
       boolean().withDefault(const Constant(false))();
   TextColumn get formattedDosage => text().nullable()();
@@ -192,6 +202,11 @@ class MedicamentSummary extends Table {
   Set<Column> get primaryKey => {cisCode};
 }
 
+class Laboratories extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get name => text().unique()();
+}
+
 // -- Database Class --
 
 @DriftDatabase(
@@ -205,6 +220,8 @@ class MedicamentSummary extends Table {
     MedicamentSummary,
     AppSettings,
     RestockItems,
+    Laboratories,
+    ScannedBoxes,
   ],
   daos: [SettingsDao, CatalogDao, DatabaseDao, RestockDao],
   include: {'queries.drift', 'views.drift'},
@@ -216,7 +233,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration {
@@ -225,11 +242,44 @@ class AppDatabase extends _$AppDatabase {
         await m.createAll();
       },
       onUpgrade: (Migrator m, int from, int to) async {
-        if (from < 3) {
-          await m.createTable(restockItems);
+        if (from < 6) {
+          // Destructive reset accepted per user instruction (DB will be reseeded).
+          await m.database.customStatement(
+            'DROP VIEW IF EXISTS view_aggregated_grouped;',
+          );
+          await m.database.customStatement(
+            'DROP VIEW IF EXISTS view_aggregated_standalone;',
+          );
+          await m.database.customStatement(
+            'DROP VIEW IF EXISTS view_group_details;',
+          );
+          await m.database.customStatement(
+            'DROP VIEW IF EXISTS view_generic_group_summaries;',
+          );
+          await m.database.customStatement(
+            'DROP VIEW IF EXISTS detailed_scan_results;',
+          );
+          await m.database.customStatement(
+            'DROP TABLE IF EXISTS search_index;',
+          );
+          await m.deleteTable(medicamentAvailability.actualTableName);
+          await m.deleteTable(groupMembers.actualTableName);
+          await m.deleteTable(principesActifs.actualTableName);
+          await m.deleteTable(medicaments.actualTableName);
+          await m.deleteTable(generiqueGroups.actualTableName);
+          await m.deleteTable(medicamentSummary.actualTableName);
+          await m.deleteTable(specialites.actualTableName);
+          await m.deleteTable(restockItems.actualTableName);
+          await m.deleteTable(scannedBoxes.actualTableName);
+          await m.deleteTable(appSettings.actualTableName);
+          await m.deleteTable('laboratories');
+          await m.createAll();
         }
-        if (from < 4) {
-          await m.addColumn(appSettings, appSettings.preferredSorting);
+        if (from < 7) {
+          await m.createTable(scannedBoxes);
+        }
+        if (from < 8) {
+          await m.addColumn(appSettings, appSettings.scanHistoryLimit);
         }
       },
     );
@@ -245,13 +295,7 @@ void _registerNormalizeTextFunction(Database database) {
     function: (args) {
       final source = args.isEmpty ? '' : args.first?.toString() ?? '';
       if (source.isEmpty) return '';
-      return removeDiacritics(source)
-          .toLowerCase()
-          .replaceAll("'", ' ')
-          .replaceAll('"', ' ')
-          .replaceAll(':', ' ')
-          .replaceAll(RegExp(r'\s+'), ' ')
-          .trim();
+      return normalizeForSearch(source);
     },
   );
 }

@@ -1,0 +1,33 @@
+---
+description: Security protocols, permission handling, and data privacy standards
+alwaysApply: true
+---
+
+# Security & Privacy (2025 Standard)
+
+## Data Privacy & Telemetry
+
+- Enforce zero telemetry (`firebase_analytics_collection_deactivated=true`)
+- Never log PII or health data to Talker/console
+- Strip secrets from logs and crash reports
+
+## Input & Query Safety
+
+- Sanitize all untrusted input before storage or queries
+- For search/FTS flows, escape user strings via the data-layer helpers
+- Validate form inputs; reject unexpected formats early
+
+## Storage
+
+- Use secure storage for tokens/secrets; never plain SharedPreferences
+- Drift data is plaintext by default: do not store patient data without SQLCipher
+
+## Permissions
+
+- Request only the minimum runtime permissions needed for a feature
+- Deny-by-default posture; handle revoked permissions gracefully
+
+## Network Hygiene
+
+- Prefer HTTPS; pin critical endpoints where applicable
+- Avoid embedding credentials in the binary; rely on runtime configs/secrets

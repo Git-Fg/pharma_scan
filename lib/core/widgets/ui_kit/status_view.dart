@@ -13,6 +13,8 @@ class StatusView extends StatelessWidget {
     this.title,
     this.description,
     this.action,
+    this.actionLabel,
+    this.onAction,
     this.icon,
   });
 
@@ -20,6 +22,8 @@ class StatusView extends StatelessWidget {
   final String? title;
   final String? description;
   final Widget? action;
+  final String? actionLabel;
+  final VoidCallback? onAction;
   final IconData? icon;
 
   @override
@@ -39,42 +43,78 @@ class StatusView extends StatelessWidget {
             (type == StatusType.empty
                 ? LucideIcons.searchX
                 : LucideIcons.triangleAlert);
-        final iconColor = type == StatusType.empty
-            ? context.shadColors.mutedForeground
-            : context.shadColors.destructive;
+        final isError = type == StatusType.error;
+        const maxWidth = 520.0;
 
         return Center(
           child: Padding(
-            padding: const EdgeInsets.all(AppDimens.spacing2xl),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  effectiveIcon,
-                  size: AppDimens.icon2xl,
-                  color: iconColor.withValues(alpha: 0.5),
-                ),
-                const Gap(AppDimens.spacingMd),
-                if (title != null)
-                  Text(title!, style: context.shadTextTheme.h4),
-                if (description != null) ...[
-                  const Gap(AppDimens.spacingXs),
-                  Text(
-                    description!,
-                    style: context.shadTextTheme.small.copyWith(
-                      color: context.shadColors.mutedForeground,
+            padding: const EdgeInsets.all(AppDimens.spacingXl),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: maxWidth),
+              child: isError
+                  ? ShadAlert.destructive(
+                      icon: Icon(effectiveIcon),
+                      title: title != null
+                          ? Text(
+                              title!,
+                              style: context.shadTextTheme.h4.copyWith(
+                                color: context.shadColors.destructive,
+                              ),
+                            )
+                          : null,
+                      description: _buildDescription(context),
+                    )
+                  : ShadCard(
+                      title: Row(
+                        children: [
+                          Icon(
+                            effectiveIcon,
+                            color: context.shadColors.mutedForeground,
+                          ),
+                          const Gap(AppDimens.spacingXs),
+                          if (title != null)
+                            Expanded(
+                              child: Text(
+                                title!,
+                                style: context.shadTextTheme.h4,
+                              ),
+                            ),
+                        ],
+                      ),
+                      description: _buildDescription(context),
                     ),
-                  ),
-                ],
-                if (action != null) ...[
-                  const Gap(AppDimens.spacingXl),
-                  action!,
-                ],
-              ],
             ),
           ),
         );
     }
+  }
+
+  Widget _buildDescription(BuildContext context) {
+    final descriptionText = description;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (descriptionText != null) ...[
+          Text(
+            descriptionText,
+            style: context.shadTextTheme.small.copyWith(
+              color: context.shadColors.mutedForeground,
+            ),
+          ),
+        ],
+        if (action != null) ...[
+          const Gap(AppDimens.spacingMd),
+          action!,
+        ],
+        if (onAction != null && actionLabel != null) ...[
+          const Gap(AppDimens.spacingMd),
+          ShadButton.outline(
+            onPressed: onAction,
+            child: Text(actionLabel!),
+          ),
+        ],
+      ],
+    );
   }
 }

@@ -1,11 +1,17 @@
 // test/core/database/logic/clustering_rules_test.dart
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pharma_scan/core/database/daos/database_dao.dart';
 import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
 
 import '../../../fixtures/seed_builder.dart';
-import '../../../test_utils.dart' show setPrincipeNormalizedForAllPrinciples;
+import '../../../test_utils.dart'
+    show
+        buildGeneriqueGroupCompanion,
+        buildGroupMemberCompanion,
+        buildPrincipeCompanion,
+        setPrincipeNormalizedForAllPrinciples;
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -29,10 +35,10 @@ void main() {
       'CRITICAL: Néfopam and Adriblastine should be in separate groups via SQL',
       () async {
         await SeedBuilder()
-            .inGroup('GROUP_NEFOPAM', 'NEFOPAM 20 mg')
+            .inGroup('GROUP_NEFOPAM', 'NÉFOPAM 20 mg')
             .addPrinceps(
               'ACUPAN 20 mg, comprimé',
-              'CIP_NEFOPAM',
+              '3400930001001',
               cis: 'CIS_NEFOPAM',
               dosage: '20',
               form: 'Comprimé',
@@ -41,47 +47,114 @@ void main() {
             .inGroup('GROUP_ADRIBLASTINE', 'ADRIBLASTINE 10 mg')
             .addPrinceps(
               'ADRIBLASTINE 10 mg, poudre',
-              'CIP_ADRIBLASTINE',
+              '3400930001002',
               cis: 'CIS_ADRIBLASTINE',
               dosage: '10',
               form: 'Poudre',
               lab: 'PFIZER',
             )
+            .addGeneric(
+              'ACUPAN Générique 20 mg, comprimé',
+              '3400930001003',
+              cis: 'CIS_NEFOPAM_GEN',
+              dosage: '20',
+              form: 'Comprimé',
+              lab: 'GÉNÉRIQUE',
+            )
+            .addGeneric(
+              'ADRIBLASTINE Générique 10 mg, poudre',
+              '3400930001004',
+              cis: 'CIS_ADRIBLASTINE_GEN',
+              dosage: '10',
+              form: 'Poudre',
+              lab: 'GÉNÉRIQUE',
+            )
             .insertInto(database);
 
         await database.databaseDao.insertBatchData(
-          specialites: [],
-          medicaments: [],
-          principes: [
-            {
-              'code_cip': 'CIP_NEFOPAM',
-              'principe': 'NEFOPAM',
-              'dosage': '20',
-              'dosage_unit': 'mg',
-            },
-            {
-              'code_cip': 'CIP_ADRIBLASTINE',
-              'principe': 'DOXORUBICINE',
-              'dosage': '10',
-              'dosage_unit': 'mg',
-            },
-          ],
-          generiqueGroups: [],
-          groupMembers: [],
+          batchData: IngestionBatch(
+            specialites: const [],
+            medicaments: const [],
+            principes: [
+              buildPrincipeCompanion(
+                codeCip: '3400930001001',
+                principe: 'NÉFOPAM (CHLORHYDRATE DE)',
+                dosage: '20',
+                dosageUnit: 'mg',
+              ),
+              buildPrincipeCompanion(
+                codeCip: '3400930001003',
+                principe: 'NÉFOPAM',
+                dosage: '20',
+                dosageUnit: 'mg',
+              ),
+              buildPrincipeCompanion(
+                codeCip: '3400930001002',
+                principe: 'DOXORUBICINE',
+                dosage: '10',
+                dosageUnit: 'mg',
+              ),
+              buildPrincipeCompanion(
+                codeCip: '3400930001004',
+                principe: 'DOXORUBICINE',
+                dosage: '10',
+                dosageUnit: 'mg',
+              ),
+            ],
+            generiqueGroups: [
+              buildGeneriqueGroupCompanion(
+                groupId: 'GROUP_NEFOPAM',
+                libelle: 'NEFOPAM',
+                princepsLabel: 'ACUPAN 20 mg, comprimé',
+                moleculeLabel: 'NEFOPAM',
+                rawLabel: 'NEFOPAM - ACUPAN 20 mg, comprimé',
+                parsingMethod: 'relational',
+              ),
+              buildGeneriqueGroupCompanion(
+                groupId: 'GROUP_ADRIBLASTINE',
+                libelle: 'DOXORUBICINE',
+                princepsLabel: 'ADRIBLASTINE 10 mg, poudre',
+                moleculeLabel: 'DOXORUBICINE',
+                rawLabel: 'DOXORUBICINE - ADRIBLASTINE 10 mg, poudre',
+                parsingMethod: 'relational',
+              ),
+            ],
+            groupMembers: [
+              buildGroupMemberCompanion(
+                groupId: 'GROUP_NEFOPAM',
+                codeCip: '3400930001001',
+                type: 0,
+              ),
+              buildGroupMemberCompanion(
+                groupId: 'GROUP_NEFOPAM',
+                codeCip: '3400930001003',
+                type: 1,
+              ),
+              buildGroupMemberCompanion(
+                groupId: 'GROUP_ADRIBLASTINE',
+                codeCip: '3400930001002',
+                type: 0,
+              ),
+              buildGroupMemberCompanion(
+                groupId: 'GROUP_ADRIBLASTINE',
+                codeCip: '3400930001004',
+                type: 1,
+              ),
+            ],
+            laboratories: const [],
+          ),
         );
 
         await setPrincipeNormalizedForAllPrinciples(database);
         await dataInitializationService.runSummaryAggregationForTesting();
 
-        final summaries = await database.catalogDao.getGenericGroupSummaries(
-          
-        );
+        final summaries = await database.catalogDao.getGenericGroupSummaries();
 
         final nefopamGroups = summaries
-            .where((s) => s.commonPrincipes.contains('NEFOPAM'))
+            .where((s) => s.groupId == 'GROUP_NEFOPAM')
             .toList();
         final adriblastineGroups = summaries
-            .where((s) => s.commonPrincipes.contains('DOXORUBICINE'))
+            .where((s) => s.groupId == 'GROUP_ADRIBLASTINE')
             .toList();
 
         expect(
@@ -160,38 +233,39 @@ void main() {
             .insertInto(database);
 
         await database.databaseDao.insertBatchData(
-          specialites: [],
-          medicaments: [],
-          principes: [
-            {
-              'code_cip': 'CIP_MEMANTINE_10',
-              'principe': 'MÉMANTINE (CHLORHYDRATE DE)',
-              'dosage': '10',
-              'dosage_unit': 'mg',
-            },
-            {
-              'code_cip': 'CIP_MEMANTINE_20',
-              'principe': 'MÉMANTINE (CHLORHYDRATE DE)',
-              'dosage': '20',
-              'dosage_unit': 'mg',
-            },
-            {
-              'code_cip': 'CIP_MEMANTINE_5',
-              'principe': 'MÉMANTINE (CHLORHYDRATE DE)',
-              'dosage': '5',
-              'dosage_unit': 'mg',
-            },
-          ],
-          generiqueGroups: [],
-          groupMembers: [],
+          batchData: IngestionBatch(
+            specialites: const [],
+            medicaments: const [],
+            principes: [
+              buildPrincipeCompanion(
+                codeCip: 'CIP_MEMANTINE_10',
+                principe: 'MÉMANTINE (CHLORHYDRATE DE)',
+                dosage: '10',
+                dosageUnit: 'mg',
+              ),
+              buildPrincipeCompanion(
+                codeCip: 'CIP_MEMANTINE_20',
+                principe: 'MÉMANTINE (CHLORHYDRATE DE)',
+                dosage: '20',
+                dosageUnit: 'mg',
+              ),
+              buildPrincipeCompanion(
+                codeCip: 'CIP_MEMANTINE_5',
+                principe: 'MÉMANTINE (CHLORHYDRATE DE)',
+                dosage: '5',
+                dosageUnit: 'mg',
+              ),
+            ],
+            generiqueGroups: const [],
+            groupMembers: const [],
+            laboratories: const [],
+          ),
         );
 
         await setPrincipeNormalizedForAllPrinciples(database);
         await dataInitializationService.runSummaryAggregationForTesting();
 
-        final summaries = await database.catalogDao.getGenericGroupSummaries(
-          
-        );
+        final summaries = await database.catalogDao.getGenericGroupSummaries();
 
         final memantineGroups = summaries
             .where(
@@ -252,24 +326,27 @@ void main() {
             .insertInto(database);
 
         await database.databaseDao.insertBatchData(
-          specialites: [],
-          medicaments: [],
-          principes: [
-            {
-              'code_cip': 'CIP_TENORDATE',
-              'principe': 'ATENOLOL',
-              'dosage': '50',
-              'dosage_unit': 'mg',
-            },
-            {
-              'code_cip': 'CIP_TENORDATE',
-              'principe': 'NIFEDIPINE',
-              'dosage': '20',
-              'dosage_unit': 'mg',
-            },
-          ],
-          generiqueGroups: [],
-          groupMembers: [],
+          batchData: IngestionBatch(
+            specialites: const [],
+            medicaments: const [],
+            principes: [
+              buildPrincipeCompanion(
+                codeCip: 'CIP_TENORDATE',
+                principe: 'ATENOLOL',
+                dosage: '50',
+                dosageUnit: 'mg',
+              ),
+              buildPrincipeCompanion(
+                codeCip: 'CIP_TENORDATE',
+                principe: 'NIFEDIPINE',
+                dosage: '20',
+                dosageUnit: 'mg',
+              ),
+            ],
+            generiqueGroups: const [],
+            groupMembers: const [],
+            laboratories: const [],
+          ),
         );
 
         await setPrincipeNormalizedForAllPrinciples(database);
@@ -308,9 +385,7 @@ void main() {
         );
 
         final genericGroupSummaries = await database.catalogDao
-            .getGenericGroupSummaries(
-              
-            );
+            .getGenericGroupSummaries();
 
         final tenordateSummary = genericGroupSummaries.firstWhere(
           (s) => s.groupId == 'GRP_TENORDATE',

@@ -63,7 +63,7 @@ void main() {
             formePharmaceutique: const Value('Comprimé'),
             princepsBrandName: 'Test Brand',
             procedureType: const Value('Procédure'),
-            titulaire: const Value('Test Lab'),
+            titulaireId: const Value<int?>(null),
           ),
         );
 
@@ -87,7 +87,9 @@ void main() {
       availability: 'Rupture de stock',
     );
 
-    final result = await scanDao.getProductByCip(Cip13.validated('3400000000012'));
+    final result = await scanDao.getProductByCip(
+      Cip13.validated('3400000000012'),
+    );
 
     expect(result, isNotNull);
     expect(result!.availabilityStatus, equals('Rupture de stock'));
@@ -100,7 +102,9 @@ void main() {
     () async {
       await seedData(agrement: 'oui');
 
-      final result = await scanDao.getProductByCip(Cip13.validated('3400000000012'));
+      final result = await scanDao.getProductByCip(
+        Cip13.validated('3400000000012'),
+      );
       expect(result, isNotNull);
       expect(result!.isHospitalOnly, isTrue);
       expect(result.availabilityStatus, isNull);

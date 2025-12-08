@@ -7,7 +7,6 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:gap/gap.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:pharma_scan/core/config/data_sources.dart';
-import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/providers/navigation_provider.dart';
 import 'package:pharma_scan/core/router/app_router.dart';
 import 'package:pharma_scan/core/services/logger_service.dart';
@@ -15,15 +14,14 @@ import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/formatters.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
-import 'package:pharma_scan/core/widgets/swipe_back_detector.dart';
-import 'package:pharma_scan/core/widgets/ui_kit/product_type_badge.dart';
-import 'package:pharma_scan/core/widgets/ui_kit/regulatory_badges.dart';
-import 'package:pharma_scan/core/widgets/ui_kit/section_header.dart';
+import 'package:pharma_scan/core/widgets/ui_kit/product_badges.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/status_view.dart';
+import 'package:pharma_scan/features/explorer/domain/entities/group_detail_entity.dart';
 import 'package:pharma_scan/features/explorer/domain/extensions/view_group_detail_extensions.dart';
 import 'package:pharma_scan/features/explorer/presentation/providers/group_explorer_provider.dart';
 import 'package:pharma_scan/features/explorer/presentation/providers/group_explorer_state.dart';
-import 'package:pharma_scan/features/explorer/presentation/widgets/rcp_shortcuts_accordion.dart';
+import 'package:pharma_scan/features/explorer/presentation/widgets/medication_detail_sheet.dart';
+import 'package:pharma_scan/features/explorer/presentation/widgets/princeps_hero_card.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -40,17 +38,11 @@ class GroupExplorerView extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     useEffect(() {
       final notifier = ref.read(canSwipeRootProvider.notifier);
-      unawaited(
-        Future.microtask(() {
-          notifier.canSwipe = false;
-        }),
-      );
+      unawaited(Future.microtask(() => notifier.canSwipe = false));
       return () {
-        unawaited(
-          Future.microtask(() {
-            notifier.canSwipe = true;
-          }),
-        );
+        if (context.mounted) {
+          notifier.canSwipe = true;
+        }
       };
     }, [groupId]);
 
@@ -62,24 +54,22 @@ class GroupExplorerView extends HookConsumerWidget {
           return Scaffold(
             appBar: AppBar(
               title: const Text(Strings.loadDetailsError),
-              leading: IconButton(
+              leading: ShadIconButton.ghost(
                 icon: const Icon(LucideIcons.arrowLeft),
-                onPressed: () => context.router.maybePop(),
+                onPressed: () => AutoRouter.of(context).maybePop(),
               ),
             ),
-            body: SwipeBackDetector(
-              child: StatusView(
-                type: StatusType.error,
-                title: Strings.loadDetailsError,
-                description: Strings.errorLoadingGroups,
-                action: Semantics(
-                  button: true,
-                  label: Strings.backButtonLabel,
-                  hint: Strings.backButtonHint,
-                  child: ShadButton.outline(
-                    onPressed: () => context.router.maybePop(),
-                    child: const Text(Strings.back),
-                  ),
+            body: StatusView(
+              type: StatusType.error,
+              title: Strings.loadDetailsError,
+              description: Strings.errorLoadingGroups,
+              action: Semantics(
+                button: true,
+                label: Strings.backButtonLabel,
+                hint: Strings.backButtonHint,
+                child: ShadButton.outline(
+                  onPressed: () => AutoRouter.of(context).maybePop(),
+                  child: const Text(Strings.back),
                 ),
               ),
             ),
@@ -90,13 +80,18 @@ class GroupExplorerView extends HookConsumerWidget {
 
         // Detect if we're in Scanner context
         final isInScannerContext = _isInScannerContext(context);
+        final heroMember =
+            state.princeps.firstOrNull ?? state.generics.firstOrNull;
+        final genericsForList = heroMember != null && !heroMember.isPrinceps
+            ? state.generics.skip(1).toList()
+            : state.generics;
 
         return Scaffold(
           appBar: AppBar(
             title: Text(state.title),
-            leading: IconButton(
+            leading: ShadIconButton.ghost(
               icon: const Icon(LucideIcons.arrowLeft),
-              onPressed: () => context.router.maybePop(),
+              onPressed: () => AutoRouter.of(context).maybePop(),
             ),
             actions: isInScannerContext
                 ? [
@@ -110,97 +105,113 @@ class GroupExplorerView extends HookConsumerWidget {
                   ]
                 : null,
           ),
-          body: SwipeBackDetector(
-            child: CustomScrollView(
-              slivers: [
-                SliverToBoxAdapter(
-                  child: Column(
-                    children: [
-                      _buildAppBarContent(
+          body: CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(
+                child: Column(
+                  children: [
+                    _buildAppBarContent(
+                      context,
+                      state,
+                    ),
+                  ],
+                ),
+              ),
+              if (heroMember != null)
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppDimens.spacingMd,
+                  ),
+                  sliver: SliverToBoxAdapter(
+                    child: PrincepsHeroCard(
+                      princeps: heroMember,
+                      isFallbackGeneric: !heroMember.isPrinceps,
+                      onViewDetails: () => _openDetailSheet(
                         context,
-                        state,
+                        heroMember,
                       ),
-                      if (state.princepsCisCode != null &&
-                          state.princepsCisCode!.isNotEmpty) ...[
-                        const Gap(AppDimens.spacingSm),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppDimens.spacingMd,
-                          ),
-                          child: RcpShortcutsAccordion(
-                            cisCode: state.princepsCisCode!,
-                          ),
-                        ),
-                      ],
-                    ],
+                    ),
                   ),
                 ),
-                _buildSectionSliver(
-                  context,
-                  Strings.princeps,
-                  state.princeps.length,
-                  state.princeps,
-                  sectionType: _ProductSectionType.princeps,
-                  icon: LucideIcons.star,
+              if (genericsForList.isNotEmpty)
+                SliverMainAxisGroup(
+                  slivers: [
+                    _buildStickySectionHeader(
+                      context: context,
+                      title: Strings.genericsAvailable,
+                      badgeCount: genericsForList.length,
+                      icon: LucideIcons.copy,
+                    ),
+                    SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) {
+                          final generic = genericsForList[index];
+                          return _CompactGenericTile(
+                            item: generic,
+                            onTap: () => _openDetailSheet(context, generic),
+                          );
+                        },
+                        childCount: genericsForList.length,
+                      ),
+                    ),
+                  ],
                 ),
-                _buildSectionSliver(
+              if (shouldShowRelatedSection)
+                _buildRelatedSectionSliver(
                   context,
-                  Strings.generics,
-                  state.generics.length,
-                  state.generics,
-                  sectionType: _ProductSectionType.generics,
-                  icon: LucideIcons.copy,
+                  state.related,
+                  isLoading: false,
                 ),
-                if (shouldShowRelatedSection)
-                  _buildRelatedSectionSliver(
-                    context,
-                    state.related,
-                    isLoading: false,
-                  ),
-                const SliverToBoxAdapter(child: Gap(AppDimens.spacingXl)),
-              ],
-            ),
+              const SliverGap(AppDimens.spacingXl),
+            ],
           ),
         );
       },
       loading: () => Scaffold(
         appBar: AppBar(
           title: const Text(Strings.loading),
-          leading: IconButton(
+          leading: ShadIconButton.ghost(
             icon: const Icon(LucideIcons.arrowLeft),
-            onPressed: () => context.router.maybePop(),
+            onPressed: () => AutoRouter.of(context).maybePop(),
           ),
         ),
-        body: const SwipeBackDetector(
-          child: StatusView(type: StatusType.loading),
-        ),
+        body: const StatusView(type: StatusType.loading),
       ),
       error: (error, stackTrace) => Scaffold(
         appBar: AppBar(
           title: const Text(Strings.loadDetailsError),
-          leading: IconButton(
+          leading: ShadIconButton.ghost(
             icon: const Icon(LucideIcons.arrowLeft),
-            onPressed: () => context.router.maybePop(),
+            onPressed: () => AutoRouter.of(context).maybePop(),
           ),
         ),
-        body: SwipeBackDetector(
-          child: StatusView(
-            type: StatusType.error,
-            title: Strings.loadDetailsError,
-            description: error.toString(),
-            action: Semantics(
-              button: true,
-              label: Strings.retryButtonLabel,
-              hint: Strings.retryButtonHint,
-              child: ShadButton(
-                onPressed: () =>
-                    ref.invalidate(groupExplorerControllerProvider(groupId)),
-                child: const Text(Strings.retry),
-              ),
+        body: StatusView(
+          type: StatusType.error,
+          title: Strings.loadDetailsError,
+          description: error.toString(),
+          action: Semantics(
+            button: true,
+            label: Strings.retryButtonLabel,
+            hint: Strings.retryButtonHint,
+            child: ShadButton(
+              onPressed: () =>
+                  ref.invalidate(groupExplorerControllerProvider(groupId)),
+              child: const Text(Strings.retry),
             ),
           ),
         ),
       ),
+    );
+  }
+
+  Future<void> _openDetailSheet(
+    BuildContext context,
+    GroupDetailEntity member,
+  ) {
+    return showShadSheet<void>(
+      context: context,
+      side: ShadSheetSide.bottom,
+      builder: (overlayContext) => MedicationDetailSheet(item: member),
     );
   }
 
@@ -301,6 +312,12 @@ class GroupExplorerView extends HookConsumerWidget {
           ],
           const Gap(AppDimens.spacingSm),
           _buildMetadataTiles(context, priceLabel, refundValue),
+          if ((state.rawLabelAnsm?.isNotEmpty ?? false) ||
+              (state.parsingMethod?.isNotEmpty ?? false) ||
+              (state.princepsCisReference?.isNotEmpty ?? false)) ...[
+            const Gap(AppDimens.spacingSm),
+            _buildTechnicalInfo(context, state),
+          ],
           _buildActionBar(context, state),
         ],
       ),
@@ -403,110 +420,70 @@ class GroupExplorerView extends HookConsumerWidget {
     );
   }
 
-  Widget _buildSectionSliver(
+  Widget _buildTechnicalInfo(
     BuildContext context,
-    String title,
-    int count,
-    List<ViewGroupDetail> members, {
-    required _ProductSectionType sectionType,
-    IconData? icon,
-  }) {
-    if (members.isEmpty) {
-      return const SliverToBoxAdapter(child: SizedBox.shrink());
-    }
+    GroupExplorerState state,
+  ) {
+    final theme = context.shadTheme;
+    final badge = state.parsingMethod != null
+        ? _buildParsingMethodBadge(theme, state.parsingMethod!)
+        : null;
 
-    final groupedByForm = groupBy(
-      members,
-      (m) => m.formLabel ?? Strings.notDefined,
-    );
-
-    if (groupedByForm.keys.length <= 1) {
-      return SliverMainAxisGroup(
-        slivers: [
-          SliverToBoxAdapter(
-            child: SectionHeader(
-              title: title,
-              badgeCount: count,
-              icon: icon,
+    return ShadAccordion<String>.multiple(
+      children: [
+        ShadAccordionItem(
+          value: 'technical-info',
+          title: Text(
+            Strings.technicalInformation,
+            style: theme.textTheme.small.copyWith(
+              color: theme.colorScheme.mutedForeground,
+              fontWeight: FontWeight.w600,
             ),
           ),
-          SliverPadding(
+          child: Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: theme.colorScheme.border),
+              borderRadius: theme.radius,
+            ),
             padding: const EdgeInsets.symmetric(
+              vertical: AppDimens.spacingSm,
               horizontal: AppDimens.spacingMd,
             ),
-            sliver: SliverList(
-              delegate: SliverChildBuilderDelegate((context, index) {
-                final member = members[index];
-                return Padding(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: AppDimens.spacing2xs,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (badge != null) ...[
+                  Align(alignment: Alignment.centerRight, child: badge),
+                  const Gap(AppDimens.spacing2xs),
+                ],
+                if (state.rawLabelAnsm?.isNotEmpty ?? false) ...[
+                  Text(
+                    Strings.rawLabelAnsm,
+                    style: theme.textTheme.small.copyWith(
+                      color: theme.colorScheme.mutedForeground,
+                    ),
                   ),
-                  child: _buildMemberTile(
-                    context,
-                    member,
-                    sectionType: sectionType,
-                    showNavigationIndicator: false,
+                  const Gap(2),
+                  Text(
+                    state.rawLabelAnsm!,
+                    style: theme.textTheme.p,
                   ),
-                );
-              }, childCount: members.length),
-            ),
-          ),
-        ],
-      );
-    }
-
-    return SliverMainAxisGroup(
-      slivers: [
-        SliverToBoxAdapter(
-          child: SectionHeader(
-            title: title,
-            badgeCount: count,
-            icon: icon,
-          ),
-        ),
-        SliverPadding(
-          padding: const EdgeInsets.symmetric(horizontal: AppDimens.spacingMd),
-          sliver: SliverToBoxAdapter(
-            child: ShadAccordion<String>.multiple(
-              children: groupedByForm.entries.map((entry) {
-                final formName = entry.key;
-                final formMembers = entry.value;
-
-                return ShadAccordionItem(
-                  value: formName,
-                  title: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          formName,
-                          style: context.shadTextTheme.p.copyWith(
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                      ShadBadge.outline(
-                        child: Text('${formMembers.length}'),
-                      ),
-                    ],
+                  const Gap(AppDimens.spacing2xs),
+                ],
+                if (state.princepsCisReference?.isNotEmpty ?? false) ...[
+                  Text(
+                    Strings.princepsCisReference,
+                    style: theme.textTheme.small.copyWith(
+                      color: theme.colorScheme.mutedForeground,
+                    ),
                   ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: formMembers.map((member) {
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(
-                          vertical: AppDimens.spacing2xs,
-                        ),
-                        child: _buildMemberTile(
-                          context,
-                          member,
-                          sectionType: sectionType,
-                          showNavigationIndicator: false,
-                        ),
-                      );
-                    }).toList(),
+                  const Gap(2),
+                  Text(
+                    state.princepsCisReference!,
+                    style: theme.textTheme.p,
                   ),
-                );
-              }).toList(),
+                ],
+              ],
             ),
           ),
         ),
@@ -514,15 +491,55 @@ class GroupExplorerView extends HookConsumerWidget {
     );
   }
 
+  ShadBadge _buildParsingMethodBadge(
+    ShadThemeData theme,
+    String method,
+  ) {
+    final label = _parsingMethodLabel(method);
+    switch (method) {
+      case 'relational':
+        return ShadBadge(
+          child: Text(label, style: theme.textTheme.small),
+        );
+      case 'text_split':
+        return ShadBadge.outline(
+          child: Text(label, style: theme.textTheme.small),
+        );
+      case 'text_smart_split':
+      case 'fallback':
+      default:
+        return ShadBadge.secondary(
+          child: Text(
+            label,
+            style: theme.textTheme.small,
+          ),
+        );
+    }
+  }
+
+  String _parsingMethodLabel(String method) {
+    switch (method) {
+      case 'relational':
+        return Strings.parsingMethodRelational;
+      case 'text_split':
+        return Strings.parsingMethodTextSplit;
+      case 'text_smart_split':
+        return Strings.parsingMethodSmartSplit;
+      case 'fallback':
+      default:
+        return Strings.parsingMethodFallback;
+    }
+  }
+
   Widget _buildRelatedSectionSliver(
     BuildContext context,
-    List<ViewGroupDetail> relatedMembers, {
+    List<GroupDetailEntity> relatedMembers, {
     required bool isLoading,
   }) {
     if (isLoading && relatedMembers.isEmpty) {
       return SliverMainAxisGroup(
         slivers: [
-          buildStickySectionHeader(
+          _buildStickySectionHeader(
             context: context,
             title: Strings.relatedTherapies,
             icon: LucideIcons.link,
@@ -549,7 +566,7 @@ class GroupExplorerView extends HookConsumerWidget {
 
     return SliverMainAxisGroup(
       slivers: [
-        buildStickySectionHeader(
+        _buildStickySectionHeader(
           context: context,
           title: Strings.relatedTherapies,
           badgeCount: relatedMembers.length,
@@ -572,7 +589,6 @@ class GroupExplorerView extends HookConsumerWidget {
                   child: _buildMemberTile(
                     context,
                     therapy,
-                    sectionType: _ProductSectionType.related,
                     showNavigationIndicator: true,
                     navigationGroupId: therapy.groupId,
                   ),
@@ -587,17 +603,11 @@ class GroupExplorerView extends HookConsumerWidget {
 
   Widget _buildMemberTile(
     BuildContext context,
-    ViewGroupDetail member, {
-    required _ProductSectionType sectionType,
+    GroupDetailEntity member, {
     required bool showNavigationIndicator,
     String? navigationGroupId,
   }) {
-    final productType = switch (sectionType) {
-      _ProductSectionType.princeps => ProductType.princeps,
-      _ProductSectionType.generics => ProductType.generic,
-      _ProductSectionType.related => ProductType.princeps,
-    };
-    final typeBadge = ProductTypeBadge(type: productType);
+    final typeBadge = ProductTypeBadge(memberType: member.memberType);
     final regulatoryBadgesWidget = RegulatoryBadges(
       isNarcotic: member.isNarcotic,
       isList1: member.isList1,
@@ -645,12 +655,15 @@ class GroupExplorerView extends HookConsumerWidget {
         ? subtitleParts.join(' • ')
         : null;
 
+    final hasFinancialBadge = hasPrice || shouldShowRefund;
     final detailsParts = <String>[];
-    if (hasPrice) {
-      detailsParts.add(priceText);
-    }
-    if (shouldShowRefund) {
-      detailsParts.add(refundLabel);
+    if (!hasFinancialBadge) {
+      if (hasPrice) {
+        detailsParts.add(priceText);
+      }
+      if (shouldShowRefund) {
+        detailsParts.add(refundLabel);
+      }
     }
     final details = detailsParts.isNotEmpty ? detailsParts.join(' • ') : null;
 
@@ -675,79 +688,91 @@ class GroupExplorerView extends HookConsumerWidget {
           child: Semantics(
             button: showNavigationIndicator && navigationGroupId != null,
             label: _buildMemberSemanticsLabel(member, subtitle, details),
-            child: InkWell(
-              onTap: showNavigationIndicator && navigationGroupId != null
-                  ? () => context.router.push(
-                      GroupExplorerRoute(groupId: navigationGroupId),
-                    )
-                  : null,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppDimens.spacingMd,
-                  vertical: AppDimens.spacingSm,
-                ),
-                decoration: BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(
-                      color: context.shadColors.border,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 64),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: showNavigationIndicator && navigationGroupId != null
+                      ? () => AutoRouter.of(context).push(
+                          GroupExplorerRoute(groupId: navigationGroupId),
+                        )
+                      : null,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppDimens.spacingMd,
+                      vertical: AppDimens.spacingSm,
                     ),
-                  ),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Transform.scale(scale: 0.85, child: typeBadge),
-                    const SizedBox(width: AppDimens.spacingSm),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            titleText,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: ShadTheme.of(
-                              context,
-                            ).textTheme.p.copyWith(fontWeight: FontWeight.w600),
+                    decoration: BoxDecoration(
+                      border: Border(
+                        bottom: BorderSide(
+                          color: context.shadColors.border,
+                        ),
+                      ),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Transform.scale(scale: 0.85, child: typeBadge),
+                        const Gap(AppDimens.spacingSm),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                titleText,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: ShadTheme.of(context).textTheme.p
+                                    .copyWith(fontWeight: FontWeight.w600),
+                              ),
+                              if (hasFinancialBadge) ...[
+                                const Gap(4),
+                                FinancialBadge(
+                                  refundRate: member.trimmedRefundRate,
+                                  price: member.prixPublic,
+                                ),
+                              ],
+                              if (enhancedSubtitle != null) ...[
+                                const Gap(4),
+                                Text(
+                                  enhancedSubtitle,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: context.shadTextTheme.small.copyWith(
+                                    color: context.shadColors.mutedForeground,
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
-                          if (enhancedSubtitle != null) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              enhancedSubtitle,
-                              maxLines: 2,
+                        ),
+                        if (details != null) ...[
+                          const Gap(AppDimens.spacingSm),
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 140),
+                            child: Text(
+                              details,
+                              maxLines: 1,
                               overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.end,
                               style: context.shadTextTheme.small.copyWith(
                                 color: context.shadColors.mutedForeground,
                               ),
                             ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    if (details != null) ...[
-                      const SizedBox(width: AppDimens.spacingSm),
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 140),
-                        child: Text(
-                          details,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.end,
-                          style: context.shadTextTheme.small.copyWith(
-                            color: context.shadColors.mutedForeground,
                           ),
-                        ),
-                      ),
-                    ],
-                    if (showNavigationIndicator &&
-                        navigationGroupId != null) ...[
-                      const SizedBox(width: AppDimens.spacingXs),
-                      const ExcludeSemantics(
-                        child: Icon(LucideIcons.chevronRight, size: 16),
-                      ),
-                    ],
-                  ],
+                        ],
+                        if (showNavigationIndicator &&
+                            navigationGroupId != null) ...[
+                          const Gap(AppDimens.spacingXs),
+                          const ExcludeSemantics(
+                            child: Icon(LucideIcons.chevronRight, size: 16),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -760,7 +785,7 @@ class GroupExplorerView extends HookConsumerWidget {
         if (showNavigationIndicator && navigationGroupId != null) ...[
           const Gap(AppDimens.spacingSm),
           ShadButton.outline(
-            onPressed: () => context.router.push(
+            onPressed: () => AutoRouter.of(context).push(
               GroupExplorerRoute(groupId: navigationGroupId),
             ),
             trailing: Icon(
@@ -776,7 +801,7 @@ class GroupExplorerView extends HookConsumerWidget {
   }
 
   String _buildMemberSemanticsLabel(
-    ViewGroupDetail member,
+    GroupDetailEntity member,
     String? subtitle,
     String? details,
   ) {
@@ -815,45 +840,14 @@ class GroupExplorerView extends HookConsumerWidget {
         children: [
           if (ansmUrl != null && ansmUrl.isNotEmpty) ...[
             Expanded(
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: () => _launchUrl(context, ansmUrl),
-                  borderRadius: context.shadTheme.radius,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppDimens.spacingMd,
-                      vertical: AppDimens.spacingSm,
-                    ),
-                    decoration: BoxDecoration(
-                      border: Border.all(
-                        color: context.shadColors.destructive,
-                      ),
-                      borderRadius: context.shadTheme.radius,
-                      color: context.shadColors.destructive.withValues(
-                        alpha: 0.1,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          LucideIcons.triangleAlert,
-                          size: AppDimens.iconSm,
-                          color: context.shadColors.destructive,
-                        ),
-                        const Gap(AppDimens.spacingXs),
-                        Text(
-                          Strings.shortageAlert,
-                          style: context.shadTextTheme.small.copyWith(
-                            color: context.shadColors.destructive,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+              child: ShadButton.destructive(
+                width: double.infinity,
+                onPressed: () => _launchUrl(context, ansmUrl),
+                leading: const Icon(
+                  LucideIcons.triangleAlert,
+                  size: AppDimens.iconSm,
                 ),
+                child: const Text(Strings.shortageAlert),
               ),
             ),
             const Gap(AppDimens.spacingXs),
@@ -904,16 +898,16 @@ class GroupExplorerView extends HookConsumerWidget {
   }
 
   bool _isInScannerContext(BuildContext context) {
-    final parentRoute = context.router.parent();
+    final parentRoute = AutoRouter.of(context).parent();
     return parentRoute?.routeData.name == 'ScannerTabRoute';
   }
 
   void _navigateToExplorer(BuildContext context, String groupId) {
     unawaited(
-      context.router.navigate(const ExplorerTabRoute()).then((_) {
+      AutoRouter.of(context).navigate(const ExplorerTabRoute()).then((_) {
         if (context.mounted) {
           unawaited(
-            context.router.push(GroupExplorerRoute(groupId: groupId)),
+            AutoRouter.of(context).push(GroupExplorerRoute(groupId: groupId)),
           );
         }
       }),
@@ -921,4 +915,238 @@ class GroupExplorerView extends HookConsumerWidget {
   }
 }
 
-enum _ProductSectionType { princeps, generics, related }
+const EdgeInsets _sectionHeaderPadding = EdgeInsets.fromLTRB(
+  AppDimens.spacingMd,
+  AppDimens.spacingXl,
+  AppDimens.spacingMd,
+  AppDimens.spacingXs,
+);
+
+Widget _buildSectionHeader({
+  required BuildContext context,
+  required String title,
+  int? badgeCount,
+  IconData? icon,
+  EdgeInsetsGeometry padding = _sectionHeaderPadding,
+}) {
+  final theme = context.shadTheme;
+  final iconColor = theme.colorScheme.mutedForeground;
+
+  return Padding(
+    padding: padding,
+    child: Row(
+      children: [
+        if (icon != null) ...[
+          Icon(icon, size: AppDimens.iconSm, color: iconColor),
+          const Gap(AppDimens.spacingXs),
+        ],
+        Expanded(
+          child: Text(
+            title,
+            style: theme.textTheme.h4,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        if (badgeCount != null) ...[
+          const Gap(AppDimens.spacingXs),
+          ShadBadge(child: Text('$badgeCount', style: theme.textTheme.small)),
+        ],
+      ],
+    ),
+  );
+}
+
+SliverPersistentHeader _buildStickySectionHeader({
+  required BuildContext context,
+  required String title,
+  int? badgeCount,
+  IconData? icon,
+  EdgeInsetsGeometry? padding,
+  TextScaler? textScaler,
+  double? height,
+}) {
+  final effectivePadding = padding ?? _sectionHeaderPadding;
+  final effectiveTextScaler = textScaler ?? MediaQuery.textScalerOf(context);
+
+  return SliverPersistentHeader(
+    pinned: true,
+    delegate: _SectionHeaderDelegate(
+      title: title,
+      badgeCount: badgeCount,
+      icon: icon,
+      padding: effectivePadding,
+      textScaler: effectiveTextScaler,
+      height: height,
+    ),
+  );
+}
+
+class _SectionHeaderDelegate extends SliverPersistentHeaderDelegate {
+  const _SectionHeaderDelegate({
+    required this.title,
+    required this.padding,
+    required this.textScaler,
+    this.badgeCount,
+    this.icon,
+    this.height,
+  });
+
+  final String title;
+  final int? badgeCount;
+  final IconData? icon;
+  final EdgeInsetsGeometry padding;
+  final TextScaler textScaler;
+  final double? height;
+
+  @override
+  double get minExtent => _calculateHeight();
+
+  @override
+  double get maxExtent => _calculateHeight();
+
+  double _calculateHeight() {
+    if (height != null) {
+      return height!;
+    }
+
+    final paddingResolved = padding.resolve(TextDirection.ltr);
+    final paddingVertical = paddingResolved.top + paddingResolved.bottom;
+
+    const h4FontSize = 20.0;
+    const h4HeightMultiplier = 1.4;
+    const baseTextHeight = h4FontSize * h4HeightMultiplier;
+
+    final baseHeight = paddingVertical + baseTextHeight;
+
+    return textScaler.scale(baseHeight).clamp(baseHeight, baseHeight * 2.0);
+  }
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return _buildSectionHeader(
+      context: context,
+      title: title,
+      badgeCount: badgeCount,
+      icon: icon,
+      padding: padding,
+    );
+  }
+
+  @override
+  bool shouldRebuild(_SectionHeaderDelegate oldDelegate) {
+    return title != oldDelegate.title ||
+        badgeCount != oldDelegate.badgeCount ||
+        icon != oldDelegate.icon ||
+        padding != oldDelegate.padding ||
+        height != oldDelegate.height ||
+        textScaler != oldDelegate.textScaler;
+  }
+}
+
+class _CompactGenericTile extends StatelessWidget {
+  const _CompactGenericTile({
+    required this.item,
+    required this.onTap,
+  });
+
+  final GroupDetailEntity item;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.shadTheme;
+    final lab = item.parsedTitulaire.isEmpty
+        ? Strings.unknownHolder
+        : item.parsedTitulaire;
+    final hasPrice = item.prixPublic != null;
+    final availability = item.trimmedAvailabilityStatus;
+    final isStopped = item.isNotMarketed;
+    final criticalBadge = availability != null
+        ? Strings.stockAlert(availability)
+        : (isStopped ? Strings.productStoppedBadge : null);
+
+    return Semantics(
+      button: true,
+      label: '${item.displayName}, $lab',
+      hint: Strings.tapToViewDetails,
+      child: ShadButton.raw(
+        onPressed: onTap,
+        variant: ShadButtonVariant.ghost,
+        width: double.infinity,
+        padding: EdgeInsets.zero,
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 52),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppDimens.spacingMd,
+            vertical: AppDimens.spacingSm,
+          ),
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(color: theme.colorScheme.border),
+            ),
+          ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final availableWidth = constraints.maxWidth.isFinite
+                  ? constraints.maxWidth
+                  : MediaQuery.sizeOf(context).width;
+
+              return SizedBox(
+                width: availableWidth,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        lab,
+                        style: theme.textTheme.p.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (hasPrice) ...[
+                          Icon(
+                            LucideIcons.banknote,
+                            size: 16,
+                            color: theme.colorScheme.mutedForeground,
+                          ),
+                          const Gap(AppDimens.spacing2xs),
+                        ],
+                        if (item.isHospitalOnly) ...[
+                          Icon(
+                            LucideIcons.hospital,
+                            size: 16,
+                            color: theme.colorScheme.mutedForeground,
+                          ),
+                          const Gap(AppDimens.spacing2xs),
+                        ],
+                      ],
+                    ),
+                    if (criticalBadge != null) ...[
+                      const Gap(AppDimens.spacingSm),
+                      ShadBadge.destructive(
+                        child: Text(
+                          criticalBadge,
+                          style: theme.textTheme.small,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+}

@@ -6,11 +6,11 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:pharma_scan/core/router/app_router.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
-import 'package:pharma_scan/core/utils/app_animations.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/utils/test_tags.dart';
-import 'package:pharma_scan/core/widgets/testable.dart';
+import 'package:pharma_scan/core/widgets/shadcn_bottom_nav.dart';
 import 'package:pharma_scan/features/home/models/sync_state.dart';
+import 'package:pharma_scan/features/home/providers/initialization_provider.dart';
 import 'package:pharma_scan/features/home/providers/sync_provider.dart';
 import 'package:pharma_scan/features/home/viewmodels/activity_banner_viewmodel.dart';
 import 'package:pharma_scan/features/home/widgets/unified_activity_banner.dart';
@@ -22,16 +22,21 @@ class MainScreen extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final initializationState = ref.watch(initializationStateProvider);
+
     useEffect(() {
+      if (initializationState != InitializationState.success) {
+        return null;
+      }
+
       WidgetsBinding.instance.addPostFrameCallback((_) {
         unawaited(
           ref.read(syncControllerProvider.notifier).startSync(),
         );
       });
       return null;
-    }, []);
+    }, [initializationState]);
 
-    final titles = [Strings.scanner, Strings.explorer, Strings.restockTitle];
     final activityBannerState = ref.watch(activityBannerViewModelProvider);
 
     final keyboardHeight = MediaQuery.viewInsetsOf(context).bottom;
@@ -91,85 +96,36 @@ class MainScreen extends HookConsumerWidget {
           },
           child: Scaffold(
             resizeToAvoidBottomInset: true,
-            appBar: AppBar(
-              title: Text(
-                titles[tabsRouter.activeIndex],
-                style: context.shadTextTheme.h4,
-              ),
-              elevation: 0,
-              backgroundColor: context.shadColors.background,
-              foregroundColor: context.shadColors.foreground,
-              actions: [
-                Testable(
-                  id: TestTags.navSettings,
-                  child: ShadIconButton.ghost(
-                    icon: const Icon(LucideIcons.settings),
-                    onPressed: () => context.router.push(const SettingsRoute()),
-                  ),
-                ),
-              ],
-            ),
+            backgroundColor: context.shadColors.background,
             bottomNavigationBar: isKeyboardOpen
                 ? null
-                : NavigationBar(
-                    selectedIndex: tabsRouter.activeIndex,
-                    onDestinationSelected: (index) {
+                : ShadcnBottomNav(
+                    currentIndex: tabsRouter.activeIndex,
+                    onTap: (index) {
                       if (tabsRouter.activeIndex == index && index == 1) {
                         tabsRouter.stackRouterOfIndex(index)?.popUntilRoot();
                       } else {
                         tabsRouter.setActiveIndex(index);
                       }
                     },
-                    backgroundColor: ShadTheme.of(
-                      context,
-                    ).colorScheme.background,
-                    indicatorColor: ShadTheme.of(
-                      context,
-                    ).colorScheme.primary.withValues(alpha: 0.1),
-                    labelBehavior:
-                        NavigationDestinationLabelBehavior.alwaysShow,
-                    destinations: [
-                      NavigationDestination(
-                        icon: Testable(
-                          id: TestTags.navScanner,
-                          child: const Icon(LucideIcons.scan),
-                        ),
-                        selectedIcon: Testable(
-                          id: TestTags.navScanner,
-                          child: Icon(
-                            LucideIcons.scan,
-                            color: ShadTheme.of(
-                              context,
-                            ).colorScheme.primary,
-                          ),
-                        ),
+                    items: const [
+                      (
+                        icon: LucideIcons.scan,
+                        activeIcon: LucideIcons.scan,
                         label: Strings.scanner,
+                        testId: TestTags.navScanner,
                       ),
-                      NavigationDestination(
-                        icon: Testable(
-                          id: TestTags.navExplorer,
-                          child: const Icon(LucideIcons.database),
-                        ),
-                        selectedIcon: Testable(
-                          id: TestTags.navExplorer,
-                          child: Icon(
-                            LucideIcons.database,
-                            color: ShadTheme.of(
-                              context,
-                            ).colorScheme.primary,
-                          ),
-                        ),
+                      (
+                        icon: LucideIcons.database,
+                        activeIcon: LucideIcons.database,
                         label: Strings.explorer,
+                        testId: TestTags.navExplorer,
                       ),
-                      NavigationDestination(
-                        icon: const Icon(LucideIcons.list),
-                        selectedIcon: Icon(
-                          LucideIcons.list,
-                          color: ShadTheme.of(
-                            context,
-                          ).colorScheme.primary,
-                        ),
+                      (
+                        icon: LucideIcons.list,
+                        activeIcon: LucideIcons.list,
                         label: Strings.restockTabLabel,
+                        testId: TestTags.navRestock,
                       ),
                     ],
                   ),
@@ -186,7 +142,7 @@ class MainScreen extends HookConsumerWidget {
                     indeterminate: activityBannerState.indeterminate,
                     isError: activityBannerState.isError,
                     onRetry: activityBannerState.onRetry,
-                  ).animate(effects: AppAnimations.bannerEnter),
+                  ),
                 Expanded(child: child),
               ],
             ),

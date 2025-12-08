@@ -1,9 +1,7 @@
 ---
 description: Shadcn UI components, forms, accessibility, and theme patterns
-globs: lib/**/presentation/**/*.dart, lib/core/widgets/**/*.dart
 alwaysApply: false
 ---
-
 # UI Components (2025 Standard)
 
 ## Core Philosophy
@@ -12,10 +10,11 @@ alwaysApply: false
 - ICONS: `LucideIcons` only (FORBIDDEN: `Icons.` Material)
 - THEME: Access via `ShadTheme.of(context)` or `context.shadTheme` extension
 - FORBIDDEN: Hardcoded colors, typography, or shapes
+- APP BAR ACTIONS: use `ShadIconButton` variants (ghost/secondary) instead of Material `IconButton`.
 
 ## Theme Extension (Recommended)
 
-```
+```dart
 // lib/core/theme/theme_extensions.dart
 extension ShadThemeContext on BuildContext {
   ShadThemeData get shadTheme => ShadTheme.of(this);
@@ -29,9 +28,15 @@ Text('Hello', style: context.shadTextTheme.p);
 Icon(LucideIcons.star, color: context.shadColors.primary);
 ```
 
-## Application Setup
+## Application Setup (Theming)
 
-```
+**Design System Identity:** "Pharmacie Moderne & Sobre"
+
+- **Base:** `ShadGreenColorScheme` (neutral zinc/slate surfaces with semantic green accents).
+- **Primary Color (Light):** Teal 700 (`0xFF0F766E`) — medical, serious, institutional.
+- **Primary Color (Dark):** Teal 500 (`0xFF14B8A6`) — brighter for readability on dark backgrounds.
+
+```dart
 import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
@@ -43,13 +48,19 @@ class MyApp extends HookConsumerWidget {
     
     return ShadApp.custom(
       themeMode: themeMode,
+      // ☀️ LIGHT: Teal 700 (Medical Deep Green)
       theme: ShadThemeData(
         brightness: Brightness.light,
-        colorScheme: const ShadGreenColorScheme.light(),
+        colorScheme: const ShadGreenColorScheme.light(
+          primary: Color(0xFF0F766E),
+        ),
       ),
+      // 🌙 DARK: Teal 500 (Accessible Emerald)
       darkTheme: ShadThemeData(
         brightness: Brightness.dark,
-        colorScheme: const ShadGreenColorScheme.dark(),
+        colorScheme: const ShadGreenColorScheme.dark(
+          primary: Color(0xFF14B8A6),
+        ),
       ),
       appBuilder: (context) => MaterialApp.router(
         supportedLocales: const [Locale('en'), Locale('fr')],
@@ -68,7 +79,7 @@ class MyApp extends HookConsumerWidget {
 
 ## Form Handling
 
-```
+```dart
 // ✅ ShadForm with GlobalKey is ONLY allowed pattern
 class MyForm extends HookConsumerWidget {
   @override
@@ -129,3 +140,22 @@ class MyForm extends HookConsumerWidget {
 - ✅ `ShadForm` with `GlobalKey<ShadFormState>`
 - ✅ Theme via `context.shadTheme`
 - ✅ Trust Shadcn's built-in accessibility
+
+## Tooltips (ShadTooltip)
+
+- REQUIRED: provide `builder: (context) => Text(...)`; there is no `message` shortcut.
+- Preferred wrapper for icon-only actions (`ShadIconButton`) instead of Material `Tooltip`.
+
+## Tappable Rows / List Items
+
+- Use `ShadButton.raw(variant: ShadButtonVariant.ghost, width: double.infinity, padding: EdgeInsets.zero)` wrapping the row content to inherit focus/hover/pressed states.
+- Keep visual padding/borders inside the child container; do not style the button directly.
+- Avoid `InkWell`/`GestureDetector` for simple taps; reserve them for gestures not covered by buttons.
+
+## Alerts, Banners, and Status Surfaces
+
+- Prefer `ShadAlert` for banners and status surfaces; use `ShadAlert.destructive` for failures.
+- Use `ShadCard` for neutral/empty states; avoid custom wrappers when Shad spacing/typography is sufficient.
+- Place progress UI inside the alert/card description (e.g., stacked `ShadProgress` + label).
+- Inline actions live inside the alert content as `ShadButton.outline`/`ghost` (no external button rows).
+- In slivers, do not measure width with `LayoutBuilder`/`ConstrainedBox`; set `width: double.infinity` on `ShadButton.raw` to satisfy constraints.

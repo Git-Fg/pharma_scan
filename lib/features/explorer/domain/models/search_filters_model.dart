@@ -8,12 +8,15 @@ class SearchFilters with SearchFiltersMappable {
   const SearchFilters({
     this.voieAdministration, // null = toutes, sinon une voie spécifique
     this.atcClass, // null = toutes, sinon une classe ATC Level 1
+    this.titulaireId, // null = tous les laboratoires
   });
 
   final String? voieAdministration;
   final AtcLevel1? atcClass;
+  final int? titulaireId;
 
-  bool get hasActiveFilters => voieAdministration != null || atcClass != null;
+  bool get hasActiveFilters =>
+      voieAdministration != null || atcClass != null || titulaireId != null;
 
   SearchFilters copyWithCleared() => const SearchFilters();
 }

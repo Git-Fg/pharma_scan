@@ -10,12 +10,14 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart' hide ScanWindowOverlay;
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
+import 'package:pharma_scan/core/services/haptic_service.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
-import 'package:pharma_scan/core/utils/app_animations.dart';
+import 'package:pharma_scan/core/utils/hooks/use_async_feedback.dart';
 import 'package:pharma_scan/core/utils/hooks/use_mobile_scanner.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/status_view.dart';
+import 'package:pharma_scan/features/history/presentation/widgets/history_sheet.dart';
 import 'package:pharma_scan/features/home/providers/initialization_provider.dart';
 import 'package:pharma_scan/features/scanner/presentation/providers/scanner_provider.dart';
 import 'package:pharma_scan/features/scanner/presentation/utils/scanner_utils.dart';
@@ -31,7 +33,7 @@ class CameraScreen extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isCameraActive = useState(false);
-    final isTorchOn = useState(false);
+    final lastPermissionGranted = useRef<bool?>(null);
 
     TabsRouter? tabsRouter;
     var isTabActive = true;
@@ -44,43 +46,90 @@ class CameraScreen extends HookConsumerWidget {
       tabsRouter = null;
     }
 
-    ref.listen(
-      scannerProvider,
-      (previous, next) {
-        if (next is AsyncError &&
-            (previous == null || previous is! AsyncError)) {
-          ShadToaster.of(context).show(
-            ShadToast.destructive(
-              title: const Text(Strings.error),
-              description: Text(next.error.toString()),
-            ),
-          );
+    useEffect(() {
+      final scannerNotifier = ref.read(scannerProvider.notifier);
+      final feedback = ref.read(hapticServiceProvider);
+      final subscription = scannerNotifier.sideEffects.listen((effect) async {
+        if (!context.mounted) return;
+        switch (effect) {
+          case ScannerToast(:final message):
+            ShadToaster.of(context).show(
+              ShadToast(
+                title: Text(message),
+              ),
+            );
+          case ScannerHaptic(:final type):
+            switch (type) {
+              case ScannerHapticType.success:
+                await feedback.success();
+              case ScannerHapticType.warning:
+                await feedback.warning();
+              case ScannerHapticType.error:
+                await feedback.error();
+            }
+          case ScannerDuplicateDetected(:final duplicate):
+            final event = duplicate;
+            unawaited(
+              showShadSheet<void>(
+                context: context,
+                side: ShadSheetSide.bottom,
+                builder: (dialogContext) => _DuplicateQuantitySheet(
+                  event: event,
+                  onCancel: () => Navigator.of(dialogContext).pop(),
+                  onConfirm: (newQty) async {
+                    await scannerNotifier.updateQuantityFromDuplicate(
+                      event.cip,
+                      newQty,
+                    );
+                    if (dialogContext.mounted) {
+                      Navigator.of(dialogContext).pop();
+                    }
+                  },
+                ),
+              ),
+            );
         }
+      });
 
-        final previousData = previous?.maybeWhen<ScannerState?>(
-          data: (value) => value,
-          orElse: () => null,
-        );
-        final nextData = next.maybeWhen<ScannerState?>(
-          data: (value) => value,
-          orElse: () => null,
-        );
+      return subscription.cancel;
+    }, [context, ref]);
 
-        if (nextData != null &&
-            nextData.lastRestockMessage != null &&
-            nextData.lastRestockMessage != previousData?.lastRestockMessage) {
-          ShadToaster.of(context).show(
-            ShadToast(
-              title: Text(nextData.lastRestockMessage!),
-            ),
-          );
-        }
-      },
-    );
+    useAsyncFeedback<ScannerState>(ref, scannerProvider);
 
     final scannerController = useMobileScanner(
       enabled: isTabActive && isCameraActive.value,
     );
+    useListenable(scannerController);
+    final torchState = scannerController.value.torchState;
+    useEffect(() {
+      void handlePermissionChange() {
+        final hasPermission = scannerController.value.hasCameraPermission;
+        if (lastPermissionGranted.value == hasPermission) {
+          return;
+        }
+        lastPermissionGranted.value = hasPermission;
+
+        if (!hasPermission && context.mounted) {
+          isCameraActive.value = false;
+          ShadToaster.of(context).show(
+            const ShadToast.destructive(
+              title: Text(Strings.cameraUnavailable),
+              description: Text(
+                Strings.checkPermissionsMessage,
+              ),
+            ),
+          );
+        }
+      }
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) {
+          handlePermissionChange();
+        }
+      });
+      scannerController.addListener(handlePermissionChange);
+      return () => scannerController.removeListener(handlePermissionChange);
+    }, [scannerController]);
     final picker = useMemoized(ImagePicker.new);
 
     Future<void> openManualEntrySheet() async {
@@ -124,12 +173,12 @@ class CameraScreen extends HookConsumerWidget {
 
     Future<void> toggleTorch() async {
       await scannerController.toggleTorch();
-      if (!context.mounted) return;
-      isTorchOn.value = !isTorchOn.value;
     }
 
     void onDetect(BarcodeCapture capture) {
-      ref.read(scannerProvider.notifier).processBarcodeCapture(capture);
+      unawaited(
+        ref.read(scannerProvider.notifier).processBarcodeCapture(capture),
+      );
     }
 
     final initStepAsync = ref.watch(initializationStepProvider);
@@ -204,53 +253,79 @@ class CameraScreen extends HookConsumerWidget {
                       ),
                     ),
                   ],
-                ).animate(effects: AppAnimations.fadeIn),
+                ),
               ),
             if (isCameraActive.value && !isInitializing)
               const ScanWindowOverlay(),
+            Positioned(
+              top: MediaQuery.paddingOf(context).top + AppDimens.spacingMd,
+              left: AppDimens.spacingMd,
+              child: ClipRRect(
+                borderRadius: context.shadTheme.radius,
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: ShadTheme.of(
+                        context,
+                      ).colorScheme.background.withValues(alpha: 0.85),
+                      border: Border.all(
+                        color: ShadTheme.of(
+                          context,
+                        ).colorScheme.border.withValues(alpha: 0.3),
+                      ),
+                      borderRadius: context.shadTheme.radius,
+                    ),
+                    child: ShadIconButton.ghost(
+                      icon: const Icon(LucideIcons.history),
+                      onPressed: () => showShadSheet<void>(
+                        context: context,
+                        side: ShadSheetSide.left,
+                        builder: (sheetContext) => const HistorySheet(),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
             if (isCameraActive.value && !isInitializing)
               Positioned(
                 top: MediaQuery.paddingOf(context).top + AppDimens.spacingMd,
                 right: AppDimens.spacingMd,
-                child: ValueListenableBuilder<bool>(
-                  valueListenable: isTorchOn,
-                  builder: (context, torchState, _) {
-                    return Semantics(
-                      button: true,
-                      label: torchState
-                          ? Strings.turnOffTorch
-                          : Strings.turnOnTorch,
-                      child: ClipRRect(
-                        borderRadius: context.shadTheme.radius,
-                        child: BackdropFilter(
-                          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              color: ShadTheme.of(
-                                context,
-                              ).colorScheme.background.withValues(alpha: 0.85),
-                              border: Border.all(
-                                color: ShadTheme.of(
-                                  context,
-                                ).colorScheme.border.withValues(alpha: 0.3),
-                              ),
-                              borderRadius: context.shadTheme.radius,
-                            ),
-                            child: ShadIconButton.ghost(
-                              icon: Icon(
-                                LucideIcons.zap,
-                                size: AppDimens.iconLg,
-                                color: torchState
-                                    ? context.shadColors.primary
-                                    : context.shadColors.foreground,
-                              ),
-                              onPressed: toggleTorch,
-                            ),
+                child: Semantics(
+                  button: true,
+                  label: torchState == TorchState.on
+                      ? Strings.turnOffTorch
+                      : Strings.turnOnTorch,
+                  child: ClipRRect(
+                    borderRadius: context.shadTheme.radius,
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: ShadTheme.of(
+                            context,
+                          ).colorScheme.background.withValues(alpha: 0.85),
+                          border: Border.all(
+                            color: ShadTheme.of(
+                              context,
+                            ).colorScheme.border.withValues(alpha: 0.3),
                           ),
+                          borderRadius: context.shadTheme.radius,
+                        ),
+                        child: ShadIconButton.ghost(
+                          icon: Icon(
+                            LucideIcons.zap,
+                            size: AppDimens.iconLg,
+                            color: torchState == TorchState.on
+                                ? context.shadColors.primary
+                                : context.shadColors.foreground,
+                          ),
+                          onPressed: toggleTorch,
                         ),
                       ),
-                    );
-                  },
+                    ),
+                  ),
                 ),
               ),
             const ScannerBubbles(),
@@ -325,6 +400,126 @@ class _GallerySheet extends StatelessWidget {
   }
 }
 
+class _DuplicateQuantitySheet extends HookWidget {
+  const _DuplicateQuantitySheet({
+    required this.event,
+    required this.onCancel,
+    required this.onConfirm,
+  });
+
+  final DuplicateScanEvent event;
+  final VoidCallback onCancel;
+  final ValueChanged<int> onConfirm;
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = useTextEditingController(
+      text: event.currentQuantity.toString(),
+    );
+    final focusNode = useFocusNode();
+
+    useEffect(() {
+      focusNode.requestFocus();
+      controller.selection = TextSelection(
+        baseOffset: 0,
+        extentOffset: controller.text.length,
+      );
+      return null;
+    }, const []);
+
+    void setDelta(int delta) {
+      final current = int.tryParse(controller.text) ?? 0;
+      final next = (current + delta).clamp(0, 9999);
+      final nextStr = next.toString();
+      controller
+        ..text = nextStr
+        ..selection = TextSelection.collapsed(offset: nextStr.length);
+    }
+
+    return ShadSheet(
+      title: Row(
+        children: [
+          Icon(
+            LucideIcons.copy,
+            color: context.shadColors.destructive,
+            size: AppDimens.iconMd,
+          ),
+          const Gap(AppDimens.spacingSm),
+          const Expanded(
+            child: Text(Strings.duplicateScannedTitle),
+          ),
+        ],
+      ),
+      description: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            event.productName,
+            style: context.shadTextTheme.small.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const Gap(AppDimens.spacingXs),
+          const Text(Strings.duplicateScannedDescription),
+          const Gap(AppDimens.spacingMd),
+          Text(
+            Strings.duplicateAdjustQuantity,
+            style: context.shadTextTheme.small.copyWith(
+              color: context.shadColors.mutedForeground,
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        ShadButton.ghost(
+          onPressed: onCancel,
+          child: const Text(Strings.duplicateCancel),
+        ),
+        ShadButton(
+          onPressed: () {
+            final qty = int.tryParse(controller.text);
+            if (qty != null) {
+              onConfirm(qty);
+            }
+          },
+          child: const Text(Strings.duplicateUpdate),
+        ),
+      ],
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppDimens.spacingSm),
+        child: Row(
+          children: [
+            ShadButton.outline(
+              onPressed: () => setDelta(-1),
+              child: const Icon(LucideIcons.minus, size: 16),
+            ),
+            const Gap(AppDimens.spacingSm),
+            Expanded(
+              child: ShadInput(
+                controller: controller,
+                focusNode: focusNode,
+                keyboardType: TextInputType.number,
+                textAlign: TextAlign.center,
+                style: context.shadTextTheme.large.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            const Gap(AppDimens.spacingSm),
+            ShadButton.outline(
+              onPressed: () => setDelta(1),
+              child: const Icon(LucideIcons.plus, size: 16),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _ManualCipSheet extends HookConsumerWidget {
   const _ManualCipSheet({required this.onSubmit});
 
@@ -334,6 +529,8 @@ class _ManualCipSheet extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final formKey = useMemoized(GlobalKey<ShadFormState>.new);
     final isSubmitting = useState(false);
+    final viewInsets = MediaQuery.viewInsetsOf(context);
+    final screenWidth = MediaQuery.sizeOf(context).width;
 
     Future<void> submit() async {
       if (isSubmitting.value) return;
@@ -365,67 +562,84 @@ class _ManualCipSheet extends HookConsumerWidget {
       }
     }
 
-    return ShadSheet(
-      constraints: const BoxConstraints(maxWidth: 512),
-      title: const Text(Strings.manualCipEntry),
-      description: const Text(Strings.manualCipDescription),
-      actions: [
-        Semantics(
-          button: true,
-          label: isSubmitting.value
-              ? Strings.searchingInProgress
-              : Strings.searchMedicamentWithCip,
-          enabled: !isSubmitting.value,
-          child: ShadButton(
-            onPressed: isSubmitting.value ? null : submit,
-            leading: isSubmitting.value
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
+    return ShadResponsiveBuilder(
+      builder: (context, breakpoint) {
+        final maxWidth = breakpoint >= context.shadTheme.breakpoints.md
+            ? 512.0
+            : screenWidth;
+
+        return Padding(
+          padding: viewInsets,
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: SizedBox(
+              width: maxWidth,
+              child: ShadSheet(
+                constraints: BoxConstraints(maxWidth: maxWidth),
+                title: const Text(Strings.manualCipEntry),
+                description: const Text(Strings.manualCipDescription),
+                actions: [
+                  Semantics(
+                    button: true,
+                    label: isSubmitting.value
+                        ? Strings.searchingInProgress
+                        : Strings.searchMedicamentWithCip,
+                    enabled: !isSubmitting.value,
+                    child: ShadButton(
+                      onPressed: isSubmitting.value ? null : submit,
+                      leading: isSubmitting.value
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : null,
+                      child: const Text(Strings.search),
                     ),
-                  )
-                : null,
-            child: const Text(Strings.search),
-          ),
-        ),
-      ],
-      child: ShadForm(
-        key: formKey,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(vertical: AppDimens.spacingMd),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              ShadInputFormField(
-                id: 'cip',
-                label: const Text(Strings.manualEntryFieldLabel),
-                placeholder: const Text(Strings.cipPlaceholder),
-                autofocus: true,
-                keyboardType: TextInputType.number,
-                maxLength: 13,
-                inputFormatters: [
-                  FilteringTextInputFormatter.digitsOnly,
-                  LengthLimitingTextInputFormatter(13),
+                  ),
                 ],
-                validator: (v) {
-                  if (v.isEmpty || v.length != 13) {
-                    return Strings.cipMustBe13Digits;
-                  }
-                  return null;
-                },
+                child: ShadForm(
+                  key: formKey,
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(AppDimens.spacingMd),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        ShadInputFormField(
+                          id: 'cip',
+                          label: const Text(Strings.manualEntryFieldLabel),
+                          placeholder: const Text(Strings.cipPlaceholder),
+                          autofocus: true,
+                          keyboardType: TextInputType.number,
+                          maxLength: 13,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            LengthLimitingTextInputFormatter(13),
+                          ],
+                          validator: (v) {
+                            if (v.isEmpty || v.length != 13) {
+                              return Strings.cipMustBe13Digits;
+                            }
+                            return null;
+                          },
+                        ),
+                        const Gap(AppDimens.spacingMd),
+                        Text(
+                          Strings.searchStartsAutomatically,
+                          style: context.shadTextTheme.small,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
-              const Gap(AppDimens.spacingMd),
-              Text(
-                Strings.searchStartsAutomatically,
-                style: context.shadTextTheme.small,
-              ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

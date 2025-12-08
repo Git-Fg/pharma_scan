@@ -1,27 +1,13 @@
 // test/fixtures/data_factory.dart
-
+import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
+import 'package:pharma_scan/core/database/daos/database_dao.dart';
+import 'package:pharma_scan/core/database/database.dart';
 
 /// WHY: Centralize creation of integration-test data passed to
 /// `DriftDatabaseService.insertBatchData` so tests stay readable and
 /// decoupled from the exact database schema.
 @immutable
-class GroupBatchData {
-  const GroupBatchData({
-    required this.specialites,
-    required this.medicaments,
-    required this.principes,
-    required this.generiqueGroups,
-    required this.groupMembers,
-  });
-
-  final List<Map<String, dynamic>> specialites;
-  final List<Map<String, dynamic>> medicaments;
-  final List<Map<String, dynamic>> principes;
-  final List<Map<String, dynamic>> generiqueGroups;
-  final List<Map<String, dynamic>> groupMembers;
-}
-
 @immutable
 class GroupMemberDefinition {
   const GroupMemberDefinition({
@@ -51,75 +37,87 @@ class GroupMemberDefinition {
 class DataFactory {
   static const String _defaultGroupId = 'GROUP_1';
 
-  /// Helper for a single medicament entry to avoid repeating column names.
-  static Map<String, dynamic> medicamentEntry({
-    required String cip,
-    required String cisCode,
-    required String name,
-  }) {
-    return {
-      'code_cip': cip,
-      'cis_code': cisCode,
-    };
-  }
-
   /// Builds the minimal coherent set of rows for a generic group in the
   /// staging tables, ready to be passed to `insertBatchData`.
-  static GroupBatchData createGroup({
-    required List<GroupMemberDefinition> members, String groupId = _defaultGroupId,
+  static IngestionBatch createGroup({
+    required List<GroupMemberDefinition> members,
+    String groupId = _defaultGroupId,
     String libelle = 'TEST GROUP',
   }) {
-    final specialites = <Map<String, dynamic>>[];
-    final medicaments = <Map<String, dynamic>>[];
-    final principes = <Map<String, dynamic>>[];
-    final groupMembers = <Map<String, dynamic>>[];
+    final specialites = <SpecialitesCompanion>[];
+    final medicaments = <MedicamentsCompanion>[];
+    final principes = <PrincipesActifsCompanion>[];
+    final groupMembers = <GroupMembersCompanion>[];
+    final labIds = <String, int>{};
 
     for (final member in members) {
-      specialites.add({
-        'cis_code': member.cisCode,
-        'nom_specialite': member.nomSpecialite,
-        'procedure_type': 'Autorisation',
-        'titulaire': member.titulaire,
-      });
-
-      medicaments.add(
-        medicamentEntry(
-          cip: member.codeCip,
-          cisCode: member.cisCode,
-          name: member.nomSpecialite,
+      final labName = member.titulaire ?? 'LAB_${member.cisCode}';
+      labIds.putIfAbsent(labName, () => labIds.length + 1);
+      specialites.add(
+        SpecialitesCompanion(
+          cisCode: Value(member.cisCode),
+          nomSpecialite: Value(member.nomSpecialite),
+          procedureType: const Value('Autorisation'),
+          titulaireId: Value(labIds[labName]),
         ),
       );
 
-      principes.add({
-        'code_cip': member.codeCip,
-        'principe': member.molecule,
-        if (member.dosage != null) 'dosage': member.dosage,
-        if (member.dosageUnit.isNotEmpty) 'dosage_unit': member.dosageUnit,
-      });
+      medicaments.add(
+        MedicamentsCompanion(
+          codeCip: Value(member.codeCip),
+          cisCode: Value(member.cisCode),
+        ),
+      );
 
-      groupMembers.add({
-        'code_cip': member.codeCip,
-        'group_id': groupId,
-        'type': member.type,
-      });
+      principes.add(
+        PrincipesActifsCompanion(
+          codeCip: Value(member.codeCip),
+          principe: Value(member.molecule),
+          dosage: Value(member.dosage),
+          dosageUnit: Value(
+            member.dosageUnit.isNotEmpty ? member.dosageUnit : null,
+          ),
+        ),
+      );
+
+      groupMembers.add(
+        GroupMembersCompanion(
+          codeCip: Value(member.codeCip),
+          groupId: Value(groupId),
+          type: Value(member.type),
+        ),
+      );
     }
 
-    final generiqueGroups = <Map<String, dynamic>>[
-      {'group_id': groupId, 'libelle': libelle},
+    final generiqueGroups = <GeneriqueGroupsCompanion>[
+      GeneriqueGroupsCompanion(
+        groupId: Value(groupId),
+        libelle: Value(libelle),
+        rawLabel: Value(libelle),
+        parsingMethod: const Value('relational'),
+      ),
     ];
 
-    return GroupBatchData(
+    return IngestionBatch(
       specialites: specialites,
       medicaments: medicaments,
       principes: principes,
       generiqueGroups: generiqueGroups,
       groupMembers: groupMembers,
+      laboratories: labIds.entries
+          .map(
+            (e) => LaboratoriesCompanion(
+              id: Value(e.value),
+              name: Value(e.key),
+            ),
+          )
+          .toList(),
     );
   }
 
   /// Convenience factory matching the common “one princeps + one generic”
   /// pattern used in explorer flow tests.
-  static GroupBatchData createBasicGroup({
+  static IngestionBatch createBasicGroup({
     String groupId = _defaultGroupId,
     String princepsCip = 'PRINCEPS_CIP',
     String genericCip = 'GENERIC_CIP',
@@ -162,9 +160,10 @@ class DataFactory {
 
   /// Convenience factory for a group containing only princeps entries with
   /// different dosages (used by dosage-bucketing tests).
-  static GroupBatchData createPrincepsOnlyGroup({
+  static IngestionBatch createPrincepsOnlyGroup({
     required List<({String cip, String cis, String name, String dosage})>
-    princepsDefinitions, String groupId = _defaultGroupId,
+    princepsDefinitions,
+    String groupId = _defaultGroupId,
     String molecule = 'ACTIVE_PRINCIPLE',
   }) {
     final members = princepsDefinitions

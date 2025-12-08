@@ -2,12 +2,11 @@
 description: Build, testing, and deployment commands
 alwaysApply: false
 ---
-
 # CI & Deployment
 
 ## 1. Quality Gate (Local)
 
-```
+```dart
 dart run build_runner build --delete-conflicting-outputs
 dart fix --apply
 dart analyze --fatal-infos --fatal-warnings
@@ -16,7 +15,7 @@ flutter test
 
 ## 2. Production Build (Android)
 
-```
+```dart
 flutter build apk --release --split-per-abi --no-tree-shake-icons
 
 # OR
@@ -28,42 +27,3 @@ flutter build appbundle --release --no-tree-shake-icons
 
 - Format: `x.y.z+n`
 - Bump version in `pubspec.yaml` before build
-
-```
-
-### 12. security.mdc (conserver alwaysApply: true)
-
-```mdc
----
-description: Security protocols, permission handling, and data privacy standards
-alwaysApply: true
----
-
-# Security & Privacy (2025 Standard)
-
-## 1. Data Privacy & Telemetry
-
-**Zero Telemetry Policy:** Strictly enforced
-
-- Ensure `firebase_analytics_collection_deactivated=true` in manifests
-- NEVER log PII (Personally Identifiable Information) to Talker or console
-- NEVER log sensitive health data
-
-## 2. Input Sanitization
-
-- **Search:** Sanitize FTS5 inputs via `escapeFts5Query()` before querying
-- **Forms:** Validate all `ShadInputFormField` inputs
-
-## 3. Secure Storage
-
-- **FORBIDDEN:** `SharedPreferences` or plain Drift columns for tokens/passwords/secrets
-- **REQUIRED:** Use `flutter_secure_storage` for secrets (if added)
-- **Warning:** Drift data is unencrypted by default; do NOT store sensitive patient data without SQLCipher
-
-## Mandates
-
-- ✅ Zero telemetry enforcement
-- ✅ FTS5 input escaping
-- ✅ Form validation
-- ❌ PII in logs
-- ❌ Secrets in plain storage

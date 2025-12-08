@@ -89,5 +89,6 @@ echo "Waiting for app to become ready..." >&2
 timeout 60s bash -c "until [ -f \"$LOG_FILE\" ] && [ -s \"$LOG_FILE\" ]; do sleep 0.5; done; tail -f \"$LOG_FILE\" | grep -m 1 \"A Dart VM Service\""
 
 echo "App is ready. Script finished." >&2
+echo "Log file located at: $LOG_FILE" >&2
 exit 0
 

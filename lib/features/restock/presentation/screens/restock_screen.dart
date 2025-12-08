@@ -1,42 +1,58 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:pharma_scan/core/providers/preferences_provider.dart';
+import 'package:pharma_scan/core/router/app_router.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
+import 'package:pharma_scan/core/utils/test_tags.dart';
+import 'package:pharma_scan/core/widgets/scroll_to_top_fab.dart';
+import 'package:pharma_scan/core/widgets/testable.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/status_view.dart';
-import 'package:pharma_scan/features/restock/domain/entities/restock_item_entity.dart';
 import 'package:pharma_scan/features/restock/presentation/providers/restock_provider.dart';
 import 'package:pharma_scan/features/restock/presentation/widgets/restock_list_item.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 @RoutePage()
-class RestockScreen extends ConsumerWidget {
+class RestockScreen extends HookConsumerWidget {
   const RestockScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final restockAsync = ref.watch(restockListProvider);
+    final scrollController = useScrollController();
+
+    final restockAsync = ref.watch(sortedRestockProvider);
     final sortingAsync = ref.watch(sortingPreferenceProvider);
 
-    final sortingPreference = sortingAsync.maybeWhen(
+    final sortingPreference = sortingAsync.maybeWhen<SortingPreference>(
       data: (value) => value,
       orElse: () => SortingPreference.princeps,
     );
 
-    Future<void> onClearChecked() async {
-      final notifier = ref.read(restockMutationProvider.notifier);
-      await notifier.clearChecked();
+    Future<void> switchToScanner() async {
+      try {
+        AutoTabsRouter.of(context).setActiveIndex(0);
+      } on Object {
+        // Not inside tab scaffold (tests/standalone).
+      }
     }
 
-    Future<void> onClearAll() async {
-      final confirmed = await showShadDialog<bool>(
+    Future<bool> confirmDestructiveAction({
+      required String title,
+      required String description,
+      required String confirmLabel,
+    }) async {
+      final result = await showShadDialog<bool>(
         context: context,
         builder: (context) {
           return ShadDialog.alert(
-            title: const Text(Strings.restockClearAllTitle),
-            description: const Text(Strings.restockClearAllDescription),
+            title: Text(title),
+            description: Padding(
+              padding: const EdgeInsets.only(bottom: AppDimens.spacingXs),
+              child: Text(description),
+            ),
             actions: [
               ShadButton.outline(
                 onPressed: () => Navigator.of(context).pop(false),
@@ -44,16 +60,36 @@ class RestockScreen extends ConsumerWidget {
               ),
               ShadButton.destructive(
                 onPressed: () => Navigator.of(context).pop(true),
-                child: const Text(Strings.restockClearAllConfirm),
+                child: Text(confirmLabel),
               ),
             ],
           );
         },
       );
+      return result ?? false;
+    }
 
-      if (confirmed != true) return;
+    Future<void> onClearChecked() async {
+      final confirmed = await confirmDestructiveAction(
+        title: Strings.restockClearChecked,
+        description: Strings.restockClearCheckedDescription,
+        confirmLabel: Strings.restockClearCheckedConfirm,
+      );
+      if (!confirmed) return;
 
-      final notifier = ref.read(restockMutationProvider.notifier);
+      final notifier = ref.read(restockProvider.notifier);
+      await notifier.clearChecked();
+    }
+
+    Future<void> onClearAll() async {
+      final confirmed = await confirmDestructiveAction(
+        title: Strings.restockClearAllTitle,
+        description: Strings.restockClearAllDescription,
+        confirmLabel: Strings.restockClearAllConfirm,
+      );
+      if (!confirmed) return;
+
+      final notifier = ref.read(restockProvider.notifier);
       await notifier.clearAll();
     }
 
@@ -64,15 +100,27 @@ class RestockScreen extends ConsumerWidget {
           style: context.shadTextTheme.h4,
         ),
         actions: [
-          IconButton(
-            icon: const Icon(LucideIcons.check),
-            tooltip: Strings.restockClearChecked,
-            onPressed: onClearChecked,
+          ShadTooltip(
+            builder: (context) => const Text(Strings.restockClearChecked),
+            child: ShadIconButton.ghost(
+              icon: const Icon(LucideIcons.check),
+              onPressed: onClearChecked,
+            ),
           ),
-          IconButton(
-            icon: const Icon(LucideIcons.trash2),
-            tooltip: Strings.restockClearAll,
-            onPressed: onClearAll,
+          ShadTooltip(
+            builder: (context) => const Text(Strings.restockClearAll),
+            child: ShadIconButton.ghost(
+              icon: const Icon(LucideIcons.trash2),
+              onPressed: onClearAll,
+            ),
+          ),
+          Testable(
+            id: TestTags.navSettings,
+            child: ShadIconButton.ghost(
+              icon: const Icon(LucideIcons.settings),
+              onPressed: () =>
+                  AutoRouter.of(context).push(const SettingsRoute()),
+            ),
           ),
         ],
       ),
@@ -87,22 +135,20 @@ class RestockScreen extends ConsumerWidget {
             description: error.toString(),
           ),
         ),
-        data: (items) {
-          if (items.isEmpty) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(AppDimens.spacingLg),
-                child: Text(
-                  Strings.restockEmpty,
-                  style: context.shadTextTheme.p,
-                  textAlign: TextAlign.center,
-                ),
-              ),
+        data: (grouped) {
+          if (grouped.isEmpty) {
+            return StatusView(
+              type: StatusType.empty,
+              title: Strings.restockEmptyTitle,
+              description: Strings.restockEmpty,
+              actionLabel: Strings.startScanning,
+              onAction: switchToScanner,
             );
           }
 
-          final sorted = _sortItems(items, sortingPreference);
-          final grouped = _groupByInitial(sorted, sortingPreference);
+          final totalQuantity = grouped.values
+              .expand((group) => group)
+              .fold<int>(0, (acc, item) => acc + item.quantity);
 
           final slivers = <Widget>[];
 
@@ -134,17 +180,32 @@ class RestockScreen extends ConsumerWidget {
                               sortingPreference == SortingPreference.princeps &&
                               item.princepsLabel != null,
                           onIncrement: () => ref
-                              .read(restockMutationProvider.notifier)
+                              .read(restockProvider.notifier)
                               .increment(item),
                           onDecrement: () => ref
-                              .read(restockMutationProvider.notifier)
+                              .read(restockProvider.notifier)
                               .decrement(item),
                           onToggleChecked: () => ref
-                              .read(restockMutationProvider.notifier)
+                              .read(restockProvider.notifier)
                               .toggleChecked(item),
-                          onDismissed: (_) => ref
-                              .read(restockMutationProvider.notifier)
-                              .deleteItem(item),
+                          onDismissed: (_) async {
+                            final removedItem = item;
+                            await ref
+                                .read(restockProvider.notifier)
+                                .deleteItem(removedItem);
+                            if (!context.mounted) return;
+                            ShadToaster.of(context).show(
+                              ShadToast(
+                                title: const Text(Strings.itemDeleted),
+                                action: ShadButton.ghost(
+                                  onPressed: () => ref
+                                      .read(restockProvider.notifier)
+                                      .restoreItem(removedItem),
+                                  child: const Text(Strings.undo),
+                                ),
+                              ),
+                            );
+                          },
                         );
                       },
                       childCount: groupItems.length,
@@ -155,70 +216,25 @@ class RestockScreen extends ConsumerWidget {
             );
           });
 
-          return CustomScrollView(
-            slivers: slivers,
+          return Stack(
+            children: [
+              CustomScrollView(
+                controller: scrollController,
+                slivers: slivers,
+              ),
+              Positioned(
+                right: AppDimens.spacingMd,
+                bottom:
+                    AppDimens.spacingMd + MediaQuery.paddingOf(context).bottom,
+                child: ScrollToTopFab(
+                  controller: scrollController,
+                  badgeCount: totalQuantity == 0 ? null : totalQuantity,
+                ),
+              ),
+            ],
           );
         },
       ),
     );
-  }
-
-  List<RestockItemEntity> _sortItems(
-    List<RestockItemEntity> items,
-    SortingPreference preference,
-  ) {
-    final sorted = [...items];
-    int compare(RestockItemEntity a, RestockItemEntity b) {
-      String keyFor(RestockItemEntity item) {
-        if (preference == SortingPreference.princeps &&
-            item.princepsLabel != null &&
-            item.princepsLabel!.trim().isNotEmpty) {
-          return item.princepsLabel!.trim().toUpperCase();
-        }
-        return item.label.trim().toUpperCase();
-      }
-
-      final ka = keyFor(a);
-      final kb = keyFor(b);
-      final keyCompare = ka.compareTo(kb);
-      if (keyCompare != 0) return keyCompare;
-      return a.label.toUpperCase().compareTo(b.label.toUpperCase());
-    }
-
-    sorted.sort(compare);
-    return sorted;
-  }
-
-  Map<String, List<RestockItemEntity>> _groupByInitial(
-    List<RestockItemEntity> items,
-    SortingPreference preference,
-  ) {
-    final groups = <String, List<RestockItemEntity>>{};
-
-    String letterFor(RestockItemEntity item) {
-      final base =
-          preference == SortingPreference.princeps &&
-              item.princepsLabel != null &&
-              item.princepsLabel!.trim().isNotEmpty
-          ? item.princepsLabel!
-          : item.label;
-      final trimmed = base.trim();
-      if (trimmed.isEmpty) return '#';
-      final first = trimmed[0].toUpperCase();
-      final isAlpha = RegExp('[A-ZÀ-ÖØ-Ý]').hasMatch(first);
-      return isAlpha ? first : '#';
-    }
-
-    for (final item in items) {
-      final letter = letterFor(item);
-      groups.putIfAbsent(letter, () => []).add(item);
-    }
-
-    final sortedKeys = groups.keys.toList()..sort();
-    final sortedGroups = <String, List<RestockItemEntity>>{};
-    for (final key in sortedKeys) {
-      sortedGroups[key] = groups[key]!;
-    }
-    return sortedGroups;
   }
 }

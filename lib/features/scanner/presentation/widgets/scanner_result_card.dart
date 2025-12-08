@@ -6,8 +6,7 @@ import 'package:pharma_scan/core/logic/sanitizer.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
-import 'package:pharma_scan/core/widgets/ui_kit/product_card_header.dart';
-import 'package:pharma_scan/core/widgets/ui_kit/regulatory_badges.dart';
+import 'package:pharma_scan/core/widgets/ui_kit/product_badges.dart';
 import 'package:pharma_scan/features/explorer/domain/entities/medicament_entity.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
@@ -29,8 +28,10 @@ class ScannerResultCard extends StatelessWidget {
     this.availabilityStatus,
     this.isHospitalOnly = false,
     this.exactMatchLabel,
+    this.expDate,
+    bool? isExpired,
     super.key,
-  });
+  }) : isExpired = isExpired ?? false;
 
   final MedicamentEntity summary;
   final Cip13 cip;
@@ -44,52 +45,88 @@ class ScannerResultCard extends StatelessWidget {
   final String? availabilityStatus;
   final bool isHospitalOnly;
   final String? exactMatchLabel;
+  final DateTime? expDate;
+  final bool isExpired;
 
   @override
   Widget build(BuildContext context) {
     final isGenericWithPrinceps =
-        !summary.isPrinceps &&
+        !summary.data.isPrinceps &&
         summary.groupId != null &&
-        summary.princepsDeReference.isNotEmpty &&
-        summary.princepsDeReference != 'Inconnu';
+        summary.data.princepsDeReference.isNotEmpty &&
+        summary.data.princepsDeReference != 'Inconnu';
+
+    final commercializationStatus = boxStatus ?? summary.data.status;
+    final normalizedCommercialization = commercializationStatus
+        ?.toLowerCase()
+        .trim();
+    final isRevoked = normalizedCommercialization?.contains('abrog') ?? false;
+    final isNotMarketed =
+        normalizedCommercialization?.contains('non commercialis') ?? false;
 
     final displayTitle = isGenericWithPrinceps
-        ? extractPrincepsLabel(summary.princepsDeReference)
+        ? extractPrincepsLabel(summary.data.princepsDeReference)
         : getDisplayTitle(summary);
+
+    final showExpired = isExpired;
+    final expiryDateText = expDate != null
+        ? DateFormat('dd/MM/yyyy').format(expDate!)
+        : null;
+    final expiredAlert = showExpired
+        ? ShadAlert.destructive(
+            icon: const Icon(LucideIcons.calendarX),
+            title: const Text(Strings.expiredProductTitle),
+            description: expiryDateText != null
+                ? Text(
+                    Strings.expiredProductDate(expiryDateText),
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  )
+                : null,
+          )
+        : null;
 
     final availabilityAlert = _buildAvailabilityAlert(context);
     final statusIcons = _buildStatusIcons(context);
     final exactMatchBanner = _buildExactMatchBanner(context);
     final hasRegulatoryBadges =
-        summary.isNarcotic ||
-        summary.isList1 ||
-        summary.isList2 ||
-        summary.isException ||
-        summary.isRestricted ||
-        summary.isHospitalOnly ||
-        summary.isDental ||
-        summary.isSurveillance ||
-        summary.isOtc;
+        summary.data.isNarcotic ||
+        summary.data.isList1 ||
+        summary.data.isList2 ||
+        summary.data.isException ||
+        summary.data.isRestricted ||
+        summary.data.isHospitalOnly ||
+        summary.data.isDental ||
+        summary.data.isSurveillance ||
+        summary.data.isOtc;
     final regulatoryBadgesWidget = RegulatoryBadges(
-      isNarcotic: summary.isNarcotic,
-      isList1: summary.isList1,
-      isList2: summary.isList2,
-      isException: summary.isException,
-      isRestricted: summary.isRestricted,
-      isHospitalOnly: summary.isHospitalOnly,
-      isDental: summary.isDental,
-      isSurveillance: summary.isSurveillance,
-      isOtc: summary.isOtc,
+      isNarcotic: summary.data.isNarcotic,
+      isList1: summary.data.isList1,
+      isList2: summary.data.isList2,
+      isException: summary.data.isException,
+      isRestricted: summary.data.isRestricted,
+      isHospitalOnly: summary.data.isHospitalOnly,
+      isDental: summary.data.isDental,
+      isSurveillance: summary.data.isSurveillance,
+      isOtc: summary.data.isOtc,
       compact: true,
     );
 
-    final card = ShadCard(
-      title: ProductCardHeader(
-        displayTitle: displayTitle,
-        badges: badges,
-        statusIcons: statusIcons,
-        isFocusPrinceps: isGenericWithPrinceps,
-        compact: true,
+    Widget card = ShadCard(
+      title: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (expiredAlert != null) ...[
+            expiredAlert,
+            const Gap(AppDimens.spacingSm),
+          ],
+          _CardHeader(
+            displayTitle: displayTitle,
+            badges: badges,
+            statusIcons: statusIcons,
+            isFocusPrinceps: isGenericWithPrinceps,
+            compact: true,
+          ),
+        ],
       ),
       description: subtitle.isNotEmpty ? _buildDescription(context) : null,
       footer: _buildActions(context),
@@ -98,6 +135,22 @@ class ScannerResultCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (isRevoked) ...[
+              const ShadAlert.destructive(
+                title: Text(Strings.revokedStatusTitle),
+                description: Text(Strings.revokedStatusDescription),
+              ),
+              const Gap(4),
+            ],
+            if (isNotMarketed) ...[
+              ShadBadge.secondary(
+                child: Text(
+                  Strings.nonCommercialise,
+                  style: context.shadTextTheme.small,
+                ),
+              ),
+              const Gap(4),
+            ],
             if (exactMatchBanner != null) ...[
               exactMatchBanner,
               const Gap(2),
@@ -105,6 +158,14 @@ class ScannerResultCard extends StatelessWidget {
             if (availabilityAlert != null) ...[
               availabilityAlert,
               const Gap(2),
+            ],
+            if (price != null ||
+                (refundRate != null && refundRate!.trim().isNotEmpty)) ...[
+              FinancialBadge(
+                refundRate: refundRate,
+                price: price,
+              ),
+              const Gap(AppDimens.spacingXs),
             ],
             if (hasRegulatoryBadges) ...[
               const Gap(AppDimens.spacingXs),
@@ -114,6 +175,19 @@ class ScannerResultCard extends StatelessWidget {
         ),
       ),
     );
+
+    if (isExpired) {
+      card = DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border.all(
+            color: context.shadColors.destructive,
+            width: 2,
+          ),
+          borderRadius: context.shadTheme.radius,
+        ),
+        child: card,
+      );
+    }
 
     return Semantics(
       label: _buildSemanticsLabel(),
@@ -186,19 +260,21 @@ class ScannerResultCard extends StatelessWidget {
 
   String _buildSemanticsLabel() {
     final buffer = StringBuffer(
-      '${Strings.medication} ${summary.nomCanonique}',
+      '${Strings.medication} ${summary.data.nomCanonique}',
     )..write(', ${Strings.cip} $cip');
     if (summary.titulaire != null && summary.titulaire!.isNotEmpty) {
       buffer.write(', ${Strings.holder} ${summary.titulaire}');
     }
-    if (summary.principesActifsCommuns.isNotEmpty) {
+    if (summary.data.principesActifsCommuns.isNotEmpty) {
       buffer.write(
-        ', ${Strings.activePrinciples} ${summary.principesActifsCommuns.take(3).join(', ')}',
+        ', ${Strings.activePrinciples} ${summary.data.principesActifsCommuns.take(3).join(', ')}',
       );
     }
-    if (summary.conditionsPrescription != null &&
-        summary.conditionsPrescription!.isNotEmpty) {
-      buffer.write(', ${Strings.condition} ${summary.conditionsPrescription}');
+    if (summary.data.conditionsPrescription != null &&
+        summary.data.conditionsPrescription!.isNotEmpty) {
+      buffer.write(
+        ', ${Strings.condition} ${summary.data.conditionsPrescription}',
+      );
     }
     return buffer.toString();
   }
@@ -314,6 +390,70 @@ class ScannerResultCard extends StatelessWidget {
               maxLines: 1,
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CardHeader extends StatelessWidget {
+  const _CardHeader({
+    required this.displayTitle,
+    required this.badges,
+    required this.statusIcons,
+    required this.isFocusPrinceps,
+    required this.compact,
+  });
+
+  final String displayTitle;
+  final List<Widget> badges;
+  final Widget statusIcons;
+  final bool isFocusPrinceps;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.shadTheme;
+    final baseTitleStyle = theme.textTheme.h4;
+    final titleStyle = compact
+        ? theme.textTheme.p.copyWith(fontWeight: FontWeight.w600)
+        : baseTitleStyle.copyWith(
+            fontWeight: isFocusPrinceps
+                ? FontWeight.bold
+                : baseTitleStyle.fontWeight,
+            letterSpacing: isFocusPrinceps
+                ? -0.5
+                : baseTitleStyle.letterSpacing,
+          );
+    return Padding(
+      padding: EdgeInsets.all(
+        compact ? AppDimens.spacing2xs : AppDimens.spacingMd,
+      ),
+      child: Row(
+        children: [
+          if (badges.isNotEmpty) ...[
+            ...badges.map(
+              (badge) => Padding(
+                padding: EdgeInsets.only(
+                  right: compact ? AppDimens.spacing2xs : AppDimens.spacingXs,
+                ),
+                child: badge,
+              ),
+            ),
+            Gap(compact ? AppDimens.spacing2xs : AppDimens.spacingXs),
+          ],
+          Expanded(
+            child: Text(
+              displayTitle,
+              style: titleStyle,
+              overflow: TextOverflow.ellipsis,
+              maxLines: compact ? 1 : 2,
+            ),
+          ),
+          if (statusIcons is! SizedBox) ...[
+            Gap(compact ? AppDimens.spacing2xs : AppDimens.spacingXs),
+            statusIcons,
+          ],
         ],
       ),
     );

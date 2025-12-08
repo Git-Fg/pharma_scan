@@ -7,6 +7,7 @@ import 'package:pharma_scan/core/router/app_routes.dart';
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
+import 'package:pharma_scan/features/explorer/domain/models/database_stats.dart';
 import 'package:pharma_scan/features/explorer/domain/models/generic_group_entity.dart';
 import 'package:pharma_scan/features/explorer/domain/models/search_result_item_model.dart';
 import 'package:pharma_scan/features/explorer/presentation/providers/database_stats_provider.dart';
@@ -35,11 +36,14 @@ void main() {
         final overrides = [
           genericGroupsProvider.overrideWith(_StaticGenericGroupsNotifier.new),
           databaseStatsProvider.overrideWith(
-            (ref) => Future<Map<String, dynamic>>.value({
-              'total_princeps': 0,
-              'total_generiques': 0,
-              'total_principes': 0,
-            }),
+            (ref) => Future<DatabaseStats>.value(
+              (
+                totalPrinceps: 0,
+                totalGeneriques: 0,
+                totalPrincipes: 0,
+                avgGenPerPrincipe: 0.0,
+              ),
+            ),
           ),
           initializationStepProvider.overrideWith(
             (ref) => Stream<InitializationStep>.value(InitializationStep.ready),
@@ -74,10 +78,7 @@ void main() {
           ),
         );
 
-        // WHY: pumpAndSettle will trigger layout and catch SliverGeometry errors
-        // If layoutExtent > paintExtent, Flutter will throw an assertion
         await tester.pumpAndSettle();
-        // Basic sanity check: explorer screen renders and search field exists.
         final searchField = find.bySemanticsLabel(Strings.searchLabel);
         expect(searchField, findsOneWidget);
       },
@@ -98,11 +99,14 @@ void main() {
       final overrides = [
         genericGroupsProvider.overrideWith(_StaticGenericGroupsNotifier.new),
         databaseStatsProvider.overrideWith(
-          (ref) => Future<Map<String, dynamic>>.value({
-            'total_princeps': 0,
-            'total_generiques': 0,
-            'total_principes': 0,
-          }),
+          (ref) => Future<DatabaseStats>.value(
+            (
+              totalPrinceps: 0,
+              totalGeneriques: 0,
+              totalPrincipes: 0,
+              avgGenPerPrincipe: 0.0,
+            ),
+          ),
         ),
         initializationStepProvider.overrideWith(
           (ref) => Stream<InitializationStep>.value(InitializationStep.ready),
@@ -138,8 +142,6 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      // WHY: Verify the constant is set correctly (69px = 8 + 48 + 12 + 1)
-      // This test ensures the constant matches the actual rendered height
       expect(AppDimens.searchBarHeaderHeight, 69.0);
     }, skip: true);
 
@@ -161,11 +163,14 @@ void main() {
       final overrides = [
         genericGroupsProvider.overrideWith(_StaticGenericGroupsNotifier.new),
         databaseStatsProvider.overrideWith(
-          (ref) => Future<Map<String, dynamic>>.value({
-            'total_princeps': 0,
-            'total_generiques': 0,
-            'total_principes': 0,
-          }),
+          (ref) => Future<DatabaseStats>.value(
+            (
+              totalPrinceps: 0,
+              totalGeneriques: 0,
+              totalPrincipes: 0,
+              avgGenPerPrincipe: 0.0,
+            ),
+          ),
         ),
         initializationStepProvider.overrideWith(
           (ref) => Stream<InitializationStep>.value(InitializationStep.ready),
@@ -201,12 +206,9 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      // WHY: Verify that SliverPadding is added when keyboard insets are present
-      // This prevents white bar gap above keyboard
       final sliverPaddings = find.byType(SliverPadding);
       expect(sliverPaddings, findsWidgets);
 
-      // Verify no layout exceptions
       expect(tester.takeException(), isNull);
     }, skip: true);
   });

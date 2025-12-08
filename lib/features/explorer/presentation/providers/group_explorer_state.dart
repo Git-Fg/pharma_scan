@@ -1,5 +1,5 @@
 import 'package:dart_mappable/dart_mappable.dart';
-import 'package:pharma_scan/core/database/database.dart';
+import 'package:pharma_scan/features/explorer/domain/entities/group_detail_entity.dart';
 
 part 'group_explorer_state.mapper.dart';
 
@@ -18,12 +18,15 @@ class GroupExplorerState with GroupExplorerStateMappable {
     required this.refundLabel,
     this.ansmAlertUrl,
     this.princepsCisCode,
+    this.rawLabelAnsm,
+    this.parsingMethod,
+    this.princepsCisReference,
   });
 
   final String title;
-  final List<ViewGroupDetail> princeps;
-  final List<ViewGroupDetail> generics;
-  final List<ViewGroupDetail> related;
+  final List<GroupDetailEntity> princeps;
+  final List<GroupDetailEntity> generics;
+  final List<GroupDetailEntity> related;
   final List<String> commonPrincipes;
   final List<String> distinctDosages;
   final List<String> distinctForms;
@@ -32,4 +35,7 @@ class GroupExplorerState with GroupExplorerStateMappable {
   final String refundLabel;
   final String? ansmAlertUrl;
   final String? princepsCisCode;
+  final String? rawLabelAnsm;
+  final String? parsingMethod;
+  final String? princepsCisReference;
 }

@@ -8,29 +8,77 @@ import 'package:pharma_scan/core/logic/sanitizer.dart';
 import 'package:pharma_scan/core/models/scan_result.dart';
 import 'package:pharma_scan/core/services/logger_service.dart';
 import 'package:pharma_scan/features/explorer/domain/entities/medicament_entity.dart';
+import 'package:pharma_scan/features/explorer/domain/models/database_stats.dart';
 import 'package:pharma_scan/features/explorer/domain/models/generic_group_entity.dart';
 import 'package:pharma_scan/features/explorer/domain/models/search_filters_model.dart';
 
 part 'catalog_dao.g.dart';
 
+typedef MedicamentSummaryWithLab = ({
+  MedicamentSummaryData summary,
+  String? labName,
+});
+
+extension MedicamentSummaryWithLabX on MedicamentSummaryWithLab {
+  MedicamentSummaryData get data => summary;
+  bool get isPrinceps => summary.isPrinceps;
+  String? get groupId => summary.groupId;
+  List<String> get principesActifsCommuns => summary.principesActifsCommuns;
+  String get nomCanonique => summary.nomCanonique;
+  String get princepsDeReference => summary.princepsDeReference;
+  String get princepsBrandName => summary.princepsBrandName;
+}
+
+extension SearchMedicamentsResultX on SearchMedicamentsResult {
+  MedicamentSummaryData toSummaryData() => MedicamentSummaryData(
+    cisCode: cisCode,
+    nomCanonique: nomCanonique,
+    isPrinceps: isPrinceps,
+    groupId: groupId,
+    memberType: memberType,
+    principesActifsCommuns: principesActifsCommuns,
+    princepsDeReference: princepsDeReference,
+    formePharmaceutique: formePharmaceutique,
+    voiesAdministration: voiesAdministration,
+    princepsBrandName: princepsBrandName,
+    procedureType: procedureType,
+    titulaireId: titulaireId,
+    conditionsPrescription: conditionsPrescription,
+    dateAmm: dateAmm,
+    isSurveillance: isSurveillance,
+    formattedDosage: formattedDosage,
+    atcCode: atcCode,
+    status: status,
+    priceMin: priceMin,
+    priceMax: priceMax,
+    aggregatedConditions: aggregatedConditions,
+    ansmAlertUrl: ansmAlertUrl,
+    isHospitalOnly: isHospital,
+    isDental: isDental,
+    isList1: isList1,
+    isList2: isList2,
+    isNarcotic: isNarcotic,
+    isException: isException,
+    isRestricted: isRestricted,
+    isOtc: isOtc,
+    representativeCip: representativeCip,
+  );
+
+  MedicamentSummaryWithLab toSummaryWithLab() =>
+      (summary: toSummaryData(), labName: labName);
+}
+
 /// Escapes a normalized query for FTS5 (lowercase, escape specials, join with AND).
-String _escapeFts5Query(NormalizedQuery query) {
-  final lowercased = query.toString().toLowerCase();
-  if (lowercased.trim().isEmpty) return '';
-
-  final escaped = lowercased
-      .replaceAll("'", ' ')
-      .replaceAll('"', ' ')
-      .replaceAll(':', ' ')
-      .replaceAll(RegExp(r'\s+'), ' ')
-      .trim();
-
-  if (escaped.isEmpty) return '';
-
-  final terms = escaped.split(' ').where((t) => t.isNotEmpty).toList();
+String _buildFtsQuery(String raw) {
+  final normalized = normalizeForSearch(raw).replaceAll('%', '');
+  if (normalized.isEmpty) return '';
+  final terms = normalized.split(' ').where((t) => t.isNotEmpty).toList();
   if (terms.isEmpty) return '';
 
-  return terms.join(' AND ');
+  final parts = terms
+      .map((term) => '{molecule_name brand_name} : "$term"')
+      .toList();
+  return parts.join(' AND ');
 }
 
 @DriftAccessor(
@@ -54,7 +102,10 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
   /// WHY: Returns the medicament summary row associated with the scanned CIP.
   /// Scanner UI still needs the CIP itself alongside presentation metadata.
   /// Returns Future directly - exceptions bubble up to Riverpod's AsyncValue.
-  Future<ScanResult?> getProductByCip(Cip13 codeCip) async {
+  Future<ScanResult?> getProductByCip(
+    Cip13 codeCip, {
+    DateTime? expDate,
+  }) async {
     LoggerService.db('Lookup product for CIP $codeCip');
 
     final cipString = codeCip.toString();
@@ -75,20 +126,84 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
     final medicament = row.readTable(medicaments);
     final availabilityRow = row.readTableOrNull(medicamentAvailability);
 
-    final summary =
+    var summary =
         await (select(medicamentSummary)
               ..where((tbl) => tbl.cisCode.equals(medicament.cisCode)))
             .getSingleOrNull();
+    String? labName;
+    if (summary?.titulaireId != null) {
+      final labRow =
+          await (select(laboratories)
+                ..where((tbl) => tbl.id.equals(summary!.titulaireId!)))
+              .getSingleOrNull();
+      labName = labRow?.name;
+    }
 
     if (summary == null) {
       LoggerService.warning(
         '[CatalogDao] No medicament_summary row found for CIS ${medicament.cisCode}',
       );
-      return null;
+
+      final specialite =
+          await (select(specialites)
+                ..where((tbl) => tbl.cisCode.equals(medicament.cisCode)))
+              .getSingleOrNull();
+      if (specialite == null) {
+        return null;
+      }
+      if (specialite.titulaireId != null && labName == null) {
+        final labRow =
+            await (select(laboratories)
+                  ..where((tbl) => tbl.id.equals(specialite.titulaireId!)))
+                .getSingleOrNull();
+        labName = labRow?.name;
+      }
+
+      final principleRows = await (select(
+        principesActifs,
+      )..where((tbl) => tbl.codeCip.equals(cipString))).get();
+      final normalizedPrinciples = principleRows
+          .map((p) => p.principeNormalized ?? p.principe)
+          .where((p) => p.trim().isNotEmpty)
+          .map((p) => p)
+          .toList();
+
+      final fallbackSummary = MedicamentSummaryData(
+        cisCode: medicament.cisCode,
+        nomCanonique: specialite.nomSpecialite,
+        isPrinceps: true,
+        memberType: 0,
+        principesActifsCommuns: normalizedPrinciples,
+        princepsDeReference: specialite.nomSpecialite,
+        formePharmaceutique: specialite.formePharmaceutique,
+        voiesAdministration: specialite.voiesAdministration,
+        princepsBrandName: specialite.nomSpecialite,
+        procedureType: specialite.procedureType,
+        titulaireId: specialite.titulaireId,
+        conditionsPrescription: specialite.conditionsPrescription,
+        dateAmm: specialite.dateAmm,
+        isSurveillance: specialite.isSurveillance,
+        atcCode: specialite.atcCode,
+        status: specialite.statutAdministratif,
+        isHospitalOnly: false,
+        isDental: false,
+        isList1: false,
+        isList2: false,
+        isNarcotic: false,
+        isException: false,
+        isRestricted: false,
+        isOtc: true,
+        representativeCip: cipString,
+      );
+
+      await into(medicamentSummary).insertOnConflictUpdate(
+        fallbackSummary.toCompanion(false),
+      );
+      summary = fallbackSummary;
     }
 
     final result = ScanResult(
-      summary: MedicamentEntity.fromData(summary),
+      summary: MedicamentEntity.fromData(summary, labName: labName),
       cip: codeCip,
       price: medicament.prixPublic,
       refundRate: medicament.tauxRemboursement,
@@ -102,6 +217,7 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
             medicament.tauxRemboursement,
           ),
       libellePresentation: medicament.presentationLabel,
+      expDate: expDate,
     );
 
     return result;
@@ -124,96 +240,64 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
   // Search Methods (from SearchDao)
   // ============================================================================
 
-  ({String sql, List<Variable<Object>> variables}) _buildSearchQuery(
-    String sanitizedQuery,
-    SearchFilters? filters,
-  ) {
-    final routeFilter = filters?.voieAdministration;
-    final atcFilter = filters?.atcClass?.code;
-
-    final filterClauses = <String>[];
-    if (routeFilter != null) {
-      filterClauses.add('AND ms.voies_administration LIKE ?');
-    }
-    if (atcFilter != null) {
-      filterClauses.add('AND ms.atc_code LIKE ?');
-    }
-    final filterClause = filterClauses.join(' ');
-
-    final variables = <Variable<Object>>[Variable<String>(sanitizedQuery)];
-    if (routeFilter != null) {
-      variables.add(Variable<String>('%$routeFilter%'));
-    }
-    if (atcFilter != null) {
-      variables.add(Variable<String>('$atcFilter%'));
-    }
-
-    final sql =
-        '''
-      SELECT ms.*,
-             bm25(search_index) AS rank
-      FROM medicament_summary ms
-      INNER JOIN search_index si ON ms.cis_code = si.cis_code
-      WHERE search_index MATCH ? $filterClause
-      ORDER BY rank ASC, ms.nom_canonique
-      LIMIT 50
-      ''';
-
-    return (sql: sql, variables: variables);
-  }
-
-  Future<List<MedicamentSummaryData>> searchMedicaments(
+  Future<List<MedicamentSummaryWithLab>> searchMedicaments(
     NormalizedQuery query, {
     SearchFilters? filters,
   }) async {
-    final sanitizedQuery = _escapeFts5Query(query);
+    final sanitizedQuery = _buildFtsQuery(query.toString());
     if (sanitizedQuery.isEmpty) {
       LoggerService.db('Empty search query, returning empty results');
-      return <MedicamentSummaryData>[];
+      return <MedicamentSummaryWithLab>[];
     }
 
     LoggerService.db(
       'Searching medicaments with FTS5 query: $sanitizedQuery',
     );
 
-    final queryData = _buildSearchQuery(sanitizedQuery, filters);
+    final routeFilter = filters?.voieAdministration ?? '';
+    final atcFilter = filters?.atcClass?.code ?? '';
 
-    final results = await db
-        .customSelect(
-          queryData.sql,
-          variables: queryData.variables,
-          readsFrom: {db.medicamentSummary},
+    final labFilter = filters?.titulaireId ?? -1;
+    final queryResults = await attachedDatabase
+        .searchMedicaments(
+          sanitizedQuery,
+          routeFilter,
+          atcFilter,
+          labFilter,
         )
-        .asyncMap(db.medicamentSummary.mapFromRow)
         .get();
 
-    return results;
+    return queryResults.map((row) => row.toSummaryWithLab()).toList();
   }
 
-  Stream<List<MedicamentSummaryData>> watchMedicaments(
+  Stream<List<MedicamentSummaryWithLab>> watchMedicaments(
     NormalizedQuery query, {
     SearchFilters? filters,
   }) {
-    final sanitizedQuery = _escapeFts5Query(query);
+    final sanitizedQuery = _buildFtsQuery(query.toString());
     if (sanitizedQuery.isEmpty) {
       LoggerService.db('Empty search query, emitting empty stream');
-      return Stream<List<MedicamentSummaryData>>.value(
-        const <MedicamentSummaryData>[],
+      return Stream<List<MedicamentSummaryWithLab>>.value(
+        const <MedicamentSummaryWithLab>[],
       );
     }
 
     LoggerService.db('Watching medicament search for query: $sanitizedQuery');
 
-    final queryData = _buildSearchQuery(sanitizedQuery, filters);
+    final routeFilter = filters?.voieAdministration ?? '';
+    final atcFilter = filters?.atcClass?.code ?? '';
 
-    return db
-        .customSelect(
-          queryData.sql,
-          variables: queryData.variables,
-          readsFrom: {db.medicamentSummary},
+    final labFilter = filters?.titulaireId ?? -1;
+
+    return attachedDatabase
+        .searchMedicaments(
+          sanitizedQuery,
+          routeFilter,
+          atcFilter,
+          labFilter,
         )
-        .asyncMap(db.medicamentSummary.mapFromRow)
-        .watch();
+        .watch()
+        .map((rows) => rows.map((row) => row.toSummaryWithLab()).toList());
   }
 
   // ============================================================================
@@ -269,7 +353,7 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
     return results;
   }
 
-  Future<Map<String, dynamic>> getDatabaseStats() async {
+  Future<DatabaseStats> getDatabaseStats() async {
     final totalMedicamentsQuery = selectOnly(medicaments)
       ..addColumns([medicaments.codeCip.count()]);
     final totalMedicaments = await totalMedicamentsQuery.getSingle();
@@ -298,12 +382,12 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
       ratioGenPerPrincipe = countGens / countPrincipes;
     }
 
-    return {
-      'total_princeps': countPrinceps,
-      'total_generiques': countGens,
-      'total_principes': countPrincipes,
-      'avg_gen_per_principe': ratioGenPerPrincipe,
-    };
+    return (
+      totalPrinceps: countPrinceps,
+      totalGeneriques: countGens,
+      totalPrincipes: countPrincipes,
+      avgGenPerPrincipe: ratioGenPerPrincipe,
+    );
   }
 
   Future<List<GenericGroupEntity>> getGenericGroupSummaries({
@@ -315,105 +399,65 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
     int limit = 100,
     int offset = 0,
   }) async {
-    final tbl = medicamentSummary;
-
-    // Base filter: group_id must not be null (standalone medications excluded)
-    // Also exclude empty groups (NULL, empty string, or '[]' JSON array)
-    var filterExpression =
-        tbl.groupId.isNotNull() &
-        tbl.principesActifsCommuns.isNotNull() &
-        tbl.principesActifsCommuns.isNotValue('[]') &
-        tbl.principesActifsCommuns.isNotValue('');
+    final tbl = attachedDatabase.viewGenericGroupSummaries;
+    final filters = <Expression<bool>>[];
 
     if (procedureTypeKeywords != null && procedureTypeKeywords.isNotEmpty) {
       final procedureFilters = procedureTypeKeywords
           .map((kw) => tbl.procedureType.like('%$kw%'))
           .toList();
-      final procedureFilter = procedureFilters.reduce((a, b) => a | b);
-      filterExpression = filterExpression & procedureFilter;
+      filters.add(procedureFilters.reduce((a, b) => a | b));
     }
 
     if (atcClass != null && atcClass.isNotEmpty) {
-      filterExpression = filterExpression & tbl.atcCode.like('$atcClass%');
+      filters.add(tbl.atcCode.like('$atcClass%'));
     }
 
     if (routeKeywords != null && routeKeywords.isNotEmpty) {
       final routeFilters = routeKeywords
           .map((kw) => tbl.voiesAdministration.like('%$kw%'))
           .toList();
-      final routeFilter = routeFilters.reduce((a, b) => a | b);
-      filterExpression = filterExpression & routeFilter;
+      filters.add(routeFilters.reduce((a, b) => a | b));
     } else if (formKeywords != null && formKeywords.isNotEmpty) {
       final formFilters = formKeywords
           .map((kw) => tbl.formePharmaceutique.like('%$kw%'))
           .toList();
-      final formFilter = formFilters.reduce((a, b) => a | b);
-      filterExpression = filterExpression & formFilter;
+      filters.add(formFilters.reduce((a, b) => a | b));
 
-      // Add AND expressions for exclude keywords
       if (excludeKeywords != null && excludeKeywords.isNotEmpty) {
         final excludeFilters = excludeKeywords
             .map((kw) => tbl.formePharmaceutique.like('%$kw%').not())
             .toList();
-        final excludeFilter = excludeFilters.reduce((a, b) => a & b);
-        filterExpression = filterExpression & excludeFilter;
+        filters.add(excludeFilters.reduce((a, b) => a & b));
       }
     }
 
-    // Custom expression to extract princeps CIS code
-    // SQL: MAX(CASE WHEN is_princeps = 1 THEN cis_code ELSE NULL END)
-    const princepsCisExpression = CustomExpression<String>(
-      'MAX(CASE WHEN is_princeps = 1 THEN cis_code ELSE NULL END)',
-    );
-
-    final query = selectOnly(medicamentSummary)
-      ..addColumns([
-        tbl.groupId,
-        tbl.princepsDeReference,
-        tbl.principesActifsCommuns,
-        princepsCisExpression,
-      ])
-      ..where(filterExpression)
-      ..groupBy([
-        tbl.groupId,
-        tbl.princepsDeReference,
-        tbl.principesActifsCommuns,
-      ])
-      ..orderBy([
-        OrderingTerm.asc(tbl.princepsDeReference),
-      ])
+    final query = select(tbl)
+      ..orderBy([(t) => OrderingTerm.asc(t.princepsDeReference)])
       ..limit(limit, offset: offset);
+
+    if (filters.isNotEmpty) {
+      query.where((t) => filters.reduce((a, b) => a & b));
+    }
 
     final rows = await query.get();
 
     final results = rows
         .map((row) {
-          final groupId = row.read(tbl.groupId)!;
-          final rawPrincepsReference = row.read(tbl.princepsDeReference)!;
-          final princepsReference = extractPrincepsLabel(
-            rawPrincepsReference,
-          );
-          final dynamic rawPrincipes = row.read(tbl.principesActifsCommuns);
-          final List<String> principesActifsList;
-          if (rawPrincipes is String) {
-            principesActifsList = const StringListConverter().fromSql(
-              rawPrincipes,
-            );
-          } else if (rawPrincipes is List) {
-            principesActifsList = rawPrincipes.cast<String>();
-          } else {
-            principesActifsList = const <String>[];
+          final groupId = row.groupId;
+          if (groupId == null || groupId.isEmpty) return null;
+          final rawPrincepsReference = row.princepsDeReference;
+          if (rawPrincepsReference.isEmpty) {
+            return null;
           }
+          final princepsReference = extractPrincepsLabel(rawPrincepsReference);
+          final commonPrincipes = row.commonPrincipes ?? '';
 
-          final commonPrincipes = formatCommonPrincipesFromList(
-            principesActifsList,
-          );
-
-          if (commonPrincipes.trim().isEmpty) {
+          if (commonPrincipes.trim().isEmpty || princepsReference.isEmpty) {
             return null;
           }
 
-          final princepsCisCodeRaw = row.read(princepsCisExpression);
+          final princepsCisCodeRaw = row.princepsCisCode;
           final princepsCisCode = princepsCisCodeRaw != null
               ? (princepsCisCodeRaw.length == 8
                     ? CisCode.validated(princepsCisCodeRaw)

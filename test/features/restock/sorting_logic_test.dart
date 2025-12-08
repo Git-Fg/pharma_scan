@@ -147,7 +147,6 @@ void main() {
           RestockItemEntity(
             cip: Cip13.validated('3400930302613'),
             label: 'Z-Standalone',
-            princepsLabel: null,
             quantity: 1,
             isChecked: false,
             isPrinceps: true,
@@ -155,7 +154,6 @@ void main() {
           RestockItemEntity(
             cip: Cip13.validated('3400930302614'),
             label: 'A-Standalone',
-            princepsLabel: null,
             quantity: 1,
             isChecked: false,
             isPrinceps: true,

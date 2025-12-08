@@ -41,5 +41,4 @@ analyzer:
     dead_code: error
     always_use_package_imports: error
     avoid_print: error
-    # Allow TODOs without warning noise
-    todo: ignore
+    unnecessary_lambdas: warning

@@ -10,7 +10,4 @@ class MockDataInitializationService extends Mock
 class MockCatalogDao extends Mock implements CatalogDao {}
 
 // Register fallback values here when using any() with custom types.
-void registerCommonFallbackValues() {
-  // Example:
-  // registerFallbackValue(FakeSomeCustomType());
-}
+void registerCommonFallbackValues() {}

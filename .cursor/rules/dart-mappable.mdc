@@ -1,9 +1,7 @@
 ---
 description: Dart Mappable data models, serialization patterns, and sealed classes
-globs: lib/**/*_model.dart, lib/**/dto/*.dart
 alwaysApply: false
 ---
-
 # Dart Mappable (2025 Standard)
 
 ## Mandates
@@ -12,10 +10,11 @@ alwaysApply: false
 - ALL fields must be `final` with `const` constructors
 - INCLUDE `part 'filename.mapper.dart';`
 - FORBIDDEN: `freezed`, `json_serializable`
+- State/Notifier state classes (immutable) MUST also use `@MappableClass` (no hand-written `copyWith`/`==`/`toJson`)
 
 ## Standard Data Class
 
-```
+```dart
 import 'package:dart_mappable/dart_mappable.dart';
 
 part 'user.mapper.dart';
@@ -34,7 +33,7 @@ class User with UserMappable {
 
 ## Sealed Classes (Unions)
 
-```
+```dart
 @MappableClass(discriminatorKey: 'type')
 sealed class UiState with UiStateMappable {
   const UiState();
@@ -60,7 +59,7 @@ class ErrorState extends UiState with ErrorStateMappable {
 
 ## Pattern Matching (Dart 3)
 
-```
+```dart
 // ✅ Use switch expressions (not .map/.when)
 final result = switch (uiState) {
   Loading() => 'Loading...',
@@ -75,7 +74,7 @@ final result = switch (uiState) {
 
 **build.yaml:**
 
-```
+```dart
 dart_mappable_builder:
   options:
     caseStyle: camelCase
@@ -88,5 +87,6 @@ dart_mappable_builder:
 - ❌ Mutable fields in data models
 - ❌ Missing `part '*.mapper.dart';`
 - ❌ `.map()` or `.when()` (use `switch` expressions)
+- ❌ Manual `copyWith`/`==`/`toJson` on state or DTO classes—use generated mixins
 - ✅ `sealed class` for unions
 - ✅ `const` constructors

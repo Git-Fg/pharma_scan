@@ -17,6 +17,9 @@ class AppDimens {
   static const double iconXl = 32;
   static const double icon2xl = 48;
 
+  /// Minimum height for tappable list tiles to keep touch targets accessible
+  static const double listTileMinHeight = 72;
+
   /// Standard height for input fields (ShadInput, ShadInputFormField).
   ///
   /// Matches the minimum touch target size (48px) for accessibility compliance.
@@ -28,8 +31,6 @@ class AppDimens {
       spacingXs + inputFieldHeight + spacingSm + 1.0;
 
   static const double scannerWindowSize = 192;
-
-  static const double scannerWindowBorderRadius = 14.4;
 
   static const double scannerWindowCornerLength = 20.8;
 

@@ -1,7 +1,7 @@
 # Architecture Documentation
 
-**Version:** 1.0.0  
-**Status:** Source of Truth for Technical Architecture  
+**Version:** 1.0.0
+**Status:** Source of Truth for Technical Architecture
 **Context:** This document explains the technical skeleton of the application. Usable by any Flutter developer to understand the application structure.
 
 For domain-specific business logic, see `docs/DOMAIN_LOGIC.md`. For maintenance procedures, see `docs/MAINTENANCE.md`.
@@ -28,7 +28,7 @@ The architecture prioritizes **simplicity**, **robustness**, and **performance**
 
 **Framework:** Shadcn UI + Flutter Hooks
 
-- **Widgets:** Use `ConsumerWidget` by default. `HookConsumerWidget` reserved for widgets requiring hooks (AnimationController, TextEditingController, FocusNode)
+- **Widgets:** Use `ConsumerWidget` by default. `HookConsumerWidget` reserved for widgets requiring hooks (AnimationController, TextEditingController, FocusNode, `useAutomaticKeepAlive`, `useRef` for gesture state)
 - **Components:** Shadcn UI components exclusively (no Material/Cupertino for new code)
 - **Responsive:** `ShadResponsiveBuilder` for breakpoint-based layouts
 - **Accessibility:** Trust Shadcn's built-in semantics by default
@@ -38,13 +38,23 @@ The architecture prioritizes **simplicity**, **robustness**, and **performance**
 **Key Patterns:**
 
 - Forms use `ShadForm` with `GlobalKey<ShadFormState>` (no manual `TextEditingController` management)
+- Keep-alive wrappers use `HookWidget` + `useAutomaticKeepAlive()` (no `StatefulWidget` + mixin)
+- Gesture/local mutable counters use `useRef` when no rebuild is needed (e.g., swipe deltas)
 - Lists use custom `Row` + `ShadTheme` styling (no `ListTile`)
+- Status surfaces use native Shad primitives: `ShadAlert`/`ShadAlert.destructive` for banners/errors, `ShadCard` for neutral/empty states; progress lives inside the alert description.
+- Sliver list items use `ShadButton.raw` with `variant: ghost` and `width: double.infinity` (no `LayoutBuilder`/`ConstrainedBox` hacks inside slivers).
 - All user-facing strings come from `lib/core/utils/strings.dart`
 
-**Feedback Utilisateur :**
+**Feedback utilisateur:**
 
-- Utilisation de `HapticService` pour les retours sensoriels (Succès, Erreur, Warning).
-- Le feedback haptique est conditionné par les préférences utilisateur (`AppSettings`).
+- Utilisation de `HapticService` (smart service unique) qui observe `hapticSettingsProvider`. Les widgets/notifiers appellent directement `feedback.success()/warning()/error()/selection()` sans vérifier eux-mêmes les préférences.
+
+**Interactions récentes (2025-12):**
+
+- Scanner : le viseur est animé (idle/détection/succès) et flash vert sur succès en même temps que le haptique; scrim plus sombre autour de la fenêtre.
+- Recherche : `HighlightText` met en gras/colorise les occurrences de la requête normalisée (diacritiques ignorés); une étiquette de fraîcheur au-dessus de la barre affiche la date de dernière synchro BDPM et avertit si >30j.
+- Restock : le swipe supprime et propose un toast Undo; l’état vide est actionnable (“Commencer le scan”) et la FAB « retour haut » affiche le total scanné.
+- Navigation rapide : `quick_actions` enregistre les raccourcis « Scan to Restock » et « Search Database » qui ouvrent directement les onglets cibles et basculent le mode scanner en restock si besoin.
 
 **Form State Management:**
 
@@ -64,7 +74,28 @@ The architecture prioritizes **simplicity**, **robustness**, and **performance**
   - Custom AppBar with actions
   - PopScope logic for back button handling
 
-**Reference:** `.cursor/rules/flutter-ui.mdc`
+#### Navigation & Layout Structure
+
+**Scaffold Strategy:**
+
+- **MainScreen:** Acts strictly as a routing shell. It provides the `AutoTabsRouter` and `ShadcnBottomNav`. It **must not** define an `appBar` to avoid duplication.
+- **Feature Screens:** Every top-level tab screen (e.g., `RestockScreen`, `DatabaseSearchView`) is responsible for its own `Scaffold`. This allows unique titles, actions, and floating action buttons per feature.
+
+Technical guardrails for UI components are defined in `.cursor/rules/`.
+
+### Visual Identity (Charte Graphique)
+
+L'application utilise une variation personnalisée du système **Shadcn Green** pour s'aligner avec l'esthétique pharmaceutique tout en restant moderne et sobre.
+
+| Mode | Couleur Primaire | Hex | Rationale |
+| :--- | :--- | :--- | :--- |
+| **Light** | **Teal 700** | `#0F766E` | Évoque la croix de pharmacie et le sérieux médical sans être agressif. |
+| **Dark** | **Teal 500** | `#14B8A6` | Version éclaircie pour garantir un contraste suffisant (AA/AAA) sur fond `zinc`. |
+
+**Principes :**
+
+- **Sobriété :** Le vert n'est utilisé que pour les actions principales (Boutons) et les états actifs.
+- **Neutralité :** Les fonds et surfaces restent dans les tons `Slate` ou `Zinc` (gris bleutés neutres) pour ne pas fatiguer l'œil.
 
 ### State Layer (ViewModel)
 
@@ -86,6 +117,13 @@ The architecture prioritizes **simplicity**, **robustness**, and **performance**
 - `class ... extends _$AsyncNotifier` for async logic
 - `@Riverpod(keepAlive: true)` for static config
 
+### Scanner side-effects (ScannerNotifier)
+
+- Purpose: `_sideEffects` uses `StreamController.broadcast(sync: true)` to emit UI-only events (toast, haptic, duplicate warnings) without perturbing the main `AsyncData` state or scan loop throughput.
+- Emission rules: keep `_sideEffects` private and call `_emit` only from the notifier; avoid `await` between barcode detection and `_emit` to preserve ordering; payloads stay lightweight (no PII, no heavy objects).
+- Safety constraints: cooldowns and `processingCips` already gate duplicate work; controller closes via `ref.onDispose`, and timers are cancelled in `ScannerRuntime.dispose()`, so avoid external controllers or manual closes.
+- Consumption guidance: subscribe once per screen via `ref.listen(scannerNotifierProvider, ...)` or a dedicated `useEffect` that listens to `notifier.sideEffects`; let the hook/listener dispose with the widget—no global listeners. Handlers should remain fast (toast/haptic dispatch only) and avoid DB/network calls to keep the scan path jank-free.
+
 **Key Patterns:**
 
 - Expose DAOs directly (no Repository wrappers for 1:1 mappings)
@@ -97,13 +135,13 @@ The architecture prioritizes **simplicity**, **robustness**, and **performance**
 - `sortingPreferenceProvider`: Exposes the sorting strategy (Princeps vs Generic) affecting both Explorer and Restock List.
 - `hapticSettingsProvider`: Controls system vibration permissions.
 
-**Reference:** `.cursor/rules/flutter-architecture.mdc`
+Technical guardrails for state, modeling, and error handling live in `.cursor/rules/`.
 
 ### Data Layer
 
 **Framework:** Drift (SQLite) + Dart Mappable
 
-- **Database:** Drift with SQLite FTS5 trigram tokenizer
+- **Database:** Drift with SQLite FTS5 (tokenizer/normalization defined in `docs/DOMAIN_LOGIC.md`)
 - **Domain Model:** Extension Types (Dart 3) wrap Drift classes before UI consumption (zero-cost abstraction)
 - **Mappers:** Only create mappers for significant transformations (e.g., ChartData)
 - **Extensions:** Use Dart Extensions on Drift classes for computed properties
@@ -111,10 +149,11 @@ The architecture prioritizes **simplicity**, **robustness**, and **performance**
 **Key Patterns:**
 
 - **SQL-First Logic:** Use SQL Views instead of Dart loops for grouping/sorting/filtering
-- **FTS5 Search:** Database-level normalization via `normalize_text` SQL function
+- **FTS5 Search:** Follow the domain doc for tokenizer/normalization (`docs/DOMAIN_LOGIC.md` Section 4); keep normalization single-source across SQL and Dart helpers
 - **Streams:** Prefer `watch()` for all UI data sources
 - **Safety:** Use `watchSingleOrNull()` for detail views (handles concurrent deletions)
 - **Extension Types:** All database rows must be wrapped in Extension Types before reaching the UI layer. This provides decoupling without runtime overhead and prepares the app for potential Server-Driven UI (SDUI) integration.
+- **Parser Strategy:** Use PetitParser for structured grammars (tokenized inputs, nested rules). Hand-written scanners are acceptable only for tiny, single-pass cases with measured perf gains (e.g., current GS1 AI loop); document the rationale when choosing manual parsing.
 
 #### Zero-Cost Abstraction Strategy
 
@@ -123,6 +162,7 @@ The architecture prioritizes **simplicity**, **robustness**, and **performance**
 **Why Extension Types?**
 
 Extension Types are compile-time wrappers that provide:
+
 - **Zero Runtime Cost:** No memory allocation or performance penalty
 - **Type Safety:** Prevents mixing different ID types (e.g., `Cip13` vs `CisCode`)
 - **Invariant Guarantees:** Semantic types (e.g., `NormalizedQuery`) ensure values meet specific requirements
@@ -151,11 +191,18 @@ Extension Types are compile-time wrappers that provide:
 - **Guaranteed Invariants:** `NormalizedQuery` type system ensures normalization
 - **Self-Documenting APIs:** Method signatures clearly indicate expected types
 
-**Reference:** `.cursor/rules/flutter-architecture.mdc` (Modern Modeling with Extension Types section)
-
-**Reference:** `.cursor/rules/flutter-data.mdc`
+Technical guardrails for modeling and error handling live in `.cursor/rules/`.
+Data-layer standards are defined in `.cursor/rules/`.
 
 ---
+
+## Qualité & Tests (2025)
+
+- **Strings uniques :** Toutes les chaînes exposées à l’utilisateur (et dans les tests) viennent de `lib/core/utils/strings.dart` ; pas de littéraux dans `find.text`.
+- **Mocking :** `mocktail` uniquement. Dès qu’un `any()` cible un type non primitif, enregistrer un `registerFallbackValue` dédié.
+- **Stubs plateforme :** Pour les tests Drift/sync, injecter `FakePathProviderPlatform` (voir `test/test_utils.dart`) avant d’appeler `DataInitializationService` afin d’éviter les `MissingPluginException`.
+- **Mutations Riverpod :** Les écritures utilisent `AsyncValue.guard`; couvrir les états loading/data/error dans les tests.
+- **FTS5 & recherche :** Utiliser `NormalizedQuery` et des données minimalistes pour valider ranking/typos/sanitisation, alignées avec `normalize_text` SQL.
 
 ## Database Structure
 
@@ -163,14 +210,33 @@ Extension Types are compile-time wrappers that provide:
 
 #### `RestockItems`
 
-* **PK:** `cip` (Text, 13 digits)
-* Stores the temporary restock list.
-* **Columns:** `quantity` (Int), `isChecked` (Bool), `addedAt` (DateTime).
-* **Note:** This table is persistent but intended for temporary workflows.
+- **PK:** `cip` (Text, 13 digits)
+- Stores the temporary restock list.
+- **Columns:** `quantity` (Int), `isChecked` (Bool), `addedAt` (DateTime).
+- **Note:** This table is persistent but intended for temporary workflows.
+
+#### `ScannedBoxes`
+
+- **PK:** `id` (Int, auto-increment)
+- **Unique:** (`cip`, `serialNumber`) enforcing per-box uniqueness
+- **Columns:** `cip`, `serialNumber` (nullable for legacy stock), `batchNumber`, `expiryDate`, `scannedAt`
+- **Role:** Scan journal (one row per physical box). Works with `RestockItems` for aggregated quantities; duplicates are blocked at this level, quantity overrides via `forceUpdateQuantity`.
 
 ---
 
 ## Key Patterns
+
+### 3.1 Simplicity Principles
+
+We prioritize maintainability through simplicity. Abstractions must pay rent: if a class does not reduce complexity or add type safety, it should not exist.
+
+**Anti-Patterns to avoid:**
+
+- Single-line helper functions that only forward parameters.
+- “Manager” classes that manage nothing (no state, no orchestration).
+- Passthrough repositories/providers over DAOs without transformations or rules.
+- “Future-proof” branches/flags with no current caller or test.
+- Wrapper widgets that only add padding/styling around library components (see `.cursor/rules/simplicity.mdc`).
 
 ### Zero-Boilerplate Mandate
 
@@ -194,7 +260,7 @@ Extension Types are compile-time wrappers that provide:
 - Pattern: Use `AsyncValue.guard` in Notifiers for mutations
 - Signature: `Future<void>` (or `Future<T>`) with `state = await AsyncValue.guard(...)`
 - Behavior: `AsyncValue.guard` automatically catches exceptions and sets state to `AsyncError`
-- UI Side-Effects: Use `ref.listen` in widgets to detect `AsyncError` and show SnackBars/Alerts
+- UI Side-Effects: Use `useAsyncFeedback(ref, provider, hapticSuccess: true/false)` in widgets to surface destructive toasts on `AsyncError` and haptics on first `AsyncData`. Avoid manual `ref.listen` boilerplate.
 
 **Example:**
 
@@ -206,21 +272,16 @@ Future<void> saveData(Data data) async {
 }
 
 // In Widget
-ref.listen(myNotifierProvider, (prev, next) {
-  if (next is AsyncError) {
-    ShadToaster.of(context).show(
-      ShadToast.destructive(
-        title: Text(Strings.error),
-        description: Text(next.error.toString()),
-      ),
+final isSaving = useAsyncFeedback<void>(
+  ref,
+  myNotifierProvider,
+  hapticSuccess: true,
     );
-  }
-});
 ```
 
 **Note:** Services ETL (parsing, retry logic) may still use `Either` for complex business logic, but Notifiers should use `AsyncValue.guard`.
 
-**Reference:** `.cursor/rules/flutter-architecture.mdc` (Error Handling section)
+Technical guardrails for error handling live in `.cursor/rules/`.
 
 ### Navigation (AutoRoute 11.0.0)
 
@@ -228,7 +289,7 @@ ref.listen(myNotifierProvider, (prev, next) {
 
 **Dependency Injection (2025 Standard):**
 
-For business logic in Notifiers or Controllers, inject the router via Riverpod instead of using `context.router`. This decouples navigation from the widget tree and improves testability.
+For business logic in Notifiers or Controllers, use `ref.router` (from `core/router/router_extensions.dart`) to avoid passing `BuildContext` and keep navigation testable.
 
 ```dart
 // In a Notifier/Controller
@@ -238,8 +299,7 @@ class MyNotifier extends _$MyNotifier {
   void build() {}
 
   void performAction() {
-    final router = ref.read(appRouterProvider);
-    router.push(const DetailRoute());
+    ref.router.push(const DetailRoute());
   }
 }
 ```
@@ -285,7 +345,7 @@ routerConfig: appRouter.config(
 
 **Pop Management:**
 
-Avoid `PopScope` where possible due to conflicts with AutoRoute's internal stack. Use `context.router.popForced()` for interception if strictly necessary. See `.cursor/rules/flutter-navigation.mdc` section 11 for details.
+Avoid `PopScope` where possible due to conflicts with AutoRoute's internal stack. Use `context.router.popForced()` for interception if strictly necessary, following the navigation guardrails.
 
 **Other Patterns:**
 
@@ -294,7 +354,7 @@ Avoid `PopScope` where possible due to conflicts with AutoRoute's internal stack
 - **Query Parameters:** `@QueryParam('paramName')` for optional query strings
 - **Guards:** Use `redirectUntil` instead of `router.push()` for redirects
 
-**Reference:** `.cursor/rules/flutter-navigation.mdc`
+Navigation guardrails live in `.cursor/rules/`.
 
 ### Data Models (Dart Mappable)
 
@@ -308,7 +368,7 @@ Avoid `PopScope` where possible due to conflicts with AutoRoute's internal stack
 - `sealed class` for unions (use `switch` expressions, not `.map()`/`.when()`)
 - Generated mixin provides `toMap()`, `toJson()`, `copyWith()`, etc.
 
-**Reference:** `.cursor/rules/flutter-architecture.mdc` (Data Models section)
+Technical guardrails for data models live in `.cursor/rules/`.
 
 ### Scalability & Decoupling
 
@@ -340,7 +400,7 @@ Text(items.first.canonicalName); // Decoupled from DB schema!
 
 The Extension Types pattern prepares the application for potential Server-Driven UI integration. If the app needs to consume JSON-driven UI configurations from a server, the Extension Types can be extended to support both database-backed and API-backed data sources without changing the UI layer.
 
-**Reference:** `.cursor/rules/flutter-architecture.mdc` (Domain Model section) and `.cursor/rules/flutter-data.mdc` (Extension Types Pattern section)
+Technical guardrails for modeling and data live in `.cursor/rules/`.
 
 ---
 
@@ -370,7 +430,7 @@ lib/
       domain/
         entities/          # Extension Types wrapping database models
         models/            # Domain entities (Dart Mappable)
-        logic/             # Pure algorithms (e.g., ExplorerGroupingHelper)
+        logic/             # Pure algorithms (e.g., grouping_algorithms.dart)
       presentation/
         screens/
         widgets/
@@ -384,9 +444,9 @@ lib/
 - Core infrastructure is shared
 - Avoid cross-feature dependencies
 
-**Domain Logic:** The `domain/logic/` directory contains pure Dart algorithms independent of UI and database layers (e.g., `ExplorerGroupingHelper` for clustering logic). These are testable business logic functions that operate on domain models.
+**Domain Logic:** The `domain/logic/` directory contains pure Dart algorithms independent of UI and database layers (e.g., `grouping_algorithms.dart` for clustering logic). These are testable business logic functions that operate on domain models.
 
-**Reference:** `.cursor/rules/flutter-architecture.mdc` (Folder Structure section)
+Technical guardrails for folder structure and layering live in `.cursor/rules/`.
 
 ---
 
@@ -409,7 +469,7 @@ lib/
 - Test complete user flows and data pipelines
 - Use Robot pattern for complex, reusable flows
 
-**Reference:** `.cursor/rules/flutter-qa.mdc`
+Testing guardrails live in `.cursor/rules/`.
 
 ---
 
@@ -424,7 +484,7 @@ dart analyze --fatal-infos --fatal-warnings
 flutter test
 ```
 
-**Reference:** `.cursor/rules/flutter-qa.mdc` (Quality Gate section)
+Quality gate guardrails live in `.cursor/rules/`.
 
 ---
 
@@ -436,7 +496,7 @@ flutter test
 - `drift` (latest) - SQLite database
 - `shadcn_ui` (latest) - UI components (bundles `flutter_animate`, `lucide_icons_flutter`, `intl`)
 - `auto_route` (^11.0.0) - Type-safe navigation
-- `dart_mappable` (latest) - Data serialization
+- `dart_mappable` (latest) - Data + state serialization (all immutable DTO/state classes use generated copy/equals/json; manual `copyWith` forbidden)
 - `dart_either` (^2.0.0) - Error handling for services ETL (optional, Notifiers use `AsyncValue.guard`)
 - `flutter_hooks` (latest) - Widget lifecycle management
 
@@ -459,7 +519,7 @@ flutter test
 
 **App Lifecycle:** `bash tool/run_session.sh` and `bash tool/run_session.sh stop` are the **ONLY** permitted ways to run the Flutter app for testing.
 
-**Reference:** `AGENTS.md` (Workflow Phases section)
+Workflow phases are summarized in `AGENTS.md`.
 
 ---
 
@@ -473,7 +533,7 @@ flutter test
 6. **StatefulWidget:** Use `ConsumerWidget` or `HookConsumerWidget` instead
 7. **String Paths:** Use generated Route classes, never raw strings for navigation
 
-**Reference:** `.cursor/rules/flutter-architecture.mdc` and `.cursor/rules/flutter-ui.mdc` (Anti-Patterns sections)
+Anti-pattern guardrails live in `.cursor/rules/`.
 
 ---
 
@@ -482,4 +542,4 @@ flutter test
 - **Agent Manifesto:** `AGENTS.md` - Complete agent persona and workflow
 - **Domain Logic:** `docs/DOMAIN_LOGIC.md` - Business logic and domain knowledge
 - **Maintenance:** `docs/MAINTENANCE.md` - Setup, operations, and release procedures
-- **Rule Files:** `.cursor/rules/*.mdc` - Detailed technical standards
+- **Rule Files:** `.cursor/rules/` - Detailed technical standards

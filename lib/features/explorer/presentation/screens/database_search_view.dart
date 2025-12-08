@@ -1,13 +1,18 @@
 import 'dart:async';
 
+import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:pharma_scan/core/router/app_router.dart';
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
+import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
+import 'package:pharma_scan/core/utils/test_tags.dart';
+import 'package:pharma_scan/core/widgets/scroll_to_top_fab.dart';
+import 'package:pharma_scan/core/widgets/testable.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/status_view.dart';
-import 'package:pharma_scan/features/explorer/presentation/providers/database_stats_provider.dart';
 import 'package:pharma_scan/features/explorer/presentation/providers/generic_groups_provider.dart';
 import 'package:pharma_scan/features/explorer/presentation/providers/search_provider.dart';
 import 'package:pharma_scan/features/explorer/presentation/widgets/explorer_content_list.dart';
@@ -22,6 +27,11 @@ class DatabaseSearchView extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final scrollController = useScrollController();
     final debouncedQuery = useState('');
+    final viewInsetsBottom = MediaQuery.viewInsetsOf(context).bottom;
+    final safeBottomPadding = MediaQuery.paddingOf(context).bottom;
+    final bottomSpace = viewInsetsBottom > 0
+        ? viewInsetsBottom
+        : safeBottomPadding;
 
     useEffect(() {
       void onScroll() {
@@ -47,7 +57,6 @@ class DatabaseSearchView extends HookConsumerWidget {
     final groups = ref.watch(genericGroupsProvider);
     final currentQuery = debouncedQuery.value;
     final searchResults = ref.watch(searchResultsProvider(currentQuery));
-    final databaseStats = ref.watch(databaseStatsProvider);
     final hasSearchText = currentQuery.isNotEmpty;
     final isSearching = hasSearchText;
     final initStepAsync = ref.watch(initializationStepProvider);
@@ -70,8 +79,27 @@ class DatabaseSearchView extends HookConsumerWidget {
 
     return _KeepAliveWrapper(
       child: Scaffold(
-        resizeToAvoidBottomInset:
-            false, // Outer MainScreen handles keyboard resizing
+        resizeToAvoidBottomInset: true,
+        backgroundColor: context.shadColors.background,
+        appBar: AppBar(
+          title: Text(
+            Strings.explorer,
+            style: context.shadTextTheme.h4,
+          ),
+          elevation: 0,
+          backgroundColor: context.shadColors.background,
+          foregroundColor: context.shadColors.foreground,
+          actions: [
+            Testable(
+              id: TestTags.navSettings,
+              child: ShadIconButton.ghost(
+                icon: const Icon(LucideIcons.settings),
+                onPressed: () =>
+                    AutoRouter.of(context).push(const SettingsRoute()),
+              ),
+            ),
+          ],
+        ),
         body: Stack(
           children: [
             // Main scrollable content
@@ -81,7 +109,6 @@ class DatabaseSearchView extends HookConsumerWidget {
               slivers: [
                 // Main content (stats, groups, search results)
                 ExplorerContentList(
-                  databaseStats: databaseStats,
                   groups: groups,
                   searchResults: searchResults,
                   hasSearchText: hasSearchText,
@@ -90,12 +117,18 @@ class DatabaseSearchView extends HookConsumerWidget {
                 ),
                 SliverPadding(
                   padding: EdgeInsets.only(
-                    bottom:
-                        AppDimens.searchBarHeaderHeight +
-                        MediaQuery.paddingOf(context).bottom,
+                    bottom: AppDimens.searchBarHeaderHeight + bottomSpace,
                   ),
                 ),
               ],
+            ),
+            Positioned(
+              right: AppDimens.spacingMd,
+              bottom:
+                  AppDimens.searchBarHeaderHeight +
+                  bottomSpace +
+                  AppDimens.spacingSm,
+              child: ScrollToTopFab(controller: scrollController),
             ),
             Positioned(
               left: 0,
@@ -115,23 +148,14 @@ class DatabaseSearchView extends HookConsumerWidget {
   }
 }
 
-class _KeepAliveWrapper extends StatefulWidget {
+class _KeepAliveWrapper extends HookWidget {
   const _KeepAliveWrapper({required this.child});
 
   final Widget child;
 
   @override
-  State<_KeepAliveWrapper> createState() => _KeepAliveWrapperState();
-}
-
-class _KeepAliveWrapperState extends State<_KeepAliveWrapper>
-    with AutomaticKeepAliveClientMixin {
-  @override
-  bool get wantKeepAlive => true;
-
-  @override
   Widget build(BuildContext context) {
-    super.build(context);
-    return widget.child;
+    useAutomaticKeepAlive();
+    return child;
   }
 }

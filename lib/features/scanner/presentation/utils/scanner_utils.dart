@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -29,12 +31,14 @@ class ScannerUtils {
         );
 
         if (capture != null && capture.barcodes.isNotEmpty) {
-          ref
-              .read(scannerProvider.notifier)
-              .processBarcodeCapture(
-                capture,
-                force: true,
-              );
+          unawaited(
+            ref
+                .read(scannerProvider.notifier)
+                .processBarcodeCapture(
+                  capture,
+                  force: true,
+                ),
+          );
         } else {
           if (context.mounted) {
             ShadToaster.of(context).show(

@@ -2,7 +2,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:pharma_scan/core/database/database.dart';
+import 'package:pharma_scan/core/database/daos/catalog_dao.dart';
 import 'package:pharma_scan/core/domain/types/semantic_types.dart';
 import 'package:pharma_scan/core/providers/core_providers.dart';
 import 'package:pharma_scan/features/explorer/domain/models/search_result_item_model.dart';
@@ -27,11 +27,10 @@ void main() {
 
       final asyncValue = container.read(searchResultsProvider(''));
 
-      await Future<void>.delayed(const Duration(milliseconds: 10));
-      expect(asyncValue.hasValue || asyncValue.isLoading, isTrue);
-      if (asyncValue.hasValue) {
-        expect(asyncValue.value, const <SearchResultItem>[]);
-      }
+      expect(
+        asyncValue.asData?.value ?? const <SearchResultItem>[],
+        const <SearchResultItem>[],
+      );
 
       // Verify DAO was not called for empty query
       verifyNever(() => mockCatalogDao.watchMedicaments(any()));
@@ -46,11 +45,10 @@ void main() {
 
       final asyncValue = container.read(searchResultsProvider('   '));
 
-      await Future<void>.delayed(const Duration(milliseconds: 10));
-      expect(asyncValue.hasValue || asyncValue.isLoading, isTrue);
-      if (asyncValue.hasValue) {
-        expect(asyncValue.value, const <SearchResultItem>[]);
-      }
+      expect(
+        asyncValue.asData?.value ?? const <SearchResultItem>[],
+        const <SearchResultItem>[],
+      );
 
       // Verify DAO was not called
       verifyNever(() => mockCatalogDao.watchMedicaments(any()));
@@ -68,7 +66,7 @@ void main() {
         invocation,
       ) {
         capturedQuery = invocation.positionalArguments[0] as NormalizedQuery;
-        return Stream.value(const <MedicamentSummaryData>[]);
+        return Stream.value(const <MedicamentSummaryWithLab>[]);
       });
 
       container.read(searchResultsProvider("test'query\"with:chars"));
@@ -87,7 +85,7 @@ void main() {
       );
 
       when(() => mockCatalogDao.watchMedicaments(any())).thenAnswer(
-        (_) => Stream.value(const <MedicamentSummaryData>[]),
+        (_) => Stream.value(const <MedicamentSummaryWithLab>[]),
       );
 
       container.read(searchResultsProvider('paracétamol'));
@@ -105,7 +103,7 @@ void main() {
       );
 
       when(() => mockCatalogDao.watchMedicaments(any())).thenAnswer(
-        (_) => Stream.value(const <MedicamentSummaryData>[]),
+        (_) => Stream.value(const <MedicamentSummaryWithLab>[]),
       );
 
       container.read(
@@ -127,7 +125,7 @@ void main() {
       when(() => mockCatalogDao.watchMedicaments(any())).thenAnswer(
         (invocation) {
           capturedQuery = invocation.positionalArguments[0] as NormalizedQuery;
-          return Stream.value(const <MedicamentSummaryData>[]);
+          return Stream.value(const <MedicamentSummaryWithLab>[]);
         },
       );
 

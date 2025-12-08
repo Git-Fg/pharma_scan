@@ -13,6 +13,7 @@ class ScanResult {
     this.availabilityStatus,
     this.isHospitalOnly = false,
     this.libellePresentation,
+    this.expDate,
   });
 
   final MedicamentEntity summary;
@@ -23,4 +24,19 @@ class ScanResult {
   final String? availabilityStatus;
   final bool isHospitalOnly;
   final String? libellePresentation;
+  final DateTime? expDate;
+
+  /// Returns true when the expiration date is strictly before today 00:00.
+  bool get isExpired {
+    if (expDate == null) return false;
+    final today = DateTime.now();
+    final todayFloor = DateTime(today.year, today.month, today.day);
+    final expiryLocal = expDate!.toLocal();
+    final expiryFloor = DateTime(
+      expiryLocal.year,
+      expiryLocal.month,
+      expiryLocal.day,
+    );
+    return expiryFloor.isBefore(todayFloor);
+  }
 }

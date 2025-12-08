@@ -57,14 +57,8 @@ principle_original_map AS (
   SELECT
     cnp.group_id,
     cnp.principe_normalized,
-    MIN(pa.principe) AS principe_original
+    cnp.principe_normalized AS principe_original
   FROM common_normalized_principles cnp
-  INNER JOIN group_members gm ON cnp.group_id = gm.group_id
-  INNER JOIN medicaments m ON gm.code_cip = m.code_cip
-  INNER JOIN principes_actifs pa ON m.code_cip = pa.code_cip
-  WHERE pa.principe_normalized = cnp.principe_normalized
-    AND pa.principe_normalized IS NOT NULL AND pa.principe_normalized != ''
-  GROUP BY cnp.group_id, cnp.principe_normalized
 ),
 -- Final common principles with original names
 common_principles AS (
@@ -151,15 +145,18 @@ SELECT
   COALESCE(gg.molecule_label, gg.libelle, s.nom_specialite) AS nom_canonique,
   CASE WHEN gm.type = 0 THEN 1 ELSE 0 END AS is_princeps,
   gg.group_id,
+  gm.type AS member_type,
   COALESCE(cp.principes, '[]') AS principes_actifs_communs,
   COALESCE(gg.princeps_label, gg.libelle, s.nom_specialite, 'Inconnu')
     AS princeps_de_reference,
   s.forme_pharmaceutique,
+  s.voies_administration,
   COALESCE(gg.princeps_label, gg.libelle, s.nom_specialite, 'Inconnu')
     AS princeps_brand_name,
   s.procedure_type,
-  s.titulaire,
+  s.titulaire_id,
   s.conditions_prescription,
+  s.date_amm,
   CASE
     WHEN s.is_surveillance = 1 THEN 1
     WHEN COALESCE(nc.normalized_condition, '') LIKE '%SURVEILLANCE PARTICULIERE%' THEN 1
@@ -168,7 +165,6 @@ SELECT
     WHEN COALESCE(nc.normalized_condition, '') LIKE '%GROSSESSE%' THEN 1
     ELSE 0
   END AS is_surveillance,
-  s.voies_administration,
   dv.formatted_dosage,
   s.atc_code,
   s.statut_administratif AS status,
@@ -177,46 +173,48 @@ SELECT
   COALESCE(cs.aggregated_conditions, '[]') AS aggregated_conditions,
   aus.ansm_alert_url,
   CASE
-    WHEN COALESCE(nc.normalized_condition, '') LIKE '%USAGE HOSPITALIER%' THEN 1
-    WHEN COALESCE(nc.normalized_condition, '') LIKE '%PHARMACIES A USAGE INTERIEUR%' THEN 1
-    WHEN COALESCE(nc.normalized_condition, '') LIKE '%PHARMACIES À USAGE INTÉRIEUR%' THEN 1
-    WHEN COALESCE(nc.normalized_condition, '') LIKE '%DELIVRANCE RESERVEE AUX ETS%' THEN 1
-    WHEN COALESCE(nc.normalized_condition, '') LIKE '%DÉLIVRANCE RÉSERVÉE AUX ETS%' THEN 1
+    WHEN COALESCE(nc.normalized_condition, '') LIKE '%usage hospitalier%' THEN 1
+    WHEN COALESCE(nc.normalized_condition, '') LIKE '%pharmacies a usage interieur%' THEN 1
+    WHEN COALESCE(nc.normalized_condition, '') LIKE '%delivrance reservee aux ets%' THEN 1
+    WHEN COALESCE(nc.normalized_condition, '') LIKE '%hospital%' THEN 1
+    WHEN normalize_text(COALESCE(s.conditions_prescription, '')) LIKE '%usage hospitalier%' THEN 1
+    WHEN normalize_text(COALESCE(s.conditions_prescription, '')) LIKE '%pharmacies a usage interieur%' THEN 1
+    WHEN normalize_text(COALESCE(s.conditions_prescription, '')) LIKE '%delivrance reservee aux ets%' THEN 1
+    WHEN normalize_text(COALESCE(s.conditions_prescription, '')) LIKE '%hospital%' THEN 1
+    WHEN normalize_text(COALESCE(s.statut_administratif, '')) LIKE '%usage hospitalier%' THEN 1
+    WHEN normalize_text(COALESCE(s.statut_administratif, '')) LIKE '%hospital%' THEN 1
     ELSE 0
   END AS is_hospital,
   CASE
-    WHEN COALESCE(nc.normalized_condition, '') LIKE '%DENTAIRE%' THEN 1
+    WHEN COALESCE(nc.normalized_condition, '') LIKE '%dentaire%' THEN 1
     ELSE 0
   END AS is_dental,
   CASE
-    WHEN COALESCE(nc.normalized_condition, '') LIKE '%LISTE I%'
-      AND COALESCE(nc.normalized_condition, '') NOT LIKE '%LISTE II%'
+    WHEN COALESCE(nc.normalized_condition, '') LIKE '%liste i%'
+      AND COALESCE(nc.normalized_condition, '') NOT LIKE '%liste ii%'
       THEN 1
     ELSE 0
   END AS is_list1,
   CASE
-    WHEN COALESCE(nc.normalized_condition, '') LIKE '%LISTE II%' THEN 1
+    WHEN COALESCE(nc.normalized_condition, '') LIKE '%liste ii%' THEN 1
     ELSE 0
   END AS is_list2,
   CASE
-    WHEN COALESCE(nc.normalized_condition, '') LIKE '%STUPEFIANT%' THEN 1
-    WHEN COALESCE(nc.normalized_condition, '') LIKE '%STUPÉFIANT%' THEN 1
+    WHEN COALESCE(nc.normalized_condition, '') LIKE '%stupefiant%' THEN 1
+    WHEN normalize_text(COALESCE(s.conditions_prescription, '')) LIKE '%stupefiant%' THEN 1
+    WHEN normalize_text(COALESCE(s.statut_administratif, '')) LIKE '%stupefiant%' THEN 1
     ELSE 0
   END AS is_narcotic,
   CASE
-    WHEN COALESCE(nc.normalized_condition, '') LIKE '%ORDONNANCE SECURISEE%' THEN 1
-    WHEN COALESCE(nc.normalized_condition, '') LIKE '%ORDONNANCE SÉCURISÉE%' THEN 1
-    WHEN COALESCE(nc.normalized_condition, '') LIKE '%EXCEPTION%' THEN 1
-    WHEN COALESCE(nc.normalized_condition, '') LIKE '%D''EXCEPTION%' THEN 1
+    WHEN COALESCE(nc.normalized_condition, '') LIKE '%ordonnance securisee%' THEN 1
+    WHEN COALESCE(nc.normalized_condition, '') LIKE '%exception%' THEN 1
+    WHEN COALESCE(nc.normalized_condition, '') LIKE '%d exception%' THEN 1
     ELSE 0
   END AS is_exception,
   CASE
-    WHEN COALESCE(nc.normalized_condition, '') LIKE '%PRESCRIPTION HOSPITALIERE%' THEN 1
-    WHEN COALESCE(nc.normalized_condition, '') LIKE '%PRESCRIPTION HOSPITALIÈRE%' THEN 1
-    WHEN COALESCE(nc.normalized_condition, '') LIKE '%PRESCRIPTION INITIALE HOSPITALIERE%' THEN 1
-    WHEN COALESCE(nc.normalized_condition, '') LIKE '%PRESCRIPTION INITIALE HOSPITALIÈRE%' THEN 1
-    WHEN COALESCE(nc.normalized_condition, '') LIKE '%RESERVEE AUX SPECIALISTES%' THEN 1
-    WHEN COALESCE(nc.normalized_condition, '') LIKE '%RÉSERVÉE AUX SPÉCIALISTES%' THEN 1
+    WHEN COALESCE(nc.normalized_condition, '') LIKE '%prescription hospitaliere%' THEN 1
+    WHEN COALESCE(nc.normalized_condition, '') LIKE '%prescription initiale hospitaliere%' THEN 1
+    WHEN COALESCE(nc.normalized_condition, '') LIKE '%reservee aux specialistes%' THEN 1
     ELSE 0
   END AS is_restricted,
   CASE
@@ -298,6 +296,7 @@ SELECT
   s.nom_specialite AS nom_canonique,
   1 AS is_princeps,
   NULL AS group_id,
+  0 AS member_type,
   COALESCE((
     SELECT json_group_array(DISTINCT pa.principe)
     FROM principes_actifs pa
@@ -309,10 +308,12 @@ SELECT
   ), '[]') AS principes_actifs_communs,
   s.nom_specialite AS princeps_de_reference,
   s.forme_pharmaceutique,
+  s.voies_administration,
   s.nom_specialite AS princeps_brand_name,
   s.procedure_type,
-  s.titulaire,
+  s.titulaire_id,
   s.conditions_prescription,
+  s.date_amm,
   CASE
     WHEN s.is_surveillance = 1 THEN 1
     WHEN COALESCE(nc.normalized_condition, '') LIKE '%SURVEILLANCE PARTICULIERE%' THEN 1
@@ -321,7 +322,6 @@ SELECT
     WHEN COALESCE(nc.normalized_condition, '') LIKE '%GROSSESSE%' THEN 1
     ELSE 0
   END AS is_surveillance,
-  s.voies_administration,
   dv.formatted_dosage,
   s.atc_code,
   s.statut_administratif AS status,
@@ -445,6 +445,16 @@ CREATE VIEW view_group_details AS
 SELECT
   gm.group_id,
   gm.code_cip,
+  gg.raw_label,
+  gg.parsing_method,
+  (
+    SELECT m2.cis_code
+    FROM group_members gm2
+    INNER JOIN medicaments m2 ON gm2.code_cip = m2.code_cip
+    WHERE gm2.group_id = gm.group_id
+      AND gm2.type = 0
+    LIMIT 1
+  ) AS princeps_cis_reference,
   ms.cis_code,
   ms.nom_canonique,
   ms.princeps_de_reference,
@@ -463,8 +473,8 @@ SELECT
       LIMIT 1
     )
   ) AS formatted_dosage,
-  ms.titulaire AS summary_titulaire,
-  s.titulaire AS official_titulaire,
+  ls.name AS summary_titulaire,
+  ls2.name AS official_titulaire,
   s.nom_specialite,
   s.procedure_type,
   s.conditions_prescription,
@@ -487,5 +497,34 @@ FROM group_members gm
 INNER JOIN medicaments m ON gm.code_cip = m.code_cip
 INNER JOIN medicament_summary ms ON ms.cis_code = m.cis_code
 INNER JOIN specialites s ON s.cis_code = m.cis_code
+INNER JOIN generique_groups gg ON gg.group_id = gm.group_id
+LEFT JOIN laboratories ls ON ls.id = ms.titulaire_id
+LEFT JOIN laboratories ls2 ON ls2.id = s.titulaire_id
 LEFT JOIN medicament_availability ma ON ma.code_cip = gm.code_cip;
+
+-- View providing pre-formatted group summaries with ordered common principles.
+CREATE VIEW view_generic_group_summaries AS
+SELECT
+  ms.group_id,
+  ms.princeps_de_reference,
+  (
+    SELECT GROUP_CONCAT(value, ', ')
+    FROM (
+      SELECT DISTINCT value
+      FROM json_each(ms.principes_actifs_communs)
+      WHERE value IS NOT NULL AND TRIM(value) != ''
+      ORDER BY value
+    )
+  ) AS common_principes,
+  MAX(CASE WHEN ms.is_princeps = 1 THEN ms.cis_code END) AS princeps_cis_code,
+  MIN(ms.forme_pharmaceutique) AS forme_pharmaceutique,
+  MIN(ms.voies_administration) AS voies_administration,
+  MIN(ms.procedure_type) AS procedure_type,
+  MIN(ms.atc_code) AS atc_code
+FROM medicament_summary ms
+WHERE ms.group_id IS NOT NULL
+  AND ms.principes_actifs_communs IS NOT NULL
+  AND ms.principes_actifs_communs != '[]'
+  AND ms.principes_actifs_communs != ''
+GROUP BY ms.group_id, ms.princeps_de_reference;
 

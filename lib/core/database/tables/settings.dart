@@ -30,6 +30,10 @@ class AppSettings extends Table {
   TextColumn get preferredSorting =>
       text().withDefault(const Constant('princeps'))();
 
+  // Scan history limit for side sheet.
+  IntColumn get scanHistoryLimit =>
+      integer().withDefault(const Constant(100))();
+
   @override
   Set<Column> get primaryKey => {id};
 }

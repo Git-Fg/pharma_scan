@@ -5,12 +5,22 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
+import 'package:pharma_scan/core/database/daos/catalog_dao.dart';
+import 'package:pharma_scan/core/database/daos/database_dao.dart';
 import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/domain/types/semantic_types.dart';
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
 
 import '../../../test_utils.dart'
-    show FakePathProviderPlatform, setPrincipeNormalizedForAllPrinciples;
+    show
+        FakePathProviderPlatform,
+        buildGeneriqueGroupCompanion,
+        buildGroupMemberCompanion,
+        buildLaboratoryCompanion,
+        buildMedicamentCompanion,
+        buildPrincipeCompanion,
+        buildSpecialiteCompanion,
+        setPrincipeNormalizedForAllPrinciples;
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -43,40 +53,59 @@ void main() {
   group('LibraryDao & SearchDao Logic', () {
     test('getGenericGroupSummaries returns deterministic principles', () async {
       await database.databaseDao.insertBatchData(
-        specialites: [
-          {
-            'cis_code': 'CIS_PRINCEPS',
-            'nom_specialite': 'PRINCEPS 1',
-            'procedure_type': 'Autorisation',
-            'forme_pharmaceutique': 'comprimé',
-          },
-          {
-            'cis_code': 'CIS_GENERIC',
-            'nom_specialite': 'GENERIC 1',
-            'procedure_type': 'Autorisation',
-            'forme_pharmaceutique': 'comprimé',
-          },
-        ],
-        medicaments: [
-          {
-            'code_cip': 'P1_CIP',
-            'cis_code': 'CIS_PRINCEPS',
-          },
-          {'code_cip': 'G1_CIP', 'cis_code': 'CIS_GENERIC'},
-        ],
-        principes: [
-          {'code_cip': 'P1_CIP', 'principe': 'PARACETAMOL'},
-          {'code_cip': 'P1_CIP', 'principe': 'CAFEINE'},
-          {'code_cip': 'G1_CIP', 'principe': 'PARACETAMOL'},
-          {'code_cip': 'G1_CIP', 'principe': 'EXCIPIENT'},
-        ],
-        generiqueGroups: [
-          {'group_id': 'GROUP_A', 'libelle': 'PARACETAMOL 500 mg'},
-        ],
-        groupMembers: [
-          {'code_cip': 'P1_CIP', 'group_id': 'GROUP_A', 'type': 0},
-          {'code_cip': 'G1_CIP', 'group_id': 'GROUP_A', 'type': 1},
-        ],
+        batchData: IngestionBatch(
+          specialites: [
+            buildSpecialiteCompanion(
+              cisCode: 'CIS_PRINCEPS',
+              nomSpecialite: 'PRINCEPS 1',
+              procedureType: 'Autorisation',
+              formePharmaceutique: 'comprimé',
+            ),
+            buildSpecialiteCompanion(
+              cisCode: 'CIS_GENERIC',
+              nomSpecialite: 'GENERIC 1',
+              procedureType: 'Autorisation',
+              formePharmaceutique: 'comprimé',
+            ),
+          ],
+          medicaments: [
+            buildMedicamentCompanion(
+              codeCip: 'P1_CIP',
+              cisCode: 'CIS_PRINCEPS',
+            ),
+            buildMedicamentCompanion(
+              codeCip: 'G1_CIP',
+              cisCode: 'CIS_GENERIC',
+            ),
+          ],
+          principes: [
+            buildPrincipeCompanion(codeCip: 'P1_CIP', principe: 'PARACETAMOL'),
+            buildPrincipeCompanion(codeCip: 'P1_CIP', principe: 'CAFEINE'),
+            buildPrincipeCompanion(codeCip: 'G1_CIP', principe: 'PARACETAMOL'),
+            buildPrincipeCompanion(codeCip: 'G1_CIP', principe: 'EXCIPIENT'),
+          ],
+          generiqueGroups: [
+            buildGeneriqueGroupCompanion(
+              groupId: 'GROUP_A',
+              libelle: 'PARACETAMOL 500 mg',
+              rawLabel: 'PARACETAMOL 500 mg',
+              parsingMethod: 'relational',
+            ),
+          ],
+          groupMembers: [
+            buildGroupMemberCompanion(
+              codeCip: 'P1_CIP',
+              groupId: 'GROUP_A',
+              type: 0,
+            ),
+            buildGroupMemberCompanion(
+              codeCip: 'G1_CIP',
+              groupId: 'GROUP_A',
+              type: 1,
+            ),
+          ],
+          laboratories: const [],
+        ),
       );
 
       // Populate MedicamentSummary table
@@ -95,35 +124,51 @@ void main() {
       'getGenericGroupSummaries skips groups without shared principles',
       () async {
         await database.databaseDao.insertBatchData(
-          specialites: [
-            {
-              'cis_code': 'CIS_P',
-              'nom_specialite': 'PRINCEPS 2',
-              'procedure_type': 'Autorisation',
-              'forme_pharmaceutique': 'comprimé',
-            },
-            {
-              'cis_code': 'CIS_G',
-              'nom_specialite': 'GENERIC 2',
-              'procedure_type': 'Autorisation',
-              'forme_pharmaceutique': 'comprimé',
-            },
-          ],
-          medicaments: [
-            {'code_cip': 'P2_CIP', 'cis_code': 'CIS_P'},
-            {'code_cip': 'G2_CIP', 'cis_code': 'CIS_G'},
-          ],
-          principes: [
-            {'code_cip': 'P2_CIP', 'principe': 'PRINCIPE_A'},
-            {'code_cip': 'G2_CIP', 'principe': 'PRINCIPE_B'},
-          ],
-          generiqueGroups: [
-            {'group_id': 'GROUP_B', 'libelle': 'MIXED GROUP'},
-          ],
-          groupMembers: [
-            {'code_cip': 'P2_CIP', 'group_id': 'GROUP_B', 'type': 0},
-            {'code_cip': 'G2_CIP', 'group_id': 'GROUP_B', 'type': 1},
-          ],
+          batchData: IngestionBatch(
+            specialites: [
+              buildSpecialiteCompanion(
+                cisCode: 'CIS_P',
+                nomSpecialite: 'PRINCEPS 2',
+                procedureType: 'Autorisation',
+                formePharmaceutique: 'comprimé',
+              ),
+              buildSpecialiteCompanion(
+                cisCode: 'CIS_G',
+                nomSpecialite: 'GENERIC 2',
+                procedureType: 'Autorisation',
+                formePharmaceutique: 'comprimé',
+              ),
+            ],
+            medicaments: [
+              buildMedicamentCompanion(codeCip: 'P2_CIP', cisCode: 'CIS_P'),
+              buildMedicamentCompanion(codeCip: 'G2_CIP', cisCode: 'CIS_G'),
+            ],
+            principes: [
+              buildPrincipeCompanion(codeCip: 'P2_CIP', principe: 'PRINCIPE_A'),
+              buildPrincipeCompanion(codeCip: 'G2_CIP', principe: 'PRINCIPE_B'),
+            ],
+            generiqueGroups: [
+              buildGeneriqueGroupCompanion(
+                groupId: 'GROUP_B',
+                libelle: 'MIXED GROUP',
+                rawLabel: 'MIXED GROUP',
+                parsingMethod: 'relational',
+              ),
+            ],
+            groupMembers: [
+              buildGroupMemberCompanion(
+                codeCip: 'P2_CIP',
+                groupId: 'GROUP_B',
+                type: 0,
+              ),
+              buildGroupMemberCompanion(
+                codeCip: 'G2_CIP',
+                groupId: 'GROUP_B',
+                type: 1,
+              ),
+            ],
+            laboratories: const [],
+          ),
         );
 
         final summaries = await database.catalogDao.getGenericGroupSummaries(
@@ -141,116 +186,164 @@ void main() {
 
     test('should return correct database statistics', () async {
       await database.databaseDao.insertBatchData(
-        specialites: [
-          {
-            'cis_code': 'CIS_PRINCEPS_1',
-            'nom_specialite': 'PRINCEPS 1',
-            'procedure_type': 'Autorisation',
-          },
-          {
-            'cis_code': 'CIS_PRINCEPS_2',
-            'nom_specialite': 'PRINCEPS 2',
-            'procedure_type': 'Autorisation',
-          },
-          {
-            'cis_code': 'CIS_GENERIC_1',
-            'nom_specialite': 'GENERIC 1',
-            'procedure_type': 'Autorisation',
-          },
-          {
-            'cis_code': 'CIS_GENERIC_2',
-            'nom_specialite': 'GENERIC 2',
-            'procedure_type': 'Autorisation',
-          },
-        ],
-        medicaments: [
-          {
-            'code_cip': 'PRINCEPS_1',
-            'cis_code': 'CIS_PRINCEPS_1',
-          },
-          {
-            'code_cip': 'PRINCEPS_2',
-            'cis_code': 'CIS_PRINCEPS_2',
-          },
-          {
-            'code_cip': 'GENERIC_1',
-            'cis_code': 'CIS_GENERIC_1',
-          },
-          {
-            'code_cip': 'GENERIC_2',
-            'cis_code': 'CIS_GENERIC_2',
-          },
-        ],
-        principes: [
-          {'code_cip': 'PRINCEPS_1', 'principe': 'ACTIVE_PRINCIPLE_1'},
-          {'code_cip': 'PRINCEPS_2', 'principe': 'ACTIVE_PRINCIPLE_1'},
-          {'code_cip': 'GENERIC_1', 'principe': 'ACTIVE_PRINCIPLE_1'},
-          {'code_cip': 'GENERIC_2', 'principe': 'ACTIVE_PRINCIPLE_2'},
-        ],
-        generiqueGroups: [
-          {'group_id': 'GROUP_1', 'libelle': 'TEST GROUP 1'},
-        ],
-        groupMembers: [
-          {'code_cip': 'PRINCEPS_1', 'group_id': 'GROUP_1', 'type': 0},
-          {'code_cip': 'GENERIC_1', 'group_id': 'GROUP_1', 'type': 1},
-          {'code_cip': 'GENERIC_2', 'group_id': 'GROUP_1', 'type': 1},
-        ],
+        batchData: IngestionBatch(
+          specialites: [
+            buildSpecialiteCompanion(
+              cisCode: 'CIS_PRINCEPS_1',
+              nomSpecialite: 'PRINCEPS 1',
+              procedureType: 'Autorisation',
+            ),
+            buildSpecialiteCompanion(
+              cisCode: 'CIS_PRINCEPS_2',
+              nomSpecialite: 'PRINCEPS 2',
+              procedureType: 'Autorisation',
+            ),
+            buildSpecialiteCompanion(
+              cisCode: 'CIS_GENERIC_1',
+              nomSpecialite: 'GENERIC 1',
+              procedureType: 'Autorisation',
+            ),
+            buildSpecialiteCompanion(
+              cisCode: 'CIS_GENERIC_2',
+              nomSpecialite: 'GENERIC 2',
+              procedureType: 'Autorisation',
+            ),
+          ],
+          medicaments: [
+            buildMedicamentCompanion(
+              codeCip: 'PRINCEPS_1',
+              cisCode: 'CIS_PRINCEPS_1',
+            ),
+            buildMedicamentCompanion(
+              codeCip: 'PRINCEPS_2',
+              cisCode: 'CIS_PRINCEPS_2',
+            ),
+            buildMedicamentCompanion(
+              codeCip: 'GENERIC_1',
+              cisCode: 'CIS_GENERIC_1',
+            ),
+            buildMedicamentCompanion(
+              codeCip: 'GENERIC_2',
+              cisCode: 'CIS_GENERIC_2',
+            ),
+          ],
+          principes: [
+            buildPrincipeCompanion(
+              codeCip: 'PRINCEPS_1',
+              principe: 'ACTIVE_PRINCIPLE_1',
+            ),
+            buildPrincipeCompanion(
+              codeCip: 'PRINCEPS_2',
+              principe: 'ACTIVE_PRINCIPLE_1',
+            ),
+            buildPrincipeCompanion(
+              codeCip: 'GENERIC_1',
+              principe: 'ACTIVE_PRINCIPLE_1',
+            ),
+            buildPrincipeCompanion(
+              codeCip: 'GENERIC_2',
+              principe: 'ACTIVE_PRINCIPLE_2',
+            ),
+          ],
+          generiqueGroups: [
+            buildGeneriqueGroupCompanion(
+              groupId: 'GROUP_1',
+              libelle: 'TEST GROUP 1',
+              rawLabel: 'TEST GROUP 1',
+              parsingMethod: 'relational',
+            ),
+          ],
+          groupMembers: [
+            buildGroupMemberCompanion(
+              codeCip: 'PRINCEPS_1',
+              groupId: 'GROUP_1',
+              type: 0,
+            ),
+            buildGroupMemberCompanion(
+              codeCip: 'GENERIC_1',
+              groupId: 'GROUP_1',
+              type: 1,
+            ),
+            buildGroupMemberCompanion(
+              codeCip: 'GENERIC_2',
+              groupId: 'GROUP_1',
+              type: 1,
+            ),
+          ],
+          laboratories: const [],
+        ),
       );
 
       final stats = await database.catalogDao.getDatabaseStats();
 
-      expect(stats['total_princeps'], 2); // 4 total - 2 generics = 2 princeps
-      expect(stats['total_generiques'], 2);
-      expect(stats['total_principes'], 2); // 2 distinct principles
-      expect(stats['avg_gen_per_principe'], 1.0); // 2 generics / 2 principles
+      expect(stats.totalPrinceps, 2); // 4 total - 2 generics = 2 princeps
+      expect(stats.totalGeneriques, 2);
+      expect(stats.totalPrincipes, 2); // 2 distinct principles
+      expect(stats.avgGenPerPrincipe, 1.0); // 2 generics / 2 principles
     });
 
     test('searchMedicaments returns canonical princeps and generics', () async {
       await database.databaseDao.insertBatchData(
-        specialites: [
-          {
-            'cis_code': 'CIS_P',
-            'nom_specialite': 'ELIQUIS 5 mg, comprimé',
-            'procedure_type': 'Autorisation',
-            'forme_pharmaceutique': 'Comprimé',
-            'titulaire': 'BRISTOL-MYERS SQUIBB',
-          },
-          {
-            'cis_code': 'CIS_G',
-            'nom_specialite': 'APIXABAN ZYDUS 5 mg, comprimé',
-            'procedure_type': 'Autorisation',
-            'forme_pharmaceutique': 'Comprimé',
-            'titulaire': 'ZYDUS FRANCE',
-          },
-        ],
-        medicaments: [
-          {'code_cip': 'CIP_P', 'cis_code': 'CIS_P'},
-          {
-            'code_cip': 'CIP_G',
-            'cis_code': 'CIS_G',
-          },
-        ],
-        principes: [
-          {
-            'code_cip': 'CIP_P',
-            'principe': 'APIXABAN',
-            'dosage': '5',
-            'dosage_unit': 'mg',
-          },
-          {
-            'code_cip': 'CIP_G',
-            'principe': 'APIXABAN',
-            'dosage': '5',
-            'dosage_unit': 'mg',
-          },
-        ],
-        generiqueGroups: [
-          {'group_id': 'GROUP_1', 'libelle': 'APIXABAN 5 mg'},
-        ],
-        groupMembers: [
-          {'code_cip': 'CIP_P', 'group_id': 'GROUP_1', 'type': 0},
-          {'code_cip': 'CIP_G', 'group_id': 'GROUP_1', 'type': 1},
-        ],
+        batchData: IngestionBatch(
+          laboratories: [
+            buildLaboratoryCompanion(id: 1, name: 'BRISTOL-MYERS SQUIBB'),
+            buildLaboratoryCompanion(id: 2, name: 'ZYDUS FRANCE'),
+          ],
+          specialites: [
+            buildSpecialiteCompanion(
+              cisCode: 'CIS_P',
+              nomSpecialite: 'ELIQUIS 5 mg, comprimé',
+              procedureType: 'Autorisation',
+              formePharmaceutique: 'Comprimé',
+              titulaireId: 1,
+            ),
+            buildSpecialiteCompanion(
+              cisCode: 'CIS_G',
+              nomSpecialite: 'APIXABAN ZYDUS 5 mg, comprimé',
+              procedureType: 'Autorisation',
+              formePharmaceutique: 'Comprimé',
+              titulaireId: 2,
+            ),
+          ],
+          medicaments: [
+            buildMedicamentCompanion(codeCip: 'CIP_P', cisCode: 'CIS_P'),
+            buildMedicamentCompanion(codeCip: 'CIP_G', cisCode: 'CIS_G'),
+          ],
+          principes: [
+            buildPrincipeCompanion(
+              codeCip: 'CIP_P',
+              principe: 'APIXABAN',
+              dosage: '5',
+              dosageUnit: 'mg',
+            ),
+            buildPrincipeCompanion(
+              codeCip: 'CIP_G',
+              principe: 'APIXABAN',
+              dosage: '5',
+              dosageUnit: 'mg',
+            ),
+          ],
+          generiqueGroups: [
+            buildGeneriqueGroupCompanion(
+              groupId: 'GROUP_1',
+              libelle: 'APIXABAN 5 mg',
+              rawLabel: 'APIXABAN 5 mg',
+              parsingMethod: 'relational',
+            ),
+          ],
+          groupMembers: [
+            buildGroupMemberCompanion(
+              codeCip: 'CIP_P',
+              groupId: 'GROUP_1',
+              type: 0,
+            ),
+            buildGroupMemberCompanion(
+              codeCip: 'CIP_G',
+              groupId: 'GROUP_1',
+              type: 1,
+            ),
+          ],
+        ),
       );
 
       await setPrincipeNormalizedForAllPrinciples(database);
@@ -277,436 +370,127 @@ void main() {
       expect(generic.nomCanonique, 'APIXABAN 5 mg');
       expect(generic.principesActifsCommuns, contains('APIXABAN'));
     });
-
-    test('searchMedicaments preserves procedure type metadata', () async {
-      await database.databaseDao.insertBatchData(
-        specialites: [
-          {
-            'cis_code': 'CIS_CONV',
-            'nom_specialite': 'MEDICAMENT CONVENTIONNEL',
-            'procedure_type': 'Autorisation',
-          },
-          {
-            'cis_code': 'CIS_HOMEO',
-            'nom_specialite': 'PRODUIT HOMEOPATHIQUE',
-            'procedure_type': 'Enreg homéo (Proc. Nat.)',
-          },
-        ],
-        medicaments: [
-          {
-            'code_cip': 'CIP_CONV',
-            'cis_code': 'CIS_CONV',
-          },
-          {
-            'code_cip': 'CIP_HOMEO',
-            'cis_code': 'CIS_HOMEO',
-          },
-        ],
-        principes: [
-          {
-            'code_cip': 'CIP_CONV',
-            'principe': 'PRINCIPE_A',
-            'dosage': '1',
-            'dosage_unit': 'mg',
-          },
-          {
-            'code_cip': 'CIP_HOMEO',
-            'principe': 'PRINCIPE_B',
-            'dosage': '1',
-            'dosage_unit': 'mg',
-          },
-        ],
-        generiqueGroups: [
-          {'group_id': 'GROUP_CONV', 'libelle': 'Conventional Group'},
-          {'group_id': 'GROUP_HOMEO', 'libelle': 'Homeopathic Group'},
-        ],
-        groupMembers: [
-          {'code_cip': 'CIP_CONV', 'group_id': 'GROUP_CONV', 'type': 0},
-          {'code_cip': 'CIP_HOMEO', 'group_id': 'GROUP_HOMEO', 'type': 0},
-        ],
-      );
-
-      await setPrincipeNormalizedForAllPrinciples(database);
-      await dataInitializationService.runSummaryAggregationForTesting();
-
-      final result = await database.catalogDao.searchMedicaments(
-        NormalizedQuery.fromString('GROUP'),
-      );
-      expect(result.length, 2);
-
-      // Get specialite data to check procedure type
-      final homeoSpec = database.select(database.specialites)
-        ..where((tbl) => tbl.cisCode.equals('CIS_HOMEO'));
-      final convSpec = database.select(database.specialites)
-        ..where((tbl) => tbl.cisCode.equals('CIS_CONV'));
-      final homeoSpecData = await homeoSpec.getSingleOrNull();
-      final convSpecData = await convSpec.getSingleOrNull();
-
-      expect(homeoSpecData?.procedureType, contains('homéo'));
-      expect(convSpecData?.procedureType, 'Autorisation');
-    });
-
-    test('searchMedicaments sorts by canonical name', () async {
-      await database.databaseDao.insertBatchData(
-        specialites: [
-          {
-            'cis_code': 'CIS_B',
-            'nom_specialite': 'BETA MEDIC',
-            'procedure_type': 'Autorisation',
-          },
-          {
-            'cis_code': 'CIS_A',
-            'nom_specialite': 'ALPHA MEDIC',
-            'procedure_type': 'Autorisation',
-          },
-        ],
-        medicaments: [
-          {'code_cip': 'CIP_B', 'cis_code': 'CIS_B'},
-          {'code_cip': 'CIP_A', 'cis_code': 'CIS_A'},
-        ],
-        principes: [
-          {
-            'code_cip': 'CIP_B',
-            'principe': 'ACTIVE_B',
-            'dosage': '1',
-            'dosage_unit': 'mg',
-          },
-          {
-            'code_cip': 'CIP_A',
-            'principe': 'ACTIVE_A',
-            'dosage': '1',
-            'dosage_unit': 'mg',
-          },
-        ],
-        generiqueGroups: [
-          {'group_id': 'GROUP_B', 'libelle': 'Group B'},
-          {'group_id': 'GROUP_A', 'libelle': 'Group A'},
-        ],
-        groupMembers: [
-          {'code_cip': 'CIP_B', 'group_id': 'GROUP_B', 'type': 0},
-          {'code_cip': 'CIP_A', 'group_id': 'GROUP_A', 'type': 0},
-        ],
-      );
-
-      await setPrincipeNormalizedForAllPrinciples(database);
-      await dataInitializationService.runSummaryAggregationForTesting();
-
-      final result = await database.catalogDao.searchMedicaments(
-        NormalizedQuery.fromString('Group'),
-      );
-      expect(result.length, 2);
-      final names = result.map((s) => s.nomCanonique).toList();
-      final sortedNames = [...names]..sort((a, b) => a.compareTo(b));
-      expect(names, equals(sortedNames));
-    });
-
-    test('should classify groups with varied generic types', () async {
-      // GIVEN: A group with 2 princeps and 3 generics grouped by laboratory
-      await database.databaseDao.insertBatchData(
-        specialites: [
-          {
-            'cis_code': 'CIS_PRINCEPS_1',
-            'nom_specialite': 'PRINCEPS 1',
-            'procedure_type': 'Autorisation',
-          },
-          {
-            'cis_code': 'CIS_PRINCEPS_2',
-            'nom_specialite': 'PRINCEPS 2',
-            'procedure_type': 'Autorisation',
-          },
-          {
-            'cis_code': 'CIS_GENERIC_1',
-            'nom_specialite': 'GENERIC TYPE 1',
-            'procedure_type': 'Autorisation',
-            'titulaire': 'LABORATORY_A',
-          },
-          {
-            'cis_code': 'CIS_GENERIC_2',
-            'nom_specialite': 'GENERIC TYPE 2',
-            'procedure_type': 'Autorisation',
-            'titulaire': 'LABORATORY_B',
-          },
-          {
-            'cis_code': 'CIS_GENERIC_4',
-            'nom_specialite': 'GENERIC TYPE 4',
-            'procedure_type': 'Autorisation',
-            'titulaire': 'LABORATORY_C',
-          },
-        ],
-        medicaments: [
-          {
-            'code_cip': 'PRINCEPS_1_CIP',
-            'cis_code': 'CIS_PRINCEPS_1',
-          },
-          {
-            'code_cip': 'PRINCEPS_2_CIP',
-            'cis_code': 'CIS_PRINCEPS_2',
-          },
-          {
-            'code_cip': 'GENERIC_1_CIP',
-            'cis_code': 'CIS_GENERIC_1',
-          },
-          {
-            'code_cip': 'GENERIC_2_CIP',
-            'cis_code': 'CIS_GENERIC_2',
-          },
-          {
-            'code_cip': 'GENERIC_4_CIP',
-            'cis_code': 'CIS_GENERIC_4',
-          },
-        ],
-        principes: [],
-        generiqueGroups: [
-          {'group_id': 'GROUP_1', 'libelle': 'TEST GROUP'},
-        ],
-        groupMembers: [
-          {'code_cip': 'PRINCEPS_1_CIP', 'group_id': 'GROUP_1', 'type': 0},
-          {'code_cip': 'PRINCEPS_2_CIP', 'group_id': 'GROUP_1', 'type': 0},
-          {
-            'code_cip': 'GENERIC_1_CIP',
-            'group_id': 'GROUP_1',
-            'type': 1,
-          }, // Type 1
-          {
-            'code_cip': 'GENERIC_2_CIP',
-            'group_id': 'GROUP_1',
-            'type': 1,
-          }, // Type 2 stored as 1
-          {
-            'code_cip': 'GENERIC_4_CIP',
-            'group_id': 'GROUP_1',
-            'type': 1,
-          }, // Type 4 stored as 1
-        ],
-      );
-
-      await setPrincipeNormalizedForAllPrinciples(database);
-      await dataInitializationService.runSummaryAggregationForTesting();
-
-      // WHEN: We fetch group details
-      final members = await database.catalogDao.getGroupDetails(
-        'GROUP_1',
-      );
-
-      // THEN: The group data should contain 2 princeps and 3 generic members
-      final princepsMembers = members
-          .where((member) => member.isPrinceps)
-          .toList();
-      final genericMembers = members
-          .where((member) => !member.isPrinceps)
-          .toList();
-
-      expect(princepsMembers.length, 2);
-      expect(genericMembers.length, 3);
-
-      expect(
-        princepsMembers.map((p) => p.codeCip),
-        containsAll(['PRINCEPS_1_CIP', 'PRINCEPS_2_CIP']),
-      );
-      final allGenericCips = genericMembers.map((m) => m.codeCip).toList();
-      expect(
-        allGenericCips,
-        containsAll(['GENERIC_1_CIP', 'GENERIC_2_CIP', 'GENERIC_4_CIP']),
-      );
-      final allLabs = genericMembers
-          .map((m) => m.summaryTitulaire ?? m.officialTitulaire ?? '')
-          .where((lab) => lab.isNotEmpty)
-          .toSet();
-      expect(
-        allLabs,
-        containsAll(['LABORATORY_A', 'LABORATORY_B', 'LABORATORY_C']),
-      );
-    });
-
-    test(
-      'classifyProductGroup should surface related princeps sharing active principles',
-      () async {
-        await database.databaseDao.insertBatchData(
-          specialites: [
-            {
-              'cis_code': 'CIS_PRINCEPS_A',
-              'nom_specialite': 'PRINCEPS A',
-              'procedure_type': 'Autorisation',
-            },
-            {
-              'cis_code': 'CIS_GENERIC_A',
-              'nom_specialite': 'GENERIC A1',
-              'procedure_type': 'Autorisation',
-            },
-            {
-              'cis_code': 'CIS_PRINCEPS_B',
-              'nom_specialite': 'PRINCEPS B',
-              'procedure_type': 'Autorisation',
-            },
-            {
-              'cis_code': 'CIS_GENERIC_B',
-              'nom_specialite': 'GENERIC B1',
-              'procedure_type': 'Autorisation',
-            },
-          ],
-          medicaments: [
-            {
-              'code_cip': 'PRINCEPS_A_CIP',
-              'cis_code': 'CIS_PRINCEPS_A',
-            },
-            {
-              'code_cip': 'GENERIC_A_CIP',
-              'cis_code': 'CIS_GENERIC_A',
-            },
-            {
-              'code_cip': 'PRINCEPS_B_CIP',
-              'cis_code': 'CIS_PRINCEPS_B',
-            },
-            {
-              'code_cip': 'GENERIC_B_CIP',
-              'cis_code': 'CIS_GENERIC_B',
-            },
-          ],
-          principes: [
-            {'code_cip': 'PRINCEPS_A_CIP', 'principe': 'PARACETAMOL'},
-            {'code_cip': 'GENERIC_A_CIP', 'principe': 'PARACETAMOL'},
-            {'code_cip': 'PRINCEPS_B_CIP', 'principe': 'PARACETAMOL'},
-            {'code_cip': 'PRINCEPS_B_CIP', 'principe': 'CAFFEINE'},
-            {'code_cip': 'GENERIC_B_CIP', 'principe': 'PARACETAMOL'},
-            {'code_cip': 'GENERIC_B_CIP', 'principe': 'CAFFEINE'},
-          ],
-          generiqueGroups: [
-            {'group_id': 'GROUP_A', 'libelle': 'PARA GROUP 1'},
-            {'group_id': 'GROUP_B', 'libelle': 'PARA GROUP 2'},
-          ],
-          groupMembers: [
-            {'code_cip': 'PRINCEPS_A_CIP', 'group_id': 'GROUP_A', 'type': 0},
-            {'code_cip': 'GENERIC_A_CIP', 'group_id': 'GROUP_A', 'type': 1},
-            {'code_cip': 'PRINCEPS_B_CIP', 'group_id': 'GROUP_B', 'type': 0},
-            {'code_cip': 'GENERIC_B_CIP', 'group_id': 'GROUP_B', 'type': 1},
-          ],
-        );
-
-        await setPrincipeNormalizedForAllPrinciples(database);
-        await dataInitializationService.runSummaryAggregationForTesting();
-
-        final members = await database.catalogDao.getGroupDetails(
-          'GROUP_A',
-        );
-
-        final related = await database.catalogDao.fetchRelatedPrinceps(
-          'GROUP_A',
-        );
-
-        expect(members.where((m) => m.isPrinceps).length, 1);
-        expect(related.length, 1);
-        final relatedPrinceps = related.first;
-        expect(relatedPrinceps.codeCip, 'PRINCEPS_B_CIP');
-        expect(
-          relatedPrinceps.principesActifsCommuns,
-          containsAll(['PARACETAMOL', 'CAFFEINE']),
-        );
-      },
-    );
   });
 
   group('group details view', () {
     test('returns canonical classification for deterministic group', () async {
       await database.databaseDao.insertBatchData(
-        specialites: [
-          {
-            'cis_code': 'CIS_PRINCEPS_MAIN',
-            'nom_specialite': 'PARA PRINCEPS 500 mg comprimé',
-            'procedure_type': 'Autorisation',
-            'forme_pharmaceutique': 'Comprimé',
-            'titulaire': 'LAB PRINCEPS',
-          },
-          {
-            'cis_code': 'CIS_GENERIC_A',
-            'nom_specialite': 'PARA GENERIC 500 mg comprimé',
-            'procedure_type': 'Autorisation',
-            'forme_pharmaceutique': 'Comprimé',
-            'titulaire': 'LAB GENERIC A',
-          },
-          {
-            'cis_code': 'CIS_GENERIC_B',
-            'nom_specialite': 'PARA GENERIC 500 mg, comprimé pelliculé',
-            'procedure_type': 'Autorisation',
-            'forme_pharmaceutique': 'Comprimé',
-            'titulaire': 'LAB GENERIC B',
-          },
-          {
-            'cis_code': 'CIS_PRINCEPS_SECOND',
-            'nom_specialite': 'PARA PRINCEPS B 500 mg comprimé',
-            'procedure_type': 'Autorisation',
-            'forme_pharmaceutique': 'Comprimé effervescent',
-            'titulaire': 'LAB SECOND',
-          },
-        ],
-        medicaments: [
-          {
-            'code_cip': 'CIP_PRINCEPS_MAIN',
-            'cis_code': 'CIS_PRINCEPS_MAIN',
-          },
-          {
-            'code_cip': 'CIP_GENERIC_A',
-            'cis_code': 'CIS_GENERIC_A',
-          },
-          {
-            'code_cip': 'CIP_GENERIC_B',
-            'cis_code': 'CIS_GENERIC_B',
-          },
-          {
-            'code_cip': 'CIP_PRINCEPS_SECOND',
-            'cis_code': 'CIS_PRINCEPS_SECOND',
-          },
-        ],
-        principes: [
-          {
-            'code_cip': 'CIP_PRINCEPS_MAIN',
-            'principe': 'PARACETAMOL',
-            'dosage': '500',
-            'dosage_unit': 'mg',
-          },
-          {
-            'code_cip': 'CIP_GENERIC_A',
-            'principe': 'PARACETAMOL',
-            'dosage': '500',
-            'dosage_unit': 'mg',
-          },
-          {
-            'code_cip': 'CIP_GENERIC_B',
-            'principe': 'PARACETAMOL',
-            'dosage': '500',
-            'dosage_unit': 'mg',
-          },
-          {
-            'code_cip': 'CIP_PRINCEPS_SECOND',
-            'principe': 'PARACETAMOL',
-            'dosage': '500',
-            'dosage_unit': 'mg',
-          },
-          // WHY: GROUP_SECOND must have PARACETAMOL (shared) PLUS an additional ingredient to be a related therapy
-          {
-            'code_cip': 'CIP_PRINCEPS_SECOND',
-            'principe': 'CAFFEINE',
-            'dosage': '50',
-            'dosage_unit': 'mg',
-          },
-        ],
-        generiqueGroups: [
-          {'group_id': 'GROUP_MAIN', 'libelle': 'PARACETAMOL 500 MG'},
-          {'group_id': 'GROUP_SECOND', 'libelle': 'PARACETAMOL B 500 MG'},
-        ],
-        groupMembers: [
-          {
-            'code_cip': 'CIP_PRINCEPS_MAIN',
-            'group_id': 'GROUP_MAIN',
-            'type': 0,
-          },
-          {'code_cip': 'CIP_GENERIC_A', 'group_id': 'GROUP_MAIN', 'type': 1},
-          {'code_cip': 'CIP_GENERIC_B', 'group_id': 'GROUP_MAIN', 'type': 1},
-          {
-            'code_cip': 'CIP_PRINCEPS_SECOND',
-            'group_id': 'GROUP_SECOND',
-            'type': 0,
-          },
-        ],
+        batchData: IngestionBatch(
+          specialites: [
+            buildSpecialiteCompanion(
+              cisCode: 'CIS_PRINCEPS_MAIN',
+              nomSpecialite: 'PARA PRINCEPS 500 mg comprimé',
+              procedureType: 'Autorisation',
+              formePharmaceutique: 'Comprimé',
+            ),
+            buildSpecialiteCompanion(
+              cisCode: 'CIS_GENERIC_A',
+              nomSpecialite: 'PARA GENERIC 500 mg comprimé',
+              procedureType: 'Autorisation',
+              formePharmaceutique: 'Comprimé',
+            ),
+            buildSpecialiteCompanion(
+              cisCode: 'CIS_GENERIC_B',
+              nomSpecialite: 'PARA GENERIC 500 mg, comprimé pelliculé',
+              procedureType: 'Autorisation',
+              formePharmaceutique: 'Comprimé',
+            ),
+            buildSpecialiteCompanion(
+              cisCode: 'CIS_PRINCEPS_SECOND',
+              nomSpecialite: 'PARA PRINCEPS B 500 mg comprimé',
+              procedureType: 'Autorisation',
+              formePharmaceutique: 'Comprimé effervescent',
+            ),
+          ],
+          medicaments: [
+            buildMedicamentCompanion(
+              codeCip: 'CIP_PRINCEPS_MAIN',
+              cisCode: 'CIS_PRINCEPS_MAIN',
+            ),
+            buildMedicamentCompanion(
+              codeCip: 'CIP_GENERIC_A',
+              cisCode: 'CIS_GENERIC_A',
+            ),
+            buildMedicamentCompanion(
+              codeCip: 'CIP_GENERIC_B',
+              cisCode: 'CIS_GENERIC_B',
+            ),
+            buildMedicamentCompanion(
+              codeCip: 'CIP_PRINCEPS_SECOND',
+              cisCode: 'CIS_PRINCEPS_SECOND',
+            ),
+          ],
+          principes: [
+            buildPrincipeCompanion(
+              codeCip: 'CIP_PRINCEPS_MAIN',
+              principe: 'PARACETAMOL',
+              dosage: '500',
+              dosageUnit: 'mg',
+            ),
+            buildPrincipeCompanion(
+              codeCip: 'CIP_GENERIC_A',
+              principe: 'PARACETAMOL',
+              dosage: '500',
+              dosageUnit: 'mg',
+            ),
+            buildPrincipeCompanion(
+              codeCip: 'CIP_GENERIC_B',
+              principe: 'PARACETAMOL',
+              dosage: '500',
+              dosageUnit: 'mg',
+            ),
+            buildPrincipeCompanion(
+              codeCip: 'CIP_PRINCEPS_SECOND',
+              principe: 'PARACETAMOL',
+              dosage: '500',
+              dosageUnit: 'mg',
+            ),
+            // WHY: GROUP_SECOND must have PARACETAMOL (shared) PLUS an additional ingredient to be a related therapy
+            buildPrincipeCompanion(
+              codeCip: 'CIP_PRINCEPS_SECOND',
+              principe: 'CAFFEINE',
+              dosage: '50',
+              dosageUnit: 'mg',
+            ),
+          ],
+          generiqueGroups: [
+            buildGeneriqueGroupCompanion(
+              groupId: 'GROUP_MAIN',
+              libelle: 'PARACETAMOL 500 MG',
+              rawLabel: 'PARACETAMOL 500 MG',
+              parsingMethod: 'relational',
+            ),
+            buildGeneriqueGroupCompanion(
+              groupId: 'GROUP_SECOND',
+              libelle: 'PARACETAMOL B 500 MG',
+              rawLabel: 'PARACETAMOL B 500 MG',
+              parsingMethod: 'relational',
+            ),
+          ],
+          groupMembers: [
+            buildGroupMemberCompanion(
+              codeCip: 'CIP_PRINCEPS_MAIN',
+              groupId: 'GROUP_MAIN',
+              type: 0,
+            ),
+            buildGroupMemberCompanion(
+              codeCip: 'CIP_GENERIC_A',
+              groupId: 'GROUP_MAIN',
+              type: 1,
+            ),
+            buildGroupMemberCompanion(
+              codeCip: 'CIP_GENERIC_B',
+              groupId: 'GROUP_MAIN',
+              type: 1,
+            ),
+            buildGroupMemberCompanion(
+              codeCip: 'CIP_PRINCEPS_SECOND',
+              groupId: 'GROUP_SECOND',
+              type: 0,
+            ),
+          ],
+          laboratories: [],
+        ),
       );
 
       await setPrincipeNormalizedForAllPrinciples(database);
@@ -751,85 +535,111 @@ void main() {
       expect(related.first.codeCip, 'CIP_PRINCEPS_SECOND');
     });
 
-    test('returns null when group has no members', () async {
-      final members = await database.catalogDao.getGroupDetails(
-        'MISSING',
-      );
-      expect(members, isEmpty);
-    });
-
     test(
       'searchMedicaments returns results ranked by FTS5 bm25 relevance',
       () async {
         // GIVEN: Database with medications that have different match quality
         await database.databaseDao.insertBatchData(
-          specialites: [
-            {
-              'cis_code': 'CIS_EXACT',
-              'nom_specialite': 'PARACETAMOL 500 mg, comprimé',
-              'procedure_type': 'Autorisation',
-              'forme_pharmaceutique': 'Comprimé',
-            },
-            {
-              'cis_code': 'CIS_PARTIAL',
-              'nom_specialite': 'PARACETAMOL + CAFEINE 500 mg, comprimé',
-              'procedure_type': 'Autorisation',
-              'forme_pharmaceutique': 'Comprimé',
-            },
-            {
-              'cis_code': 'CIS_FUZZY',
-              'nom_specialite': 'PARACETAMOL GENERIQUE 500 mg, comprimé',
-              'procedure_type': 'Autorisation',
-              'forme_pharmaceutique': 'Comprimé',
-            },
-          ],
-          medicaments: [
-            {'code_cip': 'CIP_EXACT', 'cis_code': 'CIS_EXACT'},
-            {'code_cip': 'CIP_PARTIAL', 'cis_code': 'CIS_PARTIAL'},
-            {'code_cip': 'CIP_FUZZY', 'cis_code': 'CIS_FUZZY'},
-          ],
-          principes: [
-            {
-              'code_cip': 'CIP_EXACT',
-              'principe': 'PARACETAMOL',
-              'dosage': '500',
-              'dosage_unit': 'mg',
-            },
-            {
-              'code_cip': 'CIP_PARTIAL',
-              'principe': 'PARACETAMOL',
-              'dosage': '500',
-              'dosage_unit': 'mg',
-            },
-            {
-              'code_cip': 'CIP_PARTIAL',
-              'principe': 'CAFEINE',
-              'dosage': '50',
-              'dosage_unit': 'mg',
-            },
-            {
-              'code_cip': 'CIP_FUZZY',
-              'principe': 'PARACETAMOL',
-              'dosage': '500',
-              'dosage_unit': 'mg',
-            },
-          ],
-          generiqueGroups: [
-            {'group_id': 'GROUP_EXACT', 'libelle': 'PARACETAMOL 500 mg'},
-            {
-              'group_id': 'GROUP_PARTIAL',
-              'libelle': 'PARACETAMOL + CAFEINE 500 mg',
-            },
-            {
-              'group_id': 'GROUP_FUZZY',
-              'libelle': 'PARACETAMOL GENERIQUE 500 mg',
-            },
-          ],
-          groupMembers: [
-            {'code_cip': 'CIP_EXACT', 'group_id': 'GROUP_EXACT', 'type': 0},
-            {'code_cip': 'CIP_PARTIAL', 'group_id': 'GROUP_PARTIAL', 'type': 0},
-            {'code_cip': 'CIP_FUZZY', 'group_id': 'GROUP_FUZZY', 'type': 0},
-          ],
+          batchData: IngestionBatch(
+            specialites: [
+              buildSpecialiteCompanion(
+                cisCode: 'CIS_EXACT',
+                nomSpecialite: 'PARACETAMOL 500 mg, comprimé',
+                procedureType: 'Autorisation',
+                formePharmaceutique: 'Comprimé',
+              ),
+              buildSpecialiteCompanion(
+                cisCode: 'CIS_PARTIAL',
+                nomSpecialite: 'PARACETAMOL + CAFEINE 500 mg, comprimé',
+                procedureType: 'Autorisation',
+                formePharmaceutique: 'Comprimé',
+              ),
+              buildSpecialiteCompanion(
+                cisCode: 'CIS_FUZZY',
+                nomSpecialite: 'PARACETAMOL GENERIQUE 500 mg, comprimé',
+                procedureType: 'Autorisation',
+                formePharmaceutique: 'Comprimé',
+              ),
+            ],
+            medicaments: [
+              buildMedicamentCompanion(
+                codeCip: 'CIP_EXACT',
+                cisCode: 'CIS_EXACT',
+              ),
+              buildMedicamentCompanion(
+                codeCip: 'CIP_PARTIAL',
+                cisCode: 'CIS_PARTIAL',
+              ),
+              buildMedicamentCompanion(
+                codeCip: 'CIP_FUZZY',
+                cisCode: 'CIS_FUZZY',
+              ),
+            ],
+            principes: [
+              buildPrincipeCompanion(
+                codeCip: 'CIP_EXACT',
+                principe: 'PARACETAMOL',
+                dosage: '500',
+                dosageUnit: 'mg',
+              ),
+              buildPrincipeCompanion(
+                codeCip: 'CIP_PARTIAL',
+                principe: 'PARACETAMOL',
+                dosage: '500',
+                dosageUnit: 'mg',
+              ),
+              buildPrincipeCompanion(
+                codeCip: 'CIP_PARTIAL',
+                principe: 'CAFEINE',
+                dosage: '50',
+                dosageUnit: 'mg',
+              ),
+              buildPrincipeCompanion(
+                codeCip: 'CIP_FUZZY',
+                principe: 'PARACETAMOL',
+                dosage: '500',
+                dosageUnit: 'mg',
+              ),
+            ],
+            generiqueGroups: [
+              buildGeneriqueGroupCompanion(
+                groupId: 'GROUP_EXACT',
+                libelle: 'PARACETAMOL 500 mg',
+                rawLabel: 'PARACETAMOL 500 mg',
+                parsingMethod: 'relational',
+              ),
+              buildGeneriqueGroupCompanion(
+                groupId: 'GROUP_PARTIAL',
+                libelle: 'PARACETAMOL + CAFEINE 500 mg',
+                rawLabel: 'PARACETAMOL + CAFEINE 500 mg',
+                parsingMethod: 'relational',
+              ),
+              buildGeneriqueGroupCompanion(
+                groupId: 'GROUP_FUZZY',
+                libelle: 'PARACETAMOL GENERIQUE 500 mg',
+                rawLabel: 'PARACETAMOL GENERIQUE 500 mg',
+                parsingMethod: 'relational',
+              ),
+            ],
+            groupMembers: [
+              buildGroupMemberCompanion(
+                codeCip: 'CIP_EXACT',
+                groupId: 'GROUP_EXACT',
+                type: 0,
+              ),
+              buildGroupMemberCompanion(
+                codeCip: 'CIP_PARTIAL',
+                groupId: 'GROUP_PARTIAL',
+                type: 0,
+              ),
+              buildGroupMemberCompanion(
+                codeCip: 'CIP_FUZZY',
+                groupId: 'GROUP_FUZZY',
+                type: 0,
+              ),
+            ],
+            laboratories: [],
+          ),
         );
 
         // Set principe_normalized for aggregation

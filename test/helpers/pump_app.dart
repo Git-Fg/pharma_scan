@@ -6,10 +6,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:pharma_scan/core/router/app_router.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
-/// Test harness for Shadcn UI widgets that require ShadTheme context.
-/// This extension provides a reusable way to pump widgets with Shadcn theme configured.
 extension PumpApp on WidgetTester {
-  /// Pumps a widget wrapped with Shadcn theme and MaterialApp.
   Future<void> pumpApp(Widget widget) async {
     await pumpWidget(
       ProviderScope(
@@ -71,10 +68,6 @@ extension PumpApp on WidgetTester {
     );
   }
 
-  /// Pumps a widget with Shadcn theme and AutoRoute router context.
-  /// Use this for widgets that require `context.router` (e.g., RoutePage widgets).
-  /// For GroupExplorerView, pass a DeepLink with the groupId path.
-  /// The widget parameter is ignored - use deepLink to navigate to the route.
   Future<void> pumpAppWithRouter(
     Widget widget, {
     bool isDark = false,

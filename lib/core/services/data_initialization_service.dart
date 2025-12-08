@@ -8,11 +8,12 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:pharma_scan/core/config/app_config.dart';
 import 'package:pharma_scan/core/config/data_sources.dart';
+import 'package:pharma_scan/core/database/daos/database_dao.dart';
 import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/errors/failures.dart';
-import 'package:pharma_scan/core/logic/sanitizer.dart';
 import 'package:pharma_scan/core/services/file_download_service.dart';
-import 'package:pharma_scan/core/services/ingestion/bdpm_file_parser.dart';
+import 'package:pharma_scan/core/services/ingestion/bdpm_file_parser.dart'
+    as parser;
 import 'package:pharma_scan/core/services/logger_service.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 
@@ -39,7 +40,7 @@ class DataInitializationService {
        _fileDownloadService = fileDownloadService ?? FileDownloadService();
 
   static const _currentDataVersion =
-      '2025-02-14-fts5-normalization-fix'; // Fixed search normalization mismatch: NormalizedQuery now uses linguistic normalization only (aligns with FTS5 normalize_text SQL function)
+      '2025-03-01-laboratories-normalization'; // Normalizes titulaire into Laboratories table with integer FKs
   static const String dataVersion = _currentDataVersion;
 
   final AppDatabase _db;
@@ -61,9 +62,10 @@ class DataInitializationService {
   }
 
   Future<void> initializeDatabase({bool forceRefresh = false}) async {
-    final persistedVersion = await _db.settingsDao.getBdpmVersion();
-
-    final hasExistingData = await _db.catalogDao.hasExistingData();
+    final (persistedVersion, hasExistingData) = await (
+      _db.settingsDao.getBdpmVersion(),
+      _db.catalogDao.hasExistingData(),
+    ).wait;
 
     LoggerService.info(
       '[DataInit] initializeDatabase(forceRefresh: $forceRefresh, '
@@ -99,7 +101,7 @@ class DataInitializationService {
       Map<String, String> filePaths;
       try {
         filePaths = await _downloadAllFilesWithCacheCheck();
-      } catch (e, stackTrace) {
+      } on Exception catch (e, stackTrace) {
         LoggerService.warning(
           '[DataInit] Download failed, checking for existing database data: $e',
         );
@@ -110,19 +112,6 @@ class DataInitializationService {
             'App will continue with cached data.',
           );
           _safeEmitDetail(Strings.initializationUsingExistingData);
-          final updateEither = await _db.settingsDao.updateBdpmVersion(
-            _currentDataVersion,
-          );
-          updateEither.fold(
-            ifLeft: (failure) {
-              LoggerService.error(
-                '[DataInit] Failed to update BDPM version',
-                failure.message,
-                failure.stackTrace,
-              );
-            },
-            ifRight: (_) {},
-          );
           _stepController.add(InitializationStep.ready);
           return;
         }
@@ -145,24 +134,20 @@ class DataInitializationService {
       await Future<void>.delayed(const Duration(milliseconds: 500));
       await _aggregateDataForSummary();
 
-      final updateEither = await _db.settingsDao.updateBdpmVersion(
-        _currentDataVersion,
-      );
-      updateEither.fold(
-        ifLeft: (failure) {
-          LoggerService.error(
-            '[DataInit] Failed to update BDPM version',
-            failure.message,
-            failure.stackTrace,
-          );
-        },
-        ifRight: (_) {},
-      );
+      try {
+        await _db.settingsDao.updateBdpmVersion(_currentDataVersion);
+      } on Exception catch (e, stackTrace) {
+        LoggerService.error(
+          '[DataInit] Failed to update BDPM version',
+          e,
+          stackTrace,
+        );
+      }
       await _markSyncAsFresh();
 
       _stepController.add(InitializationStep.ready);
       _safeEmitDetail(Strings.initializationReady);
-    } catch (e, stackTrace) {
+    } on Exception catch (e, stackTrace) {
       LoggerService.error(
         '[DataInit] Error during full refresh',
         e,
@@ -206,70 +191,74 @@ class DataInitializationService {
       return cachedFiles;
     }
 
-    final downloadResults = <MapEntry<String, String>>[];
-    final downloadErrors = <String, Object>{}; // Track which files failed
-
-    for (final entry in missingFiles) {
-      try {
-        LoggerService.info(
-          '[DataInit] Downloading ${entry.key} from ${entry.value}',
-        );
-        _safeEmitDetail(
-          Strings.initializationDownloadingFile(
-            _extractFilenameFromUrl(entry.value),
-          ),
-        );
-        final path = await _getFilePath(entry.key, entry.value);
-        LoggerService.info('[DataInit] Downloaded ${entry.key} to $path');
-        downloadResults.add(MapEntry(entry.key, path));
-      } on Exception catch (e, stackTrace) {
-        final filename = _extractFilenameFromUrl(entry.value);
-        final cacheDir = _globalCacheDir;
-        File? fallbackFile;
-
-        if (cacheDir != null) {
-          final cacheFile = File(p.join(cacheDir, filename));
-          if (await cacheFile.exists()) {
-            fallbackFile = cacheFile;
-          }
-        }
-
-        if (fallbackFile == null) {
-          final directory = await getApplicationDocumentsDirectory();
-          final appCacheFile = File('${directory.path}/$filename');
-          if (await appCacheFile.exists()) {
-            fallbackFile = appCacheFile;
-          }
-        }
-
-        if (fallbackFile != null) {
-          LoggerService.warning(
-            '[DataInit] Download failed for ${entry.key}, using cached file: $e',
+    var completedCount = 0;
+    final totalToDownload = missingFiles.length;
+    final downloadFutures = missingFiles.map(
+      (entry) async {
+        try {
+          LoggerService.info(
+            '[DataInit] Downloading ${entry.key} from ${entry.value}',
           );
           _safeEmitDetail(
-            Strings.initializationUsingCachedFile(
+            Strings.initializationDownloadingFile(
               _extractFilenameFromUrl(entry.value),
             ),
           );
-          downloadResults.add(MapEntry(entry.key, fallbackFile.path));
-        } else {
+          final path = await _getFilePath(entry.key, entry.value);
+          completedCount += 1;
+          _safeEmitDetail(
+            Strings.initializationDownloadProgress(
+              completedCount,
+              totalToDownload,
+            ),
+          );
+          LoggerService.info('[DataInit] Downloaded ${entry.key} to $path');
+          return MapEntry(entry.key, path);
+        } on Exception catch (e, stackTrace) {
+          final filename = _extractFilenameFromUrl(entry.value);
+          final cacheDir = _globalCacheDir;
+          File? fallbackFile;
+
+          if (cacheDir != null) {
+            final cacheFile = File(p.join(cacheDir, filename));
+            if (await cacheFile.exists()) {
+              fallbackFile = cacheFile;
+            }
+          }
+
+          if (fallbackFile == null) {
+            final directory = await getApplicationDocumentsDirectory();
+            final appCacheFile = File('${directory.path}/$filename');
+            if (await appCacheFile.exists()) {
+              fallbackFile = appCacheFile;
+            }
+          }
+
+          if (fallbackFile != null) {
+            LoggerService.warning(
+              '[DataInit] Download failed for ${entry.key}, using cached file: $e',
+            );
+            _safeEmitDetail(
+              Strings.initializationUsingCachedFile(
+                _extractFilenameFromUrl(entry.value),
+              ),
+            );
+            return MapEntry(entry.key, fallbackFile.path);
+          }
+
           LoggerService.error(
             '[DataInit] Download failed for ${entry.key} and no cache available',
             e,
             stackTrace,
           );
-          downloadErrors[entry.key] = e;
+          throw Exception(
+            'Failed to download ${entry.key} (${_extractFilenameFromUrl(entry.value)}): $e',
+          );
         }
-      }
-    }
+      },
+    );
 
-    if (downloadErrors.isNotEmpty &&
-        downloadResults.isEmpty &&
-        cachedFiles.isEmpty) {
-      throw Exception(
-        'Failed to download required files and no cache available: ${downloadErrors.keys.join(', ')}',
-      );
-    }
+    final downloadResults = await Future.wait(downloadFutures);
 
     return {...cachedFiles, ...Map.fromEntries(downloadResults)};
   }
@@ -307,19 +296,19 @@ class DataInitializationService {
     final fullFilePaths = await _resolveFullFileSet(tempFiles);
     await _parseAndInsertData(fullFilePaths);
 
-    final updateEither = await _db.settingsDao.updateBdpmVersion(
-      _currentDataVersion,
-    );
-    updateEither.fold(
-      ifLeft: (failure) {
-        LoggerService.error(
-          '[DataInit] Failed to update BDPM version',
-          failure.message,
-          failure.stackTrace,
-        );
-      },
-      ifRight: (_) {},
-    );
+    _stepController.add(InitializationStep.aggregating);
+    _safeEmitDetail(Strings.initializationAggregatingSummary);
+    await _aggregateDataForSummary();
+
+    try {
+      await _db.settingsDao.updateBdpmVersion(_currentDataVersion);
+    } on Exception catch (e, stackTrace) {
+      LoggerService.error(
+        '[DataInit] Failed to update BDPM version',
+        e,
+        stackTrace,
+      );
+    }
     await _markSyncAsFresh();
   }
 
@@ -426,14 +415,14 @@ class DataInitializationService {
     );
 
     LoggerService.info(
-      '[DataInit] Parsed ${parsedBatch.medicamentsResult.medicaments.length} medicaments, '
+      '[DataInit] Parsed ${parsedBatch.medicaments.length} medicaments, '
       '${parsedBatch.principes.length} principles, and '
-      '${parsedBatch.generiqueResult.groupMembers.length} group members in isolate.',
+      '${parsedBatch.groupMembers.length} group members in isolate.',
     );
 
     final insertEither = await _insertDataWithRetry(
       database: _db,
-      parsedBatch: parsedBatch,
+      ingestionBatch: parsedBatch,
     );
 
     insertEither.fold(
@@ -460,27 +449,35 @@ class DataInitializationService {
     LoggerService.info(
       '[DataInit] Completed group metadata refinement.',
     );
-
-    LoggerService.info(
-      '[DataInit] Persisted parsed data. Aggregating summary table next.',
-    );
-    await _aggregateDataForSummary();
   }
 
   Future<void> _markSyncAsFresh() async {
-    final updateEither = await _db.settingsDao.updateSyncTimestamp(
-      DateTime.now().millisecondsSinceEpoch,
-    );
-    updateEither.fold(
-      ifLeft: (failure) {
-        LoggerService.error(
-          '[DataInit] Failed to update sync timestamp',
-          failure.message,
-          failure.stackTrace,
-        );
-      },
-      ifRight: (_) {},
-    );
+    final now = DateTime.now();
+    final sourcesWithDate = {
+      for (final key in DataSources.files.keys) key: now,
+    };
+
+    try {
+      await _db.settingsDao.saveSourceDates(sourcesWithDate);
+    } on Exception catch (e, stackTrace) {
+      LoggerService.error(
+        '[DataInit] Failed to update source dates',
+        e,
+        stackTrace,
+      );
+    }
+
+    try {
+      await _db.settingsDao.updateSyncTimestamp(
+        now.millisecondsSinceEpoch,
+      );
+    } on Exception catch (e, stackTrace) {
+      LoggerService.error(
+        '[DataInit] Failed to update sync timestamp',
+        e,
+        stackTrace,
+      );
+    }
   }
 
   Future<String> _getFilePath(String storageKey, String url) async {
@@ -636,15 +633,16 @@ Future<void> _insertChunked<T>(
   }
 }
 
-/// Maps [ParseError] to [ParsingFailure] for domain error handling.
-Failure _mapParseErrorToFailure(ParseError error) {
+/// Maps [parser.ParseError] to [ParsingFailure] for domain error handling.
+Failure _mapParseErrorToFailure(parser.ParseError error) {
   return switch (error) {
-    EmptyContentError(:final fileName) => ParsingFailure(
+    parser.EmptyContentError(:final fileName) => ParsingFailure(
       'Failed to parse $fileName: file is empty or missing',
     ),
-    InvalidFormatError(:final fileName, :final details) => ParsingFailure(
-      'Failed to parse $fileName: $details',
-    ),
+    parser.InvalidFormatError(:final fileName, :final details) =>
+      ParsingFailure(
+        'Failed to parse $fileName: $details',
+      ),
   };
 }
 
@@ -652,7 +650,7 @@ Failure _mapParseErrorToFailure(ParseError error) {
 /// Returns [Either.left] if all retries fail, [Either.right] on success.
 Future<Either<Failure, void>> _insertDataWithRetry({
   required AppDatabase database,
-  required _ParsedDataBatch parsedBatch,
+  required IngestionBatch ingestionBatch,
 }) async {
   const maxRetries = 5;
   var retryCount = 0;
@@ -665,133 +663,76 @@ Future<Either<Failure, void>> _insertDataWithRetry({
         stackTrace,
       ),
       () async {
-        final specialitesCompanions = parsedBatch.specialitesResult.specialites
-            .map(
-              (row) => SpecialitesCompanion(
-                cisCode: Value(row.cisCode),
-                nomSpecialite: Value(row.nomSpecialite),
-                procedureType: Value(row.procedureType),
-                statutAdministratif: Value(row.statutAdministratif),
-                formePharmaceutique: Value(row.formePharmaceutique),
-                voiesAdministration: Value(row.voiesAdministration),
-                etatCommercialisation: Value(row.etatCommercialisation),
-                titulaire: Value(row.titulaire),
-                conditionsPrescription: Value(row.conditionsPrescription),
-                atcCode: Value(row.atcCode),
-                isSurveillance: Value(row.isSurveillance),
-              ),
+        await database.transaction(() async {
+          if (ingestionBatch.laboratories.isNotEmpty) {
+            await _insertChunked(
+              database,
+              (batch, chunk, mode) =>
+                  batch.insertAll(database.laboratories, chunk, mode: mode),
+              ingestionBatch.laboratories,
+              mode: InsertMode.replace,
             );
-        await _insertChunked(
-          database,
-          (batch, chunk, mode) =>
-              batch.insertAll(database.specialites, chunk, mode: mode),
-          specialitesCompanions,
-          mode: InsertMode.replace,
-        );
+          }
 
-        final medicamentsCompanions = parsedBatch.medicamentsResult.medicaments
-            .map(
-              (row) => MedicamentsCompanion(
-                codeCip: Value(row.codeCip),
-                cisCode: Value(row.cisCode),
-                presentationLabel: Value(row.presentationLabel),
-                commercialisationStatut: Value(row.commercialisationStatut),
-                tauxRemboursement: Value(row.tauxRemboursement),
-                prixPublic: Value(row.prixPublic),
-                agrementCollectivites: Value(row.agrementCollectivites),
-              ),
-            );
-        await _insertChunked(
-          database,
-          (batch, chunk, mode) =>
-              batch.insertAll(database.medicaments, chunk, mode: mode),
-          medicamentsCompanions,
-          mode: InsertMode.replace,
-        );
-
-        final principesCompanions = parsedBatch.principes.map(
-          (row) => PrincipesActifsCompanion(
-            codeCip: Value(row.codeCip),
-            principe: Value(row.principe),
-            principeNormalized: Value(
-              row.principe.isNotEmpty
-                  ? normalizePrincipleOptimal(row.principe)
-                  : null,
-            ),
-            dosage: Value(row.dosage),
-            dosageUnit: Value(row.dosageUnit),
-          ),
-        );
-        await _insertChunked(
-          database,
-          (batch, chunk, mode) =>
-              batch.insertAll(database.principesActifs, chunk, mode: mode),
-          principesCompanions,
-        );
-
-        final generiqueGroupsCompanions = parsedBatch
-            .generiqueResult
-            .generiqueGroups
-            .map(
-              (row) => GeneriqueGroupsCompanion(
-                groupId: Value(row.groupId),
-                libelle: Value(row.libelle),
-                princepsLabel: Value(row.princepsLabel),
-                moleculeLabel: Value(row.moleculeLabel),
-              ),
-            );
-        await _insertChunked(
-          database,
-          (batch, chunk, mode) =>
-              batch.insertAll(database.generiqueGroups, chunk, mode: mode),
-          generiqueGroupsCompanions,
-          mode: InsertMode.replace,
-        );
-
-        final groupMembersCompanions = parsedBatch.generiqueResult.groupMembers
-            .map(
-              (row) => GroupMembersCompanion(
-                codeCip: Value(row.codeCip),
-                groupId: Value(row.groupId),
-                type: Value(row.type),
-              ),
-            );
-        await _insertChunked(
-          database,
-          (batch, chunk, mode) =>
-              batch.insertAll(database.groupMembers, chunk, mode: mode),
-          groupMembersCompanions,
-          mode: InsertMode.replace,
-        );
-
-        await database.batch((batch) {
-          batch.deleteWhere(
-            database.medicamentAvailability,
-            (_) => const Constant(true),
-          );
-        });
-
-        if (parsedBatch.availabilityRows.isNotEmpty) {
-          final availabilityCompanions = parsedBatch.availabilityRows.map(
-            (row) => MedicamentAvailabilityCompanion(
-              codeCip: Value(row.codeCip),
-              statut: Value(row.statut),
-              dateDebut: Value(row.dateDebut),
-              dateFin: Value(row.dateFin),
-              lien: Value(row.lien),
-            ),
-          );
           await _insertChunked(
             database,
-            (batch, chunk, mode) => batch.insertAll(
-              database.medicamentAvailability,
-              chunk,
-              mode: mode,
-            ),
-            availabilityCompanions,
+            (batch, chunk, mode) =>
+                batch.insertAll(database.specialites, chunk, mode: mode),
+            ingestionBatch.specialites,
             mode: InsertMode.replace,
           );
-        }
+
+          await _insertChunked(
+            database,
+            (batch, chunk, mode) =>
+                batch.insertAll(database.medicaments, chunk, mode: mode),
+            ingestionBatch.medicaments,
+            mode: InsertMode.replace,
+          );
+
+          await _insertChunked(
+            database,
+            (batch, chunk, mode) =>
+                batch.insertAll(database.principesActifs, chunk, mode: mode),
+            ingestionBatch.principes,
+          );
+
+          await _insertChunked(
+            database,
+            (batch, chunk, mode) =>
+                batch.insertAll(database.generiqueGroups, chunk, mode: mode),
+            ingestionBatch.generiqueGroups,
+            mode: InsertMode.replace,
+          );
+
+          await _insertChunked(
+            database,
+            (batch, chunk, mode) =>
+                batch.insertAll(database.groupMembers, chunk, mode: mode),
+            ingestionBatch.groupMembers,
+            mode: InsertMode.replace,
+          );
+
+          await database.batch((batch) {
+            batch.deleteWhere(
+              database.medicamentAvailability,
+              (_) => const Constant(true),
+            );
+          });
+
+          if (ingestionBatch.availability.isNotEmpty) {
+            await _insertChunked(
+              database,
+              (batch, chunk, mode) => batch.insertAll(
+                database.medicamentAvailability,
+                chunk,
+                mode: mode,
+              ),
+              ingestionBatch.availability,
+              mode: InsertMode.replace,
+            );
+          }
+        });
       },
     );
 
@@ -822,81 +763,79 @@ Future<Either<Failure, void>> _insertDataWithRetry({
   );
 }
 
-Future<Either<Failure, _ParsedDataBatch>> _parseDataInBackground(
+Future<Either<Failure, IngestionBatch>> _parseDataInBackground(
   ParseDataArgs args,
 ) async {
   Stream<String>? streamForKey(String key) =>
-      BdpmFileParser.openLineStream(args.filePaths[key]);
-  return Either.futureBinding<Failure, _ParsedDataBatch>((
+      parser.BdpmFileParser.openLineStream(args.filePaths[key]);
+  return Either.futureBinding<Failure, IngestionBatch>((
     e,
   ) async {
-    final conditionsMap = await BdpmFileParser.parseConditions(
-      streamForKey('conditions'),
-    );
-    final mitmMap = await BdpmFileParser.parseMitm(streamForKey('mitm'));
+    final independentResults = await Future.wait<Map<String, String>>([
+      parser.BdpmFileParser.parseConditions(streamForKey('conditions')),
+      parser.BdpmFileParser.parseMitm(streamForKey('mitm')),
+    ]);
+    final conditionsMap = independentResults[0];
+    final mitmMap = independentResults[1];
 
-    final specialitesEither = await BdpmFileParser.parseSpecialites(
+    final specialitesEither = await parser.BdpmFileParser.parseSpecialites(
       streamForKey('specialites'),
       conditionsMap,
       mitmMap,
     );
     final specialitesResult = specialitesEither
-        .mapLeft(_mapParseErrorToFailure)
+        .mapLeft<Failure>(_mapParseErrorToFailure)
         .bind(e);
 
-    final medicamentsEither = await BdpmFileParser.parseMedicaments(
+    final medicamentsEither = await parser.BdpmFileParser.parseMedicaments(
       streamForKey('medicaments'),
       specialitesResult,
     );
     final medicamentsResult = medicamentsEither
-        .mapLeft(_mapParseErrorToFailure)
+        .mapLeft<Failure>(_mapParseErrorToFailure)
         .bind(e);
 
-    final principesEither = await BdpmFileParser.parseCompositions(
+    final compositionMap = await parser.BdpmFileParser.parseCompositions(
+      streamForKey('compositions'),
+    );
+
+    final principesEither = await parser.BdpmFileParser.parsePrincipesActifs(
       streamForKey('compositions'),
       medicamentsResult.cisToCip13,
     );
-    final principes = principesEither.mapLeft(_mapParseErrorToFailure).bind(e);
+    final principes = principesEither
+        .mapLeft<Failure>(_mapParseErrorToFailure)
+        .bind(e);
 
-    final generiqueEither = await BdpmFileParser.parseGeneriques(
+    final generiqueEither = await parser.BdpmFileParser.parseGeneriques(
       streamForKey('generiques'),
       medicamentsResult.cisToCip13,
       medicamentsResult.medicamentCips,
+      compositionMap,
+      specialitesResult.namesByCis,
     );
     final generiqueResult = generiqueEither
-        .mapLeft(_mapParseErrorToFailure)
+        .mapLeft<Failure>(_mapParseErrorToFailure)
         .bind(e);
 
-    final availabilityEither = await BdpmFileParser.parseAvailability(
+    final availabilityEither = await parser.BdpmFileParser.parseAvailability(
       streamForKey('availability'),
       medicamentsResult.cisToCip13,
     );
-    final availabilityRows = availabilityEither
-        .mapLeft(_mapParseErrorToFailure)
+    final availability = availabilityEither
+        .mapLeft<Failure>(_mapParseErrorToFailure)
         .bind(e);
 
-    return _ParsedDataBatch(
-      specialitesResult: specialitesResult,
-      medicamentsResult: medicamentsResult,
+    final laboratories = specialitesResult.laboratories;
+
+    return IngestionBatch(
+      specialites: specialitesResult.specialites,
+      medicaments: medicamentsResult.medicaments,
       principes: principes,
-      generiqueResult: generiqueResult,
-      availabilityRows: availabilityRows,
+      generiqueGroups: generiqueResult.generiqueGroups,
+      groupMembers: generiqueResult.groupMembers,
+      laboratories: laboratories,
+      availability: availability,
     );
   });
-}
-
-class _ParsedDataBatch {
-  const _ParsedDataBatch({
-    required this.specialitesResult,
-    required this.medicamentsResult,
-    required this.principes,
-    required this.generiqueResult,
-    required this.availabilityRows,
-  });
-
-  final SpecialitesParseResult specialitesResult;
-  final MedicamentsParseResult medicamentsResult;
-  final List<PrincipeRow> principes;
-  final GeneriquesParseResult generiqueResult;
-  final List<AvailabilityRow> availabilityRows;
 }

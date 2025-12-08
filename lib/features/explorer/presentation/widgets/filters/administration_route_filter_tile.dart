@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:gap/gap.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
@@ -67,7 +68,10 @@ Widget _buildTile({
   String? subtitle,
   Widget? trailing,
 }) {
-  return InkWell(
+  return ShadButton.raw(
+    variant: ShadButtonVariant.ghost,
+    width: double.infinity,
+    padding: EdgeInsets.zero,
     child: Container(
       padding: const EdgeInsets.symmetric(
         horizontal: AppDimens.spacingMd,
@@ -80,8 +84,9 @@ Widget _buildTile({
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(
+          Flexible(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
@@ -93,7 +98,7 @@ Widget _buildTile({
                   ),
                 ),
                 if (subtitle != null) ...[
-                  const SizedBox(height: 4),
+                  const Gap(4),
                   Text(
                     subtitle,
                     maxLines: 3,
@@ -107,10 +112,10 @@ Widget _buildTile({
             ),
           ),
           if (trailing != null) ...[
-            const SizedBox(width: AppDimens.spacingSm),
+            const Gap(AppDimens.spacingSm),
             trailing,
           ],
-          const SizedBox(width: AppDimens.spacingXs),
+          const Gap(AppDimens.spacingXs),
           const ExcludeSemantics(
             child: Icon(LucideIcons.chevronRight, size: 16),
           ),
@@ -173,27 +178,21 @@ class _SelectTileWithSearch extends HookWidget {
             ),
           ),
         ],
-        selectedOptionBuilder: (context, value) => Row(
+        selectedOptionBuilder: (context, value) => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    title,
-                    style: context.shadTextTheme.p.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    selectedText,
-                    style: context.shadTextTheme.small.copyWith(
-                      color: context.shadColors.mutedForeground,
-                    ),
-                  ),
-                ],
+            Text(
+              title,
+              style: context.shadTextTheme.p.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const Gap(4),
+            Text(
+              selectedText,
+              style: context.shadTextTheme.small.copyWith(
+                color: context.shadColors.mutedForeground,
               ),
             ),
           ],

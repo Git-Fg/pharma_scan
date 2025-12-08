@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/models/update_frequency.dart';
 import 'package:pharma_scan/core/providers/core_providers.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -23,14 +26,12 @@ enum SortingPreference {
 }
 
 @Riverpod(keepAlive: true)
-class AppPreferences extends _$AppPreferences {
-  @override
-  Stream<UpdateFrequency> build() {
-    final db = ref.watch(appDatabaseProvider);
-    return db.settingsDao.watchSettings().map(
-      (settings) => UpdateFrequency.fromStorage(settings.updateFrequency),
-    );
-  }
+Stream<UpdateFrequency> appPreferences(Ref ref) {
+  final db = ref.watch(appDatabaseProvider);
+  return db.settingsDao.watchSettings().map(
+    (AppSetting settings) =>
+        UpdateFrequency.fromStorage(settings.updateFrequency),
+  );
 }
 
 @riverpod
@@ -41,14 +42,10 @@ class UpdateFrequencyMutation extends _$UpdateFrequencyMutation {
   Future<void> setUpdateFrequency(UpdateFrequency newFrequency) async {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
-      final updateEither = await ref
+      await ref
           .read(appDatabaseProvider)
           .settingsDao
           .updateSyncFrequency(newFrequency.storageValue);
-      return updateEither.fold<Future<void>>(
-        ifLeft: Future<void>.error,
-        ifRight: (_) => Future<void>.value(),
-      );
     });
   }
 }
@@ -57,7 +54,7 @@ class UpdateFrequencyMutation extends _$UpdateFrequencyMutation {
 Stream<bool> hapticSettings(Ref ref) {
   final db = ref.watch(appDatabaseProvider);
   return db.settingsDao.watchSettings().map(
-    (settings) => settings.hapticFeedbackEnabled,
+    (AppSetting settings) => settings.hapticFeedbackEnabled,
   );
 }
 
@@ -69,14 +66,10 @@ class HapticMutation extends _$HapticMutation {
   Future<void> setEnabled({required bool enabled}) async {
     state = const AsyncValue<void>.loading();
     state = await AsyncValue.guard(() async {
-      final updateEither = await ref
+      await ref
           .read(appDatabaseProvider)
           .settingsDao
           .updateHapticFeedback(enabled: enabled);
-      return updateEither.fold<Future<void>>(
-        ifLeft: Future<void>.error,
-        ifRight: (_) => Future<void>.value(),
-      );
     });
   }
 }
@@ -85,7 +78,16 @@ class HapticMutation extends _$HapticMutation {
 Stream<SortingPreference> sortingPreference(Ref ref) {
   final db = ref.watch(appDatabaseProvider);
   return db.settingsDao.watchSettings().map(
-    (settings) => SortingPreference.fromStorage(settings.preferredSorting),
+    (AppSetting settings) =>
+        SortingPreference.fromStorage(settings.preferredSorting),
+  );
+}
+
+@riverpod
+Stream<int> scanHistoryLimit(Ref ref) {
+  final db = ref.watch(appDatabaseProvider);
+  return db.settingsDao.watchSettings().map(
+    (AppSetting settings) => settings.scanHistoryLimit,
   );
 }
 
@@ -97,14 +99,10 @@ class SortingPreferenceMutation extends _$SortingPreferenceMutation {
   Future<void> setSortingPreference(SortingPreference pref) async {
     state = const AsyncValue<void>.loading();
     state = await AsyncValue.guard(() async {
-      final updateEither = await ref
+      await ref
           .read(appDatabaseProvider)
           .settingsDao
           .updatePreferredSorting(pref.storageValue);
-      return updateEither.fold<Future<void>>(
-        ifLeft: Future<void>.error,
-        ifRight: (_) => Future<void>.value(),
-      );
     });
   }
 }

@@ -1,5 +1,6 @@
 import 'database.dart';
 import 'views.drift';
+import 'tables/scanned_boxes.dart';
 
 -- Queries for MedicamentSummary table
 getMedicamentSummaryByCis: SELECT * FROM medicament_summary WHERE cis_code = ?;
@@ -7,12 +8,37 @@ getAllMedicamentSummaries: SELECT * FROM medicament_summary ORDER BY nom_canoniq
 getMedicamentSummariesByGroup: SELECT * FROM medicament_summary WHERE group_id = ? ORDER BY is_princeps DESC, nom_canonique;
 getDistinctPrincipesActifsCommuns: SELECT DISTINCT principes_actifs_communs FROM medicament_summary WHERE principes_actifs_communs != '' ORDER BY principes_actifs_communs;
 
--- Virtual table for trigram-enabled FTS search, defined in schema for drift awareness
+-- FTS search with optional filters for route and ATC class.
+searchMedicaments:
+SELECT ms.*, l.name AS lab_name
+FROM medicament_summary ms
+LEFT JOIN laboratories l ON l.id = ms.titulaire_id
+INNER JOIN search_index si ON ms.cis_code = si.cis_code
+WHERE search_index MATCH :fts
+  AND (:routeFilter = '' OR ms.voies_administration LIKE '%' || :routeFilter || '%')
+  AND (:atcFilter = '' OR ms.atc_code LIKE :atcFilter || '%')
+  AND (:labFilter = -1 OR ms.titulaire_id = :labFilter)
+ORDER BY bm25(search_index) ASC, ms.nom_canonique
+LIMIT 50;
+
+-- Scan history (reverse chronological, limited)
+getScanHistory:
+SELECT 
+    sb.cip,
+    sb.scanned_at,
+    COALESCE(ms.nom_canonique, 'Produit inconnu') AS label,
+    ms.princeps_de_reference,
+    ms.is_princeps
+FROM scanned_boxes sb
+LEFT JOIN medicaments m ON m.code_cip = sb.cip
+LEFT JOIN medicament_summary ms ON ms.cis_code = m.cis_code
+ORDER BY sb.scanned_at DESC
+LIMIT :limit;
+
 CREATE VIRTUAL TABLE search_index USING fts5(
   cis_code UNINDEXED,
-  canonical_name,
-  princeps_name,
-  active_principles,
+  molecule_name,
+  brand_name,
   tokenize='trigram'
 );
 
@@ -22,28 +48,14 @@ deleteSearchIndex: DELETE FROM search_index;
 insertSearchIndexFromSummary:
 INSERT INTO search_index (
   cis_code,
-  canonical_name,
-  princeps_name,
-  active_principles
+  molecule_name,
+  brand_name
 )
 SELECT
   ms.cis_code,
-  normalize_text(COALESCE(ms.nom_canonique, '')),
-  normalize_text(COALESCE(ms.princeps_de_reference, '')),
-  normalize_text(
-    COALESCE(
-      (
-        SELECT GROUP_CONCAT(value, ' ')
-        FROM json_each(ms.principes_actifs_communs)
-        WHERE value IS NOT NULL AND TRIM(value) != ''
-      ),
-      ''
-    )
-  ) AS normalized_actives
-FROM medicament_summary ms
-WHERE ms.principes_actifs_communs IS NOT NULL
-  AND ms.principes_actifs_communs != '[]'
-  AND ms.principes_actifs_communs != '';
+  normalize_text(COALESCE(ms.nom_canonique, '')) AS molecule_name,
+  normalize_text(COALESCE(ms.princeps_de_reference, '')) AS brand_name
+FROM medicament_summary ms;
 
 CREATE VIEW detailed_scan_results AS
 SELECT
@@ -52,7 +64,7 @@ SELECT
   s.nom_specialite,
   s.procedure_type AS specialite_procedure_type,
   s.forme_pharmaceutique,
-  s.titulaire AS specialite_titulaire,
+  COALESCE(ls.name, ls2.name) AS specialite_titulaire,
   s.conditions_prescription AS specialite_conditions_prescription,
   ms.group_id,
   ms.is_princeps,
@@ -62,11 +74,13 @@ SELECT
   ms.princeps_brand_name,
   ms.forme_pharmaceutique AS summary_forme_pharmaceutique,
   ms.procedure_type AS summary_procedure_type,
-  ms.titulaire AS summary_titulaire,
+  COALESCE(ls.name, ls2.name) AS summary_titulaire,
   ms.conditions_prescription AS summary_conditions_prescription
 FROM medicaments m
 INNER JOIN specialites s ON s.cis_code = m.cis_code
-INNER JOIN medicament_summary ms ON ms.cis_code = m.cis_code;
+INNER JOIN medicament_summary ms ON ms.cis_code = m.cis_code
+LEFT JOIN laboratories ls ON ls.id = ms.titulaire_id
+LEFT JOIN laboratories ls2 ON ls2.id = s.titulaire_id;
 
 -- Aggregation queries for populating medicament_summary table
 -- These queries are validated at compile time against the schema
@@ -80,15 +94,17 @@ INSERT OR REPLACE INTO medicament_summary (
   nom_canonique,
   is_princeps,
   group_id,
+  member_type,
   principes_actifs_communs,
   princeps_de_reference,
   forme_pharmaceutique,
+  voies_administration,
   princeps_brand_name,
   procedure_type,
-  titulaire,
+  titulaire_id,
   conditions_prescription,
+  date_amm,
   is_surveillance,
-  voies_administration,
   formatted_dosage,
   atc_code,
   status,
@@ -115,15 +131,17 @@ INSERT OR REPLACE INTO medicament_summary (
   nom_canonique,
   is_princeps,
   group_id,
+  member_type,
   principes_actifs_communs,
   princeps_de_reference,
   forme_pharmaceutique,
+  voies_administration,
   princeps_brand_name,
   procedure_type,
-  titulaire,
+  titulaire_id,
   conditions_prescription,
+  date_amm,
   is_surveillance,
-  voies_administration,
   formatted_dosage,
   atc_code,
   status,
@@ -216,3 +234,32 @@ WHERE vgd.group_id != :targetGroupId
     )
   )
 ORDER BY vgd.princeps_de_reference ASC;
+
+-- Batch update for princeps and molecule labels using SQL (no Dart loops).
+refineGroupMetadata:
+UPDATE generique_groups
+SET
+  princeps_label = COALESCE(
+    NULLIF(princeps_label, ''),
+    (
+      SELECT name FROM (
+        SELECT s.nom_specialite AS name
+        FROM group_members gm
+        INNER JOIN medicaments m ON gm.code_cip = m.code_cip
+        INNER JOIN specialites s ON m.cis_code = s.cis_code
+        WHERE gm.group_id = generique_groups.group_id
+          AND gm.type = 0
+          AND s.nom_specialite IS NOT NULL
+          AND s.nom_specialite != ''
+        ORDER BY LENGTH(s.nom_specialite), s.nom_specialite
+        LIMIT 1
+      )
+    )
+  ),
+  molecule_label = COALESCE(
+    NULLIF(molecule_label, ''),
+    NULLIF(
+      TRIM(libelle),
+      ''
+    )
+  );

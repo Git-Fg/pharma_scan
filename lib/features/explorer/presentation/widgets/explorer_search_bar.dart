@@ -6,7 +6,6 @@ import 'package:gap/gap.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
-import 'package:pharma_scan/core/utils/app_animations.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/utils/test_tags.dart';
 import 'package:pharma_scan/core/widgets/testable.dart';
@@ -68,22 +67,27 @@ class ExplorerSearchBar extends HookConsumerWidget {
         AppDimens.spacingMd,
         AppDimens.spacingSm,
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Expanded(
-            child: _buildSearchInput(
-              context,
-              ref,
-              searchController,
-              searchFocusNode,
-              isFetching,
-              debounceTimer,
-              debouncedQuery,
-              onSearchChangedRef,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: _buildSearchInput(
+                  context,
+                  ref,
+                  searchController,
+                  searchFocusNode,
+                  isFetching,
+                  debounceTimer,
+                  debouncedQuery,
+                  onSearchChangedRef,
+                ),
+              ),
+              const Gap(AppDimens.spacingXs),
+              _buildFiltersButton(context, ref),
+            ],
           ),
-          const Gap(AppDimens.spacingXs),
-          _buildFiltersButton(context, ref),
         ],
       ),
     );
@@ -106,14 +110,10 @@ class ExplorerSearchBar extends HookConsumerWidget {
         label: Strings.searchLabel,
         hint: Strings.searchHint,
         value: searchController.text,
-        child: Container(
-          decoration: BoxDecoration(
-            color: ShadTheme.of(
-              context,
-            ).colorScheme.muted.withValues(alpha: 0.08),
-            borderRadius: context.shadTheme.radius,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(
+            minHeight: AppDimens.inputFieldHeight,
           ),
-          padding: const EdgeInsets.symmetric(horizontal: AppDimens.spacingSm),
           child: ShadInput(
             focusNode: focusNode,
             controller: searchController,
@@ -133,9 +133,6 @@ class ExplorerSearchBar extends HookConsumerWidget {
                       height: AppDimens.iconSm,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     ),
-                  ).animate(
-                    effects: AppAnimations.loadingPulse,
-                    onPlay: (controller) => controller.repeat(),
                   )
                 : (searchController.text.isNotEmpty && !isFetching
                       ? ShadButton.ghost(
@@ -152,7 +149,6 @@ class ExplorerSearchBar extends HookConsumerWidget {
                           child: const Icon(LucideIcons.x, size: 16),
                         )
                       : null),
-            onChanged: (_) {},
             onSubmitted: (_) => _commitSearchQuery(
               searchController.text,
               debounceTimer,
@@ -185,40 +181,31 @@ class ExplorerSearchBar extends HookConsumerWidget {
         label: filterLabel,
         value: filterValue,
         hint: Strings.filterHint,
-        child: GestureDetector(
-          onTap: () => _openFiltersSheet(context, filters, ref),
-          child: Container(
-            width: 48,
-            height: 48,
-            alignment: Alignment.center,
-            child: Stack(
-              clipBehavior: Clip.none,
-              alignment: Alignment.center,
-              children: [
-                Icon(
-                  LucideIcons.slidersHorizontal,
-                  size: 18,
-                  color: context.shadColors.foreground,
-                ),
-                if (hasActiveFilters)
-                  Positioned(
-                    top: 0,
-                    right: 0,
-                    child: IgnorePointer(
-                      child: Semantics(
-                        label: Strings.activeFilterCount(filterCount),
-                        child: ShadBadge(
-                          child: Text(
-                            '$filterCount',
-                            style: context.shadTextTheme.small,
-                          ),
-                        ),
+        child: Stack(
+          clipBehavior: Clip.none,
+          alignment: Alignment.center,
+          children: [
+            ShadIconButton.ghost(
+              icon: const Icon(LucideIcons.slidersHorizontal),
+              onPressed: () => _openFiltersSheet(context, filters, ref),
+            ),
+            if (hasActiveFilters)
+              Positioned(
+                top: -2,
+                right: -2,
+                child: IgnorePointer(
+                  child: Semantics(
+                    label: Strings.activeFilterCount(filterCount),
+                    child: ShadBadge(
+                      child: Text(
+                        '$filterCount',
+                        style: context.shadTextTheme.small,
                       ),
                     ),
                   ),
-              ],
-            ),
-          ),
+                ),
+              ),
+          ],
         ),
       ),
     );
@@ -330,25 +317,19 @@ class ExplorerSearchBar extends HookConsumerWidget {
             ),
           ),
         ],
-        selectedOptionBuilder: (context, value) => Row(
+        selectedOptionBuilder: (context, value) => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    Strings.therapeuticClassFilter,
-                    style: theme.textTheme.p,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    selectedText,
-                    style: theme.textTheme.small.copyWith(
-                      color: theme.colorScheme.mutedForeground,
-                    ),
-                  ),
-                ],
+            Text(
+              Strings.therapeuticClassFilter,
+              style: theme.textTheme.p,
+            ),
+            const Gap(4),
+            Text(
+              selectedText,
+              style: theme.textTheme.small.copyWith(
+                color: theme.colorScheme.mutedForeground,
               ),
             ),
           ],

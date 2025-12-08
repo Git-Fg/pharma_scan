@@ -1,98 +1,19 @@
 import 'dart:convert';
 
 import 'package:diacritic/diacritic.dart';
-import 'package:petitparser/petitparser.dart';
 import 'package:pharma_scan/core/constants/chemical_constants.dart';
-import 'package:pharma_scan/core/logic/medicament_grammar.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/features/explorer/domain/entities/medicament_entity.dart';
 
-final Parser<String> _medicamentBaseNameParser =
-    buildMedicamentBaseNameParser();
+/// Canonical normalization for search queries/columns.
+String normalizeForSearch(String input) {
+  if (input.isEmpty) return '';
 
-/// Simple dosage extractor aligned with the Python lab for common units.
-///
-/// This is intentionally conservative and focuses on MG/G/ML/UI and
-/// MICROGRAMMES; complex biological units (ELISA, Speywood, etc.) are
-/// handled via dedicated logic when needed.
-String? extractSimpleDosage(String raw) {
-  if (raw.trim().isEmpty) return null;
-  var normalized = removeDiacritics(raw.toUpperCase().trim());
-  normalized = normalized.replaceAll(',', '.');
-  normalized = normalized.replaceAll(RegExp(r'(\d)\s+(\d{3}\b)'), r'$1$2');
-
-  final match = RegExp(
-    r'(\d+(?:\.\d+)?)\s*(MG|G|ML|UI|MICROGRAMMES?|MICROG)',
-  ).firstMatch(normalized);
-  if (match == null) return null;
-  final value = match.group(1)!;
-  final unit = match.group(2)!;
-  return '$value $unit';
-}
-
-/// High-level helper used by ETL/tests to parse a single molecule segment.
-///
-/// Returns a Dart record with the canonical molecule name and an optional
-/// simple dosage. More complex composition logic (SA/FT, ratios) is handled
-/// at the ETL/Drift level.
-({String molecule, String? dosage}) parseMoleculeSegment(
-  String rawSubstance,
-  String rawDosage,
-) {
-  final canonical = normalizePrincipleOptimal(rawSubstance);
-  final dosage = extractSimpleDosage(
-    rawDosage.isNotEmpty ? rawDosage : rawSubstance,
-  );
-  return (molecule: canonical, dosage: dosage);
-}
-
-/// Classifies parsing mode as 'strict' or 'relaxed' based on pharmaceutical
-/// form and substance nature, mirroring `classify_parsing_mode` in `parser_lab.py`.
-String classifyParsingMode({
-  required String formePharmaceutique,
-  required String elementPharmaceutique,
-  required String rawSubstance,
-}) {
-  final formeNorm = removeDiacritics(formePharmaceutique.toUpperCase().trim());
-  final elemNorm = removeDiacritics(elementPharmaceutique.toUpperCase().trim());
-  final subsNorm = removeDiacritics(rawSubstance.toUpperCase().trim());
-
-  const plantKeywords = <String>[
-    'EXTRAIT',
-    'MACERAT',
-    'TEINTURE',
-    'POUDRE DE',
-    'FEUILLES',
-    'FLEURS',
-    'RACINE',
-    'RHIZOME',
-    'RIZOME',
-  ];
-  if (plantKeywords.any(subsNorm.contains)) {
-    return 'relaxed';
-  }
-
-  const strictFormKeywords = <String>[
-    'COMPRIME',
-    'GELULE',
-    'CAPSULE',
-    'SOLUTION',
-    'SUSPENSION',
-    'SIROP',
-    'POMMADE',
-    'COLLYRE',
-    'LYOPHILISAT',
-    'TABLETTE',
-    'GEL',
-    'POUDRE',
-  ];
-
-  if (strictFormKeywords.any(formeNorm.contains) ||
-      strictFormKeywords.any(elemNorm.contains)) {
-    return 'strict';
-  }
-
-  return 'relaxed';
+  return removeDiacritics(input)
+      .toLowerCase()
+      .replaceAll(RegExp('[-\'":.]'), ' ')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
 }
 
 List<String> decodePrincipesFromJson(String? jsonString) {
@@ -141,16 +62,16 @@ String extractPrincepsLabel(String rawLabel) {
 }
 
 String getDisplayTitle(MedicamentEntity summary) {
-  if (summary.isPrinceps) {
-    return extractPrincepsLabel(summary.princepsDeReference);
+  if (summary.data.isPrinceps) {
+    return extractPrincepsLabel(summary.data.princepsDeReference);
   }
 
-  if (!summary.isPrinceps && summary.groupId != null) {
-    final parts = summary.nomCanonique.split(' - ');
+  if (!summary.data.isPrinceps && summary.groupId != null) {
+    final parts = summary.data.nomCanonique.split(' - ');
     return parts.first.trim();
   }
 
-  return summary.nomCanonique;
+  return summary.data.nomCanonique;
 }
 
 /// Detects pure electrolytes / mineral salts.
@@ -204,15 +125,17 @@ bool _isPureInorganicName(String name) {
   return false;
 }
 
-/// Optimal normalization of active principles.
-///
-/// Handles inverted formats, removes salts and forms, normalizes spaces and accents.
-/// Based on exhaustive BDPM data analysis achieving 94.5% consistency in grouping.
+/// Strictly reserved for FTS5 search index normalization.
+/// Do NOT use for UI display strings or parsing heuristics.
 @pragma('vm:prefer-inline')
-String normalizePrincipleOptimal(String principe) {
+String normalizeForSearchIndex(String principe) {
   if (principe.trim().isEmpty) return '';
 
-  var normalized = removeDiacritics(principe.toUpperCase().trim());
+  // Uppercase after diacritic removal to ensure ligatures like œ/Œ normalize
+  // to their full ASCII equivalents (e.g., OE) instead of mixed-case outputs.
+  var normalized = removeDiacritics(
+    principe.toUpperCase().trim(),
+  ).toUpperCase();
 
   normalized = normalized.replaceAll(RegExp(r'^ACIDE\s+'), '');
   final stereoMatch = RegExp(
@@ -298,8 +221,7 @@ String normalizePrincipleOptimal(String principe) {
 
   normalized = normalized.replaceAll(RegExp(r'\s*\([^)]*\)\s*$'), '');
 
-  final parseResult = _medicamentBaseNameParser.parse(normalized);
-  var result = parseResult is Success<String> ? parseResult.value : normalized;
+  var result = normalized;
 
   for (final prefix in ChemicalConstants.saltPrefixes) {
     if (result.startsWith(prefix)) {
@@ -678,3 +600,6 @@ String generateGroupingKey(String input) {
 
   return normalized;
 }
+
+String normalizePrincipleOptimal(String principe) =>
+    normalizeForSearchIndex(principe);

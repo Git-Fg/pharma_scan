@@ -1,6 +1,10 @@
 /// Models defining the state and progress of the synchronization process.
 library;
 
+import 'package:dart_mappable/dart_mappable.dart';
+
+part 'sync_state.mapper.dart';
+
 enum SyncPhase {
   idle,
   waitingNetwork,
@@ -25,7 +29,8 @@ enum SyncStatusCode {
 
 enum SyncErrorType { network, scraping, download, apply, unknown }
 
-class SyncProgress {
+@MappableClass()
+class SyncProgress with SyncProgressMappable {
   const SyncProgress({
     required this.phase,
     required this.code,
@@ -63,27 +68,5 @@ class SyncProgress {
     final remainingMicros = totalMicros - elapsedDuration.inMicroseconds;
     if (remainingMicros <= 0) return Duration.zero;
     return Duration(microseconds: remainingMicros.round());
-  }
-
-  SyncProgress copyWith({
-    SyncPhase? phase,
-    SyncStatusCode? code,
-    double? progress,
-    String? subject,
-    SyncErrorType? errorType,
-    DateTime? startTime,
-    int? totalBytes,
-    int? receivedBytes,
-  }) {
-    return SyncProgress(
-      phase: phase ?? this.phase,
-      code: code ?? this.code,
-      progress: progress ?? this.progress,
-      subject: subject ?? this.subject,
-      errorType: errorType ?? this.errorType,
-      startTime: startTime ?? this.startTime,
-      totalBytes: totalBytes ?? this.totalBytes,
-      receivedBytes: receivedBytes ?? this.receivedBytes,
-    );
   }
 }

@@ -1,18 +1,15 @@
 ---
 description: Drift database patterns, SQL-first logic, FTS5 search, and query optimization
-globs: lib/core/database/**/*.dart, **/*.drift
 alwaysApply: false
 ---
-
 # Flutter Data Layer (2025 Standard)
 
 ## SQL-First Logic
 
-**Mandate:** Can this logic (grouping, sorting, filtering) be done in a SQL View? If yes, use SQL.
+**Mandate:** If grouping/sorting/filtering can be expressed in SQL (tables/views), keep it in SQL.
 
-- **SQL > Dart:** Never map/group rows in Dart if SQL View returns exact shape
-- **Performance:** Views leverage SQLite optimizer
-- **Reference:** See database views file for aggregated patterns
+- SQL > Dart: avoid mapping/grouping in Dart when a view can return the exact shape.
+- Performance: let SQLite's optimizer handle joins and indices.
 
 ## Build Runner (2025 Reality)
 
@@ -22,21 +19,10 @@ alwaysApply: false
 
 ## Query Patterns
 
-```
-// ✅ Streams for UI data
-@riverpod
-Stream<List<Item>> items(Ref ref) {
-  final dao = ref.watch(catalogDaoProvider);
-  return dao.watchItems();
-}
-
-// ✅ watchSingleOrNull for detail views (handles deletion)
-@riverpod
-Stream<Item?> itemDetail(Ref ref, String id) {
-  final dao = ref.watch(catalogDaoProvider);
-  return dao.watchSingleOrNull(id);
-}
-```
+- Streams: prefer `watch()` for UI-facing data.
+- Detail views: use `watchSingleOrNull()` to tolerate concurrent deletions.
+- Bulk ops: push work into SQL views/queries; avoid per-row `customStatement`.
+- FTS queries live in `.drift`; use generated accessors, not ad-hoc `customSelect`.
 
 ## Optimization
 
@@ -46,27 +32,17 @@ Stream<Item?> itemDetail(Ref ref, String id) {
 
 ## FTS5 Search
 
-**FTS5 Native Tokenization:**
+**Standard setup:**
 
-```
-// Define in .drift file
-CREATE VIRTUAL TABLE search_index USING fts5(
-  content,
-  tokenize='trigram'
-);
-```
-
-**Normalization:**
-
-- Use `normalize_text()` SQLite function (via `diacritic` package)
-- Sanitize input: `escapeFts5Query()` before querying
-- **Dart NEVER mutates strings** before hitting index
-
-**Dependency:** Keep `sqlite3_flutter_libs` updated (verify trigram support)
+- Use FTS5 with the tokenizer/normalization strategy defined in domain docs (e.g., `docs/DOMAIN_LOGIC.md` for app-specific choices).
+- Define virtual tables and SELECT helpers in `.drift`; consume generated accessors in DAOs.
+- Normalize/trim input before querying; if custom SQL helpers exist, keep them single-source and documented in domain docs.
+- Escape user-entered terms with an FTS5-safe helper before issuing search queries.
+- Ensure the chosen tokenizer is supported by the SQLite build included in the app (verify bundled native libs match the target tokenizer).
 
 ## Database Safety
 
-```
+```dart
 // ✅ watchSingleOrNull (prevents crashes on concurrent deletions)
 Stream<Item?> watchItem(String id) => dao.watchSingleOrNull(id);
 
@@ -79,15 +55,7 @@ final query = db.select(db.table)..where((t) => t.id.isIn(ids));
 
 ## Drift Managers Mandate
 
-**For bulk operations:** Push work into SQL views/inserts, let Drift generate APIs.
-
-```
-// ✅ SQL-side bulk operations
-await database.deleteSearchIndex();
-await database.insertSearchIndexFromSummary();
-
-// ❌ FORBIDDEN: Dart loops with per-row customStatement
-```
+**For bulk operations:** Push work into SQL views/inserts and consume the generated APIs; avoid per-row `customStatement` loops.
 
 ## Offline-First Architecture
 
@@ -101,6 +69,39 @@ await database.insertSearchIndexFromSummary();
 - ❌ String interpolation in queries (use Expression API)
 - ❌ Manual chunking for `.isIn()` (Drift handles it)
 - ❌ `watchSingle` (use `watchSingleOrNull`)
+- ❌ `Either` in DAOs (use plain `Future<void>` and let exceptions bubble)
+- ❌ Re-implementing search/group formatting in Dart when `.drift` views/queries exist
 - ✅ SQL Views for aggregations
 - ✅ Transactions for multi-write operations
-- ✅ FTS5 with trigram tokenizer
+- ✅ FTS5 search with domain-appropriate tokenizer
+
+## Transactional Integrity (The "No-Orphan" Rule)
+
+**Mandate:** Business operations that affect multiple tables MUST be atomic within the DAO.
+
+- **Forbidden:** Orchestrating multi-table deletes/updates inside a Riverpod Notifier.
+- **Required:** A single DAO method wrapped in `transaction(() async { ... })`.
+
+### ❌ Anti-Pattern (Notifier Orchestration)
+
+```dart
+// BAD: If step 1 succeeds but step 2 fails/crashes, data is corrupted.
+Future<void> deleteItem(String id) async {
+  await db.itemsDao.delete(id);
+  // <--- Potential crash/error here leaves "Ghost Data" in history
+  await db.historyDao.deleteForItemId(id);
+}
+```
+
+### ✅ Standard (DAO Transaction)
+
+```dart
+// GOOD: Atomic. Both happen, or neither happens.
+// In ItemsDao:
+Future<void> deleteItemFully(String id) async {
+  await transaction(() async {
+    await (delete(items)..where((t) => t.id.equals(id))).go();
+    await (delete(history)..where((t) => t.itemId.equals(id))).go();
+  });
+}
+```

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/domain/types/ids.dart';
-import 'package:pharma_scan/core/widgets/ui_kit/product_type_badge.dart';
+import 'package:pharma_scan/core/widgets/ui_kit/product_badges.dart';
 import 'package:pharma_scan/features/explorer/domain/entities/medicament_entity.dart';
 import 'package:pharma_scan/features/scanner/presentation/widgets/scanner_result_card.dart';
 
@@ -15,12 +15,12 @@ void main() {
         cisCode: '123456',
         nomCanonique: 'Test Médicament',
         isPrinceps: false,
+        memberType: 1,
         principesActifsCommuns: ['Test'],
         princepsDeReference: 'Test Princeps',
         formePharmaceutique: 'Comprimé',
         princepsBrandName: 'Test Brand',
         procedureType: 'Procédure',
-        titulaire: 'Test Lab',
         isSurveillance: false,
         isHospitalOnly: false,
         isDental: false,
@@ -43,7 +43,7 @@ void main() {
             summary: buildSummary(),
             cip: Cip13.validated('3400000000012'),
             badges: const [
-              ProductTypeBadge(type: ProductType.standalone, compact: true),
+              ProductTypeBadge(memberType: 0, compact: true),
             ],
             subtitle: const ['Test subtitle'],
             onClose: () {},

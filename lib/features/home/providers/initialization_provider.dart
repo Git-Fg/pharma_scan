@@ -9,7 +9,7 @@ part 'initialization_provider.g.dart';
 
 enum InitializationState { initializing, success, error }
 
-@riverpod
+@Riverpod(keepAlive: true)
 class InitializationStateNotifier extends _$InitializationStateNotifier {
   String? _lastErrorMessage;
   Future<void>? _ongoingInitialization;
@@ -18,38 +18,7 @@ class InitializationStateNotifier extends _$InitializationStateNotifier {
 
   @override
   InitializationState build() {
-    unawaited(_checkExistingDatabase());
     return InitializationState.initializing;
-  }
-
-  Future<void> _checkExistingDatabase() async {
-    try {
-      final db = ref.read(appDatabaseProvider);
-      final hasData = await db.catalogDao.hasExistingData();
-      final version = await db.settingsDao.getBdpmVersion();
-      const currentVersion = DataInitializationService.dataVersion;
-
-      if (hasData && version == currentVersion) {
-        LoggerService.info(
-          '[InitializationProvider] Database already initialized',
-        );
-        if (ref.mounted) {
-          state = InitializationState.success;
-        }
-        return;
-      }
-
-      if (ref.mounted) {
-        await initialize();
-      }
-    } on Exception catch (e) {
-      LoggerService.info(
-        '[InitializationProvider] Check failed, proceeding with init: $e',
-      );
-      if (ref.mounted) {
-        await initialize();
-      }
-    }
   }
 
   Future<void> initialize() {
@@ -67,6 +36,21 @@ class InitializationStateNotifier extends _$InitializationStateNotifier {
     state = InitializationState.initializing;
     _lastErrorMessage = null;
     try {
+      final db = ref.read(appDatabaseProvider);
+      final hasData = await db.catalogDao.hasExistingData();
+      final version = await db.settingsDao.getBdpmVersion();
+      const currentVersion = DataInitializationService.dataVersion;
+
+      if (hasData && version == currentVersion) {
+        LoggerService.info(
+          '[InitializationProvider] Database already initialized',
+        );
+        if (ref.mounted) {
+          state = InitializationState.success;
+        }
+        return;
+      }
+
       LoggerService.info('[InitializationProvider] initialize() - start');
       await ref.read(dataInitializationServiceProvider).initializeDatabase();
       if (ref.mounted) {
@@ -91,16 +75,19 @@ class InitializationStateNotifier extends _$InitializationStateNotifier {
   }
 }
 
-@riverpod
+@Riverpod(keepAlive: true)
 String? initializationErrorMessage(Ref ref) {
   ref.watch(initializationStateProvider);
   return ref.watch(initializationStateProvider.notifier).lastErrorMessage;
 }
 
-@riverpod
+@Riverpod(keepAlive: true)
 Stream<InitializationStep> initializationStep(Ref ref) async* {
   final service = ref.watch(dataInitializationServiceProvider);
   final initState = ref.watch(initializationStateProvider);
+  LoggerService.info(
+    '[InitializationStepProvider] listening (state: $initState)',
+  );
 
   try {
     final db = ref.read(appDatabaseProvider);
@@ -132,6 +119,9 @@ Stream<InitializationStep> initializationStep(Ref ref) async* {
     final currentInitState = ref.read(initializationStateProvider);
     if (currentInitState == InitializationState.success &&
         step != InitializationStep.ready) {
+      LoggerService.info(
+        '[InitializationStepProvider] forcing ready after init success',
+      );
       yield InitializationStep.ready;
     }
     if (step == InitializationStep.ready) {
@@ -146,7 +136,7 @@ Stream<InitializationStep> initializationStep(Ref ref) async* {
   }
 }
 
-@riverpod
+@Riverpod(keepAlive: true)
 Stream<String> initializationDetail(Ref ref) {
   final service = ref.watch(dataInitializationServiceProvider);
   return service.onDetailChanged;

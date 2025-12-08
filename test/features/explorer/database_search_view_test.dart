@@ -8,6 +8,7 @@ import 'package:pharma_scan/core/router/app_router.dart';
 import 'package:pharma_scan/core/router/app_routes.dart';
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
+import 'package:pharma_scan/features/explorer/domain/models/database_stats.dart';
 import 'package:pharma_scan/features/explorer/domain/models/generic_group_entity.dart';
 import 'package:pharma_scan/features/explorer/presentation/providers/database_stats_provider.dart';
 import 'package:pharma_scan/features/explorer/presentation/providers/generic_groups_provider.dart';
@@ -33,11 +34,14 @@ void main() {
     final overrides = [
       genericGroupsProvider.overrideWith(_StaticGenericGroupsNotifier.new),
       databaseStatsProvider.overrideWith(
-        (ref) => Future<Map<String, dynamic>>.value({
-          'total_princeps': 0,
-          'total_generiques': 0,
-          'total_principes': 0,
-        }),
+        (ref) => Future<DatabaseStats>.value(
+          (
+            totalPrinceps: 0,
+            totalGeneriques: 0,
+            totalPrincipes: 0,
+            avgGenPerPrincipe: 0.0,
+          ),
+        ),
       ),
       initializationStepProvider.overrideWith(
         (ref) => Stream<InitializationStep>.value(InitializationStep.ready),
