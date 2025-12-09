@@ -18,7 +18,8 @@ class AppDimens {
   static const double icon2xl = 48;
 
   /// Minimum height for tappable list tiles to keep touch targets accessible
-  static const double listTileMinHeight = 72;
+  /// Dense lists aim for 48–56px; use 56 for comfort.
+  static const double listTileMinHeight = 56;
 
   /// Standard height for input fields (ShadInput, ShadInputFormField).
   ///

@@ -17,7 +17,6 @@ import 'package:pharma_scan/features/explorer/presentation/widgets/alphabet_side
 import 'package:pharma_scan/features/explorer/presentation/widgets/explorer_content_list.dart';
 import 'package:pharma_scan/features/explorer/presentation/widgets/explorer_search_bar.dart';
 import 'package:pharma_scan/features/home/providers/initialization_provider.dart';
-import 'package:scroll_to_index/scroll_to_index.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 class DatabaseSearchView extends HookConsumerWidget {
@@ -25,16 +24,7 @@ class DatabaseSearchView extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final bottomPadding = MediaQuery.paddingOf(context).bottom;
-    final scrollController = useMemoized(
-      () => AutoScrollController(
-        viewportBoundaryGetter: () => Rect.fromLTRB(0, 0, 0, bottomPadding),
-      ),
-      [bottomPadding],
-    );
-    useEffect(() {
-      return scrollController.dispose;
-    }, [scrollController]);
+    final scrollController = useScrollController();
     final debouncedQuery = useState('');
     final viewInsetsBottom = MediaQuery.viewInsetsOf(context).bottom;
     final safeBottomPadding = MediaQuery.paddingOf(context).bottom;
@@ -143,7 +133,6 @@ class DatabaseSearchView extends HookConsumerWidget {
               controller: scrollController,
               slivers: [
                 ExplorerContentList(
-                  controller: scrollController,
                   groups: groups,
                   groupedItems: groupedData.groupedItems,
                   searchResults: searchResults,
@@ -158,7 +147,9 @@ class DatabaseSearchView extends HookConsumerWidget {
                 ),
               ],
             ),
-            if (!hasSearchText && !groups.isLoading)
+            if (!hasSearchText &&
+                !groups.isLoading &&
+                groupedData.groupedItems.isNotEmpty)
               Positioned(
                 top: 0,
                 bottom: AppDimens.searchBarHeaderHeight + bottomSpace,
@@ -174,13 +165,15 @@ class DatabaseSearchView extends HookConsumerWidget {
                           letter,
                         );
                     if (index == null || index < 0) return;
-
-                    unawaited(
-                      scrollController.scrollToIndex(
-                        index,
-                        duration: const Duration(milliseconds: 90),
-                      ),
+                    if (!scrollController.hasClients) return;
+                    final position = scrollController.position;
+                    if (!position.hasContentDimensions) return;
+                    final offset = index * explorerListItemHeight;
+                    final target = offset.clamp(
+                      position.minScrollExtent,
+                      position.maxScrollExtent,
                     );
+                    scrollController.jumpTo(target);
                   },
                 ),
               ),

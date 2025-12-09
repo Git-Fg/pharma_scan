@@ -19,8 +19,9 @@ import 'package:pharma_scan/features/explorer/presentation/providers/generic_gro
 import 'package:pharma_scan/features/explorer/presentation/providers/search_provider.dart';
 import 'package:pharma_scan/features/explorer/presentation/widgets/medicament_tile.dart';
 import 'package:pharma_scan/features/explorer/presentation/widgets/molecule_group_tile.dart';
-import 'package:scroll_to_index/scroll_to_index.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
+
+const double explorerListItemHeight = 108.0;
 
 class ExplorerContentList extends ConsumerWidget {
   const ExplorerContentList({
@@ -30,11 +31,9 @@ class ExplorerContentList extends ConsumerWidget {
     required this.hasSearchText,
     required this.isSearching,
     required this.currentQuery,
-    this.controller,
     super.key,
   });
 
-  final AutoScrollController? controller;
   final AsyncValue<GenericGroupsState> groups;
   final List<Object> groupedItems;
   final AsyncValue<List<SearchResultItem>> searchResults;
@@ -82,6 +81,22 @@ class ExplorerContentList extends ConsumerWidget {
     );
   }
 
+  Widget _buildExplorerEmptyState(BuildContext context) {
+    return const SliverToBoxAdapter(
+      child: Padding(
+        padding: EdgeInsets.only(
+          top: AppDimens.spacingLg,
+          bottom: AppDimens.spacingXl,
+        ),
+        child: StatusView(
+          type: StatusType.empty,
+          title: Strings.explorerEmptyTitle,
+          description: Strings.explorerEmptyDescription,
+        ),
+      ),
+    );
+  }
+
   /// Formats principles string for display by capitalizing the first letter.
   /// Example: "PARACETAMOL" -> "Paracetamol", "PARACETAMOL, CODEINE" -> "Paracetamol, Codeine"
   String _formatPrinciples(String principles) {
@@ -96,77 +111,80 @@ class ExplorerContentList extends ConsumerWidget {
     final principles = hasPrinciples
         ? _formatPrinciples(group.commonPrincipes)
         : Strings.notDetermined;
+    final brand = group.princepsReferenceName.isNotEmpty
+        ? group.princepsReferenceName
+        : Strings.notDetermined;
     return MergeSemantics(
       child: Semantics(
         button: true,
-        label: '$principles, référence ${group.princepsReferenceName}',
+        label: '$principles, référence $brand',
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: () => AutoRouter.of(context).push(
             GroupExplorerRoute(groupId: group.groupId.toString()),
           ),
-          child: Container(
-            constraints: const BoxConstraints(
-              minHeight: AppDimens.listTileMinHeight,
-            ),
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppDimens.spacingMd,
-              vertical: AppDimens.spacingSm,
-            ),
-            decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: context.shadColors.border),
+          child: SizedBox(
+            height: explorerListItemHeight,
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppDimens.spacingMd,
               ),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 18,
-                  height: 18,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    border: Border.all(
-                      color: context.shadColors.border,
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: context.shadColors.border),
+                ),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 18,
+                    height: 18,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        color: context.shadColors.border,
+                      ),
+                      borderRadius: BorderRadius.circular(4),
                     ),
-                    borderRadius: BorderRadius.circular(4),
+                    child: Text(
+                      Strings.generics.substring(0, 1),
+                      style: context.shadTextTheme.small,
+                    ),
                   ),
-                  child: Text(
-                    Strings.generics.substring(0, 1),
-                    style: context.shadTextTheme.small,
-                  ),
-                ),
-                const Gap(AppDimens.spacingSm),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        principles,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: context.shadTextTheme.p.copyWith(
-                          fontWeight: FontWeight.w600,
+                  const Gap(AppDimens.spacingSm),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          principles,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: context.shadTextTheme.p.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                      ),
-                      const Gap(4),
-                      Text(
-                        group.princepsReferenceName,
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                        style: context.shadTextTheme.small.copyWith(
-                          color: context.shadColors.mutedForeground,
+                        const Gap(4),
+                        Text(
+                          brand,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: context.shadTextTheme.small.copyWith(
+                            color: context.shadColors.mutedForeground,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-                const Gap(AppDimens.spacingXs),
-                const ExcludeSemantics(
-                  child: Icon(LucideIcons.chevronRight, size: 16),
-                ),
-              ],
+                  const Gap(AppDimens.spacingXs),
+                  const ExcludeSemantics(
+                    child: Icon(LucideIcons.chevronRight, size: 16),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -189,31 +207,26 @@ class ExplorerContentList extends ConsumerWidget {
           child: _buildGroupsError(context, ref),
         );
       } else if (data == null || data.items.isEmpty) {
-        sliver = const SliverToBoxAdapter(
-          child: StatusView(type: StatusType.empty, title: Strings.noResults),
-        );
+        sliver = _buildExplorerEmptyState(context);
       } else {
-        sliver = SliverList(
+        sliver = SliverFixedExtentList(
+          itemExtent: explorerListItemHeight,
           delegate: SliverChildBuilderDelegate((context, index) {
             final item = groupedItems[index];
             Widget content;
             if (item is GenericGroupEntity) {
-              content = Padding(
-                padding: const EdgeInsets.symmetric(
-                  vertical: AppDimens.spacing2xs,
-                ),
-                child: _buildGenericGroupTile(context, item),
-              );
+              content = _buildGenericGroupTile(context, item);
             } else if (item is GroupCluster) {
-              content = Padding(
-                padding: const EdgeInsets.symmetric(
-                  vertical: AppDimens.spacing2xs,
-                ),
-                child: MoleculeGroupTile(
-                  moleculeName: item.displayName,
-                  groups: item.groups,
-                  itemBuilder: _buildGenericGroupTile,
-                ),
+              final princepsName = item.sortKey.isNotEmpty
+                  ? item.sortKey
+                  : (item.displayName.isNotEmpty
+                        ? item.displayName
+                        : Strings.notDetermined);
+              content = MoleculeGroupTile(
+                moleculeName: item.displayName,
+                princepsName: princepsName,
+                groups: item.groups,
+                itemBuilder: _buildGenericGroupTile,
               );
             } else if (item is List<GenericGroupEntity>) {
               final firstItem = item.first;
@@ -222,27 +235,17 @@ class ExplorerContentList extends ConsumerWidget {
                   : (firstItem.princepsReferenceName.isNotEmpty
                         ? firstItem.princepsReferenceName
                         : Strings.notDetermined);
-              content = Padding(
-                padding: const EdgeInsets.symmetric(
-                  vertical: AppDimens.spacing2xs,
-                ),
-                child: MoleculeGroupTile(
-                  moleculeName: moleculeName,
-                  groups: item,
-                  itemBuilder: _buildGenericGroupTile,
-                ),
+              final princepsName = firstItem.princepsReferenceName.isNotEmpty
+                  ? firstItem.princepsReferenceName
+                  : moleculeName;
+              content = MoleculeGroupTile(
+                moleculeName: moleculeName,
+                princepsName: princepsName,
+                groups: item,
+                itemBuilder: _buildGenericGroupTile,
               );
             } else {
               return const SizedBox.shrink();
-            }
-
-            if (controller != null) {
-              return AutoScrollTag(
-                key: ValueKey(index),
-                controller: controller!,
-                index: index,
-                child: content,
-              );
             }
 
             return content;
@@ -351,6 +354,11 @@ class ExplorerContentList extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(vertical: AppDimens.spacing2xs),
             child: MoleculeGroupTile(
               moleculeName: result.displayName,
+              princepsName: result.sortKey.isNotEmpty
+                  ? result.sortKey
+                  : (result.displayName.isNotEmpty
+                        ? result.displayName
+                        : Strings.notDetermined),
               groups: result.groups,
               itemBuilder: _buildGenericGroupTile,
             ),

@@ -90,8 +90,8 @@ class _AlphabetSidebarState extends State<AlphabetSidebar> {
         child: Container(
           key: _key,
           color: Colors.transparent,
-          padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 16),
-          width: 32,
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 20),
+          width: 48,
           child: LayoutBuilder(
             builder: (context, constraints) {
               return Stack(
@@ -104,10 +104,10 @@ class _AlphabetSidebarState extends State<AlphabetSidebar> {
                       top:
                           (_selectedIndex! *
                               (constraints.maxHeight / widget.letters.length)) -
-                          24,
+                          32,
                       child: Container(
-                        width: 56,
-                        height: 56,
+                        width: 64,
+                        height: 64,
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
                           color: primaryColor,
@@ -138,9 +138,9 @@ class _AlphabetSidebarState extends State<AlphabetSidebar> {
                           child: Text(
                             entry.value,
                             style: theme.textTheme.small.copyWith(
-                              fontSize: 10,
+                              fontSize: 12,
                               fontWeight: isSelected
-                                  ? FontWeight.w900
+                                  ? FontWeight.w800
                                   : FontWeight.w600,
                               color: isSelected
                                   ? primaryColor

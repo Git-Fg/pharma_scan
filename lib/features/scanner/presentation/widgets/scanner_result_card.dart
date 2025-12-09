@@ -57,8 +57,8 @@ class ScannerResultCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = context.shadTheme;
     final isRestockMode = mode == ScannerMode.restock;
-    final restockBackground = theme.colorScheme.secondary.withValues(
-      alpha: 0.08,
+    final backgroundColor = theme.colorScheme.background.withValues(
+      alpha: 0.7,
     );
     final restockBorder = theme.colorScheme.secondary.withValues(alpha: 0.6);
     final radius = theme.radius;
@@ -145,7 +145,7 @@ class ScannerResultCard extends StatelessWidget {
     if (exactMatchBanner != null) infoBadges.add(exactMatchBanner);
 
     Widget card = Material(
-      color: isRestockMode ? restockBackground : theme.colorScheme.background,
+      color: backgroundColor,
       shape: RoundedRectangleBorder(
         borderRadius: radius,
         side: BorderSide(
@@ -300,7 +300,7 @@ class ScannerResultCard extends StatelessWidget {
     if (isRestockMode) {
       card = DecoratedBox(
         decoration: BoxDecoration(
-          color: restockBackground,
+          color: backgroundColor,
           border: Border.all(
             color: restockBorder,
           ),

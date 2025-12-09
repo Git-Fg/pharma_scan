@@ -7,15 +7,19 @@ import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/features/explorer/domain/models/generic_group_entity.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
+const double _groupHeaderHeight = 108;
+
 class MoleculeGroupTile extends HookWidget {
   const MoleculeGroupTile({
     required this.moleculeName,
+    required this.princepsName,
     required this.groups,
     required this.itemBuilder,
     super.key,
   });
 
   final String moleculeName;
+  final String princepsName;
   final List<GenericGroupEntity> groups;
   final Widget Function(BuildContext, GenericGroupEntity) itemBuilder;
 
@@ -27,9 +31,36 @@ class MoleculeGroupTile extends HookWidget {
             _naturalCompare(a.princepsReferenceName, b.princepsReferenceName),
       );
 
-    final uniquePrinceps =
-        sortedGroups.map((g) => g.princepsReferenceName).toSet().toList()
-          ..sort(_naturalCompare);
+    Future<void> openSheet() async {
+      await showShadSheet<void>(
+        context: context,
+        side: ShadSheetSide.bottom,
+        builder: (sheetContext) {
+          return ShadSheet(
+            title: Text(
+              moleculeName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: sheetContext.shadTextTheme.h4,
+            ),
+            child: SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppDimens.spacingMd,
+                  vertical: AppDimens.spacingMd,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: sortedGroups
+                      .map((group) => itemBuilder(sheetContext, group))
+                      .toList(),
+                ),
+              ),
+            ),
+          );
+        },
+      );
+    }
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -37,12 +68,17 @@ class MoleculeGroupTile extends HookWidget {
         border: Border.all(color: context.shadColors.border),
         borderRadius: context.shadTheme.radius,
       ),
-      child: ShadAccordion<String>(
-        children: [
-          ShadAccordionItem(
-            value: moleculeName,
-            title: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: openSheet,
+        child: SizedBox(
+          height: _groupHeaderHeight,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppDimens.spacingMd,
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 ShadBadge.outline(
                   child: Text(
@@ -53,6 +89,7 @@ class MoleculeGroupTile extends HookWidget {
                 const Gap(AppDimens.spacingSm),
                 Expanded(
                   child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -61,45 +98,40 @@ class MoleculeGroupTile extends HookWidget {
                         style: context.shadTextTheme.p.copyWith(
                           fontWeight: FontWeight.w600,
                         ),
-                        maxLines: 2,
+                        maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      if (uniquePrinceps.isNotEmpty) ...[
-                        const Gap(4),
-                        ...uniquePrinceps.map(
-                          (princeps) => Text(
-                            princeps,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: context.shadTextTheme.small.copyWith(
-                              color: context.shadColors.mutedForeground,
-                            ),
-                          ),
-                        ),
-                      ],
                       const Gap(4),
                       Text(
-                        Strings.productCount(groups.length),
+                        princepsName.isNotEmpty
+                            ? princepsName
+                            : Strings.notDetermined,
                         style: context.shadTextTheme.small.copyWith(
                           color: context.shadColors.mutedForeground,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
                 ),
+                const Gap(AppDimens.spacingSm),
+                Text(
+                  Strings.productCount(groups.length),
+                  style: context.shadTextTheme.small.copyWith(
+                    color: context.shadColors.mutedForeground,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const Gap(AppDimens.spacingSm),
+                const ExcludeSemantics(
+                  child: Icon(LucideIcons.chevronRight, size: 16),
+                ),
               ],
             ),
-            child: Padding(
-              padding: const EdgeInsets.only(left: AppDimens.spacingMd),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: sortedGroups
-                    .map((group) => itemBuilder(context, group))
-                    .toList(),
-              ),
-            ),
           ),
-        ],
+        ),
       ),
     );
   }

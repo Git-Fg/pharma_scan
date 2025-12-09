@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:gap/gap.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:pharma_scan/core/providers/navigation_provider.dart';
 import 'package:pharma_scan/core/providers/preferences_provider.dart';
@@ -149,33 +148,36 @@ class RestockScreen extends HookConsumerWidget {
             return Center(
               child: Padding(
                 padding: const EdgeInsets.all(AppDimens.spacingXl),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      LucideIcons.clipboardList,
-                      size: 64,
-                      color: context.shadColors.mutedForeground,
+                child: StatusView(
+                  type: StatusType.empty,
+                  title: Strings.restockEmptyTitle,
+                  description: Strings.restockEmpty,
+                  icon: LucideIcons.clipboardList,
+                  action: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      maxWidth: 360,
+                      minWidth: 200,
                     ),
-                    const Gap(AppDimens.spacingLg),
-                    Text(
-                      Strings.restockEmptyTitle,
-                      style: context.shadTextTheme.h4,
-                    ),
-                    const Gap(AppDimens.spacingSm),
-                    Text(
-                      Strings.restockEmpty,
-                      style: context.shadTextTheme.muted,
-                      textAlign: TextAlign.center,
-                    ),
-                    const Gap(AppDimens.spacingXl),
-                    ShadButton(
+                    child: ShadButton(
                       size: ShadButtonSize.lg,
-                      leading: const Icon(LucideIcons.scanLine),
                       onPressed: () => ref.navigateToRestockMode(context),
-                      child: const Text(Strings.restockOpenScanner),
+                      child: const Wrap(
+                        spacing: AppDimens.spacingXs,
+                        runSpacing: AppDimens.spacingXs,
+                        alignment: WrapAlignment.center,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Icon(LucideIcons.scanLine),
+                          SizedBox(width: AppDimens.spacingXs),
+                          Text(
+                            Strings.restockOpenScanner,
+                            textAlign: TextAlign.center,
+                            softWrap: true,
+                          ),
+                        ],
+                      ),
                     ),
-                  ],
+                  ),
                 ),
               ),
             );

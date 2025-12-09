@@ -42,6 +42,7 @@ The architecture prioritizes **simplicity**, **robustness**, and **performance**
 - Gesture/local mutable counters use `useRef` when no rebuild is needed (e.g., swipe deltas)
 - Lists use custom `Row` + `ShadTheme` styling (no `ListTile`)
 - Status surfaces use native Shad primitives: `ShadAlert`/`ShadAlert.destructive` for banners/errors, `ShadCard` for neutral/empty states; progress lives inside the alert description.
+- Large lists (>1k items, e.g., Explorer) use `SliverFixedExtentList` with a standardized item extent (72px) so jump-to-index math is O(1) and scroll layout stays stable.
 - Sliver list items use `ShadButton.raw` with `variant: ghost` and `width: double.infinity` (no `LayoutBuilder`/`ConstrainedBox` hacks inside slivers).
 - All user-facing strings come from `lib/core/utils/strings.dart`
 
@@ -54,7 +55,7 @@ The architecture prioritizes **simplicity**, **robustness**, and **performance**
 - Scanner : le viseur est animé (idle/détection/succès) et flash vert sur succès en même temps que le haptique; scrim plus sombre autour de la fenêtre.
 - Recherche : `HighlightText` met en gras/colorise les occurrences de la requête normalisée (diacritiques ignorés); une étiquette de fraîcheur au-dessus de la barre affiche la date de dernière synchro BDPM et avertit si >30j.
 - Restock : le swipe supprime et propose un toast Undo; l’état vide est actionnable (“Commencer le scan”) et la FAB « retour haut » affiche le total scanné.
-- Explorer : liste complète préchargée (limite 10k) et navigation A-Z via `AlphabetSidebar` + `AutoScrollController/AutoScrollTag` (plus de pagination offset/limit).
+- Explorer : liste complète préchargée (limite 10k) et navigation A-Z via `AlphabetSidebar` + `SliverFixedExtentList` (72px fixes) et calcul d'offset O(1) (`index * 72`). Plus de pagination offset/limit, plus d'`AutoScrollController`.
 - Navigation rapide : `quick_actions` enregistre les raccourcis « Scan to Restock » et « Search Database » qui ouvrent directement les onglets cibles et basculent le mode scanner en restock si besoin.
 
 **Form State Management:**

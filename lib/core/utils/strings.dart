@@ -194,6 +194,9 @@ class Strings {
   static const String homeopathy = 'Homéopathie / Phytothérapie';
   static const String noRoutesAvailable = 'Aucune voie disponible';
   static const String noResults = 'Aucun résultat trouvé.';
+  static const String explorerEmptyTitle = 'Catalogue en attente';
+  static const String explorerEmptyDescription =
+      'Saisissez un nom, un CIP ou appliquez un filtre pour commencer.';
   static const String filterHint =
       "Permet de filtrer par type de procédure et voie d'administration";
   static const String princeps = 'Princeps';
@@ -514,8 +517,7 @@ class Strings {
   static const String restockEmptyTitle = 'Aucune boîte à ranger';
   static const String restockEmpty =
       'Scannez des boîtes en mode Rangement pour remplir cette liste.';
-  static const String restockOpenScanner =
-      'Ouvrir le Scanner en mode Rangement';
+  static const String restockOpenScanner = 'Ouvrir le Scanner';
   static const String restockClearChecked = 'Effacer les cochés';
   static const String restockClearAll = 'Tout vider';
   static const String restockClearAllTitle =

@@ -285,10 +285,10 @@ packages:
     dependency: "direct dev"
     description:
       name: dart_mappable_builder
-      sha256: ee32e4b3220a14e7bf23180cbd47f0fe642129f546d5a14024f6dc6c7f0c77d0
+      sha256: "0a9a4132f298b10c7870ab04f1f5778a08ecce14b9879c4243463716422815f4"
       url: "https://pub.dev"
     source: hosted
-    version: "4.6.2"
+    version: "4.6.3"
   dart_style:
     dependency: transitive
     description:
@@ -1064,10 +1064,10 @@ packages:
     dependency: "direct main"
     description:
       name: shadcn_ui
-      sha256: f91331f6c307c922852fc3d07b81c8c4ecf2a6d5eb395dd68af9c9a617804e6a
+      sha256: "2ec6c8b87f860503b210e43d379cd39cb7ea95a81a9469556b24ed010023e31b"
       url: "https://pub.dev"
     source: hosted
-    version: "0.40.4"
+    version: "0.40.5"
   share_plus:
     dependency: transitive
     description:

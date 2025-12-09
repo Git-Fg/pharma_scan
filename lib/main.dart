@@ -104,11 +104,23 @@ class PharmaScanApp extends HookConsumerWidget {
         colorScheme: const ShadGreenColorScheme.light(
           primary: Color(0xFF0F766E),
         ),
+        primaryToastTheme: const ShadToastTheme(
+          alignment: Alignment.topCenter,
+        ),
+        destructiveToastTheme: const ShadToastTheme(
+          alignment: Alignment.topCenter,
+        ),
       ),
       darkTheme: ShadThemeData(
         brightness: Brightness.dark,
         colorScheme: const ShadGreenColorScheme.dark(
           primary: Color(0xFF14B8A6),
+        ),
+        primaryToastTheme: const ShadToastTheme(
+          alignment: Alignment.topCenter,
+        ),
+        destructiveToastTheme: const ShadToastTheme(
+          alignment: Alignment.topCenter,
         ),
       ),
       appBuilder: (context) {
