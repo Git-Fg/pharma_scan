@@ -14,6 +14,12 @@ alwaysApply: false
 - Choose provider type by data behavior: Streams for live/reactive, Futures for static/snapshot reads
 - FORBIDDEN: manual `listen` + `ref.onDispose` bridging when DAO exposes streams; surface them as `Stream` providers instead
 - ALGORITHMIC LOGIC: keep pure algorithms as top-level functions or inside Notifiers; avoid static helper classes
+- READ-ONLY RULE: If a Notifier exposes no public methods beyond `build()`, convert it to a functional provider (`@riverpod Future/Stream ...`) and move helpers to file-level functions.
+
+## Notifier Responsibility
+
+- **FORBIDDEN:** Notifiers performing complex business logic, parsing, or direct DB transactions.
+- **REQUIRED:** Delegate decision logic to a pure Dart orchestrator or service. Notifiers manage state and side effects only.
 
 ## Provider Selection
 

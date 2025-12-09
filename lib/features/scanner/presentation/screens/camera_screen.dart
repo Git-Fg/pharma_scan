@@ -9,6 +9,7 @@ import 'package:gap/gap.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart' hide ScanWindowOverlay;
+import 'package:pharma_scan/core/router/app_router.dart';
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
 import 'package:pharma_scan/core/services/haptic_service.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
@@ -19,6 +20,7 @@ import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/status_view.dart';
 import 'package:pharma_scan/features/history/presentation/widgets/history_sheet.dart';
 import 'package:pharma_scan/features/home/providers/initialization_provider.dart';
+import 'package:pharma_scan/features/scanner/domain/logic/scan_orchestrator.dart';
 import 'package:pharma_scan/features/scanner/presentation/providers/scanner_provider.dart';
 import 'package:pharma_scan/features/scanner/presentation/utils/scanner_utils.dart';
 import 'package:pharma_scan/features/scanner/presentation/widgets/scan_window_overlay.dart';
@@ -34,6 +36,8 @@ class CameraScreen extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isCameraActive = useState(false);
     final lastPermissionGranted = useRef<bool?>(null);
+    final scannerState = ref.watch(scannerProvider);
+    final scannerMode = scannerState.value?.mode ?? ScannerMode.analysis;
 
     TabsRouter? tabsRouter;
     var isTabActive = true;
@@ -60,12 +64,18 @@ class CameraScreen extends HookConsumerWidget {
             );
           case ScannerHaptic(:final type):
             switch (type) {
-              case ScannerHapticType.success:
-                await feedback.success();
+              case ScannerHapticType.analysisSuccess:
+                await feedback.analysisSuccess();
+              case ScannerHapticType.restockSuccess:
+                await feedback.restockSuccess();
               case ScannerHapticType.warning:
                 await feedback.warning();
               case ScannerHapticType.error:
                 await feedback.error();
+              case ScannerHapticType.duplicate:
+                await feedback.duplicate();
+              case ScannerHapticType.unknown:
+                await feedback.unknown();
             }
           case ScannerDuplicateDetected(:final duplicate):
             final event = duplicate;
@@ -175,6 +185,14 @@ class CameraScreen extends HookConsumerWidget {
       await scannerController.toggleTorch();
     }
 
+    Future<void> toggleMode() async {
+      final nextMode = scannerMode == ScannerMode.analysis
+          ? ScannerMode.restock
+          : ScannerMode.analysis;
+      ref.read(scannerProvider.notifier).setMode(nextMode);
+      await ref.read(hapticServiceProvider).selection();
+    }
+
     void onDetect(BarcodeCapture capture) {
       unawaited(
         ref.read(scannerProvider.notifier).processBarcodeCapture(capture),
@@ -198,32 +216,19 @@ class CameraScreen extends HookConsumerWidget {
                 controller: scannerController,
                 onDetect: onDetect,
                 tapToFocus: true,
-                errorBuilder: (context, error) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          LucideIcons.videoOff,
-                          size: 64,
-                          color: context.shadColors.destructive,
-                        ),
-                        const Gap(AppDimens.spacingMd),
-                        Text(
-                          Strings.cameraUnavailable,
-                          style: context.shadTextTheme.h4,
-                        ),
-                        const Gap(AppDimens.spacingXs),
-                        Text(
-                          Strings.checkPermissionsMessage,
-                          style: context.shadTextTheme.small.copyWith(
-                            color: context.shadColors.mutedForeground,
-                          ),
-                        ),
-                      ],
+                errorBuilder: (context, error) => const Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: AppDimens.spacingXl,
+                  ),
+                  child: Center(
+                    child: StatusView(
+                      type: StatusType.error,
+                      icon: LucideIcons.videoOff,
+                      title: Strings.cameraUnavailable,
+                      description: Strings.checkPermissionsMessage,
                     ),
-                  );
-                },
+                  ),
+                ),
               )
             else if (isInitializing)
               const Center(
@@ -256,7 +261,8 @@ class CameraScreen extends HookConsumerWidget {
                 ),
               ),
             if (isCameraActive.value && !isInitializing)
-              const ScanWindowOverlay(),
+              ScanWindowOverlay(mode: scannerMode),
+            const ScannerBubbles(),
             Positioned(
               top: MediaQuery.paddingOf(context).top + AppDimens.spacingMd,
               left: AppDimens.spacingMd,
@@ -276,65 +282,64 @@ class CameraScreen extends HookConsumerWidget {
                       ),
                       borderRadius: context.shadTheme.radius,
                     ),
-                    child: ShadIconButton.ghost(
-                      icon: const Icon(LucideIcons.history),
-                      onPressed: () => showShadSheet<void>(
-                        context: context,
-                        side: ShadSheetSide.left,
-                        builder: (sheetContext) => const HistorySheet(),
+                    child: Semantics(
+                      button: true,
+                      label: Strings.historyTitle,
+                      child: ShadIconButton.ghost(
+                        icon: const Icon(LucideIcons.history),
+                        onPressed: () => showShadSheet<void>(
+                          context: context,
+                          side: ShadSheetSide.left,
+                          builder: (sheetContext) => const HistorySheet(),
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
             ),
-            if (isCameraActive.value && !isInitializing)
-              Positioned(
-                top: MediaQuery.paddingOf(context).top + AppDimens.spacingMd,
-                right: AppDimens.spacingMd,
-                child: Semantics(
-                  button: true,
-                  label: torchState == TorchState.on
-                      ? Strings.turnOffTorch
-                      : Strings.turnOnTorch,
-                  child: ClipRRect(
-                    borderRadius: context.shadTheme.radius,
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: ShadTheme.of(
-                            context,
-                          ).colorScheme.background.withValues(alpha: 0.85),
-                          border: Border.all(
-                            color: ShadTheme.of(
-                              context,
-                            ).colorScheme.border.withValues(alpha: 0.3),
-                          ),
-                          borderRadius: context.shadTheme.radius,
-                        ),
-                        child: ShadIconButton.ghost(
-                          icon: Icon(
-                            LucideIcons.zap,
-                            size: AppDimens.iconLg,
-                            color: torchState == TorchState.on
-                                ? context.shadColors.primary
-                                : context.shadColors.foreground,
-                          ),
-                          onPressed: toggleTorch,
-                        ),
+            Positioned(
+              top: MediaQuery.paddingOf(context).top + AppDimens.spacingMd,
+              right: AppDimens.spacingMd,
+              child: ClipRRect(
+                borderRadius: context.shadTheme.radius,
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: ShadTheme.of(
+                        context,
+                      ).colorScheme.background.withValues(alpha: 0.85),
+                      border: Border.all(
+                        color: ShadTheme.of(
+                          context,
+                        ).colorScheme.border.withValues(alpha: 0.3),
+                      ),
+                      borderRadius: context.shadTheme.radius,
+                    ),
+                    child: Semantics(
+                      button: true,
+                      label: Strings.settings,
+                      child: ShadIconButton.ghost(
+                        icon: const Icon(LucideIcons.settings),
+                        onPressed: () =>
+                            AutoRouter.of(context).push(const SettingsRoute()),
                       ),
                     ),
                   ),
                 ),
               ),
-            const ScannerBubbles(),
+            ),
             ScannerControls(
+              mode: scannerMode,
               isCameraActive: isCameraActive.value,
               isInitializing: isInitializing,
               onToggleCamera: toggleCamera,
               onGallery: openGallerySheet,
               onManualEntry: openManualEntrySheet,
+              torchState: torchState,
+              onToggleTorch: toggleTorch,
+              onToggleMode: toggleMode,
             ),
           ],
         ),

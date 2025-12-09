@@ -362,17 +362,20 @@ class SettingsScreen extends HookConsumerWidget {
                       title: const Text(Strings.hapticsTitle),
                       description: const Text(Strings.hapticsDescription),
                       child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Row(
-                            children: [
-                              Icon(
-                                LucideIcons.vibrate,
-                                size: AppDimens.iconSm,
-                              ),
-                              Gap(AppDimens.spacingSm),
-                              Text(Strings.hapticsVibrationsLabel),
-                            ],
+                          const Expanded(
+                            child: Row(
+                              children: [
+                                Icon(
+                                  LucideIcons.vibrate,
+                                  size: AppDimens.iconSm,
+                                ),
+                                Gap(AppDimens.spacingSm),
+                                Flexible(
+                                  child: Text(Strings.hapticsVibrationsLabel),
+                                ),
+                              ],
+                            ),
                           ),
                           ShadSwitch(
                             value: hapticEnabled,
@@ -391,8 +394,8 @@ class SettingsScreen extends HookConsumerWidget {
                     ShadCard(
                       title: const Text(Strings.sortingTitle),
                       description: const Text(Strings.sortingDescription),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           const Row(
                             children: [
@@ -401,9 +404,12 @@ class SettingsScreen extends HookConsumerWidget {
                                 size: AppDimens.iconSm,
                               ),
                               Gap(AppDimens.spacingSm),
-                              Text(Strings.sortingDescription),
+                              Flexible(
+                                child: Text(Strings.sortingDescription),
+                              ),
                             ],
                           ),
+                          const Gap(AppDimens.spacingSm),
                           ShadSelect<SortingPreference>(
                             key: ValueKey('sorting_$sortingPreference'),
                             initialValue: sortingPreference,
@@ -414,6 +420,7 @@ class SettingsScreen extends HookConsumerWidget {
                                   Strings.sortingByName,
                                 SortingPreference.princeps =>
                                   Strings.sortingByPrinceps,
+                                SortingPreference.form => Strings.sortingByForm,
                               };
                               return Text(label);
                             },
@@ -437,6 +444,10 @@ class SettingsScreen extends HookConsumerWidget {
                               ShadOption(
                                 value: SortingPreference.generic,
                                 child: Text(Strings.sortingByName),
+                              ),
+                              ShadOption(
+                                value: SortingPreference.form,
+                                child: Text(Strings.sortingByForm),
                               ),
                             ],
                           ),
@@ -550,57 +561,71 @@ class SettingsScreen extends HookConsumerWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          ShadButton.outline(
-                            width: double.infinity,
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            leading: isCheckingUpdates.value
-                                ? const SizedBox(
-                                    width: AppDimens.iconSm,
-                                    height: AppDimens.iconSm,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Icon(LucideIcons.refreshCw),
-                            onPressed: isCheckingUpdates.value
-                                ? null
-                                : runManualSync,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  isCheckingUpdates.value
-                                      ? Strings.checkingUpdatesInProgress
-                                      : Strings.checkUpdatesNow,
-                                ),
-                                const Gap(4),
-                                Text(
-                                  isCheckingUpdates.value
-                                      ? Strings.pleaseWaitSync
-                                      : Strings.checkUpdatesTitle,
-                                  style: context.shadTextTheme.small,
-                                ),
-                              ],
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(minHeight: 72),
+                            child: ShadButton.outline(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(
+                                vertical: AppDimens.spacingSm,
+                                horizontal: AppDimens.spacingMd,
+                              ),
+                              mainAxisAlignment: MainAxisAlignment.start,
+                              leading: isCheckingUpdates.value
+                                  ? const SizedBox(
+                                      width: AppDimens.iconSm,
+                                      height: AppDimens.iconSm,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Icon(LucideIcons.refreshCw),
+                              onPressed: isCheckingUpdates.value
+                                  ? null
+                                  : runManualSync,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    isCheckingUpdates.value
+                                        ? Strings.checkingUpdatesInProgress
+                                        : Strings.checkUpdatesNow,
+                                  ),
+                                  const Gap(4),
+                                  Text(
+                                    isCheckingUpdates.value
+                                        ? Strings.pleaseWaitSync
+                                        : Strings.checkUpdatesTitle,
+                                    style: context.shadTextTheme.small,
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                           const Gap(AppDimens.spacingSm),
-                          ShadButton.outline(
-                            width: double.infinity,
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            leading: const Icon(LucideIcons.databaseZap),
-                            onPressed: showResetConfirmation,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Text(Strings.forceReset),
-                                const Gap(4),
-                                Text(
-                                  Strings.forceResetDescription,
-                                  style: context.shadTextTheme.small,
-                                ),
-                              ],
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(minHeight: 72),
+                            child: ShadButton.outline(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(
+                                vertical: AppDimens.spacingSm,
+                                horizontal: AppDimens.spacingMd,
+                              ),
+                              mainAxisAlignment: MainAxisAlignment.start,
+                              leading: const Icon(LucideIcons.databaseZap),
+                              onPressed: showResetConfirmation,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Text(Strings.forceReset),
+                                  const Gap(4),
+                                  Text(
+                                    Strings.forceResetDescription,
+                                    style: context.shadTextTheme.small,
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ],
@@ -610,23 +635,30 @@ class SettingsScreen extends HookConsumerWidget {
                     ShadCard(
                       title: const Text(Strings.diagnostics),
                       description: const Text(Strings.diagnosticsDescription),
-                      child: ShadButton.outline(
-                        width: double.infinity,
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        leading: const Icon(LucideIcons.terminal),
-                        onPressed: () =>
-                            AutoRouter.of(context).push(const LogsRoute()),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Text(Strings.showLogs),
-                            const Gap(4),
-                            Text(
-                              Strings.openDetailedViewForSupport,
-                              style: context.shadTextTheme.small,
-                            ),
-                          ],
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(minHeight: 72),
+                        child: ShadButton.outline(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(
+                            vertical: AppDimens.spacingSm,
+                            horizontal: AppDimens.spacingMd,
+                          ),
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          leading: const Icon(LucideIcons.terminal),
+                          onPressed: () =>
+                              AutoRouter.of(context).push(const LogsRoute()),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Text(Strings.showLogs),
+                              const Gap(4),
+                              Text(
+                                Strings.openDetailedViewForSupport,
+                                style: context.shadTextTheme.small,
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -683,9 +715,18 @@ class SettingsScreen extends HookConsumerWidget {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const SizedBox(
+                      SizedBox(
                         height: 4,
-                        child: ShadProgress(),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(999),
+                          child: LinearProgressIndicator(
+                            backgroundColor: context.shadColors.mutedForeground
+                                .withValues(alpha: 0.2),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              context.shadColors.primary,
+                            ),
+                          ),
+                        ),
                       ),
                       const Gap(AppDimens.spacingMd),
                       Text(
@@ -713,12 +754,19 @@ class _SyncProgressDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const ShadSheet(
-      title: Text(Strings.checkUpdates),
-      description: Text(Strings.pleaseWaitSync),
+    final colors = context.shadColors;
+    return ShadSheet(
+      title: const Text(Strings.checkUpdates),
+      description: const Text(Strings.pleaseWaitSync),
       child: SizedBox(
         height: 4,
-        child: ShadProgress(),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(999),
+          child: LinearProgressIndicator(
+            backgroundColor: colors.mutedForeground.withValues(alpha: 0.2),
+            valueColor: AlwaysStoppedAnimation<Color>(colors.primary),
+          ),
+        ),
       ),
     );
   }

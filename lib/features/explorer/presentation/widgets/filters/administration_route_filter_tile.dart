@@ -68,59 +68,39 @@ Widget _buildTile({
   String? subtitle,
   Widget? trailing,
 }) {
-  return ShadButton.raw(
-    variant: ShadButtonVariant.ghost,
-    width: double.infinity,
-    padding: EdgeInsets.zero,
-    child: Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppDimens.spacingMd,
-        vertical: AppDimens.spacingSm,
+  final textStyle = context.shadTextTheme.small.copyWith(
+    fontWeight: FontWeight.w600,
+  );
+  final subtitleStyle = context.shadTextTheme.small.copyWith(
+    color: context.shadColors.mutedForeground,
+  );
+  final displayText = subtitle == null ? title : '$title · $subtitle';
+
+  return Container(
+    padding: const EdgeInsets.symmetric(
+      horizontal: AppDimens.spacingMd,
+      vertical: AppDimens.spacingSm,
+    ),
+    decoration: BoxDecoration(
+      border: Border(
+        bottom: BorderSide(color: context.shadColors.border),
       ),
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: context.shadColors.border),
+    ),
+    child: Row(
+      children: [
+        Expanded(
+          child: Text(
+            displayText,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: subtitle == null ? textStyle : subtitleStyle,
+          ),
         ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Flexible(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  title,
-                  style: context.shadTextTheme.p.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                if (subtitle != null) ...[
-                  const Gap(4),
-                  Text(
-                    subtitle,
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                    style: context.shadTextTheme.small.copyWith(
-                      color: context.shadColors.mutedForeground,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          if (trailing != null) ...[
-            const Gap(AppDimens.spacingSm),
-            trailing,
-          ],
-          const Gap(AppDimens.spacingXs),
-          const ExcludeSemantics(
-            child: Icon(LucideIcons.chevronRight, size: 16),
-          ),
+        if (trailing != null) ...[
+          const Gap(AppDimens.spacingSm),
+          trailing,
         ],
-      ),
+      ],
     ),
   );
 }
@@ -154,53 +134,54 @@ class _SelectTileWithSearch extends HookWidget {
         horizontal: AppDimens.spacingMd,
         vertical: AppDimens.spacingSm,
       ),
-      child: ShadSelect<String?>.withSearch(
-        minWidth: 300,
-        initialValue: selectedValue,
-        maxHeight: 320,
-        placeholder: const Text(Strings.allRoutes),
-        searchPlaceholder: const Text('Rechercher une voie...'),
-        onSearchChanged: (value) => searchValue.value = value,
-        options: [
-          const ShadOption<String?>(
-            value: null,
-            child: Text(Strings.allRoutes),
-          ),
-          if (filteredRoutes.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 24),
-              child: Text('Aucune voie trouvée'),
-            ),
-          ...filteredRoutes.map(
-            (route) => ShadOption<String?>(
-              value: route,
-              child: Text(route),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: context.shadTextTheme.p.copyWith(
+              fontWeight: FontWeight.w600,
             ),
           ),
-        ],
-        selectedOptionBuilder: (context, value) => Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              title,
-              style: context.shadTextTheme.p.copyWith(
-                fontWeight: FontWeight.w600,
+          const Gap(AppDimens.spacingXs),
+          ShadSelect<String?>.withSearch(
+            minWidth: 300,
+            initialValue: selectedValue,
+            maxHeight: 320,
+            placeholder: const Text(Strings.allRoutes),
+            searchPlaceholder: const Text('Rechercher une voie...'),
+            onSearchChanged: (value) => searchValue.value = value,
+            options: [
+              const ShadOption<String?>(
+                value: null,
+                child: Text(Strings.allRoutes),
               ),
-            ),
-            const Gap(4),
-            Text(
+              if (filteredRoutes.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24),
+                  child: Text('Aucune voie trouvée'),
+                ),
+              ...filteredRoutes.map(
+                (route) => ShadOption<String?>(
+                  value: route,
+                  child: Text(route),
+                ),
+              ),
+            ],
+            selectedOptionBuilder: (context, value) => Text(
               selectedText,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: context.shadTextTheme.small.copyWith(
                 color: context.shadColors.mutedForeground,
               ),
             ),
-          ],
-        ),
-        onChanged: (value) {
-          onChanged(value);
-          unawaited(Navigator.of(context).maybePop());
-        },
+            onChanged: (value) {
+              onChanged(value);
+              unawaited(Navigator.of(context).maybePop());
+            },
+          ),
+        ],
       ),
     );
   }

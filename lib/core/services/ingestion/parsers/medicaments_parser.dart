@@ -19,17 +19,44 @@ Future<Either<ParseError, MedicamentsParseResult>> parseMedicamentsImpl(
   await for (final line in lines) {
     if (line.trim().isEmpty) continue;
     hadLines = true;
-    final parts = _bdpmParser.splitLine(line, 10);
-    if (parts.isEmpty) continue;
+    final parsed = _bdpmParser
+        .parseRow<
+          (
+            String cis,
+            String libellePresentation,
+            String statutAdmin,
+            String etatCommercialisation,
+            String cip13,
+            String agrementCollectivites,
+            String tauxRemboursement,
+            double?,
+          )
+        >(
+          line,
+          10,
+          (parts) => (
+            parts[0],
+            parts[2],
+            parts[3],
+            parts[4],
+            parts.length > 6 ? parts[6] : '',
+            parts.length > 7 ? parts[7] : '',
+            parts.length > 8 ? parts[8] : '',
+            _bdpmParser.parseDouble(parts.length > 9 ? parts[9] : ''),
+          ),
+        );
+    if (parsed == null) continue;
 
-    final cis = parts[0];
-    final libellePresentation = parts[2];
-    final statutAdmin = parts[3];
-    final etatCommercialisation = parts[4];
-    final cip13 = parts.length > 6 ? parts[6] : '';
-    final agrementCollectivites = parts.length > 7 ? parts[7] : '';
-    final tauxRemboursement = parts.length > 8 ? parts[8] : '';
-    final prixEuro = _bdpmParser.parseDouble(parts.length > 9 ? parts[9] : '');
+    final (
+      cis,
+      libellePresentation,
+      statutAdmin,
+      etatCommercialisation,
+      cip13,
+      agrementCollectivites,
+      tauxRemboursement,
+      prixEuro,
+    ) = parsed;
 
     var added = false;
     final correctName = namesByCis[cis];

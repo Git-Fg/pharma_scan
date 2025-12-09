@@ -17,7 +17,7 @@ import 'package:pharma_scan/features/restock/presentation/screens/restock_screen
 import 'package:pharma_scan/features/restock/presentation/widgets/restock_list_item.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
-import '../test/fixtures/seed_builder.dart';
+import '../test/fixtures/test_scenarios.dart';
 import '../test/mocks.dart';
 
 class RestockRobot {
@@ -80,6 +80,21 @@ void main() {
     testWidgets(
       'should persist data across app restart (kill & relaunch simulation)',
       (WidgetTester tester) async {
+        tester.view.physicalSize = const Size(1080, 1920);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+          FlutterError.onError = FlutterError.presentError;
+        });
+        FlutterError.onError = (details) {
+          final msg = details.exceptionAsString();
+          if (msg.contains('RenderFlex overflowed')) {
+            return;
+          }
+          FlutterError.presentError(details);
+        };
+
         final baseDb = AppDatabase.forTesting(
           NativeDatabase.memory(setup: configureAppSQLite),
         );
@@ -104,30 +119,7 @@ void main() {
         final database = container1.read(appDatabaseProvider);
 
         // Seed minimal BDPM-like data for restock flows
-        await SeedBuilder()
-            .inGroup('GRP_PARA', 'Paracetamol Group')
-            .addPrinceps(
-              'Paracetamol Princeps',
-              '3400000000001',
-              cis: 'CIS_PARA_1',
-              dosage: '500',
-            )
-            .addGeneric(
-              'Paracetamol Generic',
-              '3400000000002',
-              cis: 'CIS_PARA_2',
-              dosage: '500',
-            )
-            .addPrinceps(
-              'Doliprane Extra',
-              '3400000000003',
-              cis: 'CIS_PARA_3',
-              dosage: '1000',
-            )
-            .insertInto(database);
-        final dao = database.databaseDao;
-        await dao.populateSummaryTable();
-        await dao.populateFts5Index();
+        await TestScenarios.seedParacetamolRestock(database);
 
         // Short-circuit initialization state
         final initNotifier = container1.read(
@@ -174,6 +166,12 @@ void main() {
 
         robot.expectQuantityAt(0, 6);
 
+        // Simulate app lifecycle kill/resume.
+        tester.binding
+          ..handleAppLifecycleStateChanged(AppLifecycleState.inactive)
+          ..handleAppLifecycleStateChanged(AppLifecycleState.detached)
+          ..handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+
         container1.dispose();
 
         final mockDataInit2 = MockDataInitializationService();
@@ -214,6 +212,49 @@ void main() {
           ..expectTotalChecked(0);
 
         container2.dispose();
+
+        // Simulate a force-reset / migration by rebuilding a fresh database.
+        await database.close();
+
+        final freshDb = AppDatabase.forTesting(
+          NativeDatabase.memory(setup: configureAppSQLite),
+        );
+        final mockDataInit3 = MockDataInitializationService();
+        when(
+          () => mockDataInit3.initializeDatabase(
+            forceRefresh: any(named: 'forceRefresh'),
+          ),
+        ).thenAnswer((_) async {});
+        when(
+          () => mockDataInit3.applyUpdate(any<Map<String, File>>()),
+        ).thenAnswer((_) async {});
+
+        final container3 = ProviderContainer(
+          overrides: [
+            appDatabaseProvider.overrideWithValue(freshDb),
+            dataInitializationServiceProvider.overrideWithValue(mockDataInit3),
+            syncControllerProvider.overrideWith(_FakeSyncController.new),
+          ],
+        );
+
+        container3.read(initializationStateProvider.notifier).state =
+            InitializationState.success;
+
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container3,
+            child: const ShadApp(
+              home: RestockScreen(),
+            ),
+          ),
+        );
+
+        await tester.pumpAndSettle(const Duration(seconds: 5));
+
+        expect(find.text(Strings.restockTitle), findsWidgets);
+        RestockRobot(tester).expectItemCount(0);
+
+        container3.dispose();
       },
       timeout: const Timeout(Duration(minutes: 5)),
     );

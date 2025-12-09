@@ -19,18 +19,50 @@ Future<Either<ParseError, SpecialitesParseResult>> parseSpecialitesImpl(
   await for (final line in lines) {
     if (line.trim().isEmpty) continue;
     hadLines = true;
-    final cols = _bdpmParser.splitLine(line, 12);
-    if (cols.isEmpty) continue;
-    final cis = cols[0];
-    final denomination = cols[1];
-    final formePharma = cols[2];
-    final voiesAdmin = cols[3];
-    final statutAdmin = cols[4];
-    final typeProcedure = cols[5];
-    final etatCommercialisation = cols[6];
-    final dateAmm = _bdpmParser.parseDate(cols[7]);
-    final titulaire = cols[10];
-    final surveillanceRenforcee = _bdpmParser.parseBool(cols[11]);
+    final parsed = _bdpmParser
+        .parseRow<
+          (
+            String cis,
+            String denomination,
+            String formePharma,
+            String voiesAdmin,
+            String statutAdmin,
+            String typeProcedure,
+            String etatCommercialisation,
+            DateTime? dateAmm,
+            String titulaire,
+            bool surveillance,
+          )
+        >(
+          line,
+          12,
+          (cols) => (
+            cols[0],
+            cols[1],
+            cols[2],
+            cols[3],
+            cols[4],
+            cols[5],
+            cols[6],
+            _bdpmParser.parseDate(cols[7]),
+            cols[10],
+            _bdpmParser.parseBool(cols[11]),
+          ),
+        );
+    if (parsed == null) continue;
+
+    final (
+      cis,
+      denomination,
+      formePharma,
+      voiesAdmin,
+      statutAdmin,
+      typeProcedure,
+      etatCommercialisation,
+      dateAmm,
+      titulaire,
+      surveillanceRenforcee,
+    ) = parsed;
 
     if (titulaire.isNotEmpty) {
       holderNames.add(titulaire);

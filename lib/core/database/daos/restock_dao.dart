@@ -13,7 +13,13 @@ part 'restock_dao.g.dart';
 enum ScanOutcome { added, duplicate }
 
 @DriftAccessor(
-  tables: [Medicaments, MedicamentSummary, RestockItems, ScannedBoxes],
+  tables: [
+    Medicaments,
+    MedicamentSummary,
+    RestockItems,
+    ScannedBoxes,
+    Specialites,
+  ],
 )
 class RestockDao extends DatabaseAccessor<AppDatabase> with _$RestockDaoMixin {
   RestockDao(super.attachedDatabase);
@@ -48,35 +54,42 @@ class RestockDao extends DatabaseAccessor<AppDatabase> with _$RestockDaoMixin {
     }
   }
 
-  Future<void> updateQuantity(Cip13 cip, int delta) async {
+  Future<void> updateQuantity(
+    Cip13 cip,
+    int delta, {
+    bool allowZero = false,
+  }) async {
     final cipString = cip.toString();
 
-    final existing = await (select(
-      restockItems,
-    )..where((tbl) => tbl.cip.equals(cipString))).getSingleOrNull();
-
-    if (existing == null) {
-      return;
-    }
-
-    final newQuantity = existing.quantity + delta;
-    if (newQuantity <= 0) {
-      await (delete(
+    await attachedDatabase.transaction(() async {
+      final existing = await (select(
         restockItems,
-      )..where((tbl) => tbl.cip.equals(cipString))).go();
-      await (delete(
-        scannedBoxes,
-      )..where((tbl) => tbl.cip.equals(cipString))).go();
-    } else {
-      await (update(
-        restockItems,
-      )..where((tbl) => tbl.cip.equals(cipString))).write(
-        RestockItemsCompanion(
-          quantity: Value(newQuantity),
-          addedAt: Value(DateTime.now()),
-        ),
-      );
-    }
+      )..where((tbl) => tbl.cip.equals(cipString))).getSingleOrNull();
+
+      if (existing == null) {
+        return;
+      }
+
+      final newQuantity = existing.quantity + delta;
+      final shouldDelete = allowZero ? newQuantity < 0 : newQuantity <= 0;
+      if (shouldDelete) {
+        await (delete(
+          restockItems,
+        )..where((tbl) => tbl.cip.equals(cipString))).go();
+        await (delete(
+          scannedBoxes,
+        )..where((tbl) => tbl.cip.equals(cipString))).go();
+      } else {
+        await (update(
+          restockItems,
+        )..where((tbl) => tbl.cip.equals(cipString))).write(
+          RestockItemsCompanion(
+            quantity: Value(newQuantity),
+            addedAt: Value(DateTime.now()),
+          ),
+        );
+      }
+    });
   }
 
   Future<void> deleteRestockItemFully(Cip13 cip) async {
@@ -140,7 +153,7 @@ class RestockDao extends DatabaseAccessor<AppDatabase> with _$RestockDaoMixin {
     required String cip,
     required int newQuantity,
   }) async {
-    if (newQuantity <= 0) {
+    if (newQuantity < 0) {
       await deleteRestockItemFully(Cip13.validated(cip));
       return;
     }
@@ -195,6 +208,10 @@ class RestockDao extends DatabaseAccessor<AppDatabase> with _$RestockDaoMixin {
           medicamentSummary,
           medicamentSummary.cisCode.equalsExp(medicaments.cisCode),
         ),
+        leftOuterJoin(
+          specialites,
+          specialites.cisCode.equalsExp(medicaments.cisCode),
+        ),
       ],
     );
 
@@ -203,12 +220,16 @@ class RestockDao extends DatabaseAccessor<AppDatabase> with _$RestockDaoMixin {
         return rows.map((row) {
           final restockRow = row.readTable(restockItems);
           final summaryRow = row.readTableOrNull(medicamentSummary);
+          final specialiteRow = row.readTableOrNull(specialites);
 
           final cip = Cip13.validated(restockRow.cip);
 
           final label = summaryRow?.nomCanonique ?? Strings.unknown;
           final princepsLabel = summaryRow?.princepsDeReference;
           final isPrinceps = summaryRow?.isPrinceps ?? false;
+          final form =
+              summaryRow?.formePharmaceutique ??
+              specialiteRow?.formePharmaceutique;
 
           return RestockItemEntity(
             cip: cip,
@@ -217,6 +238,7 @@ class RestockDao extends DatabaseAccessor<AppDatabase> with _$RestockDaoMixin {
             quantity: restockRow.quantity,
             isChecked: restockRow.isChecked,
             isPrinceps: isPrinceps,
+            form: form,
           );
         }).toList();
       },
@@ -237,15 +259,17 @@ class RestockDao extends DatabaseAccessor<AppDatabase> with _$RestockDaoMixin {
     }
 
     try {
-      await into(scannedBoxes).insert(
-        ScannedBoxesCompanion.insert(
-          cip: cipString,
-          serialNumber: Value(serial),
-          batchNumber: Value(batchNumber),
-          expiryDate: Value(expiryDate),
-        ),
-      );
-      await addToRestock(cip);
+      await attachedDatabase.transaction(() async {
+        await into(scannedBoxes).insert(
+          ScannedBoxesCompanion.insert(
+            cip: cipString,
+            serialNumber: Value(serial),
+            batchNumber: Value(batchNumber),
+            expiryDate: Value(expiryDate),
+          ),
+        );
+        await addToRestock(cip);
+      });
       return ScanOutcome.added;
     } on SqliteException catch (e) {
       // 19 = constraint violation; 2067 = unique constraint failed

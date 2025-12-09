@@ -7,6 +7,7 @@ import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/product_badges.dart';
 import 'package:pharma_scan/features/explorer/domain/entities/group_detail_entity.dart';
 import 'package:pharma_scan/features/explorer/domain/extensions/view_group_detail_extensions.dart';
+import 'package:pharma_scan/features/explorer/presentation/mappers/medication_ui_mapper.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 class PrincepsHeroCard extends StatelessWidget {
@@ -52,39 +53,32 @@ class PrincepsHeroCard extends StatelessWidget {
               ),
               const Gap(AppDimens.spacing2xs),
             ],
-            Row(
+            Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        princeps.displayName,
-                        style: theme.textTheme.h3.copyWith(
-                          color: theme.colorScheme.foreground,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const Gap(AppDimens.spacing2xs),
-                      Text(
-                        '${Strings.cip} ${princeps.codeCip}',
-                        style: theme.textTheme.small.copyWith(
-                          color: theme.colorScheme.mutedForeground,
-                        ),
-                      ),
-                      const Gap(4),
-                      Text(
-                        '${Strings.laboratoryLabel}: $labDisplay',
-                        style: theme.textTheme.small.copyWith(
-                          color: theme.colorScheme.mutedForeground,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
+                Text(
+                  princeps.displayName,
+                  style: theme.textTheme.h3.copyWith(
+                    color: theme.colorScheme.foreground,
+                    fontWeight: FontWeight.w700,
                   ),
+                  softWrap: true,
+                ),
+                const Gap(AppDimens.spacing2xs),
+                Text(
+                  '${Strings.cip} ${princeps.codeCip}',
+                  style: theme.textTheme.small.copyWith(
+                    color: theme.colorScheme.mutedForeground,
+                  ),
+                ),
+                const Gap(4),
+                Text(
+                  '${Strings.laboratoryLabel}: $labDisplay',
+                  style: theme.textTheme.small.copyWith(
+                    color: theme.colorScheme.mutedForeground,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  softWrap: true,
                 ),
                 const Gap(AppDimens.spacingSm),
                 ShadButton.outline(
@@ -96,11 +90,6 @@ class PrincepsHeroCard extends StatelessWidget {
               ],
             ),
             const Gap(AppDimens.spacingSm),
-            FinancialBadge(
-              refundRate: princeps.trimmedRefundRate,
-              price: princeps.prixPublic,
-            ),
-            const Gap(AppDimens.spacing2xs),
             Row(
               children: [
                 Expanded(
@@ -123,16 +112,27 @@ class PrincepsHeroCard extends StatelessWidget {
               ],
             ),
             const Gap(AppDimens.spacingSm),
-            RegulatoryBadges(
-              isNarcotic: princeps.isNarcotic,
-              isList1: princeps.isList1,
-              isList2: princeps.isList2,
-              isException: princeps.isException,
-              isRestricted: princeps.isRestricted,
-              isHospitalOnly: princeps.isHospitalOnly,
-              isDental: princeps.isDental,
-              isSurveillance: princeps.isSurveillance,
-              isOtc: princeps.isOtc,
+            Wrap(
+              spacing: AppDimens.spacing2xs,
+              runSpacing: AppDimens.spacing2xs,
+              children: [
+                ...MedicationUiMapper.buildStatusBadgesForGroup(
+                  context: context,
+                  medicament: princeps,
+                  availabilityStatus: princeps.trimmedAvailabilityStatus,
+                ),
+                RegulatoryBadges(
+                  isNarcotic: princeps.isNarcotic,
+                  isList1: princeps.isList1,
+                  isList2: princeps.isList2,
+                  isException: princeps.isException,
+                  isRestricted: princeps.isRestricted,
+                  isHospitalOnly: princeps.isHospitalOnly,
+                  isDental: princeps.isDental,
+                  isSurveillance: princeps.isSurveillance,
+                  isOtc: princeps.isOtc,
+                ),
+              ],
             ),
           ],
         ),
@@ -170,8 +170,7 @@ class PrincepsHeroCard extends StatelessWidget {
               style: theme.textTheme.small.copyWith(
                 fontWeight: FontWeight.w600,
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+              softWrap: true,
             ),
           ),
         ],

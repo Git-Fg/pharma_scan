@@ -440,6 +440,22 @@ uv run tool/parser_lab.py
 | `CIS_MITM.txt` | ATC codes | Irregular |
 | `CIS_InfoImportantes.txt` | Important information | Irregular |
 
+## 9. File Schema Contract (Validation)
+
+To protect database integrity, BDPM files are validated before parsing.
+
+| File | Expected Columns | Key Validation |
+| :--- | :--- | :--- |
+| `CIS_bdpm.txt` | 12 | Col 0: CIS (8 digits) |
+| `CIS_CIP_bdpm.txt` | ≥10 | Col 0: CIS (8 digits), Col 6: CIP13 (13 digits) |
+| `CIS_COMPO_bdpm.txt` | 8 | Col 0: CIS (8 digits) |
+| `CIS_GENER_bdpm.txt` | ≥4 | Col 2: CIS (8 digits) |
+| `CIS_CPD_bdpm.txt` | 2 | Col 0: CIS (8 digits) |
+| `CIS_CIP_Dispo_Spec.txt` | 4 | Col 0: CIS (8 digits) |
+| `CIS_MITM.txt` | 2 | Col 0: CIS (8 digits) |
+
+Validation runs before any DB transaction; failures delete cached files and surface `InitializationStep.error`.
+
 ### 8.2 Key Implementation Files
 
 * **Parser:** `lib/core/services/ingestion/bdpm_file_parser.dart`
@@ -452,7 +468,7 @@ uv run tool/parser_lab.py
 
 ---
 
-## 9. UI/UX Domain Terms
+## 10. UI/UX Domain Terms
 
 ### Adaptive Overlay
 
@@ -478,7 +494,7 @@ uv run tool/parser_lab.py
 
 ---
 
-## 10. Architecture Domain Terms
+## 11. Architecture Domain Terms
 
 ### Box Protocol
 

@@ -7,6 +7,7 @@ import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/product_badges.dart';
 import 'package:pharma_scan/features/explorer/domain/entities/group_detail_entity.dart';
 import 'package:pharma_scan/features/explorer/domain/extensions/view_group_detail_extensions.dart';
+import 'package:pharma_scan/features/explorer/presentation/mappers/medication_ui_mapper.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 class MedicationDetailSheet extends StatelessWidget {
@@ -51,6 +52,27 @@ class MedicationDetailSheet extends StatelessWidget {
               ],
             ),
             const Gap(AppDimens.spacingSm),
+            if (availability != null || item.isHospitalOnly) ...[
+              Wrap(
+                spacing: AppDimens.spacing2xs,
+                runSpacing: AppDimens.spacing2xs,
+                children: [
+                  ...MedicationUiMapper.buildStatusBadgesForGroup(
+                    context: context,
+                    medicament: item,
+                    availabilityStatus: availability,
+                  ),
+                  if (item.isHospitalOnly)
+                    ShadBadge.secondary(
+                      child: Text(
+                        Strings.hospitalBadge,
+                        style: theme.textTheme.small,
+                      ),
+                    ),
+                ],
+              ),
+              const Gap(AppDimens.spacingSm),
+            ],
             _buildInfoRow(
               context,
               label: Strings.cipCodeLabel,
@@ -73,31 +95,6 @@ class MedicationDetailSheet extends StatelessWidget {
                 label: Strings.pharmaceuticalFormLabel,
                 value: item.formLabel!,
               ),
-            if (availability != null) ...[
-              const Gap(AppDimens.spacing2xs),
-              ShadAlert.destructive(
-                title: Text(
-                  Strings.availabilityLabel,
-                  style: theme.textTheme.small,
-                ),
-                description: Text(
-                  Strings.stockAlert(availability),
-                  style: theme.textTheme.p,
-                ),
-              ),
-            ] else if (item.isHospitalOnly) ...[
-              const Gap(AppDimens.spacing2xs),
-              ShadAlert(
-                title: Text(
-                  Strings.hospitalBadge,
-                  style: theme.textTheme.small,
-                ),
-                description: Text(
-                  Strings.hospitalTooltip,
-                  style: theme.textTheme.p,
-                ),
-              ),
-            ],
             if (priceText != null) ...[
               const Gap(AppDimens.spacing2xs),
               _buildInfoRow(

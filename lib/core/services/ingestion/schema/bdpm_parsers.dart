@@ -2,6 +2,26 @@ import 'package:decimal/decimal.dart';
 
 /// Low-level parsing helpers for ANSM TSV files (French locale quirks).
 mixin BdpmRowParser {
+  /// Parses a TSV row with a single mapper.
+  ///
+  /// - Skips empty lines
+  /// - Validates [expectedColumns] length
+  /// - Trims all columns
+  /// - Returns `null` when invalid or mapping fails
+  T? parseRow<T>(
+    String line,
+    int expectedColumns,
+    T Function(List<String> cols) mapper,
+  ) {
+    final cols = splitLine(line, expectedColumns);
+    if (cols.isEmpty) return null;
+    try {
+      return mapper(cols);
+    } on Exception {
+      return null;
+    }
+  }
+
   /// Splits a TSV line and ensures the expected column count.
   /// Returns an empty list for invalid lines.
   List<String> splitLine(String line, int expectedColumns) {

@@ -12,7 +12,9 @@ import 'package:shadcn_ui/shadcn_ui.dart';
 enum _ReticleState { idle, detecting, success }
 
 class ScanWindowOverlay extends HookConsumerWidget {
-  const ScanWindowOverlay({super.key});
+  const ScanWindowOverlay({required this.mode, super.key});
+
+  final ScannerMode mode;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -58,6 +60,10 @@ class ScanWindowOverlay extends HookConsumerWidget {
       const [],
     );
 
+    final modeColor = mode == ScannerMode.restock
+        ? theme.colorScheme.destructive
+        : theme.colorScheme.primary;
+
     return IgnorePointer(
       child: Stack(
         fit: StackFit.expand,
@@ -74,6 +80,7 @@ class ScanWindowOverlay extends HookConsumerWidget {
               windowSize: windowSize,
               borderRadius: borderRadius,
               state: reticleState.value,
+              modeColor: modeColor,
             ),
           ),
         ],
@@ -87,18 +94,19 @@ class _Reticle extends HookWidget {
     required this.windowSize,
     required this.borderRadius,
     required this.state,
+    required this.modeColor,
   });
 
   final double windowSize;
   final double borderRadius;
   final _ReticleState state;
+  final Color modeColor;
 
   @override
   Widget build(BuildContext context) {
-    final theme = context.shadTheme;
-    const baseColor = Colors.white;
-    final detectingColor = theme.colorScheme.primary.withValues(alpha: 0.65);
-    final successColor = theme.colorScheme.primary;
+    final baseColor = modeColor.withValues(alpha: 0.9);
+    final detectingColor = modeColor.withValues(alpha: 0.65);
+    final successColor = modeColor;
 
     final breathingController = useAnimationController(
       duration: const Duration(milliseconds: 1500),

@@ -49,7 +49,17 @@ void main() {
 
       when(() => mockDb.restockDao).thenReturn(mockRestockDao);
       when(
-        () => mockRestockDao.updateQuantity(any(), any()),
+        () => mockRestockDao.updateQuantity(
+          any(),
+          any(),
+          allowZero: any(named: 'allowZero'),
+        ),
+      ).thenAnswer((_) async {});
+      when(
+        () => mockRestockDao.forceUpdateQuantity(
+          cip: any(named: 'cip'),
+          newQuantity: any(named: 'newQuantity'),
+        ),
       ).thenAnswer((_) async {});
       when(() => mockRestockDao.deleteRestockItemFully(any())).thenAnswer(
         (_) async {
@@ -84,9 +94,7 @@ void main() {
       return container;
     }
 
-    testWidgets('calls DAO methods on increment, decrement, toggle, delete', (
-      tester,
-    ) async {
+    test('calls DAO methods on increment, decrement, toggle, delete', () async {
       final container = createContainer();
       final notifier = container.read(restockProvider.notifier);
       final item = buildItem(
@@ -95,24 +103,42 @@ void main() {
       );
 
       await notifier.increment(item);
-      await tester.pump();
       verify(() => mockRestockDao.updateQuantity(item.cip, 1)).called(1);
 
       await notifier.decrement(item);
-      await tester.pump();
-      verify(() => mockRestockDao.updateQuantity(item.cip, -1)).called(1);
+      verify(
+        () => mockRestockDao.updateQuantity(
+          item.cip,
+          -1,
+          allowZero: true,
+        ),
+      ).called(1);
+
+      await notifier.addBulk(item, 10);
+      verify(() => mockRestockDao.updateQuantity(item.cip, 10)).called(1);
+
+      await notifier.setQuantity(item, 5);
+      verify(
+        () => mockRestockDao.forceUpdateQuantity(
+          cip: item.cip.toString(),
+          newQuantity: 5,
+        ),
+      ).called(1);
 
       await notifier.toggleChecked(item);
-      await tester.pump();
       verify(() => mockRestockDao.toggleCheck(item.cip)).called(1);
 
       await notifier.deleteItem(item);
       verify(() => mockRestockDao.deleteRestockItemFully(item.cip)).called(1);
     });
 
-    testWidgets('propagates errors when mutation fails', (tester) async {
+    test('propagates errors when mutation fails', () async {
       when(
-        () => mockRestockDao.updateQuantity(any(), any()),
+        () => mockRestockDao.updateQuantity(
+          any(),
+          any(),
+          allowZero: any(named: 'allowZero'),
+        ),
       ).thenThrow(Exception('mutation failed'));
 
       final container = createContainer();
@@ -126,8 +152,6 @@ void main() {
         notifier.increment(item),
         throwsA(isA<Exception>()),
       );
-
-      await tester.pumpAndSettle();
     });
   });
 }

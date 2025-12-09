@@ -73,6 +73,14 @@ Via `ShadTheme.of(context).breakpoints` or `context.breakpoints`:
 
 **Exception:** Use `DraggableScrollableSheet` ONLY for drag-to-snap panels.
 
+## Elastic Sizing & Overflow Prevention
+
+- Prefer `constraints: BoxConstraints(minHeight: X)` over fixed `height` on tappable rows; minHeight protects hit targets while allowing text to grow (accessibility).
+- Ban fixed heights on text containers/cards; let padding dictate vertical rhythm.
+- When stacking >2 vertical controls or forms, wrap the column in `SingleChildScrollView` (or `ListView`) to avoid keyboard/small-screen overflows.
+- Keep `Expanded` around text columns to absorb horizontal growth; avoid clamping siblings with fixed widths.
+- Use `IntrinsicHeight` only when necessary for matched heights; prefer background decoration or `Stack` when possible.
+
 ## Spacing (Gap Package)
 
 - Use `Gap` for inline spacing in rows/columns; avoid `SizedBox` when it only creates space.

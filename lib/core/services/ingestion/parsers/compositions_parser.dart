@@ -33,15 +33,31 @@ Future<Map<String, String>> parseCompositionsImpl(
 
   await for (final line in lines) {
     if (line.trim().isEmpty) continue;
-    final cols = _bdpmParser.splitLine(line, 8);
-    if (cols.isEmpty) continue;
-    final cis = cols[0];
-    final substanceCode = cols[2].trim();
+    final parsed = _bdpmParser
+        .parseRow<
+          (
+            String cis,
+            String substanceCode,
+            String denominationSubst,
+            String dosage,
+            String nature,
+          )
+        >(
+          line,
+          8,
+          (cols) => (
+            cols[0],
+            cols[2],
+            cols[3],
+            cols[4],
+            cols[6],
+          ),
+        );
+    if (parsed == null) continue;
+    final (cis, substanceCodeRaw, denominationSubst, dosage, natureComposant) =
+        parsed;
+    final substanceCode = substanceCodeRaw.trim();
     if (cis.isEmpty || substanceCode.isEmpty) continue;
-
-    final denominationSubst = cols[3];
-    final dosage = cols[4];
-    final natureComposant = cols[6];
 
     final normalizedDenomination = _normalizeSaltPrefix(denominationSubst);
     final compositionRow = _CompositionRow(
@@ -95,11 +111,30 @@ parsePrincipesActifsImpl(
 
   await for (final line in lines) {
     if (line.trim().isEmpty) continue;
-    final cols = _bdpmParser.splitLine(line, 8);
-    if (cols.isEmpty) continue;
-    final cis = cols[0];
-    final codeSubstance = cols[2].trim();
-    final denominationSubst = cols[3];
+    final parsed = _bdpmParser
+        .parseRow<
+          (
+            String cis,
+            String codeSubstance,
+            String denominationSubst,
+            String dosage,
+            String nature,
+          )
+        >(
+          line,
+          8,
+          (cols) => (
+            cols[0],
+            cols[2],
+            cols[3],
+            cols[4],
+            cols[6],
+          ),
+        );
+    if (parsed == null) continue;
+    final (cis, codeSubstanceRaw, denominationSubst, dosageRaw, natureRaw) =
+        parsed;
+    final codeSubstance = codeSubstanceRaw.trim();
     if (cis.isEmpty || codeSubstance.isEmpty || denominationSubst.isEmpty) {
       continue;
     }
@@ -111,42 +146,68 @@ parsePrincipesActifsImpl(
       cis: cis,
       substanceCode: codeSubstance,
       denomination: normalizedDenomination,
-      dosage: cols[4].trim(),
-      nature: cols[6],
+      dosage: dosageRaw.trim(),
+      nature: natureRaw,
     );
     final key = '${compositionRow.cis}_${compositionRow.substanceCode}';
     final group = rowsByKey.putIfAbsent(key, _CompositionGroup.new);
     group.rows.add(compositionRow);
   }
 
-  for (final group in rowsByKey.values) {
-    if (group.rows.isEmpty) continue;
+  int naturePriority(String nature) {
+    final upper = nature.toUpperCase();
+    if (upper == 'FT') return 0;
+    if (upper == 'SA') return 1;
+    return 2;
+  }
 
+  _CompositionRow? pickWinner(_CompositionGroup group) {
     _CompositionRow? winner;
     for (final row in group.rows) {
-      if (row.nature.toUpperCase() == 'FT') {
+      final nature = row.nature.toUpperCase();
+      if (nature == 'FT') {
         winner = row;
         break;
       }
-      if (winner == null && row.nature.toUpperCase() == 'SA') {
+      if (winner == null && nature == 'SA') {
         winner = row;
       }
     }
+    return winner ?? (group.rows.isNotEmpty ? group.rows.first : null);
+  }
 
-    final selectedRow = winner ?? group.rows.first;
+  final selectedRows =
+      rowsByKey.values.map(pickWinner).whereType<_CompositionRow>().toList()
+        ..sort(
+          (a, b) {
+            final priority = naturePriority(
+              a.nature,
+            ).compareTo(naturePriority(b.nature));
+            if (priority != 0) return priority;
+            final cisCompare = a.cis.compareTo(b.cis);
+            if (cisCompare != 0) return cisCompare;
+            return a.substanceCode.compareTo(b.substanceCode);
+          },
+        );
+
+  String stripBaseSuffix(String value) =>
+      value.replaceAll(RegExp(r'\s+BASE$', caseSensitive: false), '').trim();
+
+  for (final selectedRow in selectedRows) {
     final cip13s = cisToCip13[selectedRow.cis];
     if (cip13s == null) continue;
 
     final (dosageValue, dosageUnit) = _parseDosage(selectedRow.dosage);
-    final normalizedPrinciple = selectedRow.denomination.isNotEmpty
-        ? normalizePrincipleOptimal(selectedRow.denomination)
+    final principle = stripBaseSuffix(selectedRow.denomination);
+    final normalizedPrinciple = principle.isNotEmpty
+        ? normalizePrincipleOptimal(principle)
         : null;
 
     for (final cip13 in cip13s) {
       principes.add(
         PrincipesActifsCompanion(
           codeCip: Value(cip13),
-          principe: Value(selectedRow.denomination),
+          principe: Value(principle),
           principeNormalized: Value(normalizedPrinciple),
           dosage: Value(dosageValue?.toString()),
           dosageUnit: Value(dosageUnit),

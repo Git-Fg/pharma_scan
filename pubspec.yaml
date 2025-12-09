@@ -55,6 +55,7 @@ dependencies:
   quick_actions: ^1.1.0
   riverpod: ^3.0.3
   riverpod_annotation: ^3.0.3
+  scroll_to_index: ^3.0.1
   shadcn_ui: ^0.40.2
   sqlite3: ^2.9.4
   sqlite3_flutter_libs: ^0.5.40
@@ -64,6 +65,7 @@ dependencies:
   url_launcher: ^6.3.2
 
 dev_dependencies:
+  accessibility_tools: ^2.8.0
   auto_route_generator: ^10.3.0
   build_runner: ^2.7.1
   dart_mappable_builder: ^4.6.1

@@ -96,11 +96,23 @@ void main() {
         fileDownloadService: fakeDownloader,
       );
 
+      final sampleLines = <String, String>{
+        'specialites':
+            '12345678\tDenom\tForme\tVoie\tStatut\tProc\tEtat\t01/01/2024\tSTAT\tNUM\tTitulaire\tOui',
+        'medicaments':
+            '12345678\t00000\tLib\tStatut\tEtat\t01/01/2024\t3400000000001\tOui\t65%\t12,50',
+        'compositions': '12345678\tElem\t123456\tDenom\t500 mg\tREF\tFT\t1',
+        'generiques': 'GRP1\tLibelle\t12345678\t0',
+        'conditions': '12345678\tCondition',
+        'availability': '12345678\t3400000000001\t1\tDisponible',
+        'mitm': '12345678\tATC',
+      };
+
       final tempFiles = <String, File>{};
       for (final entry in DataSources.files.entries) {
         final filename = entry.value.split('/').last;
         final file = File(p.join(testDataDir, filename));
-        await file.writeAsString('dummy');
+        await file.writeAsString(sampleLines[entry.key] ?? 'placeholder');
         tempFiles[entry.key] = file;
       }
 

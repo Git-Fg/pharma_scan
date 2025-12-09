@@ -3,6 +3,7 @@ targets:
     builders:
       drift_dev:
         options:
+          generate_manager: true
           sql:
             dialect: sqlite
             options:

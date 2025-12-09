@@ -19,19 +19,24 @@ import 'package:pharma_scan/features/explorer/presentation/providers/generic_gro
 import 'package:pharma_scan/features/explorer/presentation/providers/search_provider.dart';
 import 'package:pharma_scan/features/explorer/presentation/widgets/medicament_tile.dart';
 import 'package:pharma_scan/features/explorer/presentation/widgets/molecule_group_tile.dart';
+import 'package:scroll_to_index/scroll_to_index.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 class ExplorerContentList extends ConsumerWidget {
   const ExplorerContentList({
     required this.groups,
+    required this.groupedItems,
     required this.searchResults,
     required this.hasSearchText,
     required this.isSearching,
     required this.currentQuery,
+    this.controller,
     super.key,
   });
 
+  final AutoScrollController? controller;
   final AsyncValue<GenericGroupsState> groups;
+  final List<Object> groupedItems;
   final AsyncValue<List<SearchResultItem>> searchResults;
   final bool hasSearchText;
   final bool isSearching;
@@ -43,7 +48,6 @@ class ExplorerContentList extends ConsumerWidget {
       padding: const EdgeInsets.symmetric(horizontal: AppDimens.spacingMd),
       sliver: SliverMainAxisGroup(
         slivers: [
-          // Variable content (Groups vs Search)
           if (!hasSearchText)
             _buildGenericGroupsSliver(context, ref, groups)
           else if (!isSearching)
@@ -56,7 +60,6 @@ class ExplorerContentList extends ConsumerWidget {
               error: (error, _) =>
                   _buildSearchErrorSliver(context, ref, error, currentQuery),
             ),
-          // Final spacing
           const SliverGap(AppDimens.spacingMd),
         ],
       ),
@@ -83,17 +86,6 @@ class ExplorerContentList extends ConsumerWidget {
   /// Example: "PARACETAMOL" -> "Paracetamol", "PARACETAMOL, CODEINE" -> "Paracetamol, Codeine"
   String _formatPrinciples(String principles) {
     return formatPrinciples(principles);
-  }
-
-  /// Groups all items by their commonPrincipes using a 2-pass algorithm:
-  /// 1. Cluster: Group items only when safe (valid principles), otherwise keep unique
-  /// 2. Label & Sort: Determine visible labels, then sort by those labels
-  ///
-  /// Returns a sorted list where each element is either:
-  /// - A single `GenericGroupEntity` (if count == 1 for that grouping key)
-  /// - A `GroupCluster` (if count > 1) containing all groups with the same principles
-  List<Object> _groupByCommonPrincipes(List<GenericGroupEntity> items) {
-    return groupByCommonPrincipes(items);
   }
 
   Widget _buildGenericGroupTile(
@@ -182,7 +174,6 @@ class ExplorerContentList extends ConsumerWidget {
     );
   }
 
-  // Sliver versions for CustomScrollView
   Widget _buildGenericGroupsSliver(
     BuildContext context,
     WidgetRef ref,
@@ -202,34 +193,19 @@ class ExplorerContentList extends ConsumerWidget {
           child: StatusView(type: StatusType.empty, title: Strings.noResults),
         );
       } else {
-        final groupedItems = _groupByCommonPrincipes(data.items);
-        final itemCount = groupedItems.length + (data.isLoadingMore ? 1 : 0);
         sliver = SliverList(
           delegate: SliverChildBuilderDelegate((context, index) {
-            if (index == groupedItems.length) {
-              return const Padding(
-                padding: EdgeInsets.all(AppDimens.spacingMd),
-                child: Center(
-                  child: SizedBox(
-                    width: 40,
-                    height: 40,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                ),
-              );
-            }
-
             final item = groupedItems[index];
+            Widget content;
             if (item is GenericGroupEntity) {
-              return Padding(
+              content = Padding(
                 padding: const EdgeInsets.symmetric(
                   vertical: AppDimens.spacing2xs,
                 ),
                 child: _buildGenericGroupTile(context, item),
               );
             } else if (item is GroupCluster) {
-              // Use displayName from cluster (formatted for display)
-              return Padding(
+              content = Padding(
                 padding: const EdgeInsets.symmetric(
                   vertical: AppDimens.spacing2xs,
                 ),
@@ -240,14 +216,13 @@ class ExplorerContentList extends ConsumerWidget {
                 ),
               );
             } else if (item is List<GenericGroupEntity>) {
-              // Legacy support for direct lists (shouldn't happen with new logic)
               final firstItem = item.first;
               final moleculeName = firstItem.commonPrincipes.isNotEmpty
                   ? _formatPrinciples(firstItem.commonPrincipes)
                   : (firstItem.princepsReferenceName.isNotEmpty
                         ? firstItem.princepsReferenceName
                         : Strings.notDetermined);
-              return Padding(
+              content = Padding(
                 padding: const EdgeInsets.symmetric(
                   vertical: AppDimens.spacing2xs,
                 ),
@@ -257,9 +232,21 @@ class ExplorerContentList extends ConsumerWidget {
                   itemBuilder: _buildGenericGroupTile,
                 ),
               );
+            } else {
+              return const SizedBox.shrink();
             }
-            return const SizedBox.shrink();
-          }, childCount: itemCount),
+
+            if (controller != null) {
+              return AutoScrollTag(
+                key: ValueKey(index),
+                controller: controller!,
+                index: index,
+                child: content,
+              );
+            }
+
+            return content;
+          }, childCount: groupedItems.length),
         );
       }
     }
@@ -446,6 +433,7 @@ class ExplorerContentList extends ConsumerWidget {
     MedicamentEntity summary,
     String representativeCip,
   ) {
+    final heroTag = 'standalone-$representativeCip';
     final sanitizedPrinciples = summary.data.principesActifsCommuns
         .map(normalizePrincipleOptimal)
         .toList();
@@ -519,15 +507,21 @@ class ExplorerContentList extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              buildDetailItem(
-                context,
-                label: Strings.nameLabel,
-                value: summary.data.nomCanonique,
-                copyable: true,
-                copyLabel: Strings.copyNameLabel,
-                onCopy: () => copyToClipboard(
-                  summary.data.nomCanonique,
-                  Strings.copyNameLabel,
+              Hero(
+                tag: heroTag,
+                child: Material(
+                  type: MaterialType.transparency,
+                  child: buildDetailItem(
+                    context,
+                    label: Strings.nameLabel,
+                    value: summary.data.nomCanonique,
+                    copyable: true,
+                    copyLabel: Strings.copyNameLabel,
+                    onCopy: () => copyToClipboard(
+                      summary.data.nomCanonique,
+                      Strings.copyNameLabel,
+                    ),
+                  ),
                 ),
               ),
               const Gap(AppDimens.spacingMd),

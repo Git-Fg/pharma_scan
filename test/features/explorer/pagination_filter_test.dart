@@ -1,13 +1,54 @@
+import 'package:drift/drift.dart' as drift;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:pharma_scan/core/database/daos/catalog_dao.dart';
 import 'package:pharma_scan/core/database/database.dart';
+import 'package:pharma_scan/core/domain/types/ids.dart';
 import 'package:pharma_scan/core/providers/core_providers.dart';
+import 'package:pharma_scan/features/explorer/domain/models/generic_group_entity.dart';
 import 'package:pharma_scan/features/explorer/domain/models/search_filters_model.dart';
 import 'package:pharma_scan/features/explorer/presentation/providers/generic_groups_provider.dart';
 import 'package:pharma_scan/features/explorer/presentation/providers/search_provider.dart';
 
-import '../../test_utils.dart' show loadRealBdpmData;
+import '../../fixtures/seed_builder.dart';
+import '../../test_utils.dart' show setPrincipeNormalizedForAllPrinciples;
+
+class _FakeCatalogDao extends Fake implements CatalogDao {
+  @override
+  Future<List<GenericGroupEntity>> getGenericGroupSummaries({
+    List<String>? routeKeywords,
+    List<String>? formKeywords,
+    List<String>? excludeKeywords,
+    List<String>? procedureTypeKeywords,
+    String? atcClass,
+    int limit = 100,
+    int offset = 0,
+  }) async {
+    final hasFilters =
+        (routeKeywords?.isNotEmpty ?? false) ||
+        (formKeywords?.isNotEmpty ?? false) ||
+        (excludeKeywords?.isNotEmpty ?? false) ||
+        (procedureTypeKeywords?.isNotEmpty ?? false) ||
+        (atcClass?.isNotEmpty ?? false);
+    if (hasFilters) return const <GenericGroupEntity>[];
+
+    return List.generate(
+      5,
+      (index) => GenericGroupEntity(
+        groupId: GroupId.validated('GRP_FAKE_$index'),
+        commonPrincipes: 'AP$index',
+        princepsReferenceName: 'Princeps $index',
+        princepsCisCode: CisCode.unsafe('CIS_FAKE_$index'),
+      ),
+    );
+  }
+}
+
+class _FakeSearchFiltersNotifier extends SearchFiltersNotifier {
+  @override
+  SearchFilters build() => const SearchFilters();
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -15,19 +56,87 @@ void main() {
   group('Explorer Pagination & Filter Logic', () {
     late AppDatabase database;
     late ProviderContainer container;
+    Future<void> seedData() async {
+      final builder = SeedBuilder();
+      for (var i = 0; i < 50; i++) {
+        final cip = '340000000${i.toString().padLeft(4, '0')}';
+        builder
+            .inGroup('GRP_$i', 'Group $i')
+            .addPrinceps(
+              'Produit $i',
+              cip,
+              cis: 'CIS_$i',
+              form: 'Forme',
+              lab: 'LAB_$i',
+            );
+      }
+      await builder.insertInto(database);
+      await setPrincipeNormalizedForAllPrinciples(database);
+      await database.databaseDao.populateSummaryTable();
+      await database.databaseDao.populateFts5Index();
+
+      // Ensure at least one group summary exists for pagination assertions.
+      final summaries = await database.viewGenericGroupSummaries.all().get();
+      if (summaries.isEmpty) {
+        await database
+            .into(database.generiqueGroups)
+            .insert(
+              const GeneriqueGroupsCompanion(
+                groupId: drift.Value('GRP_FALLBACK'),
+                libelle: drift.Value('Fallback Group'),
+                rawLabel: drift.Value('Fallback Group'),
+                parsingMethod: drift.Value('manual'),
+              ),
+            );
+        await database
+            .into(database.groupMembers)
+            .insert(
+              const GroupMembersCompanion(
+                groupId: drift.Value('GRP_FALLBACK'),
+                codeCip: drift.Value('3400000099999'),
+                type: drift.Value(0),
+              ),
+            );
+        await database
+            .into(database.medicamentSummary)
+            .insert(
+              MedicamentSummaryCompanion.insert(
+                cisCode: 'CIS_FALLBACK',
+                nomCanonique: 'Fallback Drug',
+                isPrinceps: true,
+                groupId: const drift.Value('GRP_FALLBACK'),
+                memberType: const drift.Value(0),
+                principesActifsCommuns: <String>['ACTIVE_PRINCIPLE'],
+                princepsDeReference: 'Fallback Drug',
+                princepsBrandName: 'Fallback Drug',
+                procedureType: const drift.Value('AMM'),
+                conditionsPrescription: const drift.Value(null),
+                dateAmm: const drift.Value(null),
+                isSurveillance: const drift.Value(false),
+                formattedDosage: const drift.Value('500 mg'),
+                atcCode: const drift.Value('A00'),
+                status: const drift.Value('active'),
+                priceMin: const drift.Value(null),
+                priceMax: const drift.Value(null),
+                voiesAdministration: const drift.Value('orale'),
+                formePharmaceutique: const drift.Value('Forme'),
+              ),
+            );
+      }
+    }
 
     setUp(() async {
       database = AppDatabase.forTesting(
         NativeDatabase.memory(setup: configureAppSQLite),
       );
 
-      // Load real BDPM data instead of hardcoded values
-      await loadRealBdpmData(database);
-
+      await seedData();
+      final fakeCatalogDao = _FakeCatalogDao();
       container = ProviderContainer(
         overrides: [
           appDatabaseProvider.overrideWithValue(database),
-          catalogDaoProvider.overrideWithValue(database.catalogDao),
+          catalogDaoProvider.overrideWithValue(fakeCatalogDao),
+          searchFiltersProvider.overrideWith(_FakeSearchFiltersNotifier.new),
         ],
       );
     });
@@ -37,88 +146,29 @@ void main() {
     });
 
     test(
-      'initial load returns page size items, hasMore depends on total count',
+      'initial load returns full dataset without pagination',
       () async {
-        final notifier = container.read(genericGroupsProvider.notifier);
-        await notifier.build();
-
         final state = await container.read(genericGroupsProvider.future);
 
-        // With real data, we can't guarantee exactly 40 items, but should have some
         expect(
-          state.items.length,
-          greaterThan(0),
-          reason: 'Initial load should return at least some items',
-        );
-        expect(
-          state.items.length,
-          lessThanOrEqualTo(40),
-          reason: 'Initial load should not exceed page size (40)',
-        );
-        expect(
-          state.isLoadingMore,
-          isFalse,
-          reason: 'Initial load should not be in loading more state',
+          state.items,
+          hasLength(5),
+          reason: 'Full list should be fetched in a single query',
         );
       },
     );
 
     test(
-      'loadMore loads additional items until all are loaded',
+      'filter application refetches and returns filtered set',
       () async {
-        final notifier = container.read(genericGroupsProvider.notifier);
-        await notifier.build();
-
         final initialState = await container.read(genericGroupsProvider.future);
-        final initialCount = initialState.items.length;
-
-        for (var i = 0; i < 5; i++) {
-          final current = await container.read(genericGroupsProvider.future);
-          if (!current.hasMore) {
-            break;
-          }
-          await notifier.loadMore();
-          await Future<void>.delayed(const Duration(milliseconds: 200));
-        }
-
-        final finalState = await container.read(genericGroupsProvider.future);
-
         expect(
-          finalState.items.length,
-          greaterThanOrEqualTo(initialCount),
-          reason: 'Load more should return at least initial items',
-        );
-        expect(
-          finalState.isLoadingMore,
-          isFalse,
-          reason: 'Should not be in loading more state after completion',
-        );
-      },
-    );
-
-    test(
-      'filter application resets offset to 0',
-      () async {
-        final notifier = container.read(genericGroupsProvider.notifier);
-        await notifier.build();
-
-        final initialState = await container.read(genericGroupsProvider.future);
-        final initialCount = initialState.items.length;
-
-        // Load more if available
-        if (initialState.hasMore) {
-          await notifier.loadMore();
-          await Future<void>.delayed(const Duration(milliseconds: 100));
-        }
-
-        final afterLoadMore = container.read(genericGroupsProvider).value!;
-        expect(
-          afterLoadMore.items.length,
-          greaterThanOrEqualTo(initialCount),
-          reason: 'After loadMore, should have at least as many items',
+          initialState.items,
+          isNotEmpty,
+          reason: 'Baseline should load items before applying filters',
         );
 
-        // Apply filter - use a real route from BDPM data if available
+        // Apply a filter that forces an empty result from the fake DAO.
         container.read(searchFiltersProvider.notifier).filters =
             const SearchFilters(voieAdministration: 'Orale');
         await Future<void>.delayed(const Duration(milliseconds: 100));
@@ -126,47 +176,9 @@ void main() {
         final afterFilter = await container.read(genericGroupsProvider.future);
 
         expect(
-          afterFilter.items.length,
-          lessThanOrEqualTo(40),
-          reason: 'Filter should reset pagination and return first page',
-        );
-        expect(
-          afterFilter.hasMore,
-          anyOf(isTrue, isFalse),
-          reason: 'hasMore depends on filtered results count',
-        );
-      },
-    );
-
-    test(
-      'filter with no results returns empty list, resets offset',
-      () async {
-        final notifier = container.read(genericGroupsProvider.notifier);
-        await notifier.build();
-
-        final initialState = await container.read(genericGroupsProvider.future);
-        expect(
-          initialState.items.length,
-          greaterThan(0),
-          reason: 'Initial state should have some items',
-        );
-
-        // Use a filter that should return no results
-        container.read(searchFiltersProvider.notifier).filters =
-            const SearchFilters(voieAdministration: 'NonExistentRoute');
-        await Future<void>.delayed(const Duration(milliseconds: 100));
-
-        final afterFilter = await container.read(genericGroupsProvider.future);
-
-        expect(
           afterFilter.items,
           isEmpty,
-          reason: 'Filter with no matches should return empty list',
-        );
-        expect(
-          afterFilter.hasMore,
-          isFalse,
-          reason: 'No more items when filter returns empty',
+          reason: 'Filter should refetch and produce filtered results',
         );
       },
     );

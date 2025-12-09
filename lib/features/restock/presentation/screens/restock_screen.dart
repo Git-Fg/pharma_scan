@@ -1,15 +1,18 @@
+import 'dart:async';
+
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:gap/gap.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:pharma_scan/core/providers/navigation_provider.dart';
 import 'package:pharma_scan/core/providers/preferences_provider.dart';
-import 'package:pharma_scan/core/router/app_router.dart';
+import 'package:pharma_scan/core/services/haptic_service.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
+import 'package:pharma_scan/core/utils/navigation_helpers.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
-import 'package:pharma_scan/core/utils/test_tags.dart';
 import 'package:pharma_scan/core/widgets/scroll_to_top_fab.dart';
-import 'package:pharma_scan/core/widgets/testable.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/status_view.dart';
 import 'package:pharma_scan/features/restock/presentation/providers/restock_provider.dart';
 import 'package:pharma_scan/features/restock/presentation/widgets/restock_list_item.dart';
@@ -25,19 +28,12 @@ class RestockScreen extends HookConsumerWidget {
 
     final restockAsync = ref.watch(sortedRestockProvider);
     final sortingAsync = ref.watch(sortingPreferenceProvider);
+    final haptics = ref.watch(hapticServiceProvider);
 
     final sortingPreference = sortingAsync.maybeWhen<SortingPreference>(
       data: (value) => value,
       orElse: () => SortingPreference.princeps,
     );
-
-    Future<void> switchToScanner() async {
-      try {
-        AutoTabsRouter.of(context).setActiveIndex(0);
-      } on Object {
-        // Not inside tab scaffold (tests/standalone).
-      }
-    }
 
     Future<bool> confirmDestructiveAction({
       required String title,
@@ -93,12 +89,33 @@ class RestockScreen extends HookConsumerWidget {
       await notifier.clearAll();
     }
 
+    useEffect(() {
+      ref.listen<TabReselectionSignal>(
+        tabReselectionProvider,
+        (previous, next) {
+          if (next.tabIndex == 2 && scrollController.hasClients) {
+            unawaited(
+              scrollController.animateTo(
+                0,
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeOut,
+              ),
+            );
+          }
+        },
+      );
+      return null;
+    }, [scrollController]);
+
     return Scaffold(
       appBar: AppBar(
         title: Text(
           Strings.restockTitle,
           style: context.shadTextTheme.h4,
         ),
+        elevation: 0,
+        backgroundColor: context.shadColors.background,
+        foregroundColor: context.shadColors.foreground,
         actions: [
           ShadTooltip(
             builder: (context) => const Text(Strings.restockClearChecked),
@@ -112,14 +129,6 @@ class RestockScreen extends HookConsumerWidget {
             child: ShadIconButton.ghost(
               icon: const Icon(LucideIcons.trash2),
               onPressed: onClearAll,
-            ),
-          ),
-          Testable(
-            id: TestTags.navSettings,
-            child: ShadIconButton.ghost(
-              icon: const Icon(LucideIcons.settings),
-              onPressed: () =>
-                  AutoRouter.of(context).push(const SettingsRoute()),
             ),
           ),
         ],
@@ -137,12 +146,38 @@ class RestockScreen extends HookConsumerWidget {
         ),
         data: (grouped) {
           if (grouped.isEmpty) {
-            return StatusView(
-              type: StatusType.empty,
-              title: Strings.restockEmptyTitle,
-              description: Strings.restockEmpty,
-              actionLabel: Strings.startScanning,
-              onAction: switchToScanner,
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(AppDimens.spacingXl),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      LucideIcons.clipboardList,
+                      size: 64,
+                      color: context.shadColors.mutedForeground,
+                    ),
+                    const Gap(AppDimens.spacingLg),
+                    Text(
+                      Strings.restockEmptyTitle,
+                      style: context.shadTextTheme.h4,
+                    ),
+                    const Gap(AppDimens.spacingSm),
+                    Text(
+                      Strings.restockEmpty,
+                      style: context.shadTextTheme.muted,
+                      textAlign: TextAlign.center,
+                    ),
+                    const Gap(AppDimens.spacingXl),
+                    ShadButton(
+                      size: ShadButtonSize.lg,
+                      leading: const Icon(LucideIcons.scanLine),
+                      onPressed: () => ref.navigateToRestockMode(context),
+                      child: const Text(Strings.restockOpenScanner),
+                    ),
+                  ],
+                ),
+              ),
             );
           }
 
@@ -174,35 +209,40 @@ class RestockScreen extends HookConsumerWidget {
                     delegate: SliverChildBuilderDelegate(
                       (context, index) {
                         final item = groupItems[index];
+                        final notifier = ref.read(restockProvider.notifier);
                         return RestockListItem(
                           item: item,
                           showPrincepsSubtitle:
                               sortingPreference == SortingPreference.princeps &&
                               item.princepsLabel != null,
-                          onIncrement: () => ref
-                              .read(restockProvider.notifier)
-                              .increment(item),
-                          onDecrement: () => ref
-                              .read(restockProvider.notifier)
-                              .decrement(item),
-                          onToggleChecked: () => ref
-                              .read(restockProvider.notifier)
-                              .toggleChecked(item),
+                          haptics: haptics,
+                          onIncrement: () => notifier.increment(item),
+                          onDecrement: () => notifier.decrement(item),
+                          onAddTen: () => notifier.addBulk(item, 10),
+                          onSetQuantity: (value) =>
+                              notifier.setQuantity(item, value),
+                          onToggleChecked: () => notifier.toggleChecked(item),
                           onDismissed: (_) async {
                             final removedItem = item;
-                            await ref
-                                .read(restockProvider.notifier)
-                                .deleteItem(removedItem);
+                            await notifier.deleteItem(removedItem);
                             if (!context.mounted) return;
                             ShadToaster.of(context).show(
                               ShadToast(
                                 title: const Text(Strings.itemDeleted),
-                                action: ShadButton.ghost(
-                                  onPressed: () => ref
-                                      .read(restockProvider.notifier)
-                                      .restoreItem(removedItem),
+                                description: Text(
+                                  '${item.quantity} x ${item.label}',
+                                ),
+                                action: ShadButton.outline(
+                                  size: ShadButtonSize.sm,
+                                  width: 120,
+                                  onPressed: () async {
+                                    await notifier.restoreItem(removedItem);
+                                    if (!context.mounted) return;
+                                    await ShadToaster.of(context).hide();
+                                  },
                                   child: const Text(Strings.undo),
                                 ),
+                                duration: const Duration(seconds: 4),
                               ),
                             );
                           },

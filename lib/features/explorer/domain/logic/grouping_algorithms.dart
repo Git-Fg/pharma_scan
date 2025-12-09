@@ -317,3 +317,32 @@ List<Object> groupByCommonPrincipes(List<GenericGroupEntity> items) {
 
   return result;
 }
+
+Map<String, int> buildLetterIndex(
+  List<Object> groupedItems,
+  List<String> allowedLetters,
+) {
+  final allowedSet = allowedLetters.toSet();
+  final letterIndex = <String, int>{};
+
+  for (final (index, entry) in groupedItems.indexed) {
+    final candidate = switch (entry) {
+      final GenericGroupEntity item => item.princepsReferenceName,
+      final GroupCluster cluster =>
+        cluster.sortKey.isNotEmpty ? cluster.sortKey : cluster.displayName,
+      final List<GenericGroupEntity> list when list.isNotEmpty =>
+        list.first.princepsReferenceName,
+      _ => '',
+    };
+
+    final normalized = candidate.trim().toUpperCase();
+    if (normalized.isEmpty) continue;
+
+    final letter = RegExp('^[0-9]').hasMatch(normalized) ? '#' : normalized[0];
+    if (!allowedSet.contains(letter)) continue;
+
+    letterIndex.putIfAbsent(letter, () => index);
+  }
+
+  return letterIndex;
+}

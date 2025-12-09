@@ -27,10 +27,35 @@ class BdpmFileParser {
     if (path == null || path.isEmpty) return null;
     final file = File(path);
     if (!file.existsSync()) return null;
+
+    Encoding codec = const Windows1252Codec();
+
+    try {
+      final raf = file.openSync();
+      try {
+        final preview = raf.readSync(4096);
+        if (preview.isNotEmpty) {
+          final decoded = const Utf8Decoder(allowMalformed: true).convert(
+            preview,
+          );
+          final hasReplacement = decoded.contains('\uFFFD');
+          if (!hasReplacement) {
+            codec = utf8;
+          }
+        }
+      } finally {
+        raf.closeSync();
+      }
+    } on Exception {
+      codec = const Windows1252Codec();
+    }
+
     return file
         .openRead()
-        .transform(const Windows1252Codec(allowInvalid: true).decoder)
-        .transform(const LineSplitter());
+        .transform(codec.decoder)
+        .transform(
+          const LineSplitter(),
+        );
   }
 
   static Future<Either<ParseError, SpecialitesParseResult>> parseSpecialites(

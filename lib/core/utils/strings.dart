@@ -76,15 +76,8 @@ class Strings {
   static const String group = 'Groupe';
   static const String unableToOpenUrl = "Impossible d'ouvrir l'URL";
   static String dnsResolutionFailed(String hostname) =>
-      'DNS resolution failed for $hostname. This typically indicates an '
-      'Android emulator DNS configuration issue.\n\n'
-      'Possible fixes:\n'
-      '1. Restart the Android emulator\n'
-      '2. Configure DNS servers via ADB:\n'
-      '   adb shell settings put global private_dns_mode off\n'
-      '   adb shell settings put global private_dns_specifier "8.8.8.8"\n'
-      '3. Check emulator network connectivity\n'
-      '4. Use a physical device instead of emulator';
+      'Impossible de se connecter au serveur ($hostname). '
+      'Veuillez vérifier votre connexion internet.';
 
   // Settings & Actions
   static const String openSettings = 'Ouvrir les réglages';
@@ -361,6 +354,7 @@ class Strings {
       'Choisissez comment organiser les médicaments dans les listes.';
   static const String sortingByPrinceps = 'Par princeps (regroupement tiroirs)';
   static const String sortingByName = 'Par nom de spécialité';
+  static const String sortingByForm = 'Par forme pharmaceutique';
 
   // Explorer
   static const String searchErrorOccurred =
@@ -520,6 +514,8 @@ class Strings {
   static const String restockEmptyTitle = 'Aucune boîte à ranger';
   static const String restockEmpty =
       'Scannez des boîtes en mode Rangement pour remplir cette liste.';
+  static const String restockOpenScanner =
+      'Ouvrir le Scanner en mode Rangement';
   static const String restockClearChecked = 'Effacer les cochés';
   static const String restockClearAll = 'Tout vider';
   static const String restockClearAllTitle =
@@ -530,6 +526,16 @@ class Strings {
   static const String restockClearCheckedDescription =
       'Cette action supprimera uniquement les éléments cochés de la liste.';
   static const String restockClearCheckedConfirm = 'Supprimer les cochés';
+  static const String restockAddTenLabel = '+10';
+  static const String restockSetQuantityTitle = 'Modifier la quantité';
+  static const String restockSetQuantityDescription =
+      'Saisissez une quantité (0 ou plus).';
+  static const String restockQuantityFieldLabel = 'Quantité';
+  static const String restockQuantityFieldHint = 'Ex : 10';
+  static const String restockFormUnknown = 'AUTRES';
+  static const String restockCopiedTitle = 'Copié !';
+  static const String restockCopiedDescription =
+      'Format commande prêt à coller.';
   static String restockSubtitlePrinceps(String princeps) =>
       'Ranger avec : $princeps';
   static const String itemDeleted = 'Élément supprimé';

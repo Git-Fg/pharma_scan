@@ -14,6 +14,7 @@ import 'package:pharma_scan/core/errors/failures.dart';
 import 'package:pharma_scan/core/services/file_download_service.dart';
 import 'package:pharma_scan/core/services/ingestion/bdpm_file_parser.dart'
     as parser;
+import 'package:pharma_scan/core/services/ingestion/schema/file_validator.dart';
 import 'package:pharma_scan/core/services/logger_service.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 
@@ -37,7 +38,8 @@ class DataInitializationService {
     FileDownloadService? fileDownloadService,
   }) : _db = database,
        _globalCacheDir = cacheDirectory ?? _resolveDefaultCacheDir(),
-       _fileDownloadService = fileDownloadService ?? FileDownloadService();
+       _fileDownloadService = fileDownloadService ?? FileDownloadService(),
+       _validator = BdpmFileValidator();
 
   static const _currentDataVersion =
       '2025-03-01-laboratories-normalization'; // Normalizes titulaire into Laboratories table with integer FKs
@@ -46,6 +48,7 @@ class DataInitializationService {
   final AppDatabase _db;
   final String? _globalCacheDir;
   final FileDownloadService _fileDownloadService;
+  final BdpmFileValidator _validator;
   final _stepController = StreamController<InitializationStep>.broadcast();
   final _detailController = StreamController<String>.broadcast();
 
@@ -98,9 +101,20 @@ class DataInitializationService {
       _safeEmitDetail(Strings.initializationStarting);
       _stepController.add(InitializationStep.downloading);
 
-      Map<String, String> filePaths;
+      var filePaths = <String, String>{};
       try {
         filePaths = await _downloadAllFilesWithCacheCheck();
+        await _validateFiles(filePaths);
+      } on ValidationFailure catch (e, stackTrace) {
+        LoggerService.error(
+          '[DataInit] Validation failed for downloaded BDPM files',
+          e,
+          stackTrace,
+        );
+        await _deleteCachedFiles(filePaths.values);
+        _stepController.add(InitializationStep.error);
+        _safeEmitDetail(Strings.initializationError);
+        rethrow;
       } on Exception catch (e, stackTrace) {
         LoggerService.warning(
           '[DataInit] Download failed, checking for existing database data: $e',
@@ -293,7 +307,22 @@ class DataInitializationService {
       );
     }
 
-    final fullFilePaths = await _resolveFullFileSet(tempFiles);
+    Map<String, String> fullFilePaths;
+    try {
+      fullFilePaths = await _resolveFullFileSet(tempFiles);
+      await _validateFiles(fullFilePaths);
+    } on ValidationFailure catch (e, stackTrace) {
+      LoggerService.error(
+        '[DataInit] Validation failed for incremental update files',
+        e,
+        stackTrace,
+      );
+      await _deleteCachedFiles(tempFiles.values.map((file) => file.path));
+      _stepController.add(InitializationStep.error);
+      _safeEmitDetail(Strings.initializationError);
+      rethrow;
+    }
+
     await _parseAndInsertData(fullFilePaths);
 
     _stepController.add(InitializationStep.aggregating);
@@ -391,6 +420,12 @@ class DataInitializationService {
     );
 
     return filePaths;
+  }
+
+  Future<void> _validateFiles(Map<String, String> filePaths) async {
+    for (final entry in filePaths.entries) {
+      await _validator.validateHeader(File(entry.value), entry.key);
+    }
   }
 
   Future<void> _parseAndInsertData(Map<String, String> filePaths) async {
@@ -652,8 +687,12 @@ Future<Either<Failure, void>> _insertDataWithRetry({
   required AppDatabase database,
   required IngestionBatch ingestionBatch,
 }) async {
-  const maxRetries = 5;
+  const maxRetries = 6;
+  const busyTimeoutMs = 30000;
+  const baseDelayMs = 800;
+  const maxDelayMs = 6400;
   var retryCount = 0;
+  var totalDelayMs = 0;
   Failure? lastFailure;
 
   while (retryCount < maxRetries) {
@@ -750,9 +789,15 @@ Future<Either<Failure, void>> _insertDataWithRetry({
       return Either<Failure, void>.left(lastFailure!);
     }
 
-    final delayMs = 500 * (1 << (retryCount - 1));
+    final expDelay = baseDelayMs * (1 << (retryCount - 1));
+    final delayMs = expDelay > maxDelayMs ? maxDelayMs : expDelay;
+    totalDelayMs += delayMs;
+    final remainingBudget = busyTimeoutMs - totalDelayMs;
     LoggerService.warning(
-      '[DataInit] Database lock error (attempt $retryCount/$maxRetries), retrying in ${delayMs}ms: ${lastFailure!.message}',
+      '[DataInit] Database lock error (attempt $retryCount/$maxRetries, '
+      'busy_timeout=${busyTimeoutMs}ms, waited=${totalDelayMs}ms, '
+      'nextDelay=${delayMs}ms, remainingBudget=${remainingBudget}ms): '
+      '${lastFailure!.message}',
     );
     await Future<void>.delayed(Duration(milliseconds: delayMs));
   }
@@ -761,6 +806,19 @@ Future<Either<Failure, void>> _insertDataWithRetry({
     lastFailure ??
         const DatabaseFailure('Database insertion failed after retries'),
   );
+}
+
+Future<void> _deleteCachedFiles(Iterable<String> paths) async {
+  for (final path in paths) {
+    try {
+      final file = File(path);
+      if (await file.exists()) {
+        await file.delete();
+      }
+    } on Exception {
+      // Best-effort cleanup.
+    }
+  }
 }
 
 Future<Either<Failure, IngestionBatch>> _parseDataInBackground(

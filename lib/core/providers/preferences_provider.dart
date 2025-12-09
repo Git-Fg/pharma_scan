@@ -9,12 +9,14 @@ part 'preferences_provider.g.dart';
 
 enum SortingPreference {
   princeps,
-  generic
+  generic,
+  form
   ;
 
   factory SortingPreference.fromStorage(String value) {
     return switch (value) {
       'generic' => SortingPreference.generic,
+      'form' => SortingPreference.form,
       _ => SortingPreference.princeps,
     };
   }
@@ -22,6 +24,7 @@ enum SortingPreference {
   String get storageValue => switch (this) {
     SortingPreference.princeps => 'princeps',
     SortingPreference.generic => 'generic',
+    SortingPreference.form => 'form',
   };
 }
 

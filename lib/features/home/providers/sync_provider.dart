@@ -446,8 +446,7 @@ class SyncController extends _$SyncController {
   }
 
   Future<String> _computeSha256(File file) async {
-    final digest = await sha256.bind(file.openRead()).first;
-    return digest.toString();
+    return compute(_calculateFileHash, file.path);
   }
 
   Future<void> _safeDelete(File file) async {
@@ -474,4 +473,10 @@ class SyncController extends _$SyncController {
         return SyncErrorType.unknown;
     }
   }
+}
+
+Future<String> _calculateFileHash(String path) async {
+  final file = File(path);
+  final digest = await sha256.bind(file.openRead()).first;
+  return digest.toString();
 }

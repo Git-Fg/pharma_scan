@@ -33,7 +33,7 @@ class StatusView extends StatelessWidget {
         return const Center(
           child: SizedBox(
             height: 4,
-            child: ShadProgress(),
+            child: _ProgressBar(),
           ),
         );
       case StatusType.empty:
@@ -115,6 +115,22 @@ class StatusView extends StatelessWidget {
           ),
         ],
       ],
+    );
+  }
+}
+
+class _ProgressBar extends StatelessWidget {
+  const _ProgressBar();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.shadColors;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(999),
+      child: LinearProgressIndicator(
+        backgroundColor: colors.mutedForeground.withValues(alpha: 0.2),
+        valueColor: AlwaysStoppedAnimation<Color>(colors.primary),
+      ),
     );
   }
 }

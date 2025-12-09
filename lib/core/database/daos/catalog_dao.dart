@@ -163,7 +163,10 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
         principesActifs,
       )..where((tbl) => tbl.codeCip.equals(cipString))).get();
       final normalizedPrinciples = principleRows
-          .map((p) => p.principeNormalized ?? p.principe)
+          .map(
+            (p) =>
+                p.principeNormalized ?? normalizePrincipleOptimal(p.principe),
+          )
           .where((p) => p.trim().isNotEmpty)
           .map((p) => p)
           .toList();

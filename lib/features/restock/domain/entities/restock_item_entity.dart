@@ -11,12 +11,14 @@ class RestockItemEntity with RestockItemEntityMappable {
     required this.quantity,
     required this.isChecked,
     required this.isPrinceps,
+    this.form,
     this.princepsLabel,
   });
 
   final Cip13 cip;
   final String label;
   final String? princepsLabel;
+  final String? form;
   final int quantity;
   final bool isChecked;
   final bool isPrinceps;

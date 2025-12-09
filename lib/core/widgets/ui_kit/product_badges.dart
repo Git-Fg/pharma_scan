@@ -6,7 +6,7 @@ import 'package:pharma_scan/core/utils/formatters.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
-/// Badge showing princeps/generic membership type.
+/// Badge for princeps/generic membership.
 class ProductTypeBadge extends StatelessWidget {
   const ProductTypeBadge({
     required this.memberType,
@@ -14,9 +14,7 @@ class ProductTypeBadge extends StatelessWidget {
     super.key,
   });
 
-  /// Raw BDPM member type
-  /// 0 = princeps, 1 = standard generic, 2 = complementary,
-  /// 3 = substitutable (legacy type), 4 = substitutable.
+  /// Raw BDPM member type (0 princeps, 1 generic, 2 complementary, 3/4 substitutable).
   final int memberType;
   final bool compact;
 
@@ -103,7 +101,7 @@ class ProductTypeBadge extends StatelessWidget {
   }
 }
 
-/// Displays reimbursement rate and public price in a compact row.
+/// Shows refund rate and public price inline.
 class FinancialBadge extends StatelessWidget {
   const FinancialBadge({
     this.refundRate,
@@ -179,10 +177,7 @@ class FinancialBadge extends StatelessWidget {
   }
 }
 
-/// Reusable widget for displaying regulatory badges (Narcotic, List 1/2, Hospital, etc.).
-///
-/// Centralizes badge generation logic to eliminate duplication between ProductCard
-/// and GroupExplorerView. Uses Shadcn badge variants for consistent styling.
+/// Displays regulatory status badges (narcotic, list, hospital, OTC).
 class RegulatoryBadges extends StatelessWidget {
   const RegulatoryBadges({
     required this.isNarcotic,
@@ -214,7 +209,6 @@ class RegulatoryBadges extends StatelessWidget {
     final theme = context.shadTheme;
     final badges = <Widget>[];
 
-    // DANGER / STRICT -> Destructive (Red)
     if (isNarcotic) {
       badges.add(
         ShadBadge.destructive(
@@ -226,7 +220,6 @@ class RegulatoryBadges extends StatelessWidget {
       );
     }
 
-    // LIST 1 (Toxic) -> Destructive (Red)
     if (isList1) {
       badges.add(
         ShadBadge.destructive(
@@ -238,7 +231,6 @@ class RegulatoryBadges extends StatelessWidget {
       );
     }
 
-    // LIST 2 (Less Toxic) -> Outline (Informational, not critical)
     if (isList2) {
       badges.add(
         ShadBadge.outline(
@@ -250,7 +242,6 @@ class RegulatoryBadges extends StatelessWidget {
       );
     }
 
-    // EXCEPTIONS -> Secondary (Distinct but not alarming)
     if (isException) {
       badges.add(
         ShadBadge.secondary(
@@ -262,7 +253,6 @@ class RegulatoryBadges extends StatelessWidget {
       );
     }
 
-    // RESTRICTED -> Outline (Information)
     if (isRestricted) {
       badges.add(
         ShadBadge.outline(
@@ -274,7 +264,6 @@ class RegulatoryBadges extends StatelessWidget {
       );
     }
 
-    // HOSPITAL -> Outline (Information)
     if (isHospitalOnly) {
       badges.add(
         ShadBadge.outline(
@@ -286,7 +275,6 @@ class RegulatoryBadges extends StatelessWidget {
       );
     }
 
-    // DENTAL -> Secondary (Distinct category)
     if (isDental) {
       badges.add(
         ShadBadge.secondary(
@@ -298,7 +286,6 @@ class RegulatoryBadges extends StatelessWidget {
       );
     }
 
-    // SURVEILLANCE -> Outline (Information)
     if (isSurveillance) {
       badges.add(
         ShadBadge.outline(
@@ -310,7 +297,6 @@ class RegulatoryBadges extends StatelessWidget {
       );
     }
 
-    // OTC -> Secondary (Safe/Light)
     if (isOtc) {
       badges.add(
         ShadBadge.secondary(

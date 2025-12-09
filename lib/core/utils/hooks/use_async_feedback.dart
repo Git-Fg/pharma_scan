@@ -28,6 +28,7 @@ bool useAsyncFeedback<T>(
           ShadToast.destructive(
             title: const Text(Strings.error),
             description: Text(errorMessage ?? next.error.toString()),
+            alignment: Alignment.topCenter,
           ),
         );
         unawaited(feedback.error());

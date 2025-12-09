@@ -21,8 +21,14 @@ class ScannerBubbles extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final topOffset =
+        MediaQuery.paddingOf(context).top +
+        AppDimens.spacingMd +
+        AppDimens.iconLg +
+        AppDimens.spacingSm;
+
     return Positioned(
-      top: 0,
+      top: topOffset,
       left: 0,
       right: 0,
       child: Builder(
@@ -51,6 +57,7 @@ class ScannerBubbles extends ConsumerWidget {
                         context,
                         ref,
                         scannerState.bubbles[i],
+                        scannerState.mode,
                         i,
                       ),
                   ],
@@ -67,6 +74,7 @@ class ScannerBubbles extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
     ScanBubble bubble,
+    ScannerMode mode,
     int index,
   ) {
     final isPrimary = index == 0;
@@ -81,7 +89,12 @@ class ScannerBubbles extends ConsumerWidget {
         onDismissed: (_) => ref
             .read(scannerProvider.notifier)
             .removeBubble(bubble.cip.toString()),
-        child: _buildBubbleContent(context, ref, bubble),
+        child: _buildBubbleContent(
+          context,
+          ref,
+          bubble,
+          mode,
+        ),
       ),
     );
   }
@@ -90,8 +103,14 @@ class ScannerBubbles extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
     ScanBubble bubble,
+    ScannerMode mode,
   ) {
     final summary = bubble.summary;
+    final isGenericWithPrinceps =
+        !summary.data.isPrinceps &&
+        summary.groupId != null &&
+        summary.data.princepsDeReference.isNotEmpty &&
+        summary.data.princepsDeReference != 'Inconnu';
 
     final badges = <Widget>[
       ProductTypeBadge(
@@ -113,6 +132,11 @@ class ScannerBubbles extends ConsumerWidget {
     }
 
     final compactSubtitle = <String>[];
+    if (isGenericWithPrinceps &&
+        summary.data.nomCanonique.isNotEmpty &&
+        summary.data.nomCanonique.trim().isNotEmpty) {
+      compactSubtitle.add(summary.data.nomCanonique.trim());
+    }
     final form = summary.data.formePharmaceutique;
     final dosage = summary.data.formattedDosage?.trim();
 
@@ -146,6 +170,7 @@ class ScannerBubbles extends ConsumerWidget {
       cip: bubble.cip,
       badges: badges,
       subtitle: compactSubtitle,
+      mode: mode,
       onClose: () => ref.read(scannerProvider.notifier).removeBubble(cipString),
       onExplore: summary.groupId != null
           ? () => AutoRouter.of(context).push(

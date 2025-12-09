@@ -53,7 +53,20 @@ class FileDownloadService {
   }
 
   static String _getDnsErrorMessage(String url) {
-    final hostname = _extractHostname(url) ?? 'the server';
+    final hostname = _extractHostname(url) ?? 'serveur';
+    final technicalAdvice =
+        '''
+DNS resolution failed for $hostname. This typically indicates an Android emulator DNS configuration issue.
+
+Possible fixes:
+1. Restart the Android emulator
+2. Configure DNS servers via ADB:
+   adb shell settings put global private_dns_mode off
+   adb shell settings put global private_dns_specifier "8.8.8.8"
+3. Check emulator network connectivity
+4. Use a physical device instead of emulator
+''';
+    LoggerService.warning('[FileDownloadService] $technicalAdvice');
     return Strings.dnsResolutionFailed(hostname);
   }
 

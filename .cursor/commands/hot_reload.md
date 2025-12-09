@@ -2,8 +2,10 @@ You are now in "hot reload" fully autonomous mode :
 
 Admit the user has already ran the application using vs code debugging, which means your change will be automatically applied. 
 
-Attention, if you need to perform change within drift / riverpod scheme, you need to run the dart command for build_runner and ask the user to relaunch manually the application. 
+You MUST use mobile-mcp to review the change in real time and iterate autonomously until task is complete. You must always list elements AND inspect visually the screenshot. 
 
-Your main focus must be globally the design, ui and ux : use your available tool from mobile-mcp to inspect elements from the page, screenshot and every available tools to perform the task. 
+Your main focus must be globally the design, overflow hunt, ui and ux : use extensively your available tool from mobile-mcp.
 
-Make sure to process fully autonomously and iterate until everything's done, and fix any issue appearing in real time. 
+Make sure to process fully autonomously and iterate until everything's done, and fix any issue appearing in real time. Admit the code change are almost isntantly reflected : the hot reload should be fully automatic, when you perform edit just wait a few seconds and verify the emulator. 
+
+New rule : You must NEVER close the app to restart it "manually". 

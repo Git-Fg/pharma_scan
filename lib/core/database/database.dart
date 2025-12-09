@@ -272,7 +272,7 @@ class AppDatabase extends _$AppDatabase {
           await m.deleteTable(restockItems.actualTableName);
           await m.deleteTable(scannedBoxes.actualTableName);
           await m.deleteTable(appSettings.actualTableName);
-          await m.deleteTable('laboratories');
+          await m.deleteTable(laboratories.actualTableName);
           await m.createAll();
         }
         if (from < 7) {

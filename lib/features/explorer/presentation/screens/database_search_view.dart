@@ -1,23 +1,23 @@
 import 'dart:async';
 
-import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:pharma_scan/core/router/app_router.dart';
+import 'package:pharma_scan/core/providers/navigation_provider.dart';
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
-import 'package:pharma_scan/core/utils/test_tags.dart';
 import 'package:pharma_scan/core/widgets/scroll_to_top_fab.dart';
-import 'package:pharma_scan/core/widgets/testable.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/status_view.dart';
 import 'package:pharma_scan/features/explorer/presentation/providers/generic_groups_provider.dart';
+import 'package:pharma_scan/features/explorer/presentation/providers/grouped_content_provider.dart';
 import 'package:pharma_scan/features/explorer/presentation/providers/search_provider.dart';
+import 'package:pharma_scan/features/explorer/presentation/widgets/alphabet_sidebar.dart';
 import 'package:pharma_scan/features/explorer/presentation/widgets/explorer_content_list.dart';
 import 'package:pharma_scan/features/explorer/presentation/widgets/explorer_search_bar.dart';
 import 'package:pharma_scan/features/home/providers/initialization_provider.dart';
+import 'package:scroll_to_index/scroll_to_index.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 class DatabaseSearchView extends HookConsumerWidget {
@@ -25,7 +25,16 @@ class DatabaseSearchView extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final scrollController = useScrollController();
+    final bottomPadding = MediaQuery.paddingOf(context).bottom;
+    final scrollController = useMemoized(
+      () => AutoScrollController(
+        viewportBoundaryGetter: () => Rect.fromLTRB(0, 0, 0, bottomPadding),
+      ),
+      [bottomPadding],
+    );
+    useEffect(() {
+      return scrollController.dispose;
+    }, [scrollController]);
     final debouncedQuery = useState('');
     final viewInsetsBottom = MediaQuery.viewInsetsOf(context).bottom;
     final safeBottomPadding = MediaQuery.paddingOf(context).bottom;
@@ -34,24 +43,21 @@ class DatabaseSearchView extends HookConsumerWidget {
         : safeBottomPadding;
 
     useEffect(() {
-      void onScroll() {
-        if (!scrollController.hasClients) return;
-        if (debouncedQuery.value.isNotEmpty) {
-          return;
-        }
-        if (scrollController.position.pixels >=
-            scrollController.position.maxScrollExtent - 200) {
-          final groupsState = ref.read(genericGroupsProvider);
-          final data = groupsState.value;
-          if (data == null || !data.hasMore || data.isLoadingMore) {
-            return;
+      final cancel = ref.listenManual<TabReselectionSignal>(
+        tabReselectionProvider,
+        (previous, next) {
+          if (next.tabIndex == 1 && scrollController.hasClients) {
+            unawaited(
+              scrollController.animateTo(
+                0,
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeOut,
+              ),
+            );
           }
-          unawaited(ref.read(genericGroupsProvider.notifier).loadMore());
-        }
-      }
-
-      scrollController.addListener(onScroll);
-      return () => scrollController.removeListener(onScroll);
+        },
+      );
+      return cancel.close;
     }, [scrollController]);
 
     final groups = ref.watch(genericGroupsProvider);
@@ -60,6 +66,46 @@ class DatabaseSearchView extends HookConsumerWidget {
     final hasSearchText = currentQuery.isNotEmpty;
     final isSearching = hasSearchText;
     final initStepAsync = ref.watch(initializationStepProvider);
+    const sidebarLetters = [
+      '#',
+      'A',
+      'B',
+      'C',
+      'D',
+      'E',
+      'F',
+      'G',
+      'H',
+      'J',
+      'K',
+      'L',
+      'M',
+      'N',
+      'P',
+      'R',
+      'S',
+      'T',
+      'U',
+      'V',
+      'W',
+      'X',
+      'Y',
+      'Z',
+    ];
+
+    final groupedContent = ref.watch(groupedExplorerContentProvider);
+    final groupedData = groupedContent.when(
+      skipLoadingOnReload: true,
+      data: (value) => value,
+      loading: () => (
+        groupedItems: List<Object>.empty(),
+        letterIndex: <String, int>{},
+      ),
+      error: (error, stackTrace) => (
+        groupedItems: List<Object>.empty(),
+        letterIndex: <String, int>{},
+      ),
+    );
 
     final initStep = initStepAsync.value;
     if (initStep != null &&
@@ -89,27 +135,17 @@ class DatabaseSearchView extends HookConsumerWidget {
           elevation: 0,
           backgroundColor: context.shadColors.background,
           foregroundColor: context.shadColors.foreground,
-          actions: [
-            Testable(
-              id: TestTags.navSettings,
-              child: ShadIconButton.ghost(
-                icon: const Icon(LucideIcons.settings),
-                onPressed: () =>
-                    AutoRouter.of(context).push(const SettingsRoute()),
-              ),
-            ),
-          ],
         ),
         body: Stack(
           children: [
-            // Main scrollable content
             CustomScrollView(
               key: const PageStorageKey('explorer_list'),
               controller: scrollController,
               slivers: [
-                // Main content (stats, groups, search results)
                 ExplorerContentList(
+                  controller: scrollController,
                   groups: groups,
+                  groupedItems: groupedData.groupedItems,
                   searchResults: searchResults,
                   hasSearchText: hasSearchText,
                   isSearching: isSearching,
@@ -122,6 +158,32 @@ class DatabaseSearchView extends HookConsumerWidget {
                 ),
               ],
             ),
+            if (!hasSearchText && !groups.isLoading)
+              Positioned(
+                top: 0,
+                bottom: AppDimens.searchBarHeaderHeight + bottomSpace,
+                right: 0,
+                child: AlphabetSidebar(
+                  onLetterChanged: (letter) {
+                    final letterIndex = groupedData.letterIndex;
+                    final index =
+                        letterIndex[letter] ??
+                        _findClosestIndex(
+                          letterIndex,
+                          sidebarLetters,
+                          letter,
+                        );
+                    if (index == null || index < 0) return;
+
+                    unawaited(
+                      scrollController.scrollToIndex(
+                        index,
+                        duration: const Duration(milliseconds: 90),
+                      ),
+                    );
+                  },
+                ),
+              ),
             Positioned(
               right: AppDimens.spacingMd,
               bottom:
@@ -158,4 +220,30 @@ class _KeepAliveWrapper extends HookWidget {
     useAutomaticKeepAlive();
     return child;
   }
+}
+
+int? _findClosestIndex(
+  Map<String, int> letterIndex,
+  List<String> orderedLetters,
+  String requestedLetter,
+) {
+  final requestedPosition = orderedLetters.indexOf(requestedLetter);
+
+  if (requestedPosition == -1) {
+    if (letterIndex.isEmpty) return null;
+    return letterIndex.values.reduce((a, b) => a < b ? a : b);
+  }
+
+  for (final letter in orderedLetters.skip(requestedPosition)) {
+    final index = letterIndex[letter];
+    if (index != null) return index;
+  }
+
+  for (final letter
+      in orderedLetters.take(requestedPosition).toList().reversed) {
+    final index = letterIndex[letter];
+    if (index != null) return index;
+  }
+
+  return null;
 }

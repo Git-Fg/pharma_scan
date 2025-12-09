@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/domain/types/ids.dart';
@@ -38,17 +37,15 @@ void main() {
     'shows destructive availability alert when availabilityStatus is set',
     (tester) async {
       await tester.pumpApp(
-        Scaffold(
-          body: ScannerResultCard(
-            summary: buildSummary(),
-            cip: Cip13.validated('3400000000012'),
-            badges: const [
-              ProductTypeBadge(memberType: 0, compact: true),
-            ],
-            subtitle: const ['Test subtitle'],
-            onClose: () {},
-            availabilityStatus: 'Rupture de stock',
-          ),
+        ScannerResultCard(
+          summary: buildSummary(),
+          cip: Cip13.validated('3400000000012'),
+          badges: const [
+            ProductTypeBadge(memberType: 0, compact: true),
+          ],
+          subtitle: const ['Test subtitle'],
+          onClose: () {},
+          availabilityStatus: 'Rupture de stock',
         ),
       );
 

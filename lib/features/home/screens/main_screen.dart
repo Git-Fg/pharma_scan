@@ -4,6 +4,7 @@ import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:pharma_scan/core/providers/navigation_provider.dart';
 import 'package:pharma_scan/core/router/app_router.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
@@ -57,6 +58,7 @@ class MainScreen extends HookConsumerWidget {
               description: Text(
                 presenter.successDescription ?? Strings.bdpmUpToDate,
               ),
+              alignment: Alignment.bottomCenter,
             ),
           );
         }
@@ -69,6 +71,7 @@ class MainScreen extends HookConsumerWidget {
               description: Text(
                 presenter.errorDescription ?? Strings.syncFailedMessage,
               ),
+              alignment: Alignment.bottomCenter,
             ),
           );
         }
@@ -79,6 +82,11 @@ class MainScreen extends HookConsumerWidget {
       routes: const [ScannerTabRoute(), ExplorerTabRoute(), RestockRoute()],
       builder: (BuildContext context, Widget child) {
         final tabsRouter = AutoTabsRouter.of(context);
+        void handleReselect(int index) {
+          tabsRouter.stackRouterOfIndex(index)?.popUntilRoot();
+          ref.read(tabReselectionProvider.notifier).ping(index);
+        }
+
         // WARNING: PopScope usage - see flutter-navigation.mdc section 11
         return PopScope<Object>(
           canPop:
@@ -102,12 +110,13 @@ class MainScreen extends HookConsumerWidget {
                 : ShadcnBottomNav(
                     currentIndex: tabsRouter.activeIndex,
                     onTap: (index) {
-                      if (tabsRouter.activeIndex == index && index == 1) {
-                        tabsRouter.stackRouterOfIndex(index)?.popUntilRoot();
-                      } else {
-                        tabsRouter.setActiveIndex(index);
+                      if (tabsRouter.activeIndex == index) {
+                        handleReselect(index);
+                        return;
                       }
+                      tabsRouter.setActiveIndex(index);
                     },
+                    onReselect: handleReselect,
                     items: const [
                       (
                         icon: LucideIcons.scan,
@@ -132,16 +141,19 @@ class MainScreen extends HookConsumerWidget {
             body: Column(
               children: [
                 if (activityBannerState != null)
-                  UnifiedActivityBanner(
-                    icon: activityBannerState.icon,
-                    title: activityBannerState.title,
-                    status: activityBannerState.status,
-                    secondaryStatus: activityBannerState.secondaryStatus,
-                    progressValue: activityBannerState.progressValue,
-                    progressLabel: activityBannerState.progressLabel,
-                    indeterminate: activityBannerState.indeterminate,
-                    isError: activityBannerState.isError,
-                    onRetry: activityBannerState.onRetry,
+                  SafeArea(
+                    bottom: false,
+                    child: UnifiedActivityBanner(
+                      icon: activityBannerState.icon,
+                      title: activityBannerState.title,
+                      status: activityBannerState.status,
+                      secondaryStatus: activityBannerState.secondaryStatus,
+                      progressValue: activityBannerState.progressValue,
+                      progressLabel: activityBannerState.progressLabel,
+                      indeterminate: activityBannerState.indeterminate,
+                      isError: activityBannerState.isError,
+                      onRetry: activityBannerState.onRetry,
+                    ),
                   ),
                 Expanded(child: child),
               ],
@@ -153,8 +165,6 @@ class MainScreen extends HookConsumerWidget {
   }
 }
 
-/// Helper class to extract status messages from SyncProgress.
-/// Used for toast notifications in MainScreen.
 class SyncStatusPresenter {
   const SyncStatusPresenter(this.progress);
 

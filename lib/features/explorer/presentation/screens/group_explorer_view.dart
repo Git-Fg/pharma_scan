@@ -14,6 +14,7 @@ import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/formatters.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
+import 'package:pharma_scan/core/widgets/scroll_to_top_fab.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/product_badges.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/status_view.dart';
 import 'package:pharma_scan/features/explorer/domain/entities/group_detail_entity.dart';
@@ -36,6 +37,10 @@ class GroupExplorerView extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final scrollController = useScrollController();
+    final filterController = useTextEditingController();
+    useListenable(filterController);
+
     useEffect(() {
       final notifier = ref.read(canSwipeRootProvider.notifier);
       unawaited(Future.microtask(() => notifier.canSwipe = false));
@@ -46,7 +51,7 @@ class GroupExplorerView extends HookConsumerWidget {
       };
     }, [groupId]);
 
-    final stateAsync = ref.watch(groupExplorerControllerProvider(groupId));
+    final stateAsync = ref.watch(groupExplorerProvider(groupId));
 
     return stateAsync.when(
       data: (GroupExplorerState state) {
@@ -85,10 +90,29 @@ class GroupExplorerView extends HookConsumerWidget {
         final genericsForList = heroMember != null && !heroMember.isPrinceps
             ? state.generics.skip(1).toList()
             : state.generics;
+        final filterQuery = filterController.text.trim().toLowerCase();
+        final filteredGenerics = filterQuery.isEmpty
+            ? genericsForList
+            : genericsForList.where((generic) {
+                final name = generic.displayName.toLowerCase();
+                final lab = generic.parsedTitulaire.toLowerCase();
+                return name.contains(filterQuery) || lab.contains(filterQuery);
+              }).toList();
 
         return Scaffold(
           appBar: AppBar(
-            title: Text(state.title),
+            title: Hero(
+              tag: 'group-$groupId',
+              child: Material(
+                type: MaterialType.transparency,
+                child: Text(
+                  state.title,
+                  style: context.shadTextTheme.h4,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
             leading: ShadIconButton.ghost(
               icon: const Icon(LucideIcons.arrowLeft),
               onPressed: () => AutoRouter.of(context).maybePop(),
@@ -105,64 +129,149 @@ class GroupExplorerView extends HookConsumerWidget {
                   ]
                 : null,
           ),
-          body: CustomScrollView(
-            slivers: [
-              SliverToBoxAdapter(
-                child: Column(
-                  children: [
-                    _buildAppBarContent(
+          body: Stack(
+            children: [
+              CustomScrollView(
+                controller: scrollController,
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: Column(
+                      children: [
+                        _buildAppBarContent(
+                          context,
+                          state,
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (heroMember != null)
+                    SliverMainAxisGroup(
+                      slivers: [
+                        SliverToBoxAdapter(
+                          child: _buildSectionHeader(
+                            context: context,
+                            title: Strings.princeps,
+                            badgeCount: state.princeps.length,
+                            icon: LucideIcons.shieldCheck,
+                          ),
+                        ),
+                        SliverPadding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppDimens.spacingMd,
+                          ),
+                          sliver: SliverToBoxAdapter(
+                            child: PrincepsHeroCard(
+                              princeps: heroMember,
+                              isFallbackGeneric: !heroMember.isPrinceps,
+                              onViewDetails: () => _openDetailSheet(
+                                context,
+                                heroMember,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  if (genericsForList.isNotEmpty)
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppDimens.spacingMd,
+                        ),
+                        child: ShadAccordion<String>.multiple(
+                          initialValue: const <String>[],
+                          children: [
+                            ShadAccordionItem(
+                              value: 'generics',
+                              title: Row(
+                                children: [
+                                  Icon(
+                                    LucideIcons.copy,
+                                    size: AppDimens.iconSm,
+                                    color: context.shadColors.mutedForeground,
+                                  ),
+                                  const Gap(AppDimens.spacingXs),
+                                  Expanded(
+                                    child: Text(
+                                      Strings.generics,
+                                      style: context.shadTextTheme.h4,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  const Gap(AppDimens.spacingXs),
+                                  ShadBadge(
+                                    child: Text(
+                                      '${filteredGenerics.length}',
+                                      style: context.shadTextTheme.small,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Padding(
+                                    padding: const EdgeInsets.only(
+                                      bottom: AppDimens.spacingSm,
+                                    ),
+                                    child: ShadInput(
+                                      controller: filterController,
+                                      placeholder: const Text(
+                                        'Filtrer (ex: Biogaran, Teva...)',
+                                      ),
+                                      leading: Icon(
+                                        LucideIcons.search,
+                                        size: AppDimens.iconSm,
+                                        color:
+                                            context.shadColors.mutedForeground,
+                                      ),
+                                      trailing: filterController.text.isNotEmpty
+                                          ? ShadButton.ghost(
+                                              size: ShadButtonSize.sm,
+                                              onPressed: filterController.clear,
+                                              child: const Icon(
+                                                LucideIcons.x,
+                                                size: AppDimens.iconSm,
+                                              ),
+                                            )
+                                          : null,
+                                    ),
+                                  ),
+                                  ...List.generate(filteredGenerics.length, (
+                                    index,
+                                  ) {
+                                    final generic = filteredGenerics[index];
+                                    return _CompactGenericTile(
+                                      item: generic,
+                                      onTap: () => _openDetailSheet(
+                                        context,
+                                        generic,
+                                      ),
+                                    );
+                                  }),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  if (shouldShowRelatedSection)
+                    _buildRelatedSectionSliver(
                       context,
-                      state,
+                      state.related,
+                      isLoading: false,
                     ),
-                  ],
-                ),
+                  const SliverGap(AppDimens.spacingXl),
+                ],
               ),
-              if (heroMember != null)
-                SliverPadding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppDimens.spacingMd,
-                  ),
-                  sliver: SliverToBoxAdapter(
-                    child: PrincepsHeroCard(
-                      princeps: heroMember,
-                      isFallbackGeneric: !heroMember.isPrinceps,
-                      onViewDetails: () => _openDetailSheet(
-                        context,
-                        heroMember,
-                      ),
-                    ),
-                  ),
-                ),
-              if (genericsForList.isNotEmpty)
-                SliverMainAxisGroup(
-                  slivers: [
-                    _buildStickySectionHeader(
-                      context: context,
-                      title: Strings.genericsAvailable,
-                      badgeCount: genericsForList.length,
-                      icon: LucideIcons.copy,
-                    ),
-                    SliverList(
-                      delegate: SliverChildBuilderDelegate(
-                        (context, index) {
-                          final generic = genericsForList[index];
-                          return _CompactGenericTile(
-                            item: generic,
-                            onTap: () => _openDetailSheet(context, generic),
-                          );
-                        },
-                        childCount: genericsForList.length,
-                      ),
-                    ),
-                  ],
-                ),
-              if (shouldShowRelatedSection)
-                _buildRelatedSectionSliver(
-                  context,
-                  state.related,
-                  isLoading: false,
-                ),
-              const SliverGap(AppDimens.spacingXl),
+              Positioned(
+                right: AppDimens.spacingMd,
+                bottom:
+                    AppDimens.spacingMd + MediaQuery.paddingOf(context).bottom,
+                child: ScrollToTopFab(controller: scrollController),
+              ),
             ],
           ),
         );
@@ -194,8 +303,7 @@ class GroupExplorerView extends HookConsumerWidget {
             label: Strings.retryButtonLabel,
             hint: Strings.retryButtonHint,
             child: ShadButton(
-              onPressed: () =>
-                  ref.invalidate(groupExplorerControllerProvider(groupId)),
+              onPressed: () => ref.invalidate(groupExplorerProvider(groupId)),
               child: const Text(Strings.retry),
             ),
           ),
@@ -294,6 +402,8 @@ class GroupExplorerView extends HookConsumerWidget {
             style: theme.textTheme.p.copyWith(
               color: theme.colorScheme.mutedForeground,
             ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
           const Gap(AppDimens.spacing2xs),
           ShadBadge.outline(
@@ -312,13 +422,13 @@ class GroupExplorerView extends HookConsumerWidget {
           ],
           const Gap(AppDimens.spacingSm),
           _buildMetadataTiles(context, priceLabel, refundValue),
+          _buildActionBar(context, state),
           if ((state.rawLabelAnsm?.isNotEmpty ?? false) ||
               (state.parsingMethod?.isNotEmpty ?? false) ||
               (state.princepsCisReference?.isNotEmpty ?? false)) ...[
             const Gap(AppDimens.spacingSm),
             _buildTechnicalInfo(context, state),
           ],
-          _buildActionBar(context, state),
         ],
       ),
     );
@@ -329,90 +439,26 @@ class GroupExplorerView extends HookConsumerWidget {
     String priceLabel,
     String refundValue,
   ) {
-    final theme = context.shadTheme;
-
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: theme.colorScheme.border),
-        borderRadius: theme.radius,
-      ),
+    return ShadCard(
       padding: const EdgeInsets.symmetric(
         vertical: AppDimens.spacingSm,
         horizontal: AppDimens.spacingMd,
       ),
       child: Row(
         children: [
-          // Section Prix
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      LucideIcons.banknote,
-                      size: 14,
-                      color: theme.colorScheme.mutedForeground,
-                    ),
-                    const Gap(4),
-                    Text(
-                      Strings.priceShort,
-                      style: theme.textTheme.small.copyWith(
-                        color: theme.colorScheme.mutedForeground,
-                      ),
-                    ),
-                  ],
-                ),
-                const Gap(2),
-                Text(
-                  priceLabel,
-                  style: theme.textTheme.p.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
+            child: _MetadataItem(
+              icon: LucideIcons.banknote,
+              label: Strings.priceShort,
+              value: priceLabel,
             ),
           ),
-          // Séparateur vertical
-          Container(
-            height: 32,
-            width: 1,
-            color: theme.colorScheme.border,
-            margin: const EdgeInsets.symmetric(horizontal: AppDimens.spacingMd),
-          ),
-          // Section Remboursement
+          const Gap(AppDimens.spacingMd),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      LucideIcons.percent,
-                      size: 14,
-                      color: theme.colorScheme.mutedForeground,
-                    ),
-                    const Gap(4),
-                    Text(
-                      Strings.refundShort,
-                      style: theme.textTheme.small.copyWith(
-                        color: theme.colorScheme.mutedForeground,
-                      ),
-                    ),
-                  ],
-                ),
-                const Gap(2),
-                Text(
-                  refundValue,
-                  style: theme.textTheme.p.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
+            child: _MetadataItem(
+              icon: LucideIcons.percent,
+              label: Strings.refundShort,
+              value: refundValue,
             ),
           ),
         ],
@@ -607,217 +653,16 @@ class GroupExplorerView extends HookConsumerWidget {
     required bool showNavigationIndicator,
     String? navigationGroupId,
   }) {
-    final typeBadge = ProductTypeBadge(memberType: member.memberType);
-    final regulatoryBadgesWidget = RegulatoryBadges(
-      isNarcotic: member.isNarcotic,
-      isList1: member.isList1,
-      isList2: member.isList2,
-      isException: member.isException,
-      isRestricted: member.isRestricted,
-      isHospitalOnly: member.isHospitalOnly,
-      isDental: member.isDental,
-      isSurveillance: member.isSurveillance,
-      isOtc: member.isOtc,
-    );
-    final hasRegulatoryBadges =
-        member.isNarcotic ||
-        member.isList1 ||
-        member.isList2 ||
-        member.isException ||
-        member.isRestricted ||
-        member.isHospitalOnly ||
-        member.isDental ||
-        member.isSurveillance ||
-        member.isOtc;
-    final labDisplay = member.parsedTitulaire.isEmpty
-        ? Strings.unknownHolder
-        : member.parsedTitulaire;
-    final priceText = member.prixPublic != null
-        ? formatEuro(member.prixPublic!)
-        : null;
-    final hasPrice = priceText != null;
-    final refundLabel =
-        member.trimmedRefundRate ??
-        (hasPrice ? Strings.refundNotAvailable : null);
-    final shouldShowRefund = refundLabel != null;
-
-    final titleText =
-        '${member.displayName}${member.dosageLabel != null && member.dosageLabel!.isNotEmpty ? ' • ${member.dosageLabel}' : ''}';
-
-    final subtitleParts = <String>[];
-    if (member.codeCip.isNotEmpty) {
-      subtitleParts.add('${Strings.cip} ${member.codeCip}');
-    }
-    if (labDisplay.isNotEmpty && labDisplay != Strings.unknownHolder) {
-      subtitleParts.add(labDisplay);
-    }
-    final subtitle = subtitleParts.isNotEmpty
-        ? subtitleParts.join(' • ')
-        : null;
-
-    final hasFinancialBadge = hasPrice || shouldShowRefund;
-    final detailsParts = <String>[];
-    if (!hasFinancialBadge) {
-      if (hasPrice) {
-        detailsParts.add(priceText);
-      }
-      if (shouldShowRefund) {
-        detailsParts.add(refundLabel);
-      }
-    }
-    final details = detailsParts.isNotEmpty ? detailsParts.join(' • ') : null;
-
-    final enhancedSubtitleParts = <String>[];
-    if (subtitle != null) {
-      enhancedSubtitleParts.add(subtitle);
-    }
-    if (member.trimmedAvailabilityStatus != null) {
-      enhancedSubtitleParts.add(
-        Strings.stockAlert(member.trimmedAvailabilityStatus!),
-      );
-    }
-    final enhancedSubtitle = enhancedSubtitleParts.isNotEmpty
-        ? enhancedSubtitleParts.join(' • ')
-        : null;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        MergeSemantics(
-          child: Semantics(
-            button: showNavigationIndicator && navigationGroupId != null,
-            label: _buildMemberSemanticsLabel(member, subtitle, details),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 64),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: showNavigationIndicator && navigationGroupId != null
-                      ? () => AutoRouter.of(context).push(
-                          GroupExplorerRoute(groupId: navigationGroupId),
-                        )
-                      : null,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppDimens.spacingMd,
-                      vertical: AppDimens.spacingSm,
-                    ),
-                    decoration: BoxDecoration(
-                      border: Border(
-                        bottom: BorderSide(
-                          color: context.shadColors.border,
-                        ),
-                      ),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Transform.scale(scale: 0.85, child: typeBadge),
-                        const Gap(AppDimens.spacingSm),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                titleText,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: ShadTheme.of(context).textTheme.p
-                                    .copyWith(fontWeight: FontWeight.w600),
-                              ),
-                              if (hasFinancialBadge) ...[
-                                const Gap(4),
-                                FinancialBadge(
-                                  refundRate: member.trimmedRefundRate,
-                                  price: member.prixPublic,
-                                ),
-                              ],
-                              if (enhancedSubtitle != null) ...[
-                                const Gap(4),
-                                Text(
-                                  enhancedSubtitle,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: context.shadTextTheme.small.copyWith(
-                                    color: context.shadColors.mutedForeground,
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                        if (details != null) ...[
-                          const Gap(AppDimens.spacingSm),
-                          ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 140),
-                            child: Text(
-                              details,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              textAlign: TextAlign.end,
-                              style: context.shadTextTheme.small.copyWith(
-                                color: context.shadColors.mutedForeground,
-                              ),
-                            ),
-                          ),
-                        ],
-                        if (showNavigationIndicator &&
-                            navigationGroupId != null) ...[
-                          const Gap(AppDimens.spacingXs),
-                          const ExcludeSemantics(
-                            child: Icon(LucideIcons.chevronRight, size: 16),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-        if (hasRegulatoryBadges) ...[
-          const Gap(AppDimens.spacingSm),
-          regulatoryBadgesWidget,
-        ],
-        if (showNavigationIndicator && navigationGroupId != null) ...[
-          const Gap(AppDimens.spacingSm),
-          ShadButton.outline(
-            onPressed: () => AutoRouter.of(context).push(
+    return _MedicationListTile(
+      item: member,
+      onTap: showNavigationIndicator && navigationGroupId != null
+          ? () => AutoRouter.of(context).push(
               GroupExplorerRoute(groupId: navigationGroupId),
-            ),
-            trailing: Icon(
-              LucideIcons.arrowRight,
-              size: AppDimens.iconSm,
-              color: context.shadColors.foreground,
-            ),
-            child: const Text(Strings.showMedicamentDetails),
-          ),
-        ],
-      ],
+            )
+          : null,
+      showNavigationIndicator:
+          showNavigationIndicator && navigationGroupId != null,
     );
-  }
-
-  String _buildMemberSemanticsLabel(
-    GroupDetailEntity member,
-    String? subtitle,
-    String? details,
-  ) {
-    final buffer = StringBuffer(member.displayName);
-    if (subtitle != null) {
-      buffer.write(', $subtitle');
-    }
-    if (details != null) {
-      buffer.write(', $details');
-    }
-    if (member.trimmedAvailabilityStatus != null) {
-      buffer.write(
-        ', ${Strings.stockAlert(member.trimmedAvailabilityStatus!)}',
-      );
-    }
-    return buffer.toString();
   }
 
   Widget _buildActionBar(
@@ -836,44 +681,65 @@ class GroupExplorerView extends HookConsumerWidget {
 
     return Padding(
       padding: const EdgeInsets.only(top: AppDimens.spacingMd),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (ansmUrl != null && ansmUrl.isNotEmpty) ...[
-            Expanded(
-              child: ShadButton.destructive(
-                width: double.infinity,
-                onPressed: () => _launchUrl(context, ansmUrl),
-                leading: const Icon(
-                  LucideIcons.triangleAlert,
-                  size: AppDimens.iconSm,
-                ),
-                child: const Text(Strings.shortageAlert),
+            ShadButton.destructive(
+              width: double.infinity,
+              onPressed: () => _launchUrl(context, ansmUrl),
+              leading: const Icon(
+                LucideIcons.triangleAlert,
+                size: AppDimens.iconSm,
               ),
+              child: const Text(Strings.shortageAlert),
             ),
-            const Gap(AppDimens.spacingXs),
+            const Gap(AppDimens.spacingSm),
           ],
-          Expanded(
-            child: ShadButton.secondary(
-              onPressed: () => _launchUrl(context, ficheUrl),
-              leading: Icon(
-                LucideIcons.info,
-                size: AppDimens.iconSm,
-                color: context.shadColors.secondaryForeground,
-              ),
-              child: const Text(Strings.ficheInfo),
-            ),
-          ),
-          const Gap(AppDimens.spacingXs),
-          Expanded(
-            child: ShadButton.outline(
-              onPressed: () => _launchUrl(context, rcpUrl),
-              leading: Icon(
-                LucideIcons.fileText,
-                size: AppDimens.iconSm,
-                color: context.shadColors.foreground,
-              ),
-              child: const Text(Strings.rcpDocument),
-            ),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isNarrow = constraints.maxWidth < 420;
+              final ficheButton = ShadButton.secondary(
+                width: double.infinity,
+                onPressed: () => _launchUrl(context, ficheUrl),
+                leading: Icon(
+                  LucideIcons.info,
+                  size: AppDimens.iconSm,
+                  color: context.shadColors.secondaryForeground,
+                ),
+                child: const Text(Strings.ficheInfo),
+              );
+
+              final rcpButton = ShadButton.outline(
+                width: double.infinity,
+                onPressed: () => _launchUrl(context, rcpUrl),
+                leading: Icon(
+                  LucideIcons.fileText,
+                  size: AppDimens.iconSm,
+                  color: context.shadColors.foreground,
+                ),
+                child: const Text(Strings.rcpDocument),
+              );
+
+              if (!isNarrow) {
+                return Row(
+                  children: [
+                    Expanded(child: ficheButton),
+                    const Gap(AppDimens.spacingSm),
+                    Expanded(child: rcpButton),
+                  ],
+                );
+              }
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  ficheButton,
+                  const Gap(AppDimens.spacingSm),
+                  rcpButton,
+                ],
+              );
+            },
           ),
         ],
       ),
@@ -911,6 +777,47 @@ class GroupExplorerView extends HookConsumerWidget {
           );
         }
       }),
+    );
+  }
+}
+
+class _MetadataItem extends StatelessWidget {
+  const _MetadataItem({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = context.shadTextTheme;
+    final muted = textTheme.muted;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          icon,
+          size: 18,
+          color: context.shadColors.mutedForeground,
+        ),
+        const Gap(AppDimens.spacingSm),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: muted),
+              Text(
+                value,
+                style: textTheme.small,
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1059,94 +966,221 @@ class _CompactGenericTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return _MedicationListTile(
+      item: item,
+      onTap: onTap,
+      showNavigationIndicator: false,
+    );
+  }
+}
+
+class _MedicationListTile extends StatelessWidget {
+  const _MedicationListTile({
+    required this.item,
+    required this.onTap,
+    required this.showNavigationIndicator,
+  });
+
+  final GroupDetailEntity item;
+  final VoidCallback? onTap;
+  final bool showNavigationIndicator;
+
+  @override
+  Widget build(BuildContext context) {
     final theme = context.shadTheme;
+    final name = item.displayName;
+    final cipText = item.codeCip.isNotEmpty
+        ? '${Strings.cip} ${item.codeCip}'
+        : '';
     final lab = item.parsedTitulaire.isEmpty
         ? Strings.unknownHolder
         : item.parsedTitulaire;
-    final hasPrice = item.prixPublic != null;
-    final availability = item.trimmedAvailabilityStatus;
-    final isStopped = item.isNotMarketed;
-    final criticalBadge = availability != null
-        ? Strings.stockAlert(availability)
-        : (isStopped ? Strings.productStoppedBadge : null);
+    final subtitle = [
+      cipText,
+      lab,
+    ].where((value) => value.isNotEmpty).join(' • ');
+
+    final priceText = item.prixPublic != null
+        ? formatEuro(item.prixPublic!)
+        : null;
+    final refundText = item.trimmedRefundRate;
+
+    final statusBadge = item.isList1
+        ? Strings.badgeList1
+        : item.isList2
+        ? Strings.badgeList2
+        : item.isHospitalOnly
+        ? Strings.hospitalBadge
+        : null;
+    final stockBadge = item.trimmedAvailabilityStatus != null
+        ? Strings.stockAlert(item.trimmedAvailabilityStatus!)
+        : null;
+
+    final details = [priceText, refundText].whereType<String>().join(' • ');
 
     return Semantics(
-      button: true,
-      label: '${item.displayName}, $lab',
-      hint: Strings.tapToViewDetails,
-      child: ShadButton.raw(
-        onPressed: onTap,
-        variant: ShadButtonVariant.ghost,
-        width: double.infinity,
-        padding: EdgeInsets.zero,
-        child: Container(
-          constraints: const BoxConstraints(minHeight: 52),
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppDimens.spacingMd,
-            vertical: AppDimens.spacingSm,
-          ),
-          decoration: BoxDecoration(
-            border: Border(
-              bottom: BorderSide(color: theme.colorScheme.border),
-            ),
-          ),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final availableWidth = constraints.maxWidth.isFinite
-                  ? constraints.maxWidth
-                  : MediaQuery.sizeOf(context).width;
+      button: onTap != null,
+      label: _medicationSemanticsLabel(
+        item,
+        subtitle.isEmpty ? null : subtitle,
+        details.isEmpty ? null : details,
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final itemWidth =
+              constraints.hasBoundedWidth && constraints.maxWidth.isFinite
+              ? constraints.maxWidth
+              : MediaQuery.sizeOf(context).width;
 
-              return SizedBox(
-                width: availableWidth,
+          return SizedBox(
+            width: itemWidth,
+            child: InkWell(
+              onTap: onTap,
+              child: Container(
+                width: itemWidth,
+                constraints: const BoxConstraints(minHeight: 72),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppDimens.spacingMd,
+                  vertical: AppDimens.spacingSm,
+                ),
+                decoration: BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(color: theme.colorScheme.border),
+                  ),
+                ),
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    Transform.scale(
+                      scale: 0.9,
+                      child: ProductTypeBadge(memberType: item.memberType),
+                    ),
+                    const Gap(AppDimens.spacingSm),
                     Expanded(
-                      child: Text(
-                        lab,
-                        style: theme.textTheme.p.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            name,
+                            textAlign: TextAlign.start,
+                            style: theme.textTheme.p.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const Gap(4),
+                          if (subtitle.isNotEmpty)
+                            Text(
+                              subtitle,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.small.copyWith(
+                                color: theme.colorScheme.mutedForeground,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          const Gap(AppDimens.spacing2xs),
+                          Row(
+                            children: [
+                              if (priceText != null) ...[
+                                ShadBadge(
+                                  child: Text(
+                                    priceText,
+                                    style: theme.textTheme.small,
+                                  ),
+                                ),
+                                const Gap(AppDimens.spacing2xs),
+                              ],
+                              if (refundText != null) ...[
+                                ShadBadge.outline(
+                                  child: Text(
+                                    refundText,
+                                    style: theme.textTheme.small,
+                                  ),
+                                ),
+                                const Gap(AppDimens.spacing2xs),
+                              ],
+                              if (priceText == null && refundText == null)
+                                Text(
+                                  Strings.refundNotAvailable,
+                                  style: theme.textTheme.small.copyWith(
+                                    color: theme.colorScheme.mutedForeground,
+                                  ),
+                                ),
+                            ],
+                          ),
+                          if (statusBadge != null ||
+                              stockBadge != null ||
+                              showNavigationIndicator) ...[
+                            const Gap(AppDimens.spacing2xs),
+                            SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
+                                children: [
+                                  if (statusBadge != null)
+                                    ShadBadge.destructive(
+                                      child: Text(
+                                        statusBadge,
+                                        style: theme.textTheme.small,
+                                      ),
+                                    ),
+                                  if (statusBadge != null &&
+                                      (stockBadge != null ||
+                                          showNavigationIndicator))
+                                    const SizedBox(
+                                      width: AppDimens.spacing2xs,
+                                    ),
+                                  if (stockBadge != null)
+                                    ShadBadge.outline(
+                                      child: Text(
+                                        stockBadge,
+                                        style: theme.textTheme.small,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  if (stockBadge != null &&
+                                      showNavigationIndicator)
+                                    const SizedBox(
+                                      width: AppDimens.spacing2xs,
+                                    ),
+                                  if (showNavigationIndicator)
+                                    const Icon(
+                                      LucideIcons.chevronRight,
+                                      size: 16,
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (hasPrice) ...[
-                          Icon(
-                            LucideIcons.banknote,
-                            size: 16,
-                            color: theme.colorScheme.mutedForeground,
-                          ),
-                          const Gap(AppDimens.spacing2xs),
-                        ],
-                        if (item.isHospitalOnly) ...[
-                          Icon(
-                            LucideIcons.hospital,
-                            size: 16,
-                            color: theme.colorScheme.mutedForeground,
-                          ),
-                          const Gap(AppDimens.spacing2xs),
-                        ],
-                      ],
-                    ),
-                    if (criticalBadge != null) ...[
-                      const Gap(AppDimens.spacingSm),
-                      ShadBadge.destructive(
-                        child: Text(
-                          criticalBadge,
-                          style: theme.textTheme.small,
-                        ),
-                      ),
-                    ],
                   ],
                 ),
-              );
-            },
-          ),
-        ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }
+}
+
+String _medicationSemanticsLabel(
+  GroupDetailEntity member,
+  String? subtitle,
+  String? details,
+) {
+  final buffer = StringBuffer(member.displayName);
+  if (subtitle != null) {
+    buffer.write(', $subtitle');
+  }
+  if (details != null) {
+    buffer.write(', $details');
+  }
+  if (member.trimmedAvailabilityStatus != null) {
+    buffer.write(', ${Strings.stockAlert(member.trimmedAvailabilityStatus!)}');
+  }
+  return buffer.toString();
 }

@@ -1,3 +1,4 @@
+import 'package:meta/meta.dart';
 import 'package:pharma_scan/core/providers/core_providers.dart';
 import 'package:pharma_scan/core/providers/preferences_provider.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
@@ -20,7 +21,32 @@ class RestockNotifier extends _$RestockNotifier {
 
   Future<void> decrement(RestockItemEntity item) async {
     final db = ref.read(appDatabaseProvider);
-    await db.restockDao.updateQuantity(item.cip, -1);
+    if (item.quantity == 0) {
+      await deleteItem(item);
+      return;
+    }
+    await db.restockDao.updateQuantity(
+      item.cip,
+      -1,
+      allowZero: true,
+    );
+  }
+
+  Future<void> addBulk(RestockItemEntity item, int amount) async {
+    final db = ref.read(appDatabaseProvider);
+    await db.restockDao.updateQuantity(item.cip, amount);
+  }
+
+  Future<void> setQuantity(
+    RestockItemEntity item,
+    int quantity,
+  ) async {
+    if (quantity < 0) return;
+    final db = ref.read(appDatabaseProvider);
+    await db.restockDao.forceUpdateQuantity(
+      cip: item.cip.toString(),
+      newQuantity: quantity,
+    );
   }
 
   Future<void> toggleChecked(RestockItemEntity item) async {
@@ -81,10 +107,21 @@ List<RestockItemEntity> _sortRestockItems(
   }
 
   String keyFor(RestockItemEntity item) {
-    if (preference == SortingPreference.princeps && hasValidPrinceps(item)) {
-      return item.princepsLabel!.trim().toUpperCase();
+    switch (preference) {
+      case SortingPreference.princeps:
+        if (hasValidPrinceps(item)) {
+          return item.princepsLabel!.trim().toUpperCase();
+        }
+        return item.label.trim().toUpperCase();
+      case SortingPreference.form:
+        final form = item.form?.trim();
+        if (form != null && form.isNotEmpty) {
+          return form.toUpperCase();
+        }
+        return Strings.restockFormUnknown;
+      case SortingPreference.generic:
+        return item.label.trim().toUpperCase();
     }
-    return item.label.trim().toUpperCase();
   }
 
   final sorted = [...items]
@@ -111,6 +148,11 @@ Map<String, List<RestockItemEntity>> _groupByInitial(
   }
 
   String letterFor(RestockItemEntity item) {
+    if (preference == SortingPreference.form) {
+      final form = item.form?.trim();
+      if (form == null || form.isEmpty) return Strings.restockFormUnknown;
+      return form.trim().toUpperCase();
+    }
     final base =
         preference == SortingPreference.princeps && hasValidPrinceps(item)
         ? item.princepsLabel!
@@ -134,3 +176,15 @@ Map<String, List<RestockItemEntity>> _groupByInitial(
   }
   return sortedGroups;
 }
+
+@visibleForTesting
+List<RestockItemEntity> sortRestockItemsForTest(
+  List<RestockItemEntity> items,
+  SortingPreference preference,
+) => _sortRestockItems(items, preference);
+
+@visibleForTesting
+Map<String, List<RestockItemEntity>> groupRestockItemsForTest(
+  List<RestockItemEntity> items,
+  SortingPreference preference,
+) => _groupByInitial(items, preference);

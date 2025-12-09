@@ -8,9 +8,9 @@ import 'package:pharma_scan/core/providers/theme_provider.dart';
 import 'package:pharma_scan/core/router/app_router.dart';
 import 'package:pharma_scan/core/router/router_provider.dart';
 import 'package:pharma_scan/core/services/logger_service.dart';
+import 'package:pharma_scan/core/utils/navigation_helpers.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/features/home/providers/initialization_provider.dart';
-import 'package:pharma_scan/features/scanner/presentation/providers/scanner_provider.dart';
 import 'package:quick_actions/quick_actions.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:talker_riverpod_logger/talker_riverpod_logger.dart';
@@ -69,8 +69,12 @@ class PharmaScanApp extends HookConsumerWidget {
         quickActions.initialize((type) {
           switch (type) {
             case 'action_scan':
-              unawaited(appRouter.navigate(const ScannerTabRoute()));
-              ref.read(scannerProvider.notifier).setMode(ScannerMode.restock);
+              unawaited(() async {
+                final navContext =
+                    appRouter.navigatorKey.currentContext ?? context;
+                await ref.navigateToRestockMode(navContext);
+                await appRouter.navigate(const ScannerTabRoute());
+              }());
             case 'action_search':
               unawaited(appRouter.navigate(const ExplorerTabRoute()));
           }

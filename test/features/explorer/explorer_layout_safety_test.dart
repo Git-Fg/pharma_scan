@@ -219,8 +219,6 @@ class _StaticGenericGroupsNotifier extends GenericGroupsNotifier {
   Future<GenericGroupsState> build() async {
     return const GenericGroupsState(
       items: <GenericGroupEntity>[],
-      hasMore: false,
-      isLoadingMore: false,
     );
   }
 }

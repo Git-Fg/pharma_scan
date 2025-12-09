@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/services.dart';
 import 'package:pharma_scan/core/providers/preferences_provider.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -21,9 +23,23 @@ class HapticService {
 
   final bool _enabled;
 
-  Future<void> success() async {
+  Future<void> analysisSuccess() async {
     if (!_enabled) return;
     await HapticFeedback.lightImpact();
+  }
+
+  Future<void> restockSuccess() async {
+    if (!_enabled) return;
+    await HapticFeedback.mediumImpact();
+    await Future<void>.delayed(const Duration(milliseconds: 120));
+    await HapticFeedback.mediumImpact();
+  }
+
+  Future<void> duplicate() async {
+    if (!_enabled) return;
+    await HapticFeedback.heavyImpact();
+    await Future<void>.delayed(const Duration(milliseconds: 140));
+    await HapticFeedback.heavyImpact();
   }
 
   Future<void> warning() async {
@@ -36,13 +52,33 @@ class HapticService {
     await HapticFeedback.heavyImpact();
   }
 
+  Future<void> unknown() async {
+    if (!_enabled) return;
+    await HapticFeedback.vibrate();
+  }
+
+  // Backward-compatible aliases
+  Future<void> success() => analysisSuccess();
+
   Future<void> selection() async {
     if (!_enabled) return;
     await HapticFeedback.selectionClick();
   }
 
+  Future<void> mediumImpact() async {
+    if (!_enabled) return;
+    await HapticFeedback.mediumImpact();
+  }
+
   Future<void> heavyImpact() async {
     if (!_enabled) return;
+    await HapticFeedback.heavyImpact();
+  }
+
+  Future<void> deleteImpact() async {
+    if (!_enabled) return;
+    await HapticFeedback.heavyImpact();
+    await Future<void>.delayed(const Duration(milliseconds: 80));
     await HapticFeedback.heavyImpact();
   }
 

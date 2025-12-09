@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:pharma_scan/core/domain/types/ids.dart';
 import 'package:pharma_scan/core/providers/preferences_provider.dart';
+import 'package:pharma_scan/core/services/haptic_service.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/features/restock/domain/entities/restock_item_entity.dart';
 import 'package:pharma_scan/features/restock/presentation/providers/restock_provider.dart';
@@ -33,15 +34,21 @@ void main() {
       await tester.pumpWidget(
         ShadApp(
           home: Scaffold(
-            body: RestockListItem(
-              item: item,
-              showPrincepsSubtitle: false,
-              onIncrement: () {},
-              onDecrement: () {},
-              onToggleChecked: () {
-                toggled = true;
-              },
-              onDismissed: (_) {},
+            body: SizedBox(
+              width: 360,
+              child: RestockListItem(
+                item: item,
+                showPrincepsSubtitle: false,
+                haptics: const HapticService(enabled: false),
+                onIncrement: () {},
+                onDecrement: () {},
+                onAddTen: () {},
+                onSetQuantity: (_) {},
+                onToggleChecked: () {
+                  toggled = true;
+                },
+                onDismissed: (_) {},
+              ),
             ),
           ),
         ),
@@ -67,15 +74,21 @@ void main() {
       await tester.pumpWidget(
         ShadApp(
           home: Scaffold(
-            body: RestockListItem(
-              item: item,
-              showPrincepsSubtitle: false,
-              onIncrement: () {},
-              onDecrement: () {},
-              onToggleChecked: () {},
-              onDismissed: (_) {
-                dismissed = true;
-              },
+            body: SizedBox(
+              width: 360,
+              child: RestockListItem(
+                item: item,
+                showPrincepsSubtitle: false,
+                haptics: const HapticService(enabled: false),
+                onIncrement: () {},
+                onDecrement: () {},
+                onAddTen: () {},
+                onSetQuantity: (_) {},
+                onToggleChecked: () {},
+                onDismissed: (_) {
+                  dismissed = true;
+                },
+              ),
             ),
           ),
         ),
@@ -106,7 +119,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text(Strings.restockEmptyTitle), findsOneWidget);
-      expect(find.text(Strings.startScanning), findsOneWidget);
+      expect(find.text(Strings.restockOpenScanner), findsOneWidget);
       expect(find.text(Strings.restockEmpty), findsOneWidget);
     });
   });

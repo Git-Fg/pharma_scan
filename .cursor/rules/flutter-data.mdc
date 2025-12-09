@@ -57,6 +57,11 @@ final query = db.select(db.table)..where((t) => t.id.isIn(ids));
 
 **For bulk operations:** Push work into SQL views/inserts and consume the generated APIs; avoid per-row `customStatement` loops.
 
+**TableManagers (Drift 2.29):**
+- Use `database.managers.<table>` for simple CRUD/sentinel rows (e.g., `AppSettings`).
+- Prefer `filter(...).updateOne(...)`, `insertOne(...)`, `watchSingle()` to reduce boilerplate.
+- Keep DAOs for multi-table transactions, FTS, or business rules; do not wrap managers just to pass through.
+
 ## Offline-First Architecture
 
 - **Primary Source:** Local database (Drift) is source of truth

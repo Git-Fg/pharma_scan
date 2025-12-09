@@ -5,14 +5,17 @@ import 'package:pharma_scan/core/domain/types/ids.dart';
 import 'package:pharma_scan/core/logic/sanitizer.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
+import 'package:pharma_scan/core/utils/formatters.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/product_badges.dart';
 import 'package:pharma_scan/features/explorer/domain/entities/medicament_entity.dart';
+import 'package:pharma_scan/features/explorer/presentation/mappers/medication_ui_mapper.dart';
+import 'package:pharma_scan/features/scanner/presentation/providers/scanner_provider.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 /// Card widget for scanner result bubbles.
 ///
-/// Displays scan results with dismissal, animation, and action buttons.
+/// Displays scan results with dismissal, compact layout, and tap-to-explore.
 /// Replaces the generic ProductCard for scanner-specific use cases.
 class ScannerResultCard extends StatelessWidget {
   const ScannerResultCard({
@@ -21,6 +24,7 @@ class ScannerResultCard extends StatelessWidget {
     required this.badges,
     required this.subtitle,
     required this.onClose,
+    this.mode = ScannerMode.analysis,
     this.onExplore,
     this.price,
     this.refundRate,
@@ -38,6 +42,7 @@ class ScannerResultCard extends StatelessWidget {
   final List<Widget> badges;
   final List<String> subtitle;
   final VoidCallback onClose;
+  final ScannerMode mode;
   final VoidCallback? onExplore;
   final double? price;
   final String? refundRate;
@@ -50,6 +55,14 @@ class ScannerResultCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.shadTheme;
+    final isRestockMode = mode == ScannerMode.restock;
+    final restockBackground = theme.colorScheme.secondary.withValues(
+      alpha: 0.08,
+    );
+    final restockBorder = theme.colorScheme.secondary.withValues(alpha: 0.6);
+    final radius = theme.radius;
+
     final isGenericWithPrinceps =
         !summary.data.isPrinceps &&
         summary.groupId != null &&
@@ -57,35 +70,16 @@ class ScannerResultCard extends StatelessWidget {
         summary.data.princepsDeReference != 'Inconnu';
 
     final commercializationStatus = boxStatus ?? summary.data.status;
-    final normalizedCommercialization = commercializationStatus
-        ?.toLowerCase()
-        .trim();
-    final isRevoked = normalizedCommercialization?.contains('abrog') ?? false;
-    final isNotMarketed =
-        normalizedCommercialization?.contains('non commercialis') ?? false;
 
     final displayTitle = isGenericWithPrinceps
         ? extractPrincepsLabel(summary.data.princepsDeReference)
         : getDisplayTitle(summary);
 
-    final showExpired = isExpired;
-    final expiryDateText = expDate != null
-        ? DateFormat('dd/MM/yyyy').format(expDate!)
-        : null;
-    final expiredAlert = showExpired
-        ? ShadAlert.destructive(
-            icon: const Icon(LucideIcons.calendarX),
-            title: const Text(Strings.expiredProductTitle),
-            description: expiryDateText != null
-                ? Text(
-                    Strings.expiredProductDate(expiryDateText),
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  )
-                : null,
-          )
+    final metadataLines = List<String>.from(subtitle);
+    final descriptionLine = metadataLines.isNotEmpty
+        ? metadataLines.removeAt(0)
         : null;
 
-    final availabilityAlert = _buildAvailabilityAlert(context);
     final statusIcons = _buildStatusIcons(context);
     final exactMatchBanner = _buildExactMatchBanner(context);
     final hasRegulatoryBadges =
@@ -111,70 +105,210 @@ class ScannerResultCard extends StatelessWidget {
       compact: true,
     );
 
-    Widget card = ShadCard(
-      title: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (expiredAlert != null) ...[
-            expiredAlert,
-            const Gap(AppDimens.spacingSm),
-          ],
-          _CardHeader(
-            displayTitle: displayTitle,
-            badges: badges,
-            statusIcons: statusIcons,
-            isFocusPrinceps: isGenericWithPrinceps,
-            compact: true,
-          ),
-        ],
+    final combinedMetadata = [
+      descriptionLine,
+      ...metadataLines,
+    ].whereType<String>().where((line) => line.trim().isNotEmpty).join(' • ');
+
+    final normalizedRefund = refundRate?.trim();
+    final hasRefund =
+        normalizedRefund != null &&
+        normalizedRefund.isNotEmpty &&
+        normalizedRefund.toLowerCase() != 'nr';
+    final hasFinancialInfo = hasRefund || price != null;
+    final priceText = price != null
+        ? formatEuro(price!)
+        : Strings.priceUnavailable;
+    final refundText = (normalizedRefund != null && normalizedRefund.isNotEmpty)
+        ? normalizedRefund
+        : Strings.refundNotAvailable;
+    final Widget? financialBadge = hasFinancialInfo
+        ? FinancialBadge(
+            refundRate: refundRate,
+            price: price,
+          )
+        : null;
+
+    final statusBadges = MedicationUiMapper.buildStatusBadges(
+      context: context,
+      medicament: summary,
+      boxStatus: commercializationStatus,
+      availabilityStatus: availabilityStatus,
+      isExpired: isExpired,
+      expDate: expDate,
+    );
+
+    final infoBadges = <Widget>[];
+    if (hasRegulatoryBadges) infoBadges.add(regulatoryBadgesWidget);
+    if (statusIcons is! SizedBox) infoBadges.add(statusIcons);
+    infoBadges.addAll(statusBadges);
+    if (exactMatchBanner != null) infoBadges.add(exactMatchBanner);
+
+    Widget card = Material(
+      color: isRestockMode ? restockBackground : theme.colorScheme.background,
+      shape: RoundedRectangleBorder(
+        borderRadius: radius,
+        side: BorderSide(
+          color: isRestockMode ? restockBorder : context.shadColors.border,
+        ),
       ),
-      description: subtitle.isNotEmpty ? _buildDescription(context) : null,
-      footer: _buildActions(context),
-      child: Padding(
-        padding: const EdgeInsets.all(AppDimens.spacing2xs),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (isRevoked) ...[
-              const ShadAlert.destructive(
-                title: Text(Strings.revokedStatusTitle),
-                description: Text(Strings.revokedStatusDescription),
+      child: InkWell(
+        borderRadius: radius,
+        onTap: onExplore,
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          displayTitle,
+                          style: context.shadTextTheme.p.copyWith(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 15,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (isGenericWithPrinceps) ...[
+                          const Gap(AppDimens.spacing2xs),
+                          Text(
+                            summary.data.princepsDeReference,
+                            style: context.shadTextTheme.small.copyWith(
+                              color: context.shadColors.mutedForeground,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                        if (combinedMetadata.isNotEmpty) ...[
+                          const Gap(AppDimens.spacing2xs),
+                          Text(
+                            combinedMetadata,
+                            style: context.shadTextTheme.small.copyWith(
+                              color: context.shadColors.mutedForeground,
+                              fontSize: 12,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const Gap(AppDimens.spacing2xs),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      if (financialBadge != null)
+                        Padding(
+                          padding: const EdgeInsets.only(
+                            top: AppDimens.spacing2xs,
+                          ),
+                          child: financialBadge,
+                        ),
+                      Semantics(
+                        button: true,
+                        label: Strings.closeCardLabel,
+                        hint: Strings.closeCardHint,
+                        child: SizedBox(
+                          height: 48,
+                          width: 48,
+                          child: InkResponse(
+                            onTap: onClose,
+                            radius: 24,
+                            child: Icon(
+                              LucideIcons.x,
+                              size: 18,
+                              color: context.shadColors.mutedForeground,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              const Gap(4),
-            ],
-            if (isNotMarketed) ...[
-              ShadBadge.secondary(
-                child: Text(
-                  Strings.nonCommercialise,
-                  style: context.shadTextTheme.small,
+              if (hasFinancialInfo) ...[
+                const Gap(AppDimens.spacing2xs),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildStatChip(
+                        context,
+                        label: Strings.priceShort,
+                        value: priceText,
+                        icon: LucideIcons.banknote,
+                      ),
+                    ),
+                    const Gap(AppDimens.spacingSm),
+                    Expanded(
+                      child: _buildStatChip(
+                        context,
+                        label: Strings.refundShort,
+                        value: refundText,
+                        icon: LucideIcons.percent,
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              const Gap(4),
+              ],
+              if (badges.isNotEmpty ||
+                  hasRegulatoryBadges ||
+                  statusIcons is! SizedBox)
+                Padding(
+                  padding: const EdgeInsets.only(top: AppDimens.spacing2xs),
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        ..._withSpacing(badges),
+                        if (hasRegulatoryBadges)
+                          ..._withSpacing([regulatoryBadgesWidget]),
+                        if (statusIcons is! SizedBox) ...[
+                          const SizedBox(width: AppDimens.spacingXs),
+                          statusIcons,
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              if (infoBadges.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: AppDimens.spacing2xs),
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: _withSpacing(infoBadges),
+                    ),
+                  ),
+                ),
             ],
-            if (exactMatchBanner != null) ...[
-              exactMatchBanner,
-              const Gap(2),
-            ],
-            if (availabilityAlert != null) ...[
-              availabilityAlert,
-              const Gap(2),
-            ],
-            if (price != null ||
-                (refundRate != null && refundRate!.trim().isNotEmpty)) ...[
-              FinancialBadge(
-                refundRate: refundRate,
-                price: price,
-              ),
-              const Gap(AppDimens.spacingXs),
-            ],
-            if (hasRegulatoryBadges) ...[
-              const Gap(AppDimens.spacingXs),
-              regulatoryBadgesWidget,
-            ],
-          ],
+          ),
         ),
       ),
     );
+
+    if (isRestockMode) {
+      card = DecoratedBox(
+        decoration: BoxDecoration(
+          color: restockBackground,
+          border: Border.all(
+            color: restockBorder,
+          ),
+          borderRadius: theme.radius,
+        ),
+        child: card,
+      );
+    }
 
     if (isExpired) {
       card = DecoratedBox(
@@ -193,68 +327,6 @@ class ScannerResultCard extends StatelessWidget {
       label: _buildSemanticsLabel(),
       hint: Strings.tapToViewDetails,
       child: card,
-    );
-  }
-
-  Widget _buildDescription(BuildContext context) {
-    final theme = context.shadTheme;
-    return Padding(
-      padding: const EdgeInsets.only(
-        left: AppDimens.spacing2xs,
-        right: AppDimens.spacing2xs,
-        top: 2,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: subtitle
-            .map(
-              (line) => Padding(
-                padding: const EdgeInsets.only(bottom: 2),
-                child: Text(
-                  line,
-                  style: theme.textTheme.muted.copyWith(fontSize: 12),
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 1,
-                ),
-              ),
-            )
-            .toList(),
-      ),
-    );
-  }
-
-  Widget _buildActions(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.end,
-      children: [
-        if (onExplore != null)
-          Semantics(
-            button: true,
-            label: Strings.exploreGroupLabel,
-            hint: Strings.exploreGroupHint,
-            child: ShadButton.outline(
-              onPressed: onExplore,
-              leading: const Icon(LucideIcons.search, size: 12),
-              child: Text(
-                Strings.exploreGroup,
-                style: context.shadTextTheme.small,
-              ),
-            ),
-          ),
-        if (onExplore != null) const Gap(4),
-        Semantics(
-          button: true,
-          label: Strings.closeCardLabel,
-          hint: Strings.closeCardHint,
-          child: ShadButton.ghost(
-            onPressed: onClose,
-            child: Text(
-              Strings.close,
-              style: context.shadTextTheme.small,
-            ),
-          ),
-        ),
-      ],
     );
   }
 
@@ -279,15 +351,44 @@ class ScannerResultCard extends StatelessWidget {
     return buffer.toString();
   }
 
-  Widget? _buildAvailabilityAlert(BuildContext context) {
-    if (availabilityStatus == null || availabilityStatus!.isEmpty) {
-      return null;
-    }
+  Widget _buildStatChip(
+    BuildContext context, {
+    required String label,
+    required String value,
+    required IconData icon,
+  }) {
     final theme = context.shadTheme;
-    return ShadAlert.destructive(
-      title: Text(
-        Strings.stockAlert(availabilityStatus!.trim()),
-        style: theme.textTheme.small,
+    return Semantics(
+      label: label,
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppDimens.spacingSm,
+          vertical: AppDimens.spacing2xs,
+        ),
+        decoration: BoxDecoration(
+          borderRadius: theme.radius,
+          border: Border.all(color: theme.colorScheme.border),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              size: 14,
+              color: theme.colorScheme.mutedForeground,
+            ),
+            const Gap(6),
+            Expanded(
+              child: Text(
+                value,
+                style: theme.textTheme.small.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -340,16 +441,10 @@ class ScannerResultCard extends StatelessWidget {
 
     if (icons.isEmpty) return const SizedBox.shrink();
 
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: icons
-          .map(
-            (icon) => Padding(
-              padding: const EdgeInsets.only(right: AppDimens.spacingXs),
-              child: icon,
-            ),
-          )
-          .toList(),
+    return Wrap(
+      spacing: AppDimens.spacingXs,
+      runSpacing: AppDimens.spacing2xs,
+      children: icons,
     );
   }
 
@@ -375,6 +470,7 @@ class ScannerResultCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(smallRadius),
       ),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
             LucideIcons.scanBarcode,
@@ -382,7 +478,7 @@ class ScannerResultCard extends StatelessWidget {
             color: mutedForeground,
           ),
           const Gap(4),
-          Expanded(
+          Flexible(
             child: Text(
               exactMatchLabel!,
               style: theme.textTheme.small.copyWith(color: mutedForeground),
@@ -394,68 +490,15 @@ class ScannerResultCard extends StatelessWidget {
       ),
     );
   }
-}
 
-class _CardHeader extends StatelessWidget {
-  const _CardHeader({
-    required this.displayTitle,
-    required this.badges,
-    required this.statusIcons,
-    required this.isFocusPrinceps,
-    required this.compact,
-  });
-
-  final String displayTitle;
-  final List<Widget> badges;
-  final Widget statusIcons;
-  final bool isFocusPrinceps;
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = context.shadTheme;
-    final baseTitleStyle = theme.textTheme.h4;
-    final titleStyle = compact
-        ? theme.textTheme.p.copyWith(fontWeight: FontWeight.w600)
-        : baseTitleStyle.copyWith(
-            fontWeight: isFocusPrinceps
-                ? FontWeight.bold
-                : baseTitleStyle.fontWeight,
-            letterSpacing: isFocusPrinceps
-                ? -0.5
-                : baseTitleStyle.letterSpacing,
-          );
-    return Padding(
-      padding: EdgeInsets.all(
-        compact ? AppDimens.spacing2xs : AppDimens.spacingMd,
-      ),
-      child: Row(
-        children: [
-          if (badges.isNotEmpty) ...[
-            ...badges.map(
-              (badge) => Padding(
-                padding: EdgeInsets.only(
-                  right: compact ? AppDimens.spacing2xs : AppDimens.spacingXs,
-                ),
-                child: badge,
-              ),
-            ),
-            Gap(compact ? AppDimens.spacing2xs : AppDimens.spacingXs),
-          ],
-          Expanded(
-            child: Text(
-              displayTitle,
-              style: titleStyle,
-              overflow: TextOverflow.ellipsis,
-              maxLines: compact ? 1 : 2,
-            ),
-          ),
-          if (statusIcons is! SizedBox) ...[
-            Gap(compact ? AppDimens.spacing2xs : AppDimens.spacingXs),
-            statusIcons,
-          ],
-        ],
-      ),
-    );
+  List<Widget> _withSpacing(List<Widget> children) {
+    final spaced = <Widget>[];
+    for (var i = 0; i < children.length; i++) {
+      if (i > 0) {
+        spaced.add(const SizedBox(width: AppDimens.spacingXs));
+      }
+      spaced.add(children[i]);
+    }
+    return spaced;
   }
 }

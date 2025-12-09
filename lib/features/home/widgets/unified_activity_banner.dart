@@ -106,9 +106,20 @@ class UnifiedActivityBanner extends StatelessWidget {
           const Gap(AppDimens.spacingSm),
           SizedBox(
             height: 4,
-            child: indeterminate && effectiveProgress == null
-                ? const ShadProgress()
-                : ShadProgress(value: effectiveProgress ?? 0),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(999),
+              child: LinearProgressIndicator(
+                value: indeterminate && effectiveProgress == null
+                    ? null
+                    : effectiveProgress ?? 0,
+                backgroundColor: context.shadColors.mutedForeground.withValues(
+                  alpha: 0.2,
+                ),
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  context.shadColors.primary,
+                ),
+              ),
+            ),
           ),
           const Gap(AppDimens.spacing2xs),
           Text(

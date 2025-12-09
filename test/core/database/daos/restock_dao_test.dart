@@ -43,6 +43,31 @@ void main() {
       expect(rows, isEmpty);
     });
 
+    test('updateQuantity keeps zero when allowZero is true', () async {
+      final dao = db.restockDao;
+      final cip = Cip13.validated('3400934056781');
+
+      await dao.addToRestock(cip); // quantity = 1
+      await dao.updateQuantity(cip, -1, allowZero: true); // should reach 0
+
+      final rows = await db.select(db.restockItems).get();
+      expect(rows.single.quantity, 0);
+    });
+
+    test(
+      'updateQuantity deletes when dropping below zero with allowZero',
+      () async {
+        final dao = db.restockDao;
+        final cip = Cip13.validated('3400934056781');
+
+        await dao.addToRestock(cip); // quantity = 1
+        await dao.updateQuantity(cip, -2, allowZero: true); // should delete
+
+        final rows = await db.select(db.restockItems).get();
+        expect(rows, isEmpty);
+      },
+    );
+
     test('toggleCheck flips isChecked flag', () async {
       final dao = db.restockDao;
       final cip = Cip13.validated('3400934056781');
@@ -180,6 +205,130 @@ void main() {
 
       final rows = await db.select(db.restockItems).get();
       expect(rows.single.quantity, 7);
+    });
+
+    test('forceUpdateQuantity accepts zero without deleting', () async {
+      final dao = db.restockDao;
+      final cip = Cip13.validated('3400934056781');
+
+      await dao.addToRestock(cip);
+      await dao.forceUpdateQuantity(
+        cip: cip.toString(),
+        newQuantity: 0,
+      );
+
+      final rows = await db.select(db.restockItems).get();
+      expect(rows.single.quantity, 0);
+    });
+
+    test('watchRestockItems maps form from summary', () async {
+      final dao = db.restockDao;
+      final cip = Cip13.validated('3400934056781');
+
+      await db
+          .into(db.specialites)
+          .insert(
+            SpecialitesCompanion.insert(
+              cisCode: 'CIS_X',
+              nomSpecialite: 'X',
+              procedureType: 'proc',
+              statutAdministratif: const Value('actif'),
+              formePharmaceutique: const Value('Comprimé'),
+              voiesAdministration: const Value('orale'),
+              etatCommercialisation: const Value('ok'),
+              titulaireId: const Value(1),
+              conditionsPrescription: const Value(''),
+              dateAmm: const Value(null),
+              atcCode: const Value(null),
+              isSurveillance: const Value(false),
+            ),
+          );
+      await db
+          .into(db.medicaments)
+          .insert(
+            MedicamentsCompanion.insert(
+              codeCip: cip.toString(),
+              cisCode: 'CIS_X',
+              presentationLabel: const Value(''),
+              commercialisationStatut: const Value(''),
+              tauxRemboursement: const Value(null),
+              prixPublic: const Value(null),
+              agrementCollectivites: const Value(null),
+            ),
+          );
+      await db
+          .into(db.medicamentSummary)
+          .insert(
+            MedicamentSummaryCompanion.insert(
+              cisCode: 'CIS_X',
+              nomCanonique: 'Label',
+              isPrinceps: true,
+              groupId: const Value('G'),
+              memberType: const Value(0),
+              principesActifsCommuns: const [],
+              princepsDeReference: 'Princeps',
+              formePharmaceutique: const Value('Comprimé'),
+              voiesAdministration: const Value('Orale'),
+              princepsBrandName: 'Brand',
+              procedureType: const Value('proc'),
+              titulaireId: const Value(1),
+              conditionsPrescription: const Value(null),
+              dateAmm: const Value(null),
+              isSurveillance: const Value(false),
+              isDental: const Value(false),
+              isList1: const Value(false),
+              isList2: const Value(false),
+              isNarcotic: const Value(false),
+              isException: const Value(false),
+              isRestricted: const Value(false),
+              isOtc: const Value(true),
+            ),
+          );
+      await dao.addToRestock(cip);
+
+      final items = await dao.watchRestockItems().first;
+      expect(items.single.form, 'Comprimé');
+    });
+
+    test('watchRestockItems falls back to specialites form', () async {
+      final dao = db.restockDao;
+      final cip = Cip13.validated('3400934056782');
+
+      await db
+          .into(db.specialites)
+          .insert(
+            SpecialitesCompanion.insert(
+              cisCode: 'CIS_Y',
+              nomSpecialite: 'Y',
+              procedureType: 'proc',
+              statutAdministratif: const Value('actif'),
+              formePharmaceutique: const Value('Sirop'),
+              voiesAdministration: const Value('orale'),
+              etatCommercialisation: const Value('ok'),
+              titulaireId: const Value(1),
+              conditionsPrescription: const Value(''),
+              dateAmm: const Value(null),
+              atcCode: const Value(null),
+              isSurveillance: const Value(false),
+            ),
+          );
+      await db
+          .into(db.medicaments)
+          .insert(
+            MedicamentsCompanion.insert(
+              codeCip: cip.toString(),
+              cisCode: 'CIS_Y',
+              presentationLabel: const Value(''),
+              commercialisationStatut: const Value(''),
+              tauxRemboursement: const Value(null),
+              prixPublic: const Value(null),
+              agrementCollectivites: const Value(null),
+            ),
+          );
+      await dao.addToRestock(cip);
+
+      final items = await dao.watchRestockItems().first;
+      expect(items.single.form, 'Sirop');
     });
 
     test('watchScanHistory returns recent scans ordered desc', () async {

@@ -263,3 +263,23 @@ This document lists every component available in the `shadcn_ui` library for Flu
           : MobileWidget(),
     )
     ```
+
+## Patterns UX
+
+### Gestion des suppressions avec Undo
+
+* Suppression optimiste + toast avec bouton "Annuler" (outline, size `sm`) visible ~4s.
+* Éviter les dialogues modaux pour les suppressions unitaires.
+
+### Code couleur galénique
+
+* Bordure gauche colorée pour signaler la forme :
+  * 🔵 Solides (Comprimés/Gélules/Capsules)
+  * 🟠 Liquides (Sirops/Solutions/Buvables)
+  * 🟣 Semi-solides (Crèmes/Gels/Pommades)
+  * 🔴 Injectables
+
+### États vides actionnables
+
+* Toujours proposer un CTA principal (ex : "Ouvrir le Scanner") pour sortir de l'état vide.
+* Ajouter icône, titre et sous-texte concis pour cadrer l'action attendue.

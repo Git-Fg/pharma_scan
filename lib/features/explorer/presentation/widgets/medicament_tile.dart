@@ -4,7 +4,6 @@ import 'package:pharma_scan/core/logic/sanitizer.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
-import 'package:pharma_scan/core/widgets/highlight_text.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/product_badges.dart';
 import 'package:pharma_scan/features/explorer/domain/models/search_result_item_model.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
@@ -21,8 +20,19 @@ class MedicamentTile extends StatelessWidget {
   final VoidCallback onTap;
   final String currentQuery;
 
+  String _heroTag(SearchResultItem item) {
+    return switch (item) {
+      GroupResult(group: final group) => 'group-${group.groupId}',
+      PrincepsResult(groupId: final groupId) => 'group-$groupId',
+      GenericResult(groupId: final groupId) => 'group-$groupId',
+      StandaloneResult(representativeCip: final cip) => 'standalone-$cip',
+      ClusterResult() => 'cluster-${item.hashCode}',
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
+    final heroTag = _heroTag(item);
     final (
       String title,
       String? subtitle,
@@ -122,6 +132,27 @@ class MedicamentTile extends StatelessWidget {
       }(),
     };
 
+    final breakpoint = context.breakpoint;
+    final isStackedLayout = breakpoint < context.breakpoints.sm;
+
+    Widget? buildDetails({
+      required TextAlign align,
+      required int maxLines,
+    }) {
+      final detailValue = details;
+      if (detailValue == null) return null;
+      return Text(
+        detailValue,
+        maxLines: maxLines,
+        overflow: TextOverflow.ellipsis,
+        softWrap: true,
+        textAlign: align,
+        style: context.shadTextTheme.small.copyWith(
+          color: context.shadColors.mutedForeground,
+        ),
+      );
+    }
+
     return Semantics(
       label: semanticLabel,
       hint: Strings.medicationTileHint,
@@ -158,51 +189,84 @@ class MedicamentTile extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          HighlightText(
-                            text: title,
-                            query: currentQuery,
-                            maxLines: 1,
-                            style: context.shadTextTheme.p.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                            highlightStyle: context.shadTextTheme.p.copyWith(
-                              fontWeight: FontWeight.w900,
-                              color: context.shadColors.primary,
+                          Hero(
+                            tag: heroTag,
+                            flightShuttleBuilder:
+                                (
+                                  _,
+                                  animation,
+                                  direction,
+                                  fromContext,
+                                  toContext,
+                                ) {
+                                  final target =
+                                      direction == HeroFlightDirection.push
+                                      ? toContext.widget
+                                      : fromContext.widget;
+                                  return FadeTransition(
+                                    opacity: animation.drive(
+                                      CurveTween(curve: Curves.easeInOut),
+                                    ),
+                                    child: target,
+                                  );
+                                },
+                            child: Material(
+                              type: MaterialType.transparency,
+                              child: Text(
+                                title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: context.shadTextTheme.p.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                             ),
                           ),
                           if (subtitle != null) ...[
                             const Gap(4),
-                            HighlightText(
-                              text: subtitle,
-                              query: currentQuery,
+                            Text(
+                              subtitle,
                               maxLines: 3,
+                              overflow: TextOverflow.ellipsis,
                               style: context.shadTextTheme.small.copyWith(
                                 color: context.shadColors.mutedForeground,
                               ),
-                              highlightStyle: context.shadTextTheme.small
-                                  .copyWith(
-                                    fontWeight: FontWeight.w900,
-                                    color: context.shadColors.primary,
-                                  ),
                             ),
                           ],
                         ],
                       ),
                     ),
-                    if (details != null) ...[
-                      const Gap(AppDimens.spacingSm),
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 140),
-                        child: Text(
-                          details,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.end,
-                          style: context.shadTextTheme.small.copyWith(
-                            color: context.shadColors.mutedForeground,
-                          ),
+                    if (isStackedLayout) ...[
+                      const Gap(AppDimens.spacing2xs),
+                      if (buildDetails(
+                            align: TextAlign.start,
+                            maxLines: 2,
+                          ) !=
+                          null)
+                        Expanded(
+                          child:
+                              buildDetails(
+                                align: TextAlign.start,
+                                maxLines: 2,
+                              ) ??
+                              const SizedBox.shrink(),
                         ),
-                      ),
+                    ] else ...[
+                      if (buildDetails(
+                            align: TextAlign.end,
+                            maxLines: 1,
+                          ) !=
+                          null) ...[
+                        const Gap(AppDimens.spacingSm),
+                        Flexible(
+                          child:
+                              buildDetails(
+                                align: TextAlign.end,
+                                maxLines: 1,
+                              ) ??
+                              const SizedBox.shrink(),
+                        ),
+                      ],
                     ],
                     if (isRevoked) ...[
                       const Gap(AppDimens.spacingXs),

@@ -3,29 +3,28 @@ import 'dart:async';
 import 'package:dart_mappable/dart_mappable.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:pharma_scan/core/config/app_config.dart';
-import 'package:pharma_scan/core/database/daos/restock_dao.dart';
-import 'package:pharma_scan/core/domain/types/ids.dart';
 import 'package:pharma_scan/core/models/scan_result.dart';
 import 'package:pharma_scan/core/providers/core_providers.dart';
 import 'package:pharma_scan/core/services/logger_service.dart';
-import 'package:pharma_scan/core/utils/gs1_parser.dart';
-import 'package:pharma_scan/core/utils/strings.dart';
+import 'package:pharma_scan/features/scanner/domain/logic/scan_orchestrator.dart';
+import 'package:pharma_scan/features/scanner/domain/logic/scan_traffic_control.dart';
+import 'package:pharma_scan/features/scanner/domain/scanner_mode.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+
+export 'package:pharma_scan/features/scanner/domain/scanner_mode.dart';
 
 part 'scanner_provider.g.dart';
 part 'scanner_provider.mapper.dart';
 
 typedef ScanBubble = ScanResult;
 
-enum ScannerMode {
-  analysis,
-  restock,
-}
-
 enum ScannerHapticType {
-  success,
+  analysisSuccess,
+  restockSuccess,
   warning,
   error,
+  duplicate,
+  unknown,
 }
 
 sealed class ScannerSideEffect {
@@ -49,8 +48,6 @@ class ScannerHaptic extends ScannerSideEffect {
 
 class ScannerRuntime {
   final Map<String, Timer> dismissTimers = {};
-  final Map<String, DateTime> scanCooldowns = {};
-  final Set<String> processingCips = {};
   Timer? cleanupTimer;
   String? pendingCleanupCode;
 
@@ -60,8 +57,6 @@ class ScannerRuntime {
     }
     dismissTimers.clear();
     cleanupTimer?.cancel();
-    processingCips.clear();
-    scanCooldowns.clear();
     pendingCleanupCode = null;
   }
 }
@@ -71,6 +66,22 @@ ScannerRuntime scannerRuntime(Ref ref) {
   final runtime = ScannerRuntime();
   ref.onDispose(runtime.dispose);
   return runtime;
+}
+
+@Riverpod(keepAlive: true)
+ScanTrafficControl scanTrafficControl(Ref ref) {
+  final control = ScanTrafficControl();
+  ref.onDispose(control.reset);
+  return control;
+}
+
+@Riverpod(keepAlive: true)
+ScanOrchestrator scanOrchestrator(Ref ref) {
+  return ScanOrchestrator(
+    catalogDao: ref.read(catalogDaoProvider),
+    restockDao: ref.read(appDatabaseProvider).restockDao,
+    trafficControl: ref.read(scanTrafficControlProvider),
+  );
 }
 
 @MappableClass()
@@ -86,33 +97,19 @@ class ScannerState with ScannerStateMappable {
   final ScannerMode mode;
 }
 
-class DuplicateScanEvent {
-  const DuplicateScanEvent({
-    required this.cip,
-    required this.serial,
-    required this.productName,
-    required this.currentQuantity,
-  });
-
-  final String cip;
-  final String serial;
-  final String productName;
-  final int currentQuantity;
-}
-
 @Riverpod(keepAlive: true)
 class ScannerNotifier extends _$ScannerNotifier {
   static const int _maxBubbles = AppConfig.scannerHistoryLimit;
   static const Duration _bubbleLifetime = AppConfig.scannerBubbleLifetime;
   static const Duration _codeCleanupDelay = AppConfig.scannerCodeCleanupDelay;
   static const Duration _codeRemovalDelay = Duration(seconds: 3);
-  static const Duration _cooldownDuration = Duration(seconds: 2);
-  static const Duration _cooldownCleanupThreshold = Duration(minutes: 5);
 
   final _sideEffects = StreamController<ScannerSideEffect>.broadcast(
     sync: true,
   );
   ScannerRuntime? _cachedRuntime;
+  ScanTrafficControl? _cachedTrafficControl;
+  ScanOrchestrator? _cachedOrchestrator;
 
   ScannerRuntime get _runtime {
     final runtime = _cachedRuntime;
@@ -120,6 +117,22 @@ class ScannerNotifier extends _$ScannerNotifier {
     final created = ref.read(scannerRuntimeProvider);
     _cachedRuntime = created;
     return created;
+  }
+
+  ScanTrafficControl get _trafficControl {
+    final cached = _cachedTrafficControl;
+    if (cached != null) return cached;
+    final control = ref.read(scanTrafficControlProvider);
+    _cachedTrafficControl = control;
+    return control;
+  }
+
+  ScanOrchestrator get _scanOrchestrator {
+    final cached = _cachedOrchestrator;
+    if (cached != null) return cached;
+    final orchestrator = ref.read(scanOrchestratorProvider);
+    _cachedOrchestrator = orchestrator;
+    return orchestrator;
   }
 
   static const ScannerState _initialState = ScannerState(
@@ -136,6 +149,7 @@ class ScannerNotifier extends _$ScannerNotifier {
     ref.onDispose(() {
       final runtime = _cachedRuntime;
       runtime?.dispose();
+      _cachedTrafficControl?.reset();
       unawaited(_sideEffects.close());
     });
 
@@ -146,6 +160,7 @@ class ScannerNotifier extends _$ScannerNotifier {
 
   void setMode(ScannerMode mode) {
     final current = _currentState;
+    _trafficControl.reset();
     state = AsyncData(current.copyWith(mode: mode));
   }
 
@@ -154,160 +169,40 @@ class ScannerNotifier extends _$ScannerNotifier {
     bool force = false,
   }) async {
     final mode = _currentState.mode;
-
     for (final barcode in capture.barcodes) {
-      if (barcode.rawValue == null) {
-        continue;
-      }
+      final rawValue = barcode.rawValue;
+      if (rawValue == null) continue;
 
-      final parsedData = Gs1Parser.parse(barcode.rawValue);
-      final codeCip = parsedData.gtin;
+      try {
+        final rawValuePreview = rawValue.length > 50
+            ? '${rawValue.substring(0, 50)}...'
+            : rawValue;
+        LoggerService.debug(
+          '[ScannerNotifier] Barcode detected - Format: ${barcode.format}, '
+          'RawValue: $rawValuePreview, Force: $force',
+        );
 
-      if (codeCip == null) {
-        continue;
-      }
-
-      if (force &&
-          _currentState.bubbles.any((b) => b.cip.toString() == codeCip)) {
-        removeBubble(codeCip);
-      }
-
-      final scanKey = _getUniqueScanKey(codeCip, parsedData.serial);
-      final now = DateTime.now();
-
-      if (!force && _isCooldownActive(scanKey, now)) {
-        continue;
-      }
-      _cleanupExpiredCooldowns(now);
-      _runtime.scanCooldowns[scanKey] = now;
-
-      if (_runtime.processingCips.contains(codeCip)) {
-        continue;
-      }
-
-      final rawValuePreview = barcode.rawValue!.length > 50
-          ? '${barcode.rawValue!.substring(0, 50)}...'
-          : barcode.rawValue!;
-      LoggerService.debug(
-        '[ScannerNotifier] Barcode detected - Format: ${barcode.format}, '
-        'GTIN: $codeCip, RawValue: $rawValuePreview, Force: $force',
-      );
-
-      if (mode == ScannerMode.analysis) {
-        await _handleAnalysisScan(
-          codeCip: codeCip,
+        final decision = await _scanOrchestrator.decide(
+          rawValue,
+          mode,
           force: force,
-          expDate: parsedData.expDate,
+          scannedCodes: _currentState.scannedCodes,
+          existingBubbles: _currentState.bubbles,
         );
-      } else {
-        await _handleRestockScan(parsedData);
-      }
 
-      if (!ref.mounted) {
-        return;
-      }
-    }
-  }
-
-  Future<void> _handleAnalysisScan({
-    required String codeCip,
-    required bool force,
-    required DateTime? expDate,
-  }) async {
-    final currentState = _currentState;
-
-    if (!force && currentState.scannedCodes.contains(codeCip)) {
-      return;
-    }
-
-    if (force && currentState.bubbles.any((b) => b.cip.toString() == codeCip)) {
-      removeBubble(codeCip);
-    }
-
-    LoggerService.db(
-      '[ScannerNotifier] Searching for medicament with CIP: $codeCip (force: $force)',
-    );
-    await findMedicament(
-      codeCip,
-      force: force,
-      expDate: expDate,
-    );
-    if (!ref.mounted) return;
-  }
-
-  Future<void> _handleRestockScan(Gs1DataMatrix parsedData) async {
-    final codeCip = parsedData.gtin;
-    if (codeCip == null) {
-      return;
-    }
-
-    if (_runtime.processingCips.contains(codeCip)) {
-      return;
-    }
-    _runtime.processingCips.add(codeCip);
-
-    try {
-      final cip13 = Cip13.validated(codeCip);
-      final catalogDao = ref.read(catalogDaoProvider);
-      final db = ref.read(appDatabaseProvider);
-      final restockDao = db.restockDao;
-
-      final result = await catalogDao.getProductByCip(cip13);
-      if (!ref.mounted) return;
-      if (result == null) {
-        LoggerService.warning(
-          '[ScannerNotifier] Restock mode: no product found for CIP: $codeCip',
-        );
-        _emit(const ScannerHaptic(ScannerHapticType.error));
-        return;
-      }
-
-      final serial = parsedData.serial;
-      if (serial != null &&
-          await restockDao.isDuplicate(cip: codeCip, serial: serial)) {
         if (!ref.mounted) return;
-        final currentQuantity =
-            await restockDao.getRestockQuantity(codeCip) ?? 1;
-        if (!ref.mounted) return;
-        _emit(
-          ScannerDuplicateDetected(
-            DuplicateScanEvent(
-              cip: codeCip,
-              serial: serial,
-              productName: result.summary.data.nomCanonique,
-              currentQuantity: currentQuantity,
-            ),
-          ),
+        _applyDecision(decision);
+      } on Object catch (error, stackTrace) {
+        LoggerService.error(
+          '[ScannerNotifier] Failed to process scan for value: $rawValue',
+          error,
+          stackTrace,
         );
-        _emit(const ScannerHaptic(ScannerHapticType.warning));
-        return;
+        if (ref.mounted) {
+          state = AsyncError(error, stackTrace);
+          _emit(const ScannerHaptic(ScannerHapticType.error));
+        }
       }
-
-      final outcome = await restockDao.addUniqueBox(
-        cip: cip13,
-        serial: serial,
-        batchNumber: parsedData.lot,
-        expiryDate: parsedData.expDate,
-      );
-      if (!ref.mounted) return;
-
-      if (outcome == ScanOutcome.added) {
-        _emit(const ScannerHaptic(ScannerHapticType.success));
-      } else {
-        _emit(const ScannerHaptic(ScannerHapticType.warning));
-      }
-
-      final label = result.summary.data.nomCanonique;
-      final message = switch (outcome) {
-        ScanOutcome.added => '+1 $label',
-        ScanOutcome.duplicate =>
-          parsedData.serial != null
-              ? Strings.duplicateSerial(parsedData.serial!)
-              : Strings.duplicateSerialUnknown,
-      };
-      _emit(ScannerToast(message));
-    } finally {
-      _runtime.processingCips.remove(codeCip);
     }
   }
 
@@ -316,78 +211,70 @@ class ScannerNotifier extends _$ScannerNotifier {
     bool force = false,
     DateTime? expDate,
   }) async {
-    if (_runtime.processingCips.contains(codeCip)) {
-      return false;
-    }
-    _runtime.processingCips.add(codeCip);
-
     LoggerService.db('[ScannerNotifier] Querying database for CIP: $codeCip');
 
-    var found = false;
-
     try {
-      final previousState = _currentState;
-      final guarded = await AsyncValue.guard<ScannerState>(() async {
-        final cip13 = Cip13.validated(codeCip);
-        final catalogDao = ref.read(catalogDaoProvider);
-        final result = await catalogDao.getProductByCip(
-          cip13,
-          expDate: expDate,
-        );
-        if (!ref.mounted) {
-          return previousState;
-        }
+      final decision = await _scanOrchestrator.decide(
+        _buildGs1FromCip(codeCip, expDate: expDate),
+        ScannerMode.analysis,
+        force: force,
+        scannedCodes: _currentState.scannedCodes,
+        existingBubbles: _currentState.bubbles,
+      );
 
-        if (result != null) {
-          if (result.summary.groupId != null) {
-            if (result.summary.data.isPrinceps) {
-              LoggerService.info(
-                '[ScannerNotifier] Princeps medication found: ${result.summary.data.nomCanonique} '
-                '(Princeps de ce groupe)',
-              );
-            } else {
-              final reference =
-                  result.summary.data.princepsDeReference.isNotEmpty
-                  ? result.summary.data.princepsDeReference
-                  : 'groupe ${result.summary.groupId}';
-              LoggerService.info(
-                '[ScannerNotifier] Generic medication found: ${result.summary.data.nomCanonique} '
-                '(Générique de $reference)',
-              );
-            }
-          } else {
-            LoggerService.info(
-              '[ScannerNotifier] Standalone medication found: ${result.summary.data.nomCanonique} '
-              '(Médicament Unique)',
-            );
-          }
-
-          if (result.availabilityStatus != null &&
-              result.availabilityStatus!.isNotEmpty) {
-            _emit(const ScannerHaptic(ScannerHapticType.warning));
-          } else {
-            _emit(const ScannerHaptic(ScannerHapticType.success));
-          }
-
-          found = true;
-          addBubble(result);
-          return _currentState;
-        } else {
-          LoggerService.warning(
-            '[ScannerNotifier] No product found in database for CIP: $codeCip',
-          );
-          _emit(const ScannerHaptic(ScannerHapticType.error));
-          return previousState;
-        }
-      });
-
-      if (!ref.mounted) {
-        return found;
+      if (!ref.mounted) return false;
+      _applyDecision(decision);
+      return decision is AnalysisSuccess;
+    } on Object catch (error, stackTrace) {
+      LoggerService.error(
+        '[ScannerNotifier] Failed to query medicament for CIP: $codeCip',
+        error,
+        stackTrace,
+      );
+      if (ref.mounted) {
+        state = AsyncError(error, stackTrace);
+        _emit(const ScannerHaptic(ScannerHapticType.error));
       }
-      state = guarded;
-      return found;
-    } finally {
-      _runtime.processingCips.remove(codeCip);
+      return false;
+    }
+  }
+
+  void _applyDecision(ScanDecision decision) {
+    switch (decision) {
+      case Ignore():
+        return;
+      case AnalysisSuccess(:final result, :final replacedExisting):
+        if (replacedExisting) {
+          removeBubble(result.cip.toString());
+        }
+        addBubble(result);
+        final hasAvailabilityWarning =
+            (result.availabilityStatus ?? '').isNotEmpty;
+        _emit(
+          ScannerHaptic(
+            hasAvailabilityWarning
+                ? ScannerHapticType.warning
+                : ScannerHapticType.analysisSuccess,
+          ),
+        );
+      case RestockAdded(
+        :final scanResult,
+        :final toastMessage,
+      ):
+        addBubble(scanResult);
+        _emit(const ScannerHaptic(ScannerHapticType.restockSuccess));
+        _emit(ScannerToast(toastMessage));
+      case RestockDuplicate(:final event, :final toastMessage):
+        if (toastMessage != null) {
+          _emit(ScannerToast(toastMessage));
+        }
+        _emit(const ScannerHaptic(ScannerHapticType.duplicate));
+        _emit(ScannerDuplicateDetected(event));
+      case ProductNotFound():
+        _emit(const ScannerHaptic(ScannerHapticType.unknown));
+      case ScanError(:final error, :final stackTrace):
+        state = AsyncError(error, stackTrace ?? StackTrace.current);
+        _emit(const ScannerHaptic(ScannerHapticType.error));
     }
   }
 
@@ -476,40 +363,31 @@ class ScannerNotifier extends _$ScannerNotifier {
     _runtime.dismissTimers.clear();
     _runtime.cleanupTimer?.cancel();
     _runtime.pendingCleanupCode = null;
-    _runtime.scanCooldowns.clear();
+    _trafficControl.reset();
 
     state = const AsyncData(_initialState);
   }
 
   Future<void> updateQuantityFromDuplicate(String cip, int newQuantity) async {
-    final db = ref.read(appDatabaseProvider);
-    await db.restockDao.forceUpdateQuantity(
-      cip: cip,
-      newQuantity: newQuantity,
-    );
+    await _scanOrchestrator.updateQuantity(cip, newQuantity);
     if (!ref.mounted) return;
-    _emit(const ScannerHaptic(ScannerHapticType.success));
+    _emit(const ScannerHaptic(ScannerHapticType.restockSuccess));
+  }
+
+  String _buildGs1FromCip(String cip, {DateTime? expDate}) {
+    final normalizedCip = cip.length == 13 ? '0$cip' : cip;
+    final buffer = StringBuffer('01$normalizedCip');
+    if (expDate != null) {
+      final yy = (expDate.year % 100).toString().padLeft(2, '0');
+      final mm = expDate.month.toString().padLeft(2, '0');
+      final dd = expDate.day.toString().padLeft(2, '0');
+      buffer.write('17$yy$mm$dd');
+    }
+    return buffer.toString();
   }
 
   void _emit(ScannerSideEffect effect) {
     if (_sideEffects.isClosed) return;
     _sideEffects.add(effect);
-  }
-
-  String _getUniqueScanKey(String cip, String? serial) {
-    if (serial == null || serial.isEmpty) return cip;
-    return '$cip::$serial';
-  }
-
-  void _cleanupExpiredCooldowns(DateTime now) {
-    _runtime.scanCooldowns.removeWhere(
-      (_, lastSeen) => now.difference(lastSeen) > _cooldownCleanupThreshold,
-    );
-  }
-
-  bool _isCooldownActive(String scanKey, DateTime now) {
-    final lastScan = _runtime.scanCooldowns[scanKey];
-    if (lastScan == null) return false;
-    return now.difference(lastScan) < _cooldownDuration;
   }
 }

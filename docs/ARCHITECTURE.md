@@ -54,6 +54,7 @@ The architecture prioritizes **simplicity**, **robustness**, and **performance**
 - Scanner : le viseur est animé (idle/détection/succès) et flash vert sur succès en même temps que le haptique; scrim plus sombre autour de la fenêtre.
 - Recherche : `HighlightText` met en gras/colorise les occurrences de la requête normalisée (diacritiques ignorés); une étiquette de fraîcheur au-dessus de la barre affiche la date de dernière synchro BDPM et avertit si >30j.
 - Restock : le swipe supprime et propose un toast Undo; l’état vide est actionnable (“Commencer le scan”) et la FAB « retour haut » affiche le total scanné.
+- Explorer : liste complète préchargée (limite 10k) et navigation A-Z via `AlphabetSidebar` + `AutoScrollController/AutoScrollTag` (plus de pagination offset/limit).
 - Navigation rapide : `quick_actions` enregistre les raccourcis « Scan to Restock » et « Search Database » qui ouvrent directement les onglets cibles et basculent le mode scanner en restock si besoin.
 
 **Form State Management:**
@@ -116,6 +117,7 @@ L'application utilise une variation personnalisée du système **Shadcn Green** 
 - `class ... extends _$Notifier` for complex logic
 - `class ... extends _$AsyncNotifier` for async logic
 - `@Riverpod(keepAlive: true)` for static config
+- **Read-only rule:** If a Notifier only implements `build()` (no public mutator methods), implement it as a functional provider instead of a class, and place helpers at file scope.
 
 ### Scanner side-effects (ScannerNotifier)
 
