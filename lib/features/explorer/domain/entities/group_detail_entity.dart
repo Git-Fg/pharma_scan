@@ -1,4 +1,4 @@
-import 'package:pharma_scan/core/database/database.dart';
+import 'package:pharma_scan/core/database/views.drift.dart' show ViewGroupDetail;
 
 /// Extension type wrapping [ViewGroupDetail] to decouple UI from Drift rows.
 extension type GroupDetailEntity(ViewGroupDetail _data)

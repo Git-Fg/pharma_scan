@@ -96,6 +96,17 @@ Future<List<Data>> searchProducts(
 - **Domain Layer:** Extension Types wrap Drift classes (in `lib/features/*/domain/entities/`)
 - **Presentation Layer:** UI consumes only Extension Types
 
+## Data Modeling Strategy (2025)
+
+- **Pragmatic Approach (Recommended):** Annotate Domain Entities directly with `@MappableClass`. Avoid "Object Mapping Fatigue"—only introduce DTOs when an API schema diverges materially.
+- **Transformation:** Prefer `MappingHook` to handle legacy API quirks or flatten nested structures instead of inventing parallel DTO classes.
+- **Generics:** Always pass explicit type arguments when using `MapperContainer.globals.fromJson<T>()` to prevent dynamic erasure.
+
+## Query Projections
+
+- **Required:** Use Dart records `({T data, ...})` for ad-hoc JOIN shapes returned from DAOs.
+- **Forbidden:** Creating bespoke DTO classes (e.g., `UserWithStats`) solely to hold query results.
+
 ## Rules
 
 - **ALLOWED:** Accessing raw Drift fields via `.data` or `implements` for read-only display
@@ -122,3 +133,8 @@ Future<List<Data>> searchProducts(
 
 - **FORBIDDEN:** Unchecked `as` casts when constructing extension types (`ProductId`, `OrderId`, `GroupId`, `NormalizedQuery`, etc.).
 - **REQUIRED:** Use private constructors or validated factories (e.g., `NormalizedQuery._(...)`, `ProductId.validated(...)`) so invariants are enforced without runtime casts.
+
+## UI State Modeling
+
+- **Sealed Classes:** Use `sealed class` for component states (e.g., `ScannerMode`, `FormState`) instead of enums when data varies per state.
+- **Exhaustive Matching:** Use Dart 3 `switch` expressions in `build()` methods to ensure all UI states are handled.

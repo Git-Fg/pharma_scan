@@ -1,8 +1,6 @@
 import 'package:drift/drift.dart';
-import 'package:pharma_scan/core/database/daos/settings_dao.dart';
+import 'package:pharma_scan/core/database/daos/database_dao.drift.dart';
 import 'package:pharma_scan/core/database/database.dart';
-
-part 'database_dao.g.dart';
 
 class IngestionBatch {
   const IngestionBatch({
@@ -34,8 +32,7 @@ class IngestionBatch {
     MedicamentSummary,
   ],
 )
-class DatabaseDao extends DatabaseAccessor<AppDatabase>
-    with _$DatabaseDaoMixin {
+class DatabaseDao extends DatabaseAccessor<AppDatabase> with $DatabaseDaoMixin {
   DatabaseDao(super.attachedDatabase);
 
   AppDatabase get database => attachedDatabase;
@@ -113,20 +110,20 @@ class DatabaseDao extends DatabaseAccessor<AppDatabase>
 
   Future<int> populateSummaryTable() async {
     await database.transaction(() async {
-      await database.deleteMedicamentSummaries();
-      await database.insertGroupedMedicamentSummaries();
-      await database.insertStandaloneMedicamentSummaries();
+      await database.queriesDrift.deleteMedicamentSummaries();
+      await database.queriesDrift.insertGroupedMedicamentSummaries();
+      await database.queriesDrift.insertStandaloneMedicamentSummaries();
     });
 
-    final result = await attachedDatabase
+    final result = await attachedDatabase.queriesDrift
         .getMedicamentSummaryCount()
         .getSingle();
     return result;
   }
 
   Future<void> populateFts5Index() async {
-    await database.deleteSearchIndex();
-    await database.insertSearchIndexFromSummary();
+    await database.queriesDrift.deleteSearchIndex();
+    await database.queriesDrift.insertSearchIndexFromSummary();
   }
 
   /// Cross-validates and refines group metadata by verifying parsed princepsLabel
@@ -135,6 +132,6 @@ class DatabaseDao extends DatabaseAccessor<AppDatabase>
   /// This is called during data ingestion to ensure princepsLabel matches actual
   /// Type 0 member names. If no match is found, uses the shortest princeps name as fallback.
   Future<void> refineGroupMetadata() async {
-    await attachedDatabase.refineGroupMetadata();
+    await attachedDatabase.queriesDrift.refineGroupMetadata();
   }
 }

@@ -190,6 +190,8 @@ class Strings {
   static const String clearSearch = 'Effacer la recherche';
   static const String noActiveFilters = 'Aucun filtre actif';
   static const String filters = 'Filtres';
+  static const String genericFilterPlaceholder =
+      'Filtrer (ex: Biogaran, Teva...)';
   static const String allopathy = 'Allopathie';
   static const String homeopathy = 'Homéopathie / Phytothérapie';
   static const String noRoutesAvailable = 'Aucune voie disponible';

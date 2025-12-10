@@ -1,40 +1,42 @@
 import 'dart:convert';
 
 import 'package:drift/drift.dart';
+import 'package:pharma_scan/core/database/daos/settings_dao.drift.dart';
 import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/database/tables/settings.dart';
-
-part 'settings_dao.g.dart';
+import 'package:pharma_scan/core/database/tables/settings.drift.dart';
 
 @DriftAccessor(tables: [AppSettings])
-class SettingsDao extends DatabaseAccessor<AppDatabase>
-    with _$SettingsDaoMixin {
+class SettingsDao extends DatabaseAccessor<AppDatabase> with $SettingsDaoMixin {
   SettingsDao(super.attachedDatabase);
 
   static const _settingsRowId = 1;
 
   Future<AppSetting> _getOrCreateSettingsRow() async {
-    final existing = await (select(
-      appSettings,
-    )..where((tbl) => tbl.id.equals(_settingsRowId))).getSingleOrNull();
+    final settingsManager = attachedDatabase.managers.appSettings;
+
+    final existing = await settingsManager
+        .filter((tbl) => tbl.id.equals(_settingsRowId))
+        .getSingleOrNull();
     if (existing != null) return existing;
 
-    await into(appSettings).insertOnConflictUpdate(
-      const AppSettingsCompanion(id: Value(_settingsRowId)),
+    await settingsManager.create(
+      (tbl) => tbl(id: const Value(_settingsRowId)),
+      mode: InsertMode.insertOrReplace,
     );
 
-    return (select(
-      appSettings,
-    )..where((tbl) => tbl.id.equals(_settingsRowId))).getSingle();
+    return settingsManager
+        .filter((tbl) => tbl.id.equals(_settingsRowId))
+        .getSingle();
   }
 
   Future<AppSetting> getSettings() async => _getOrCreateSettingsRow();
 
   Stream<AppSetting> watchSettings() async* {
     await _ensureSettingsRow();
-    yield* (select(
-      appSettings,
-    )..where((tbl) => tbl.id.equals(_settingsRowId))).watchSingle();
+    yield* attachedDatabase.managers.appSettings
+        .filter((tbl) => tbl.id.equals(_settingsRowId))
+        .watchSingle();
   }
 
   Future<String?> getBdpmVersion() async {
@@ -48,11 +50,9 @@ class SettingsDao extends DatabaseAccessor<AppDatabase>
 
   Future<void> updateBdpmVersion(String? version) async {
     await _ensureSettingsRow();
-    await (update(
-      appSettings,
-    )..where((tbl) => tbl.id.equals(_settingsRowId))).write(
-      AppSettingsCompanion(bdpmVersion: Value(version)),
-    );
+    await attachedDatabase.managers.appSettings
+        .filter((tbl) => tbl.id.equals(_settingsRowId))
+        .update((tbl) => tbl(bdpmVersion: Value(version)));
   }
 
   Future<DateTime?> getLastSyncTime() async {
@@ -64,38 +64,30 @@ class SettingsDao extends DatabaseAccessor<AppDatabase>
 
   Future<void> updatePreferredSorting(String mode) async {
     await _ensureSettingsRow();
-    await (update(
-      appSettings,
-    )..where((tbl) => tbl.id.equals(_settingsRowId))).write(
-      AppSettingsCompanion(preferredSorting: Value(mode)),
-    );
+    await attachedDatabase.managers.appSettings
+        .filter((tbl) => tbl.id.equals(_settingsRowId))
+        .update((tbl) => tbl(preferredSorting: Value(mode)));
   }
 
   Future<void> updateTheme(String mode) async {
     await _ensureSettingsRow();
-    await (update(
-      appSettings,
-    )..where((tbl) => tbl.id.equals(_settingsRowId))).write(
-      AppSettingsCompanion(themeMode: Value(mode)),
-    );
+    await attachedDatabase.managers.appSettings
+        .filter((tbl) => tbl.id.equals(_settingsRowId))
+        .update((tbl) => tbl(themeMode: Value(mode)));
   }
 
   Future<void> updateSyncFrequency(String frequency) async {
     await _ensureSettingsRow();
-    await (update(
-      appSettings,
-    )..where((tbl) => tbl.id.equals(_settingsRowId))).write(
-      AppSettingsCompanion(updateFrequency: Value(frequency)),
-    );
+    await attachedDatabase.managers.appSettings
+        .filter((tbl) => tbl.id.equals(_settingsRowId))
+        .update((tbl) => tbl(updateFrequency: Value(frequency)));
   }
 
   Future<void> updateSyncTimestamp(int epochMillis) async {
     await _ensureSettingsRow();
-    await (update(
-      appSettings,
-    )..where((tbl) => tbl.id.equals(_settingsRowId))).write(
-      AppSettingsCompanion(lastSyncEpoch: Value(epochMillis)),
-    );
+    await attachedDatabase.managers.appSettings
+        .filter((tbl) => tbl.id.equals(_settingsRowId))
+        .update((tbl) => tbl(lastSyncEpoch: Value(epochMillis)));
   }
 
   Future<Map<String, String>> getSourceHashes() async {
@@ -105,11 +97,9 @@ class SettingsDao extends DatabaseAccessor<AppDatabase>
 
   Future<void> saveSourceHashes(Map<String, String> hashes) async {
     await _ensureSettingsRow();
-    await (update(
-      appSettings,
-    )..where((tbl) => tbl.id.equals(_settingsRowId))).write(
-      AppSettingsCompanion(sourceHashes: Value(jsonEncode(hashes))),
-    );
+    await attachedDatabase.managers.appSettings
+        .filter((tbl) => tbl.id.equals(_settingsRowId))
+        .update((tbl) => tbl(sourceHashes: Value(jsonEncode(hashes))));
   }
 
   Future<Map<String, DateTime>> getSourceDates() async {
@@ -130,55 +120,51 @@ class SettingsDao extends DatabaseAccessor<AppDatabase>
     final encoded = dates.map(
       (key, value) => MapEntry(key, value.toIso8601String()),
     );
-    await (update(
-      appSettings,
-    )..where((tbl) => tbl.id.equals(_settingsRowId))).write(
-      AppSettingsCompanion(sourceDates: Value(jsonEncode(encoded))),
-    );
+    await attachedDatabase.managers.appSettings
+        .filter((tbl) => tbl.id.equals(_settingsRowId))
+        .update((tbl) => tbl(sourceDates: Value(jsonEncode(encoded))));
   }
 
   Future<void> updateSourceHashes(Map<String, String> hashes) async {
     await _ensureSettingsRow();
-    await (update(
-      appSettings,
-    )..where((tbl) => tbl.id.equals(_settingsRowId))).write(
-      AppSettingsCompanion(sourceHashes: Value(jsonEncode(hashes))),
-    );
+    await attachedDatabase.managers.appSettings
+        .filter((tbl) => tbl.id.equals(_settingsRowId))
+        .update((tbl) => tbl(sourceHashes: Value(jsonEncode(hashes))));
   }
 
   Future<void> clearSourceMetadata() async {
     await _ensureSettingsRow();
-    await (update(
-      appSettings,
-    )..where((tbl) => tbl.id.equals(_settingsRowId))).write(
-      const AppSettingsCompanion(
-        sourceHashes: Value('{}'),
-        sourceDates: Value('{}'),
-      ),
-    );
+    await attachedDatabase.managers.appSettings
+        .filter((tbl) => tbl.id.equals(_settingsRowId))
+        .update(
+          (tbl) => tbl(
+            sourceHashes: const Value('{}'),
+            sourceDates: const Value('{}'),
+          ),
+        );
   }
 
   Future<void> updateHapticFeedback({required bool enabled}) async {
     await _ensureSettingsRow();
-    await (update(
-      appSettings,
-    )..where((tbl) => tbl.id.equals(_settingsRowId))).write(
-      AppSettingsCompanion(
-        hapticFeedbackEnabled: Value(enabled),
-      ),
-    );
+    await attachedDatabase.managers.appSettings
+        .filter((tbl) => tbl.id.equals(_settingsRowId))
+        .update(
+          (tbl) => tbl(
+            hapticFeedbackEnabled: Value(enabled),
+          ),
+        );
   }
 
   Future<void> resetSettingsMetadata() async {
     await _ensureSettingsRow();
-    await (update(
-      appSettings,
-    )..where((tbl) => tbl.id.equals(_settingsRowId))).write(
-      const AppSettingsCompanion(
-        bdpmVersion: Value(null),
-        lastSyncEpoch: Value(null),
-      ),
-    );
+    await attachedDatabase.managers.appSettings
+        .filter((tbl) => tbl.id.equals(_settingsRowId))
+        .update(
+          (tbl) => tbl(
+            bdpmVersion: const Value(null),
+            lastSyncEpoch: const Value(null),
+          ),
+        );
   }
 
   Map<String, String> _decodeStringMap(String raw) {

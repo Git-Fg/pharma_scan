@@ -157,6 +157,7 @@ Technical guardrails for state, modeling, and error handling live in `.cursor/ru
 - **Safety:** Use `watchSingleOrNull()` for detail views (handles concurrent deletions)
 - **Extension Types:** All database rows must be wrapped in Extension Types before reaching the UI layer. This provides decoupling without runtime overhead and prepares the app for potential Server-Driven UI (SDUI) integration.
 - **Parser Strategy:** Use PetitParser for structured grammars (tokenized inputs, nested rules). Hand-written scanners are acceptable only for tiny, single-pass cases with measured perf gains (e.g., current GS1 AI loop); document the rationale when choosing manual parsing.
+- **BDPM Ingestion IO:** All TSV inputs are read via `createBdpmRowStream(path)` using `Windows1252Decoder(allowInvalid: true)` piped into `CsvToListConverter(fieldDelimiter: '\t', shouldParseNumbers: false, eol: '\n')`. Parsers consume `Stream<List<dynamic>>` rows directly—no manual `split('\t')` or custom processors.
 
 #### Zero-Cost Abstraction Strategy
 
@@ -502,6 +503,7 @@ Quality gate guardrails live in `.cursor/rules/`.
 - `dart_mappable` (latest) - Data + state serialization (all immutable DTO/state classes use generated copy/equals/json; manual `copyWith` forbidden)
 - `dart_either` (^2.0.0) - Error handling for services ETL (optional, Notifiers use `AsyncValue.guard`)
 - `flutter_hooks` (latest) - Widget lifecycle management
+- `azlistview` (latest) - Alphabetical navigation with sticky headers in Explorer (Shadcn-styled index bar)
 
 ### Linting
 
@@ -544,5 +546,4 @@ Anti-pattern guardrails live in `.cursor/rules/`.
 
 - **Agent Manifesto:** `AGENTS.md` - Complete agent persona and workflow
 - **Domain Logic:** `docs/DOMAIN_LOGIC.md` - Business logic and domain knowledge
-- **Maintenance:** `docs/MAINTENANCE.md` - Setup, operations, and release procedures
 - **Rule Files:** `.cursor/rules/` - Detailed technical standards

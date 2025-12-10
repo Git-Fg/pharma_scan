@@ -464,7 +464,7 @@ Validation runs before any DB transaction; failures delete cached files and surf
 * **Database:** `lib/core/database/daos/database_dao.dart`
 * **Views:** `lib/core/database/views.drift`
 * **Queries:** `lib/core/database/queries.drift`
-* **GS1 Parser:** `lib/core/services/gs1_parser.dart`
+* **GS1 Parser:** `lib/core/utils/gs1_parser.dart`
 
 ---
 

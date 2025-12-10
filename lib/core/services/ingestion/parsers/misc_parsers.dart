@@ -1,25 +1,22 @@
 part of 'package:pharma_scan/core/services/ingestion/bdpm_file_parser.dart';
 
 Future<Map<String, String>> parseConditionsImpl(
-  Stream<String>? lines,
+  Stream<List<dynamic>>? rows,
 ) async {
   final conditions = <String, String>{};
 
-  if (lines == null) return conditions;
+  if (rows == null) return conditions;
 
-  await for (final line in lines) {
-    if (line.trim().isEmpty) continue;
-    final parts = line.split('\t');
-    if (parts.length >= 2) {
-      final cis = parts[0].trim();
-      final condition = parts[1].trim();
-      if (cis.isNotEmpty && condition.isNotEmpty) {
-        final existing = conditions[cis];
-        if (existing != null && existing.isNotEmpty) {
-          conditions[cis] = '$existing, $condition';
-        } else {
-          conditions[cis] = condition;
-        }
+  await for (final row in rows) {
+    if (row.length < 2) continue;
+    final cis = _cellAsString(row[0]);
+    final condition = _cellAsString(row[1]);
+    if (cis.isNotEmpty && condition.isNotEmpty) {
+      final existing = conditions[cis];
+      if (existing != null && existing.isNotEmpty) {
+        conditions[cis] = '$existing, $condition';
+      } else {
+        conditions[cis] = condition;
       }
     }
   }
@@ -27,19 +24,16 @@ Future<Map<String, String>> parseConditionsImpl(
   return conditions;
 }
 
-Future<Map<String, String>> parseMitmImpl(Stream<String>? lines) async {
+Future<Map<String, String>> parseMitmImpl(Stream<List<dynamic>>? rows) async {
   final mitmMap = <String, String>{};
-  if (lines == null) return mitmMap;
+  if (rows == null) return mitmMap;
 
-  await for (final line in lines) {
-    if (line.trim().isEmpty) continue;
-    final parts = line.split('\t');
-    if (parts.length >= 2) {
-      final cis = parts[0].trim();
-      final atc = parts[1].trim();
-      if (cis.isNotEmpty && atc.isNotEmpty) {
-        mitmMap[cis] = atc;
-      }
+  await for (final row in rows) {
+    if (row.length < 2) continue;
+    final cis = _cellAsString(row[0]);
+    final atc = _cellAsString(row[1]);
+    if (cis.isNotEmpty && atc.isNotEmpty) {
+      mitmMap[cis] = atc;
     }
   }
   return mitmMap;
@@ -47,26 +41,25 @@ Future<Map<String, String>> parseMitmImpl(Stream<String>? lines) async {
 
 Future<Either<ParseError, List<MedicamentAvailabilityCompanion>>>
 parseAvailabilityImpl(
-  Stream<String>? lines,
+  Stream<List<dynamic>>? rows,
   Map<String, List<String>> cisToCip13,
 ) async {
   final availability = <MedicamentAvailabilityCompanion>[];
-  if (lines == null) {
+  if (rows == null) {
     return Either.right(availability);
   }
 
-  await for (final line in lines) {
-    if (line.trim().isEmpty) continue;
-    final parts = line.split('\t');
-    if (parts.length < 4) continue;
+  await for (final row in rows) {
+    if (row.length < 4) continue;
+    final parts = row.map(_cellAsString).toList(growable: false);
 
-    final cisCode = parts.isNotEmpty ? parts[0].trim() : '';
-    final cip13 = parts.length > 1 ? parts[1].trim() : '';
-    final statusCode = parts.length > 2 ? parts[2].trim() : '';
-    final statusLabel = parts[3].trim();
-    final dateDebutRaw = parts.length > 4 ? parts[4].trim() : null;
-    final dateFinRaw = parts.length > 5 ? parts[5].trim() : null;
-    final lienRaw = parts.length > 6 ? parts[6].trim() : '';
+    final cisCode = parts.isNotEmpty ? parts[0] : '';
+    final cip13 = parts.length > 1 ? parts[1] : '';
+    final statusCode = parts.length > 2 ? parts[2] : '';
+    final statusLabel = parts[3];
+    final dateDebutRaw = parts.length > 4 ? parts[4] : null;
+    final dateFinRaw = parts.length > 5 ? parts[5] : null;
+    final lienRaw = parts.length > 6 ? parts[6] : '';
 
     if (statusCode != '1' && statusCode != '2') continue;
     if (statusLabel.isEmpty) continue;
@@ -99,4 +92,33 @@ parseAvailabilityImpl(
   }
 
   return Right(availability);
+}
+
+class ConditionsParser implements FileParser<Map<String, String>> {
+  const ConditionsParser();
+
+  @override
+  Future<Map<String, String>> parse(Stream<List<dynamic>>? rows) =>
+      parseConditionsImpl(rows);
+}
+
+class MitmParser implements FileParser<Map<String, String>> {
+  const MitmParser();
+
+  @override
+  Future<Map<String, String>> parse(Stream<List<dynamic>>? rows) =>
+      parseMitmImpl(rows);
+}
+
+class AvailabilityParser
+    implements
+        FileParser<Either<ParseError, List<MedicamentAvailabilityCompanion>>> {
+  const AvailabilityParser(this.cisToCip13);
+
+  final Map<String, List<String>> cisToCip13;
+
+  @override
+  Future<Either<ParseError, List<MedicamentAvailabilityCompanion>>> parse(
+    Stream<List<dynamic>>? rows,
+  ) => parseAvailabilityImpl(rows, cisToCip13);
 }

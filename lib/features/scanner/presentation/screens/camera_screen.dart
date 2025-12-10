@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui';
 
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
@@ -9,6 +8,7 @@ import 'package:gap/gap.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart' hide ScanWindowOverlay;
+import 'package:pharma_scan/core/presentation/hooks/use_scanner_input.dart';
 import 'package:pharma_scan/core/router/app_router.dart';
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
 import 'package:pharma_scan/core/services/haptic_service.dart';
@@ -21,6 +21,7 @@ import 'package:pharma_scan/core/widgets/ui_kit/status_view.dart';
 import 'package:pharma_scan/features/history/presentation/widgets/history_sheet.dart';
 import 'package:pharma_scan/features/home/providers/initialization_provider.dart';
 import 'package:pharma_scan/features/scanner/domain/logic/scan_orchestrator.dart';
+import 'package:pharma_scan/features/scanner/presentation/models/scanner_ui_state.dart';
 import 'package:pharma_scan/features/scanner/presentation/providers/scanner_provider.dart';
 import 'package:pharma_scan/features/scanner/presentation/utils/scanner_utils.dart';
 import 'package:pharma_scan/features/scanner/presentation/widgets/scan_window_overlay.dart';
@@ -203,6 +204,13 @@ class CameraScreen extends HookConsumerWidget {
     final initStep = initStepAsync.value;
     final isInitializing =
         initStep != null && initStep != InitializationStep.ready;
+    final scannerUiState = isInitializing
+        ? ScannerInitializing(mode: scannerMode)
+        : ScannerActive(
+            mode: scannerMode,
+            torchState: torchState,
+            isCameraRunning: isCameraActive.value,
+          );
 
     return Scaffold(
       resizeToAvoidBottomInset: false,
@@ -268,30 +276,27 @@ class CameraScreen extends HookConsumerWidget {
               left: AppDimens.spacingMd,
               child: ClipRRect(
                 borderRadius: context.shadTheme.radius,
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: ShadTheme.of(
+                      context,
+                    ).colorScheme.background.withValues(alpha: 0.82),
+                    border: Border.all(
                       color: ShadTheme.of(
                         context,
-                      ).colorScheme.background.withValues(alpha: 0.85),
-                      border: Border.all(
-                        color: ShadTheme.of(
-                          context,
-                        ).colorScheme.border.withValues(alpha: 0.3),
-                      ),
-                      borderRadius: context.shadTheme.radius,
+                      ).colorScheme.border.withValues(alpha: 0.3),
                     ),
-                    child: Semantics(
-                      button: true,
-                      label: Strings.historyTitle,
-                      child: ShadIconButton.ghost(
-                        icon: const Icon(LucideIcons.history),
-                        onPressed: () => showShadSheet<void>(
-                          context: context,
-                          side: ShadSheetSide.left,
-                          builder: (sheetContext) => const HistorySheet(),
-                        ),
+                    borderRadius: context.shadTheme.radius,
+                  ),
+                  child: Semantics(
+                    button: true,
+                    label: Strings.historyTitle,
+                    child: ShadIconButton.ghost(
+                      icon: const Icon(LucideIcons.history),
+                      onPressed: () => showShadSheet<void>(
+                        context: context,
+                        side: ShadSheetSide.left,
+                        builder: (sheetContext) => const HistorySheet(),
                       ),
                     ),
                   ),
@@ -303,41 +308,35 @@ class CameraScreen extends HookConsumerWidget {
               right: AppDimens.spacingMd,
               child: ClipRRect(
                 borderRadius: context.shadTheme.radius,
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: ShadTheme.of(
+                      context,
+                    ).colorScheme.background.withValues(alpha: 0.82),
+                    border: Border.all(
                       color: ShadTheme.of(
                         context,
-                      ).colorScheme.background.withValues(alpha: 0.85),
-                      border: Border.all(
-                        color: ShadTheme.of(
-                          context,
-                        ).colorScheme.border.withValues(alpha: 0.3),
-                      ),
-                      borderRadius: context.shadTheme.radius,
+                      ).colorScheme.border.withValues(alpha: 0.3),
                     ),
-                    child: Semantics(
-                      button: true,
-                      label: Strings.settings,
-                      child: ShadIconButton.ghost(
-                        icon: const Icon(LucideIcons.settings),
-                        onPressed: () =>
-                            AutoRouter.of(context).push(const SettingsRoute()),
-                      ),
+                    borderRadius: context.shadTheme.radius,
+                  ),
+                  child: Semantics(
+                    button: true,
+                    label: Strings.settings,
+                    child: ShadIconButton.ghost(
+                      icon: const Icon(LucideIcons.settings),
+                      onPressed: () =>
+                          AutoRouter.of(context).push(const SettingsRoute()),
                     ),
                   ),
                 ),
               ),
             ),
             ScannerControls(
-              mode: scannerMode,
-              isCameraActive: isCameraActive.value,
-              isInitializing: isInitializing,
+              state: scannerUiState,
               onToggleCamera: toggleCamera,
               onGallery: openGallerySheet,
               onManualEntry: openManualEntrySheet,
-              torchState: torchState,
               onToggleTorch: toggleTorch,
               onToggleMode: toggleMode,
             ),
@@ -418,25 +417,27 @@ class _DuplicateQuantitySheet extends HookWidget {
 
   @override
   Widget build(BuildContext context) {
-    final controller = useTextEditingController(
-      text: event.currentQuantity.toString(),
+    final scannerInput = useScannerInput(
+      onSubmitted: (_) {},
+      initialText: event.currentQuantity.toString(),
     );
-    final focusNode = useFocusNode();
 
     useEffect(() {
+      final focusNode = scannerInput.focusNode;
+      final controller = scannerInput.controller;
       focusNode.requestFocus();
       controller.selection = TextSelection(
         baseOffset: 0,
         extentOffset: controller.text.length,
       );
       return null;
-    }, const []);
+    }, [scannerInput.controller, scannerInput.focusNode]);
 
     void setDelta(int delta) {
-      final current = int.tryParse(controller.text) ?? 0;
+      final current = int.tryParse(scannerInput.controller.text) ?? 0;
       final next = (current + delta).clamp(0, 9999);
       final nextStr = next.toString();
-      controller
+      scannerInput.controller
         ..text = nextStr
         ..selection = TextSelection.collapsed(offset: nextStr.length);
     }
@@ -485,7 +486,7 @@ class _DuplicateQuantitySheet extends HookWidget {
         ),
         ShadButton(
           onPressed: () {
-            final qty = int.tryParse(controller.text);
+            final qty = int.tryParse(scannerInput.controller.text);
             if (qty != null) {
               onConfirm(qty);
             }
@@ -504,8 +505,8 @@ class _DuplicateQuantitySheet extends HookWidget {
             const Gap(AppDimens.spacingSm),
             Expanded(
               child: ShadInput(
-                controller: controller,
-                focusNode: focusNode,
+                controller: scannerInput.controller,
+                focusNode: scannerInput.focusNode,
                 keyboardType: TextInputType.number,
                 textAlign: TextAlign.center,
                 style: context.shadTextTheme.large.copyWith(
@@ -532,22 +533,34 @@ class _ManualCipSheet extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final formKey = useMemoized(GlobalKey<ShadFormState>.new);
     final isSubmitting = useState(false);
     final viewInsets = MediaQuery.viewInsetsOf(context);
     final screenWidth = MediaQuery.sizeOf(context).width;
+    late Future<void> Function(String code) submit;
 
-    Future<void> submit() async {
+    final scanner = useScannerInput(
+      onSubmitted: (code) => unawaited(submit(code)),
+    );
+
+    submit = (String code) async {
       if (isSubmitting.value) return;
 
-      if (!formKey.currentState!.saveAndValidate()) {
+      final trimmed = code.trim();
+      if (trimmed.length != 13) {
+        if (!context.mounted) return;
+        ShadToaster.of(context).show(
+          const ShadToast.destructive(
+            title: Text(Strings.cipMustBe13Digits),
+            description: Text(Strings.cipMustBe13Digits),
+          ),
+        );
+        scanner.focusNode.requestFocus();
         return;
       }
 
-      final code = formKey.currentState!.value['cip'] as String;
       isSubmitting.value = true;
 
-      final success = await onSubmit(code);
+      final success = await onSubmit(trimmed);
       if (!context.mounted) {
         isSubmitting.value = false;
         return;
@@ -565,7 +578,7 @@ class _ManualCipSheet extends HookConsumerWidget {
       } else if (context.mounted) {
         unawaited(Navigator.of(context).maybePop());
       }
-    }
+    };
 
     return ShadResponsiveBuilder(
       builder: (context, breakpoint) {
@@ -591,7 +604,9 @@ class _ManualCipSheet extends HookConsumerWidget {
                         : Strings.searchMedicamentWithCip,
                     enabled: !isSubmitting.value,
                     child: ShadButton(
-                      onPressed: isSubmitting.value ? null : submit,
+                      onPressed: isSubmitting.value
+                          ? null
+                          : () => scanner.submit(scanner.controller.text),
                       leading: isSubmitting.value
                           ? const SizedBox(
                               width: 16,
@@ -606,30 +621,38 @@ class _ManualCipSheet extends HookConsumerWidget {
                   ),
                 ],
                 child: ShadForm(
-                  key: formKey,
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.all(AppDimens.spacingMd),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        ShadInputFormField(
-                          id: 'cip',
-                          label: const Text(Strings.manualEntryFieldLabel),
-                          placeholder: const Text(Strings.cipPlaceholder),
-                          autofocus: true,
-                          keyboardType: TextInputType.number,
-                          maxLength: 13,
-                          inputFormatters: [
-                            FilteringTextInputFormatter.digitsOnly,
-                            LengthLimitingTextInputFormatter(13),
-                          ],
-                          validator: (v) {
-                            if (v.isEmpty || v.length != 13) {
-                              return Strings.cipMustBe13Digits;
-                            }
-                            return null;
-                          },
+                        Text(
+                          Strings.manualEntryFieldLabel,
+                          style: context.shadTextTheme.small.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const Gap(AppDimens.spacing2xs),
+                        Semantics(
+                          textField: true,
+                          label: Strings.manualEntryFieldLabel,
+                          hint: Strings.cipPlaceholder,
+                          value: scanner.controller.text,
+                          child: ShadInput(
+                            controller: scanner.controller,
+                            focusNode: scanner.focusNode,
+                            placeholder: const Text(Strings.cipPlaceholder),
+                            autofocus: true,
+                            keyboardType: TextInputType.number,
+                            textInputAction: TextInputAction.search,
+                            maxLength: 13,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                              LengthLimitingTextInputFormatter(13),
+                            ],
+                            onSubmitted: scanner.submit,
+                          ),
                         ),
                         const Gap(AppDimens.spacingMd),
                         Text(

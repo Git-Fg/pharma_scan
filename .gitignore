@@ -38,6 +38,11 @@ migrate_working_dir/
 *.g.dart
 *.mocks.dart
 *.mapper.dart
+# Drift modular generated artifacts (analyzer/modular builders)
+*.drift.dart
+*.drift.types.temp.dart
+*.expr.temp.dart
+*.types.temp.dart
 
 # Symbolication related
 app.*.symbols

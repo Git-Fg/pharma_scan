@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:pharma_scan/core/database/daos/restock_dao.drift.dart';
 import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/database/tables/restock_items.dart';
 import 'package:pharma_scan/core/database/tables/scanned_boxes.dart';
@@ -7,8 +8,6 @@ import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/features/history/domain/entities/scan_history_entry.dart';
 import 'package:pharma_scan/features/restock/domain/entities/restock_item_entity.dart';
 import 'package:sqlite3/sqlite3.dart';
-
-part 'restock_dao.g.dart';
 
 enum ScanOutcome { added, duplicate }
 
@@ -21,33 +20,29 @@ enum ScanOutcome { added, duplicate }
     Specialites,
   ],
 )
-class RestockDao extends DatabaseAccessor<AppDatabase> with _$RestockDaoMixin {
+class RestockDao extends DatabaseAccessor<AppDatabase> with $RestockDaoMixin {
   RestockDao(super.attachedDatabase);
 
   Future<void> addToRestock(Cip13 cip) async {
     final cipString = cip.toString();
-
-    final existing = await (select(
-      restockItems,
-    )..where((tbl) => tbl.cip.equals(cipString))).getSingleOrNull();
-
+    final restockManager = attachedDatabase.managers.restockItems;
     final now = DateTime.now();
 
-    if (existing == null) {
-      await into(restockItems).insert(
-        RestockItemsCompanion.insert(
+    final updated = await attachedDatabase.customUpdate(
+      'UPDATE restock_items SET quantity = quantity + 1, added_at = ? WHERE cip = ?',
+      variables: [
+        Variable<DateTime>(now),
+        Variable<String>(cipString),
+      ],
+      updates: {restockItems},
+    );
+
+    if (updated == 0) {
+      await restockManager.create(
+        (tbl) => tbl(
           cip: cipString,
           quantity: const Value(1),
           isChecked: const Value(false),
-          addedAt: Value(now),
-        ),
-      );
-    } else {
-      await (update(
-        restockItems,
-      )..where((tbl) => tbl.cip.equals(cipString))).write(
-        RestockItemsCompanion(
-          quantity: Value(existing.quantity + 1),
           addedAt: Value(now),
         ),
       );
@@ -60,11 +55,13 @@ class RestockDao extends DatabaseAccessor<AppDatabase> with _$RestockDaoMixin {
     bool allowZero = false,
   }) async {
     final cipString = cip.toString();
+    final restockManager = attachedDatabase.managers.restockItems;
+    final scannedManager = attachedDatabase.managers.scannedBoxes;
 
     await attachedDatabase.transaction(() async {
-      final existing = await (select(
-        restockItems,
-      )..where((tbl) => tbl.cip.equals(cipString))).getSingleOrNull();
+      final existing = await restockManager
+          .filter((tbl) => tbl.cip.equals(cipString))
+          .getSingleOrNull();
 
       if (existing == null) {
         return;
@@ -73,80 +70,67 @@ class RestockDao extends DatabaseAccessor<AppDatabase> with _$RestockDaoMixin {
       final newQuantity = existing.quantity + delta;
       final shouldDelete = allowZero ? newQuantity < 0 : newQuantity <= 0;
       if (shouldDelete) {
-        await (delete(
-          restockItems,
-        )..where((tbl) => tbl.cip.equals(cipString))).go();
-        await (delete(
-          scannedBoxes,
-        )..where((tbl) => tbl.cip.equals(cipString))).go();
+        await restockManager
+            .filter((tbl) => tbl.cip.equals(cipString))
+            .delete();
+        await scannedManager
+            .filter((tbl) => tbl.cip.equals(cipString))
+            .delete();
       } else {
-        await (update(
-          restockItems,
-        )..where((tbl) => tbl.cip.equals(cipString))).write(
-          RestockItemsCompanion(
-            quantity: Value(newQuantity),
-            addedAt: Value(DateTime.now()),
-          ),
-        );
+        await restockManager
+            .filter((tbl) => tbl.cip.equals(cipString))
+            .update(
+              (tbl) => tbl(
+                quantity: Value(newQuantity),
+                addedAt: Value(DateTime.now()),
+              ),
+            );
       }
     });
   }
 
   Future<void> deleteRestockItemFully(Cip13 cip) async {
     final cipString = cip.toString();
+    final restockManager = attachedDatabase.managers.restockItems;
+    final scannedManager = attachedDatabase.managers.scannedBoxes;
 
     await attachedDatabase.transaction(() async {
-      await (delete(
-        restockItems,
-      )..where((tbl) => tbl.cip.equals(cipString))).go();
+      await restockManager.filter((tbl) => tbl.cip.equals(cipString)).delete();
 
-      await (delete(
-        scannedBoxes,
-      )..where((tbl) => tbl.cip.equals(cipString))).go();
+      await scannedManager.filter((tbl) => tbl.cip.equals(cipString)).delete();
     });
   }
 
   Future<void> toggleCheck(Cip13 cip) async {
     final cipString = cip.toString();
-
-    final existing = await (select(
-      restockItems,
-    )..where((tbl) => tbl.cip.equals(cipString))).getSingleOrNull();
-
-    if (existing == null) {
-      return;
-    }
-
-    await (update(
-      restockItems,
-    )..where((tbl) => tbl.cip.equals(cipString))).write(
-      RestockItemsCompanion(
-        isChecked: Value(!existing.isChecked),
-      ),
+    await attachedDatabase.customUpdate(
+      'UPDATE restock_items SET is_checked = NOT is_checked WHERE cip = ?',
+      variables: [Variable<String>(cipString)],
+      updates: {restockItems},
     );
   }
 
   Future<void> clearChecked() async {
-    await (delete(
-      restockItems,
-    )..where((tbl) => tbl.isChecked.equals(true))).go();
+    await attachedDatabase.managers.restockItems
+        .filter((tbl) => tbl.isChecked.equals(true))
+        .delete();
   }
 
   Future<void> clearAll() async {
-    await delete(restockItems).go();
-    await delete(scannedBoxes).go();
+    await attachedDatabase.managers.restockItems.delete();
+    await attachedDatabase.managers.scannedBoxes.delete();
   }
 
   Future<bool> isDuplicate({
     required String cip,
     required String serial,
   }) async {
-    final rows =
-        await (select(scannedBoxes)..where(
-              (t) => t.cip.equals(cip) & t.serialNumber.equals(serial),
-            ))
-            .get();
-    return rows.isNotEmpty;
+    final scannedManager = attachedDatabase.managers.scannedBoxes;
+    return scannedManager
+        .filter(
+          (t) => t.cip.equals(cip) & t.serialNumber.equals(serial),
+        )
+        .exists();
   }
 
   Future<void> forceUpdateQuantity({
@@ -157,19 +141,20 @@ class RestockDao extends DatabaseAccessor<AppDatabase> with _$RestockDaoMixin {
       await deleteRestockItemFully(Cip13.validated(cip));
       return;
     }
-    await into(restockItems).insertOnConflictUpdate(
-      RestockItemsCompanion(
-        cip: Value(cip),
+    await attachedDatabase.managers.restockItems.create(
+      (tbl) => tbl(
+        cip: cip,
         quantity: Value(newQuantity),
         addedAt: Value(DateTime.now()),
       ),
+      mode: InsertMode.insertOrReplace,
     );
   }
 
   Future<int?> getRestockQuantity(String cip) async {
-    final row = await (select(
-      restockItems,
-    )..where((tbl) => tbl.cip.equals(cip))).getSingleOrNull();
+    final row = await attachedDatabase.managers.restockItems
+        .filter((tbl) => tbl.cip.equals(cip))
+        .getSingleOrNull();
     return row?.quantity;
   }
 
@@ -180,8 +165,8 @@ class RestockDao extends DatabaseAccessor<AppDatabase> with _$RestockDaoMixin {
     DateTime? expiryDate,
   }) async {
     try {
-      await into(scannedBoxes).insert(
-        ScannedBoxesCompanion.insert(
+      await attachedDatabase.managers.scannedBoxes.create(
+        (tbl) => tbl(
           cip: cip.toString(),
           serialNumber: Value(serial),
           batchNumber: Value(batchNumber),
@@ -260,8 +245,8 @@ class RestockDao extends DatabaseAccessor<AppDatabase> with _$RestockDaoMixin {
 
     try {
       await attachedDatabase.transaction(() async {
-        await into(scannedBoxes).insert(
-          ScannedBoxesCompanion.insert(
+        await attachedDatabase.managers.scannedBoxes.create(
+          (tbl) => tbl(
             cip: cipString,
             serialNumber: Value(serial),
             batchNumber: Value(batchNumber),
@@ -282,14 +267,16 @@ class RestockDao extends DatabaseAccessor<AppDatabase> with _$RestockDaoMixin {
 
   Stream<List<ScanHistoryEntry>> watchScanHistory(int limit) {
     final safeLimit = limit < 1 ? 1 : (limit > 500 ? 500 : limit);
-    return attachedDatabase
-        .getScanHistory(safeLimit)
+    return attachedDatabase.queriesDrift
+        .getScanHistory(limit: safeLimit)
         .watch()
-        .map((rows) => rows.map(ScanHistoryEntry.fromData).toList());
+        .map<List<ScanHistoryEntry>>(
+          (rows) => rows.map(ScanHistoryEntry.fromData).toList(),
+        );
   }
 
   Future<void> clearHistory() async {
-    await delete(scannedBoxes).go();
+    await attachedDatabase.managers.scannedBoxes.delete();
   }
 
   Stream<List<({Cip13 cip, int quantity})>> watchScannedBoxTotals() {

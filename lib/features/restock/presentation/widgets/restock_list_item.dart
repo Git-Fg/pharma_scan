@@ -121,7 +121,6 @@ class RestockListItem extends StatelessWidget {
                     vertical: AppDimens.spacingSm,
                   ),
                   child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Expanded(
                         child: Opacity(
@@ -288,9 +287,9 @@ class RestockListItem extends StatelessWidget {
             ),
             ShadButton(
               onPressed: () {
-                final parsed = int.tryParse(controller.text.trim());
-                if (parsed == null || parsed < 0) return;
-                Navigator.of(dialogContext).pop(parsed);
+                final result = _parseQuantity(controller.text);
+                if (!result.isValid || result.quantity == null) return;
+                Navigator.of(dialogContext).pop(result.quantity);
               },
               child: const Text(Strings.confirmButtonLabel),
             ),
@@ -314,5 +313,11 @@ class RestockListItem extends StatelessWidget {
     if (result == null) return;
     if (!context.mounted) return;
     onSetQuantity(result);
+  }
+
+  ({bool isValid, int? quantity}) _parseQuantity(String input) {
+    final parsed = int.tryParse(input.trim());
+    final isValid = parsed != null && parsed >= 0;
+    return (isValid: isValid, quantity: isValid ? parsed : null);
   }
 }

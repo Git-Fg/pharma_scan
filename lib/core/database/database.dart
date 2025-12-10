@@ -9,6 +9,7 @@ import 'package:pharma_scan/core/database/daos/catalog_dao.dart';
 import 'package:pharma_scan/core/database/daos/database_dao.dart';
 import 'package:pharma_scan/core/database/daos/restock_dao.dart';
 import 'package:pharma_scan/core/database/daos/settings_dao.dart';
+import 'package:pharma_scan/core/database/database.drift.dart';
 import 'package:pharma_scan/core/database/tables/restock_items.dart';
 import 'package:pharma_scan/core/database/tables/scanned_boxes.dart';
 import 'package:pharma_scan/core/database/tables/settings.dart';
@@ -17,33 +18,68 @@ import 'package:pharma_scan/core/services/logger_service.dart';
 import 'package:sqlite3/sqlite3.dart';
 import 'package:sqlite3_flutter_libs/sqlite3_flutter_libs.dart';
 
-part 'database.g.dart';
+export 'daos/catalog_dao.dart';
+export 'daos/database_dao.dart';
+export 'daos/restock_dao.dart';
+export 'daos/settings_dao.dart';
+export 'database.drift.dart';
 
 // -- Type Converters --
 
-class StringListConverter extends TypeConverter<List<String>, String> {
-  const StringListConverter();
+class StringListJsonbConverter extends TypeConverter<List<String>, Uint8List>
+    with JsonTypeConverter2<List<String>, Uint8List, List<dynamic>> {
+  const StringListJsonbConverter();
 
   @override
-  List<String> fromSql(String? fromDb) {
-    if (fromDb == null || fromDb.isEmpty) return [];
-    try {
-      final decoded = jsonDecode(fromDb);
-      if (decoded is List) {
-        return decoded
-            .map((value) => (value?.toString() ?? '').trim())
-            .where((value) => value.isNotEmpty)
-            .cast<String>()
-            .toList();
-      }
-      return [];
-    } on Exception catch (_) {
-      return [];
+  List<String> fromSql(Uint8List fromDb) {
+    final decoded = json.decode(utf8.decode(fromDb));
+    if (decoded is List) {
+      return decoded
+          .map((value) => (value?.toString() ?? '').trim())
+          .where((value) => value.isNotEmpty)
+          .cast<String>()
+          .toList();
     }
+    return const [];
   }
 
   @override
-  String toSql(List<String> value) => jsonEncode(value);
+  Uint8List toSql(List<String> value) {
+    return Uint8List.fromList(utf8.encode(json.encode(value)));
+  }
+
+  @override
+  List<String> fromJson(List<dynamic> json) => json
+      .map((value) => (value?.toString() ?? '').trim())
+      .where((value) => value.isNotEmpty)
+      .cast<String>()
+      .toList();
+
+  @override
+  List<dynamic> toJson(List<String> value) => value;
+}
+
+// Nullable wrapper that preserves JSON support for drift-generated views.
+class NullableStringListJsonbConverter
+    extends NullAwareTypeConverter<List<String>, Uint8List>
+    with JsonTypeConverter2<List<String>?, Uint8List?, List<dynamic>?> {
+  const NullableStringListJsonbConverter();
+
+  static const _inner = StringListJsonbConverter();
+
+  @override
+  List<String> requireFromSql(Uint8List fromDb) => _inner.fromSql(fromDb);
+
+  @override
+  Uint8List requireToSql(List<String> value) => _inner.toSql(value);
+
+  @override
+  List<String>? fromJson(List<dynamic>? json) =>
+      json == null ? null : _inner.fromJson(json);
+
+  @override
+  List<dynamic>? toJson(List<String>? value) =>
+      value == null ? null : _inner.toJson(value);
 }
 
 // -- Table Definitions --
@@ -157,9 +193,9 @@ class MedicamentSummary extends Table {
       text().nullable()(); // nullable for medications without groups
   IntColumn get memberType =>
       integer().withDefault(const Constant(0))(); // raw BDPM generic type
-  TextColumn get principesActifsCommuns => text().map(
-    const StringListConverter(),
-  )(); // JSON array of common active ingredients
+  BlobColumn get principesActifsCommuns => blob().map(
+    const NullableStringListJsonbConverter(),
+  )(); // JSONB array of common active ingredients (nullable wrapper for views)
   TextColumn get princepsDeReference =>
       text()(); // reference princeps name for group
   TextColumn get formePharmaceutique => text().nullable()(); // for filtering
@@ -226,14 +262,14 @@ class Laboratories extends Table {
   daos: [SettingsDao, CatalogDao, DatabaseDao, RestockDao],
   include: {'queries.drift', 'views.drift'},
 )
-class AppDatabase extends _$AppDatabase {
+class AppDatabase extends $AppDatabase {
   AppDatabase() : super(_openConnection());
 
   // Test constructor
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration {
@@ -280,6 +316,35 @@ class AppDatabase extends _$AppDatabase {
         }
         if (from < 8) {
           await m.addColumn(appSettings, appSettings.scanHistoryLimit);
+        }
+        if (from < 9) {
+          // Normalize legacy restock timestamps that were stored as unix seconds.
+          // Drift's DateTimeColumn expects ISO-like strings or integer millis.
+          await m.database.customStatement(
+            """
+UPDATE restock_items
+SET added_at = datetime(added_at, 'unixepoch')
+WHERE typeof(added_at) IN ('text', 'integer');
+""",
+          );
+          // Normalize legacy scan timestamps and expiry dates.
+          await m.database.customStatement(
+            """
+UPDATE scanned_boxes
+SET scanned_at = datetime(scanned_at, 'unixepoch')
+WHERE typeof(scanned_at) IN ('text', 'integer');
+""",
+          );
+          await m.database.customStatement(
+            """
+UPDATE scanned_boxes
+SET expiry_date = datetime(expiry_date, 'unixepoch')
+WHERE expiry_date IS NOT NULL AND typeof(expiry_date) IN ('text', 'integer');
+""",
+          );
+
+          await m.deleteTable(medicamentSummary.actualTableName);
+          await m.createTable(medicamentSummary);
         }
       },
     );

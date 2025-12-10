@@ -2,7 +2,6 @@
 import 'dart:async';
 
 import 'package:drift/drift.dart';
-import 'package:pharma_scan/core/database/daos/database_dao.dart';
 import 'package:pharma_scan/core/database/database.dart';
 
 /// WHY: Fluent builder pattern for creating test database seed data.

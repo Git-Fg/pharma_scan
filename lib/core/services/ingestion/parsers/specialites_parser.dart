@@ -1,68 +1,36 @@
 part of 'package:pharma_scan/core/services/ingestion/bdpm_file_parser.dart';
 
 Future<Either<ParseError, SpecialitesParseResult>> parseSpecialitesImpl(
-  Stream<String>? lines,
+  Stream<List<dynamic>>? rows,
   Map<String, String> conditionsByCis,
   Map<String, String> mitmMap,
 ) async {
+  if (rows == null) {
+    return const Either.left(EmptyContentError('specialites'));
+  }
+
   final specialites = <SpecialiteRow>[];
   final namesByCis = <String, String>{};
   final seenCis = <String>{};
   final holderNames = <String>{};
 
-  if (lines == null) {
-    return const Either.left(EmptyContentError('specialites'));
-  }
-
   var hadLines = false;
   var hasData = false;
-  await for (final line in lines) {
-    if (line.trim().isEmpty) continue;
-    hadLines = true;
-    final parsed = _bdpmParser
-        .parseRow<
-          (
-            String cis,
-            String denomination,
-            String formePharma,
-            String voiesAdmin,
-            String statutAdmin,
-            String typeProcedure,
-            String etatCommercialisation,
-            DateTime? dateAmm,
-            String titulaire,
-            bool surveillance,
-          )
-        >(
-          line,
-          12,
-          (cols) => (
-            cols[0],
-            cols[1],
-            cols[2],
-            cols[3],
-            cols[4],
-            cols[5],
-            cols[6],
-            _bdpmParser.parseDate(cols[7]),
-            cols[10],
-            _bdpmParser.parseBool(cols[11]),
-          ),
-        );
-    if (parsed == null) continue;
 
-    final (
-      cis,
-      denomination,
-      formePharma,
-      voiesAdmin,
-      statutAdmin,
-      typeProcedure,
-      etatCommercialisation,
-      dateAmm,
-      titulaire,
-      surveillanceRenforcee,
-    ) = parsed;
+  await for (final row in rows) {
+    if (row.length < 12) continue;
+    final cols = row.map(_cellAsString).toList(growable: false);
+    hadLines = true;
+    final cis = cols[0];
+    final denomination = cols[1];
+    final formePharma = cols[2];
+    final voiesAdmin = cols[3];
+    final statutAdmin = cols[4];
+    final typeProcedure = cols[5];
+    final etatCommercialisation = cols[6];
+    final dateAmm = _cellAsDate(cols[7]);
+    final titulaire = cols[10];
+    final surveillanceRenforcee = _cellAsBool(cols[11]);
 
     if (titulaire.isNotEmpty) {
       holderNames.add(titulaire);
@@ -171,4 +139,20 @@ Future<Either<ParseError, SpecialitesParseResult>> parseSpecialitesImpl(
     labIdsByName: labIdsByName,
     laboratories: laboratories,
   ));
+}
+
+class SpecialitesParser
+    implements FileParser<Either<ParseError, SpecialitesParseResult>> {
+  SpecialitesParser({
+    required this.conditionsByCis,
+    required this.mitmMap,
+  });
+
+  final Map<String, String> conditionsByCis;
+  final Map<String, String> mitmMap;
+
+  @override
+  Future<Either<ParseError, SpecialitesParseResult>> parse(
+    Stream<List<dynamic>>? rows,
+  ) => parseSpecialitesImpl(rows, conditionsByCis, mitmMap);
 }

@@ -1,4 +1,4 @@
-import 'package:pharma_scan/core/database/database.dart';
+import 'package:pharma_scan/core/database/queries.drift.dart';
 import 'package:pharma_scan/core/domain/types/ids.dart';
 
 extension type ScanHistoryEntry(GetScanHistoryResult _row) {

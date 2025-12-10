@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:auto_route/auto_route.dart';
+import 'package:azlistview/azlistview.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -15,7 +16,6 @@ import 'package:pharma_scan/features/explorer/domain/models/search_result_item_m
 import 'package:pharma_scan/features/explorer/presentation/providers/database_stats_provider.dart';
 import 'package:pharma_scan/features/explorer/presentation/providers/generic_groups_provider.dart';
 import 'package:pharma_scan/features/explorer/presentation/providers/search_provider.dart';
-import 'package:pharma_scan/features/explorer/presentation/widgets/alphabet_sidebar.dart';
 import 'package:pharma_scan/features/home/providers/initialization_provider.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
@@ -101,7 +101,7 @@ void main() {
   });
 
   testWidgets(
-    'alphabet sidebar is visible when idle and hidden during search',
+    'index bar is visible when idle and hidden during search',
     (tester) async {
       final view = tester.view
         ..devicePixelRatio = 1.0
@@ -158,7 +158,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.byType(AlphabetSidebar), findsOneWidget);
+      expect(find.byType(IndexBar), findsOneWidget);
 
       await tester.enterText(
         find.bySemanticsLabel(Strings.searchLabel),
@@ -167,12 +167,12 @@ void main() {
       await tester.pump(const Duration(milliseconds: 400));
       await tester.pumpAndSettle();
 
-      expect(find.byType(AlphabetSidebar), findsNothing);
+      expect(find.byType(IndexBar), findsNothing);
     },
   );
 
   testWidgets(
-    'alphabet sidebar jumps to the first matching letter',
+    'index bar jumps to the first matching letter',
     (tester) async {
       final view = tester.view
         ..devicePixelRatio = 1.0
@@ -229,14 +229,11 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.byType(AlphabetSidebar), findsOneWidget);
+      expect(find.byType(IndexBar), findsOneWidget);
       expect(find.text('Mystic Molecule'), findsNothing);
 
       await tester.tap(
-        find.descendant(
-          of: find.byType(AlphabetSidebar),
-          matching: find.text('M'),
-        ),
+        find.descendant(of: find.byType(IndexBar), matching: find.text('M')),
       );
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 200));

@@ -1,62 +1,34 @@
 part of 'package:pharma_scan/core/services/ingestion/bdpm_file_parser.dart';
 
 Future<Either<ParseError, MedicamentsParseResult>> parseMedicamentsImpl(
-  Stream<String>? lines,
+  Stream<List<dynamic>>? rows,
   SpecialitesParseResult specialitesResult,
 ) async {
+  if (rows == null) {
+    return const Either.left(EmptyContentError('medicaments'));
+  }
+
   final cisToCip13 = <String, List<String>>{};
   final medicaments = <MedicamentsCompanion>[];
   final medicamentCips = <String>{};
   final seenCis = specialitesResult.seenCis;
   final namesByCis = specialitesResult.namesByCis;
 
-  if (lines == null) {
-    return const Either.left(EmptyContentError('medicaments'));
-  }
-
   var hadLines = false;
   var hasData = false;
-  await for (final line in lines) {
-    if (line.trim().isEmpty) continue;
-    hadLines = true;
-    final parsed = _bdpmParser
-        .parseRow<
-          (
-            String cis,
-            String libellePresentation,
-            String statutAdmin,
-            String etatCommercialisation,
-            String cip13,
-            String agrementCollectivites,
-            String tauxRemboursement,
-            double?,
-          )
-        >(
-          line,
-          10,
-          (parts) => (
-            parts[0],
-            parts[2],
-            parts[3],
-            parts[4],
-            parts.length > 6 ? parts[6] : '',
-            parts.length > 7 ? parts[7] : '',
-            parts.length > 8 ? parts[8] : '',
-            _bdpmParser.parseDouble(parts.length > 9 ? parts[9] : ''),
-          ),
-        );
-    if (parsed == null) continue;
 
-    final (
-      cis,
-      libellePresentation,
-      statutAdmin,
-      etatCommercialisation,
-      cip13,
-      agrementCollectivites,
-      tauxRemboursement,
-      prixEuro,
-    ) = parsed;
+  await for (final row in rows) {
+    if (row.length < 10) continue;
+    final columns = row.map(_cellAsString).toList(growable: false);
+    hadLines = true;
+    final cis = columns[0];
+    final libellePresentation = columns[2];
+    final statutAdmin = columns[3];
+    final etatCommercialisation = columns[4];
+    final cip13 = columns[6];
+    final agrementCollectivites = columns[7];
+    final tauxRemboursement = columns[8];
+    final prixEuro = _cellAsDouble(columns[9]);
 
     var added = false;
     final correctName = namesByCis[cis];
@@ -93,24 +65,18 @@ Future<Either<ParseError, MedicamentsParseResult>> parseMedicamentsImpl(
     }
 
     if (!added) {
-      final columns = line.split('\t');
-      if (columns.isEmpty) continue;
-      final fallbackCis = columns.first.trim();
+      final fallbackCis = columns.isNotEmpty ? columns.first : cis;
       if (fallbackCis.isEmpty ||
           (!seenCis.contains(fallbackCis) && seenCis.isNotEmpty)) {
         continue;
       }
-      final cipCandidate = columns
-          .map((p) => p.trim())
-          .firstWhere(
-            (value) => RegExp(r'^\d{13}$').hasMatch(value),
-            orElse: () => '',
-          );
+      final cipCandidate = columns.firstWhere(
+        (value) => RegExp(r'^\d{13}$').hasMatch(value),
+        orElse: () => '',
+      );
       if (cipCandidate.isEmpty) continue;
       hasData = true;
-      final priceSource = columns.length > 9
-          ? columns[9].trim()
-          : columns.last.trim();
+      final priceSource = columns.length > 9 ? columns[9] : columns.last;
       final parsedPrice = _parseDecimal(
         priceSource.isNotEmpty ? priceSource : null,
       );
@@ -148,4 +114,16 @@ Future<Either<ParseError, MedicamentsParseResult>> parseMedicamentsImpl(
     cisToCip13: cisToCip13,
     medicamentCips: medicamentCips,
   ));
+}
+
+class MedicamentsParser
+    implements FileParser<Either<ParseError, MedicamentsParseResult>> {
+  MedicamentsParser(this.specialitesResult);
+
+  final SpecialitesParseResult specialitesResult;
+
+  @override
+  Future<Either<ParseError, MedicamentsParseResult>> parse(
+    Stream<List<dynamic>>? rows,
+  ) => parseMedicamentsImpl(rows, specialitesResult);
 }

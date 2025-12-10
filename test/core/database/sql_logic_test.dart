@@ -3,9 +3,9 @@ import 'dart:convert';
 import 'package:drift/drift.dart' hide isNotNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pharma_scan/core/database/daos/database_dao.dart';
 import 'package:pharma_scan/core/database/database.dart';
 
+import '../../fixtures/seed_builder.dart' show SeedBuilder;
 import '../../test_utils.dart' show setPrincipeNormalizedForAllPrinciples;
 
 /// Lightweight facade over [SeedBuilder] for SQL view verification.
@@ -38,6 +38,8 @@ class SqlScenarioBuilder {
       );
     }
     _currentGroupId = groupId;
+    // Allow fluent test builder chaining.
+    // ignore: avoid_returning_this
     return this;
   }
 
@@ -109,6 +111,8 @@ class SqlScenarioBuilder {
       ),
     );
 
+    // Allow fluent test builder chaining.
+    // ignore: avoid_returning_this
     return this;
   }
 
@@ -222,7 +226,7 @@ void main() {
         );
 
         final princepsRow = rows.firstWhere(
-          (row) => (row['is_princeps'] as int) == 1,
+          (row) => (row['is_princeps']! as int) == 1,
         );
         final commonPrinciples = _decodeJsonArray(
           princepsRow['principes_actifs_communs'],
@@ -253,7 +257,6 @@ void main() {
             name: 'Amoxicilline Generic',
             type: 1,
             principle: 'AMOXICILLIN',
-            dosage: null,
           );
 
         await builder.insertInto(database);
@@ -261,10 +264,10 @@ void main() {
 
         final rows = await _selectGroupRows(database, 'GRP_DOSAGE');
         final princepsRow = rows.firstWhere(
-          (row) => (row['is_princeps'] as int) == 1,
+          (row) => (row['is_princeps']! as int) == 1,
         );
         final genericRow = rows.firstWhere(
-          (row) => (row['is_princeps'] as int) == 0,
+          (row) => (row['is_princeps']! as int) == 0,
         );
 
         final princepsDosage = princepsRow['formatted_dosage'] as String?;

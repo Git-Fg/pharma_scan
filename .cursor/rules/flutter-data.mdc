@@ -1,112 +1,62 @@
 ---
-description: Drift database patterns, SQL-first logic, FTS5 search, and query optimization
+description: Drift database patterns, SQL-first logic, and Isolate management
 alwaysApply: false
 ---
+
 # Flutter Data Layer (2025 Standard)
 
-## SQL-First Logic
+## Core Philosophy: SQL-First & Isolate-First
 
-**Mandate:** If grouping/sorting/filtering can be expressed in SQL (tables/views), keep it in SQL.
+**1. SQL-First Definitions (`.drift` files)**
 
-- SQL > Dart: avoid mapping/grouping in Dart when a view can return the exact shape.
-- Performance: let SQLite's optimizer handle joins and indices.
+- **MANDATE:** Define tables, triggers, and indices in `.drift` files, NOT Dart classes.
+- **Why:** Unlocks SQL power features (JSONB, Window Functions) and reduces build times.
+- **Pattern:**
 
-## Build Runner (2025 Reality)
-
-- Dart Macros cancelled → `build_runner` is persistent standard
-- Use `dart_mappable` ONLY for: Network DTOs, UI State
-- **NEVER** for Database entities (use Extension Types wrapping Drift)
-
-## Query Patterns
-
-- Streams: prefer `watch()` for UI-facing data.
-- Detail views: use `watchSingleOrNull()` to tolerate concurrent deletions.
-- Bulk ops: push work into SQL views/queries; avoid per-row `customStatement`.
-- FTS queries live in `.drift`; use generated accessors, not ad-hoc `customSelect`.
-
-## Optimization
-
-- **Transactions:** Wrap multiple writes in `transaction(() async { ... })`
-- **Batching:** Use `batch((batch) { ... })` for bulk inserts
-- **Indexing:** Define indices in `.drift` files on `WHERE`/`JOIN` columns
-
-## FTS5 Search
-
-**Standard setup:**
-
-- Use FTS5 with the tokenizer/normalization strategy defined in domain docs (e.g., `docs/DOMAIN_LOGIC.md` for app-specific choices).
-- Define virtual tables and SELECT helpers in `.drift`; consume generated accessors in DAOs.
-- Normalize/trim input before querying; if custom SQL helpers exist, keep them single-source and documented in domain docs.
-- Escape user-entered terms with an FTS5-safe helper before issuing search queries.
-- Ensure the chosen tokenizer is supported by the SQLite build included in the app (verify bundled native libs match the target tokenizer).
-
-## Database Safety
-
-```dart
-// ✅ watchSingleOrNull (prevents crashes on concurrent deletions)
-Stream<Item?> watchItem(String id) => dao.watchSingleOrNull(id);
-
-// ✅ .isIn handles large sets (Drift 2.24+, no manual chunking)
-final query = db.select(db.table)..where((t) => t.id.isIn(ids));
-
-// ❌ FORBIDDEN: String interpolation in queries
-// ✅ Use Expression API for dynamic queries
+```sql
+-- lib/database/tables.drift
+CREATE TABLE items (
+    id INT NOT NULL PRIMARY KEY AUTOINCREMENT,
+    meta_data JSONB, -- Uses SQLite 3.45+ JSONB
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
 ```
 
-## Drift Managers Mandate
+**2. Isolate-First Execution**
 
-**For bulk operations:** Push work into SQL views/inserts and consume the generated APIs; avoid per-row `customStatement` loops.
+- **MANDATE:** All database I/O must occur on a background isolate.
+- **Implementation:** Use `NativeDatabase.createInBackground` in your database provider.
+- **Forbidden:** Instantiating `NativeDatabase(File(...))` on the main thread.
 
-**TableManagers (Drift 2.29):**
-- Use `database.managers.<table>` for simple CRUD/sentinel rows (e.g., `AppSettings`).
-- Prefer `filter(...).updateOne(...)`, `insertOne(...)`, `watchSingle()` to reduce boilerplate.
-- Keep DAOs for multi-table transactions, FTS, or business rules; do not wrap managers just to pass through.
+## Interaction Patterns
 
-## Offline-First Architecture
+**1. Records over DTOs**
 
-- **Primary Source:** Local database (Drift) is source of truth
-- **Sync:** Implement background sync for remote data when needed
-- **Caching:** Use database as cache layer for network responses
+- **Rule:** Do not create specific DTO classes for query results. Use Dart Records.
+- **Pattern:**
+
+```dart
+// DAO
+Future<List<({String name, double total})>> getStats() async {
+  final query = select(users).join([...]);
+  return query.map((r) => (
+        name: r.readTable(users).name,
+        total: r.read(orders.amount) ?? 0.0,
+      )).get();
+}
+```
+
+**2. Batch Operations**
+
+- **Rule:** Use `batch` for multiple writes. Use `insertFromSelect` for bulk data moves (archiving) to avoid Dart-loop overhead.
+
+## Search (FTS5)
+
+- **Tokenization:** Use `tokenize='trigram'` for typo tolerance in `search_index`.
+- **Normalization:** Use a custom SQL User Defined Function (UDF) `normalize_text` registered in the connection setup to ensure SQL and Dart logic match exactly.
 
 ## Anti-Patterns
 
-- ❌ Dart loops for grouping/sorting (use SQL Views)
-- ❌ String interpolation in queries (use Expression API)
-- ❌ Manual chunking for `.isIn()` (Drift handles it)
-- ❌ `watchSingle` (use `watchSingleOrNull`)
-- ❌ `Either` in DAOs (use plain `Future<void>` and let exceptions bubble)
-- ❌ Re-implementing search/group formatting in Dart when `.drift` views/queries exist
-- ✅ SQL Views for aggregations
-- ✅ Transactions for multi-write operations
-- ✅ FTS5 search with domain-appropriate tokenizer
-
-## Transactional Integrity (The "No-Orphan" Rule)
-
-**Mandate:** Business operations that affect multiple tables MUST be atomic within the DAO.
-
-- **Forbidden:** Orchestrating multi-table deletes/updates inside a Riverpod Notifier.
-- **Required:** A single DAO method wrapped in `transaction(() async { ... })`.
-
-### ❌ Anti-Pattern (Notifier Orchestration)
-
-```dart
-// BAD: If step 1 succeeds but step 2 fails/crashes, data is corrupted.
-Future<void> deleteItem(String id) async {
-  await db.itemsDao.delete(id);
-  // <--- Potential crash/error here leaves "Ghost Data" in history
-  await db.historyDao.deleteForItemId(id);
-}
-```
-
-### ✅ Standard (DAO Transaction)
-
-```dart
-// GOOD: Atomic. Both happen, or neither happens.
-// In ItemsDao:
-Future<void> deleteItemFully(String id) async {
-  await transaction(() async {
-    await (delete(items)..where((t) => t.id.equals(id))).go();
-    await (delete(history)..where((t) => t.itemId.equals(id))).go();
-  });
-}
-```
+- ❌ Defining schema in Dart (`class Users extends Table`).
+- ❌ Accessing generated Row classes in the UI (Wrap in Domain Entity Extension Types).
+- ❌ Main-thread DB connections (Causes UI jank).

@@ -1,7 +1,7 @@
 import 'package:pharma_scan/core/services/ingestion/schema/bdpm_parsers.dart';
 
 /// CIS_bdpm.txt (Spécialités)
-class BdpmSpecialiteRow with BdpmRowParser {
+class BdpmSpecialiteRow {
   const BdpmSpecialiteRow({
     required this.cis,
     required this.denomination,
@@ -30,8 +30,7 @@ class BdpmSpecialiteRow with BdpmRowParser {
   final bool surveillanceRenforcee;
 
   static BdpmSpecialiteRow? fromLine(String line) {
-    const parser = _BdpmParserInstance();
-    final cols = parser.splitLine(line, 12);
+    final cols = _splitLine(line, 12);
     if (cols.isEmpty) return null;
 
     return BdpmSpecialiteRow(
@@ -42,17 +41,17 @@ class BdpmSpecialiteRow with BdpmRowParser {
       statutAdmin: cols[4],
       typeProcedure: cols[5],
       etatCommercialisation: cols[6],
-      dateAmm: parser.parseDate(cols[7]),
+      dateAmm: _parseDate(cols[7]),
       statutBdm: cols[8],
       numAutorisationEurope: cols[9],
       titulaire: cols[10],
-      surveillanceRenforcee: parser.parseBool(cols[11]),
+      surveillanceRenforcee: _parseBool(cols[11]),
     );
   }
 }
 
 /// CIS_CIP_bdpm.txt (Présentations)
-class BdpmPresentationRow with BdpmRowParser {
+class BdpmPresentationRow {
   const BdpmPresentationRow({
     required this.cis,
     required this.cip7,
@@ -79,8 +78,7 @@ class BdpmPresentationRow with BdpmRowParser {
   final String indicationsRemb;
 
   static BdpmPresentationRow? fromLine(String line) {
-    const parser = _BdpmParserInstance();
-    final cols = parser.splitLine(line, 10);
+    final cols = _splitLine(line, 10);
     if (cols.isEmpty) return null;
 
     return BdpmPresentationRow(
@@ -89,18 +87,18 @@ class BdpmPresentationRow with BdpmRowParser {
       libellePresentation: cols[2],
       statutAdmin: cols[3],
       etatCommercialisation: cols[4],
-      dateDeclaration: parser.parseDate(cols[5]),
+      dateDeclaration: _parseDate(cols[5]),
       cip13: cols[6],
       agrementCollectivites: cols[7],
       tauxRemboursement: cols[8],
-      prixEuro: parser.parseDouble(cols[9]),
+      prixEuro: _parseDouble(cols[9]),
       indicationsRemb: cols.length > 10 ? cols[10] : '',
     );
   }
 }
 
 /// CIS_COMPO_bdpm.txt (Compositions)
-class BdpmCompositionRow with BdpmRowParser {
+class BdpmCompositionRow {
   const BdpmCompositionRow({
     required this.cis,
     required this.designationElem,
@@ -121,8 +119,7 @@ class BdpmCompositionRow with BdpmRowParser {
   final int numLiaison;
 
   static BdpmCompositionRow? fromLine(String line) {
-    const parser = _BdpmParserInstance();
-    final cols = parser.splitLine(line, 8);
+    final cols = _splitLine(line, 8);
     if (cols.isEmpty) return null;
 
     final substanceCode = cols[2].trim();
@@ -140,6 +137,15 @@ class BdpmCompositionRow with BdpmRowParser {
   }
 }
 
-class _BdpmParserInstance with BdpmRowParser {
-  const _BdpmParserInstance();
+List<String> _splitLine(String line, int expectedColumns) {
+  if (line.trim().isEmpty) return const [];
+  final parts = line.split('\t');
+  if (parts.length < expectedColumns) return const [];
+  return parts.map((e) => e.trim()).toList();
 }
+
+DateTime? _parseDate(String raw) => parseBdpmDate(raw.trim());
+
+double? _parseDouble(String raw) => parseBdpmDouble(raw);
+
+bool _parseBool(String raw) => parseBdpmBool(raw);

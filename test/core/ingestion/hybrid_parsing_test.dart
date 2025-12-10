@@ -4,8 +4,12 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pharma_scan/core/services/ingestion/bdpm_file_parser.dart';
 
-Stream<String> _streamFromContent(String content) =>
-    Stream<String>.value(content).transform(const LineSplitter());
+Stream<List<dynamic>> _streamFromContent(String content) {
+  final lines = const LineSplitter().convert(content);
+  return Stream<List<dynamic>>.fromIterable(
+    lines.map((line) => line.split('\t')),
+  );
+}
 
 void main() {
   group('Hybrid parsing tiers', () {

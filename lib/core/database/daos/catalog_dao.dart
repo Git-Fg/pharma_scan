@@ -1,7 +1,10 @@
 import 'dart:convert';
 
 import 'package:drift/drift.dart';
+import 'package:pharma_scan/core/database/daos/catalog_dao.drift.dart';
 import 'package:pharma_scan/core/database/database.dart';
+import 'package:pharma_scan/core/database/queries.drift.dart';
+import 'package:pharma_scan/core/database/views.drift.dart';
 import 'package:pharma_scan/core/domain/types/ids.dart';
 import 'package:pharma_scan/core/domain/types/semantic_types.dart';
 import 'package:pharma_scan/core/logic/sanitizer.dart';
@@ -11,23 +14,6 @@ import 'package:pharma_scan/features/explorer/domain/entities/medicament_entity.
 import 'package:pharma_scan/features/explorer/domain/models/database_stats.dart';
 import 'package:pharma_scan/features/explorer/domain/models/generic_group_entity.dart';
 import 'package:pharma_scan/features/explorer/domain/models/search_filters_model.dart';
-
-part 'catalog_dao.g.dart';
-
-typedef MedicamentSummaryWithLab = ({
-  MedicamentSummaryData summary,
-  String? labName,
-});
-
-extension MedicamentSummaryWithLabX on MedicamentSummaryWithLab {
-  MedicamentSummaryData get data => summary;
-  bool get isPrinceps => summary.isPrinceps;
-  String? get groupId => summary.groupId;
-  List<String> get principesActifsCommuns => summary.principesActifsCommuns;
-  String get nomCanonique => summary.nomCanonique;
-  String get princepsDeReference => summary.princepsDeReference;
-  String get princepsBrandName => summary.princepsBrandName;
-}
 
 extension SearchMedicamentsResultX on SearchMedicamentsResult {
   MedicamentSummaryData toSummaryData() => MedicamentSummaryData(
@@ -64,8 +50,10 @@ extension SearchMedicamentsResultX on SearchMedicamentsResult {
     representativeCip: representativeCip,
   );
 
-  MedicamentSummaryWithLab toSummaryWithLab() =>
-      (summary: toSummaryData(), labName: labName);
+  ({MedicamentSummaryData summary, String? labName}) toSummaryWithLab() => (
+    summary: toSummaryData(),
+    labName: labName,
+  );
 }
 
 /// Escapes a normalized query for FTS5 (lowercase, escape specials, join with AND).
@@ -92,7 +80,7 @@ String _buildFtsQuery(String raw) {
     GeneriqueGroups,
   ],
 )
-class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
+class CatalogDao extends DatabaseAccessor<AppDatabase> with $CatalogDaoMixin {
   CatalogDao(super.attachedDatabase);
 
   // ============================================================================
@@ -208,19 +196,21 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
     final result = ScanResult(
       summary: MedicamentEntity.fromData(summary, labName: labName),
       cip: codeCip,
-      price: medicament.prixPublic,
-      refundRate: medicament.tauxRemboursement,
-      boxStatus: medicament.commercialisationStatut,
-      availabilityStatus: availabilityRow?.statut,
-      isHospitalOnly:
-          summary.isHospitalOnly ||
-          _isHospitalOnly(
-            medicament.agrementCollectivites,
-            medicament.prixPublic,
-            medicament.tauxRemboursement,
-          ),
-      libellePresentation: medicament.presentationLabel,
-      expDate: expDate,
+      metadata: (
+        price: medicament.prixPublic,
+        refundRate: medicament.tauxRemboursement,
+        boxStatus: medicament.commercialisationStatut,
+        availabilityStatus: availabilityRow?.statut,
+        isHospitalOnly:
+            summary.isHospitalOnly ||
+            _isHospitalOnly(
+              medicament.agrementCollectivites,
+              medicament.prixPublic,
+              medicament.tauxRemboursement,
+            ),
+        libellePresentation: medicament.presentationLabel,
+        expDate: expDate,
+      ),
     );
 
     return result;
@@ -243,14 +233,15 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
   // Search Methods (from SearchDao)
   // ============================================================================
 
-  Future<List<MedicamentSummaryWithLab>> searchMedicaments(
+  Future<List<({MedicamentSummaryData summary, String? labName})>>
+  searchMedicaments(
     NormalizedQuery query, {
     SearchFilters? filters,
   }) async {
     final sanitizedQuery = _buildFtsQuery(query.toString());
     if (sanitizedQuery.isEmpty) {
       LoggerService.db('Empty search query, returning empty results');
-      return <MedicamentSummaryWithLab>[];
+      return <({MedicamentSummaryData summary, String? labName})>[];
     }
 
     LoggerService.db(
@@ -261,27 +252,30 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
     final atcFilter = filters?.atcClass?.code ?? '';
 
     final labFilter = filters?.titulaireId ?? -1;
-    final queryResults = await attachedDatabase
+    final queryResults = await attachedDatabase.queriesDrift
         .searchMedicaments(
-          sanitizedQuery,
-          routeFilter,
-          atcFilter,
-          labFilter,
+          fts: sanitizedQuery,
+          routeFilter: routeFilter,
+          atcFilter: atcFilter,
+          labFilter: labFilter,
         )
         .get();
 
     return queryResults.map((row) => row.toSummaryWithLab()).toList();
   }
 
-  Stream<List<MedicamentSummaryWithLab>> watchMedicaments(
+  Stream<List<({MedicamentSummaryData summary, String? labName})>>
+  watchMedicaments(
     NormalizedQuery query, {
     SearchFilters? filters,
   }) {
     final sanitizedQuery = _buildFtsQuery(query.toString());
     if (sanitizedQuery.isEmpty) {
       LoggerService.db('Empty search query, emitting empty stream');
-      return Stream<List<MedicamentSummaryWithLab>>.value(
-        const <MedicamentSummaryWithLab>[],
+      return Stream<
+        List<({MedicamentSummaryData summary, String? labName})>
+      >.value(
+        const <({MedicamentSummaryData summary, String? labName})>[],
       );
     }
 
@@ -292,15 +286,77 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
 
     final labFilter = filters?.titulaireId ?? -1;
 
-    return attachedDatabase
+    return attachedDatabase.queriesDrift
         .searchMedicaments(
-          sanitizedQuery,
-          routeFilter,
-          atcFilter,
-          labFilter,
+          fts: sanitizedQuery,
+          routeFilter: routeFilter,
+          atcFilter: atcFilter,
+          labFilter: labFilter,
         )
         .watch()
         .map((rows) => rows.map((row) => row.toSummaryWithLab()).toList());
+  }
+
+  Future<List<SearchResultsResult>> searchResultsSql(
+    NormalizedQuery query, {
+    SearchFilters? filters,
+  }) async {
+    final sanitizedQuery = _buildFtsQuery(query.toString());
+    if (sanitizedQuery.isEmpty) {
+      LoggerService.db('Empty search query, returning empty search results');
+      return <SearchResultsResult>[];
+    }
+
+    LoggerService.db(
+      'Searching medicaments (SQL polymorphic) with FTS5 query: '
+      '$sanitizedQuery',
+    );
+
+    final routeFilter = filters?.voieAdministration ?? '';
+    final atcFilter = filters?.atcClass?.code ?? '';
+    final labFilter = filters?.titulaireId ?? -1;
+
+    return attachedDatabase.queriesDrift
+        .searchResults(
+          fts: sanitizedQuery,
+          routeFilter: routeFilter,
+          atcFilter: atcFilter,
+          labFilter: labFilter,
+        )
+        .get();
+  }
+
+  Stream<List<SearchResultsResult>> watchSearchResultsSql(
+    NormalizedQuery query, {
+    SearchFilters? filters,
+  }) {
+    final sanitizedQuery = _buildFtsQuery(query.toString());
+    if (sanitizedQuery.isEmpty) {
+      LoggerService.db(
+        'Empty search query, emitting empty polymorphic search stream',
+      );
+      return Stream<List<SearchResultsResult>>.value(
+        const <SearchResultsResult>[],
+      );
+    }
+
+    LoggerService.db(
+      'Watching medicament search (SQL polymorphic) for query: '
+      '$sanitizedQuery',
+    );
+
+    final routeFilter = filters?.voieAdministration ?? '';
+    final atcFilter = filters?.atcClass?.code ?? '';
+    final labFilter = filters?.titulaireId ?? -1;
+
+    return attachedDatabase.queriesDrift
+        .searchResults(
+          fts: sanitizedQuery,
+          routeFilter: routeFilter,
+          atcFilter: atcFilter,
+          labFilter: labFilter,
+        )
+        .watch();
   }
 
   // ============================================================================
@@ -314,7 +370,9 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
       'Watching group $groupId via getGroupsWithSamePrinciples',
     );
 
-    return attachedDatabase.getGroupsWithSamePrinciples(groupId).watch();
+    return attachedDatabase.queriesDrift
+        .getGroupsWithSamePrinciples(targetGroupId: groupId)
+        .watch();
   }
 
   Future<List<ViewGroupDetail>> getGroupDetails(
@@ -323,7 +381,9 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
     LoggerService.db(
       'Fetching snapshot for group $groupId via getGroupsWithSamePrinciples',
     );
-    return attachedDatabase.getGroupsWithSamePrinciples(groupId).get();
+    return attachedDatabase.queriesDrift
+        .getGroupsWithSamePrinciples(targetGroupId: groupId)
+        .get();
   }
 
   Future<List<ViewGroupDetail>> fetchRelatedPrinceps(
@@ -345,11 +405,11 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
     final targetLength = commonPrincipes.length;
 
     // Call generated SQL query with parameters
-    final results = await attachedDatabase
+    final results = await attachedDatabase.queriesDrift
         .getRelatedTherapies(
-          groupId,
-          targetLength,
-          targetPrinciplesJson,
+          targetGroupId: groupId,
+          targetLength: targetLength,
+          targetPrinciples: targetPrinciplesJson,
         )
         .get();
 

@@ -1,8 +1,6 @@
 import 'package:diacritic/diacritic.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pharma_scan/core/database/daos/catalog_dao.dart';
-import 'package:pharma_scan/core/database/daos/database_dao.dart';
 import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/domain/types/semantic_types.dart';
 
@@ -123,7 +121,7 @@ void main() {
       expect(results, isNotEmpty);
       expect(
         results.any(
-          (row) => row.princepsBrandName.toUpperCase() == 'DOLIPRANE',
+          (row) => row.summary.princepsBrandName.toUpperCase() == 'DOLIPRANE',
         ),
         isTrue,
       );
@@ -138,7 +136,8 @@ void main() {
         expect(results.length, greaterThanOrEqualTo(2));
         expect(
           results.every(
-            (row) => row.nomCanonique.toUpperCase().contains('PARACETAMOL'),
+            (row) =>
+                row.summary.nomCanonique.toUpperCase().contains('PARACETAMOL'),
           ),
           isTrue,
         );
@@ -155,7 +154,8 @@ void main() {
         expect(
           results
               .map(
-                (row) => removeDiacritics(row.nomCanonique).toUpperCase(),
+                (row) =>
+                    removeDiacritics(row.summary.nomCanonique).toUpperCase(),
               )
               .any((name) => name.contains('COEURCALM')),
           isTrue,
@@ -174,7 +174,7 @@ void main() {
         expect(
           results
               .map(
-                (row) => row.nomCanonique.toUpperCase().replaceAll(
+                (row) => row.summary.nomCanonique.toUpperCase().replaceAll(
                   RegExp('[^A-Z0-9]'),
                   '',
                 ),

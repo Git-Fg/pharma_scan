@@ -2,8 +2,6 @@
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pharma_scan/core/database/daos/catalog_dao.dart';
-import 'package:pharma_scan/core/database/daos/database_dao.dart';
 import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/domain/types/semantic_types.dart';
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
@@ -418,17 +416,17 @@ void main() {
 
       for (final candidate in candidates) {
         // Verify nomCanonique is clean
-        expect(candidate.nomCanonique, 'APIXABAN 5 mg');
-        expect(candidate.nomCanonique, isNot(contains('ELIQUIS')));
-        expect(candidate.nomCanonique, isNot(contains('ZYDUS')));
-        expect(candidate.nomCanonique, isNot(contains('BRISTOL')));
-        expect(candidate.nomCanonique, isNot(contains('comprimé')));
+        expect(candidate.summary.nomCanonique, 'APIXABAN 5 mg');
+        expect(candidate.summary.nomCanonique, isNot(contains('ELIQUIS')));
+        expect(candidate.summary.nomCanonique, isNot(contains('ZYDUS')));
+        expect(candidate.summary.nomCanonique, isNot(contains('BRISTOL')));
+        expect(candidate.summary.nomCanonique, isNot(contains('comprimé')));
 
         // Verify common principles
-        expect(candidate.principesActifsCommuns, contains('APIXABAN'));
+        expect(candidate.summary.principesActifsCommuns, contains('APIXABAN'));
 
         // Verify groupId
-        expect(candidate.groupId, 'GROUP_1');
+        expect(candidate.summary.groupId, 'GROUP_1');
       }
     });
   });

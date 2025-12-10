@@ -5,8 +5,6 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
-import 'package:pharma_scan/core/database/daos/catalog_dao.dart';
-import 'package:pharma_scan/core/database/daos/database_dao.dart';
 import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/domain/types/semantic_types.dart';
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
@@ -356,19 +354,19 @@ void main() {
       expect(candidates.length, 2);
 
       final princeps = candidates.firstWhere(
-        (candidate) => candidate.isPrinceps,
+        (candidate) => candidate.summary.isPrinceps,
       );
       final generic = candidates.firstWhere(
-        (candidate) => !candidate.isPrinceps,
+        (candidate) => !candidate.summary.isPrinceps,
       );
 
-      expect(princeps.groupId, 'GROUP_1');
-      expect(princeps.principesActifsCommuns, contains('APIXABAN'));
-      expect(princeps.nomCanonique, 'APIXABAN 5 mg');
+      expect(princeps.summary.groupId, 'GROUP_1');
+      expect(princeps.summary.principesActifsCommuns, contains('APIXABAN'));
+      expect(princeps.summary.nomCanonique, 'APIXABAN 5 mg');
 
-      expect(generic.groupId, 'GROUP_1');
-      expect(generic.nomCanonique, 'APIXABAN 5 mg');
-      expect(generic.principesActifsCommuns, contains('APIXABAN'));
+      expect(generic.summary.groupId, 'GROUP_1');
+      expect(generic.summary.nomCanonique, 'APIXABAN 5 mg');
+      expect(generic.summary.principesActifsCommuns, contains('APIXABAN'));
     });
   });
 
@@ -661,9 +659,9 @@ void main() {
         // Verify all results contain PARACETAMOL
         final allContainParacetamol = results.every(
           (r) =>
-              r.nomCanonique.toUpperCase().contains('PARACETAMOL') ||
-              r.principesActifsCommuns.any(
-                (p) => p.toUpperCase().contains('PARACETAMOL'),
+              r.summary.nomCanonique.toUpperCase().contains('PARACETAMOL') ||
+              r.summary.principesActifsCommuns.any(
+                (String p) => p.toUpperCase().contains('PARACETAMOL'),
               ),
         );
         expect(
@@ -684,11 +682,11 @@ void main() {
         );
 
         // Verify the first result is relevant (contains PARACETAMOL)
-        final firstResult = results.first;
+        final firstResult = results.first.summary;
         expect(
           firstResult.nomCanonique.toUpperCase().contains('PARACETAMOL') ||
               firstResult.principesActifsCommuns.any(
-                (p) => p.toUpperCase().contains('PARACETAMOL'),
+                (String p) => p.toUpperCase().contains('PARACETAMOL'),
               ),
           isTrue,
           reason: 'First result should contain PARACETAMOL',

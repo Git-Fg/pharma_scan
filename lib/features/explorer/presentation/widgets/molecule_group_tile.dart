@@ -78,7 +78,6 @@ class MoleculeGroupTile extends HookWidget {
               horizontal: AppDimens.spacingMd,
             ),
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 ShadBadge.outline(
                   child: Text(

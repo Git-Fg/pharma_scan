@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:pharma_scan/core/database/database.dart';
+import 'package:pharma_scan/core/database/tables/settings.drift.dart';
 import 'package:pharma_scan/core/models/update_frequency.dart';
 import 'package:pharma_scan/core/providers/core_providers.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';

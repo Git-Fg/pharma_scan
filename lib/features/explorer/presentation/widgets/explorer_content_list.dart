@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:auto_route/auto_route.dart';
+import 'package:azlistview/azlistview.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:gap/gap.dart';
@@ -19,9 +20,10 @@ import 'package:pharma_scan/features/explorer/presentation/providers/generic_gro
 import 'package:pharma_scan/features/explorer/presentation/providers/search_provider.dart';
 import 'package:pharma_scan/features/explorer/presentation/widgets/medicament_tile.dart';
 import 'package:pharma_scan/features/explorer/presentation/widgets/molecule_group_tile.dart';
+import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
-const double explorerListItemHeight = 108.0;
+const double explorerListItemHeight = 108;
 
 class ExplorerContentList extends ConsumerWidget {
   const ExplorerContentList({
@@ -31,6 +33,9 @@ class ExplorerContentList extends ConsumerWidget {
     required this.hasSearchText,
     required this.isSearching,
     required this.currentQuery,
+    this.bottomPadding = 0,
+    this.itemScrollController,
+    this.itemPositionsListener,
     super.key,
   });
 
@@ -40,28 +45,26 @@ class ExplorerContentList extends ConsumerWidget {
   final bool hasSearchText;
   final bool isSearching;
   final String currentQuery;
+  final double bottomPadding;
+  final ItemScrollController? itemScrollController;
+  final ItemPositionsListener? itemPositionsListener;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return SliverPadding(
+    final shouldShowSearch = hasSearchText && isSearching;
+    final content = shouldShowSearch
+        ? searchResults.when(
+            skipLoadingOnReload: true,
+            data: (items) => _buildSearchResultsList(context, ref, items),
+            loading: () => _buildSkeletonList(context),
+            error: (error, _) =>
+                _buildSearchError(context, ref, error, currentQuery),
+          )
+        : _buildGenericGroupsList(context, ref, groups);
+
+    return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppDimens.spacingMd),
-      sliver: SliverMainAxisGroup(
-        slivers: [
-          if (!hasSearchText)
-            _buildGenericGroupsSliver(context, ref, groups)
-          else if (!isSearching)
-            _buildSkeletonSliver(context)
-          else
-            searchResults.when(
-              skipLoadingOnReload: true,
-              data: (items) => _buildSearchResultsSliver(context, ref, items),
-              loading: () => _buildSkeletonSliver(context),
-              error: (error, _) =>
-                  _buildSearchErrorSliver(context, ref, error, currentQuery),
-            ),
-          const SliverGap(AppDimens.spacingMd),
-        ],
-      ),
+      child: content,
     );
   }
 
@@ -82,17 +85,15 @@ class ExplorerContentList extends ConsumerWidget {
   }
 
   Widget _buildExplorerEmptyState(BuildContext context) {
-    return const SliverToBoxAdapter(
-      child: Padding(
-        padding: EdgeInsets.only(
-          top: AppDimens.spacingLg,
-          bottom: AppDimens.spacingXl,
-        ),
-        child: StatusView(
-          type: StatusType.empty,
-          title: Strings.explorerEmptyTitle,
-          description: Strings.explorerEmptyDescription,
-        ),
+    return const Padding(
+      padding: EdgeInsets.only(
+        top: AppDimens.spacingLg,
+        bottom: AppDimens.spacingXl,
+      ),
+      child: StatusView(
+        type: StatusType.empty,
+        title: Strings.explorerEmptyTitle,
+        description: Strings.explorerEmptyDescription,
       ),
     );
   }
@@ -135,7 +136,6 @@ class ExplorerContentList extends ConsumerWidget {
                 ),
               ),
               child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Container(
                     width: 18,
@@ -192,135 +192,189 @@ class ExplorerContentList extends ConsumerWidget {
     );
   }
 
-  Widget _buildGenericGroupsSliver(
+  Widget _buildGenericGroupsList(
     BuildContext context,
     WidgetRef ref,
     AsyncValue<GenericGroupsState> groups,
   ) {
-    Widget sliver;
     if (groups.isLoading) {
-      sliver = _buildSkeletonSliver(context);
-    } else {
-      final data = groups.asData?.value;
-      if (groups.hasError && (data == null || data.items.isEmpty)) {
-        sliver = SliverToBoxAdapter(
-          child: _buildGroupsError(context, ref),
-        );
-      } else if (data == null || data.items.isEmpty) {
-        sliver = _buildExplorerEmptyState(context);
-      } else {
-        sliver = SliverFixedExtentList(
-          itemExtent: explorerListItemHeight,
-          delegate: SliverChildBuilderDelegate((context, index) {
-            final item = groupedItems[index];
-            Widget content;
-            if (item is GenericGroupEntity) {
-              content = _buildGenericGroupTile(context, item);
-            } else if (item is GroupCluster) {
-              final princepsName = item.sortKey.isNotEmpty
-                  ? item.sortKey
-                  : (item.displayName.isNotEmpty
-                        ? item.displayName
-                        : Strings.notDetermined);
-              content = MoleculeGroupTile(
-                moleculeName: item.displayName,
-                princepsName: princepsName,
-                groups: item.groups,
-                itemBuilder: _buildGenericGroupTile,
-              );
-            } else if (item is List<GenericGroupEntity>) {
-              final firstItem = item.first;
-              final moleculeName = firstItem.commonPrincipes.isNotEmpty
-                  ? _formatPrinciples(firstItem.commonPrincipes)
-                  : (firstItem.princepsReferenceName.isNotEmpty
-                        ? firstItem.princepsReferenceName
-                        : Strings.notDetermined);
-              final princepsName = firstItem.princepsReferenceName.isNotEmpty
-                  ? firstItem.princepsReferenceName
-                  : moleculeName;
-              content = MoleculeGroupTile(
-                moleculeName: moleculeName,
-                princepsName: princepsName,
-                groups: item,
-                itemBuilder: _buildGenericGroupTile,
-              );
-            } else {
-              return const SizedBox.shrink();
-            }
-
-            return content;
-          }, childCount: groupedItems.length),
-        );
-      }
+      return _buildSkeletonList(context);
     }
-    return sliver;
+
+    final data = groups.asData?.value;
+    if (groups.hasError && (data == null || data.items.isEmpty)) {
+      return _buildGroupsError(context, ref);
+    }
+    if (data == null || data.items.isEmpty || groupedItems.isEmpty) {
+      return _buildExplorerEmptyState(context);
+    }
+
+    final items = _buildSuspensionItems(groupedItems);
+    if (items.isEmpty) {
+      return _buildExplorerEmptyState(context);
+    }
+
+    SuspensionUtil.setShowSuspensionStatus(items);
+    final indexTags = SuspensionUtil.getTagIndexList(items);
+
+    return AzListView(
+      data: items,
+      itemCount: items.length,
+      itemScrollController: itemScrollController,
+      itemPositionsListener: itemPositionsListener,
+      padding: EdgeInsets.only(
+        top: AppDimens.spacing2xs,
+        bottom: bottomPadding,
+      ),
+      susItemHeight: 32,
+      susItemBuilder: (context, index) =>
+          _buildSuspensionHeader(context, items[index]),
+      itemBuilder: (context, index) =>
+          _buildGroupedListItem(context, items[index].payload),
+      indexBarData: indexTags,
+      indexBarMargin: EdgeInsets.only(bottom: bottomPadding),
+      indexBarOptions: _buildIndexBarOptions(context),
+      indexHintBuilder: _buildIndexHint,
+    );
   }
 
-  Widget _buildSkeletonSliver(BuildContext context) {
-    return Builder(
-      builder: (context) {
-        final placeholderColor = context.shadColors.muted.withValues(
-          alpha: 0.3,
-        );
-        return SliverList.separated(
-          itemCount: 4,
-          separatorBuilder: (context, index) => const Gap(AppDimens.spacing2xs),
-          itemBuilder: (context, index) {
-            return Padding(
-              padding: const EdgeInsets.symmetric(
-                vertical: AppDimens.spacing2xs,
-              ),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppDimens.spacingMd,
-                  vertical: AppDimens.spacingSm,
+  Widget _buildSuspensionHeader(
+    BuildContext context,
+    ISuspensionBean item,
+  ) {
+    if (!item.isShowSuspension) return const SizedBox.shrink();
+    final label = item.getSuspensionTag();
+
+    return Container(
+      height: 32,
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: AppDimens.spacingMd),
+      decoration: BoxDecoration(
+        color: context.shadColors.muted,
+        border: Border(
+          bottom: BorderSide(color: context.shadColors.border),
+        ),
+      ),
+      alignment: Alignment.centerLeft,
+      child: Text(
+        label,
+        style: context.shadTextTheme.small.copyWith(
+          color: context.shadColors.mutedForeground,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGroupedListItem(BuildContext context, Object item) {
+    if (item is GenericGroupEntity) {
+      return _buildGenericGroupTile(context, item);
+    }
+    if (item is GroupCluster) {
+      final princepsName = item.sortKey.isNotEmpty
+          ? item.sortKey
+          : (item.displayName.isNotEmpty
+                ? item.displayName
+                : Strings.notDetermined);
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppDimens.spacing2xs),
+        child: MoleculeGroupTile(
+          moleculeName: item.displayName,
+          princepsName: princepsName,
+          groups: item.groups,
+          itemBuilder: _buildGenericGroupTile,
+        ),
+      );
+    }
+    if (item is List<GenericGroupEntity> && item.isNotEmpty) {
+      final firstItem = item.first;
+      final moleculeName = firstItem.commonPrincipes.isNotEmpty
+          ? _formatPrinciples(firstItem.commonPrincipes)
+          : (firstItem.princepsReferenceName.isNotEmpty
+                ? firstItem.princepsReferenceName
+                : Strings.notDetermined);
+      final princepsName = firstItem.princepsReferenceName.isNotEmpty
+          ? firstItem.princepsReferenceName
+          : moleculeName;
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppDimens.spacing2xs),
+        child: MoleculeGroupTile(
+          moleculeName: moleculeName,
+          princepsName: princepsName,
+          groups: item,
+          itemBuilder: _buildGenericGroupTile,
+        ),
+      );
+    }
+
+    return const SizedBox.shrink();
+  }
+
+  Widget _buildSkeletonList(BuildContext context) {
+    final placeholderColor = context.shadColors.muted.withValues(
+      alpha: 0.3,
+    );
+    return ListView.separated(
+      padding: EdgeInsets.only(
+        bottom: bottomPadding,
+        top: AppDimens.spacing2xs,
+      ),
+      itemCount: 4,
+      separatorBuilder: (context, index) => const Gap(AppDimens.spacing2xs),
+      itemBuilder: (context, index) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(
+            vertical: AppDimens.spacing2xs,
+          ),
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppDimens.spacingMd,
+              vertical: AppDimens.spacingSm,
+            ),
+            child: Row(
+              children: [
+                _SkeletonBlock(
+                  height: 20,
+                  width: 20,
+                  color: placeholderColor,
                 ),
-                child: Row(
-                  children: [
-                    _SkeletonBlock(
-                      height: 20,
-                      width: 20,
-                      color: placeholderColor,
-                    ),
-                    const Gap(AppDimens.spacingSm),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          _SkeletonBlock(
-                            height: 16,
-                            width: 200,
-                            color: placeholderColor,
-                          ),
-                          const Gap(4),
-                          _SkeletonBlock(
-                            height: 14,
-                            width: 150,
-                            color: placeholderColor,
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Gap(AppDimens.spacingXs),
-                    ExcludeSemantics(
-                      child: _SkeletonBlock(
+                const Gap(AppDimens.spacingSm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _SkeletonBlock(
                         height: 16,
-                        width: 16,
+                        width: 200,
                         color: placeholderColor,
                       ),
-                    ),
-                  ],
+                      const Gap(4),
+                      _SkeletonBlock(
+                        height: 14,
+                        width: 150,
+                        color: placeholderColor,
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            );
-          },
+                const Gap(AppDimens.spacingXs),
+                ExcludeSemantics(
+                  child: _SkeletonBlock(
+                    height: 16,
+                    width: 16,
+                    color: placeholderColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
         );
       },
     );
   }
 
-  Widget _buildSearchResultsSliver(
+  Widget _buildSearchResultsList(
     BuildContext context,
     WidgetRef ref,
     List<SearchResultItem> results,
@@ -329,24 +383,30 @@ class ExplorerContentList extends ConsumerWidget {
       final filters = ref.read(searchFiltersProvider);
       final hasFilters = filters.hasActiveFilters;
 
-      return SliverToBoxAdapter(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: AppDimens.spacing2xl),
-          child: StatusView(
-            type: StatusType.empty,
-            title: Strings.noResults,
-            description: hasFilters ? Strings.filters : null,
-            actionLabel: hasFilters ? Strings.clearFilters : null,
-            onAction: hasFilters
-                ? ref.read(searchFiltersProvider.notifier).clearFilters
-                : null,
-          ),
+      return Padding(
+        padding: EdgeInsets.only(
+          top: AppDimens.spacing2xl,
+          bottom: bottomPadding + AppDimens.spacing2xl,
+        ),
+        child: StatusView(
+          type: StatusType.empty,
+          title: Strings.noResults,
+          description: hasFilters ? Strings.filters : null,
+          actionLabel: hasFilters ? Strings.clearFilters : null,
+          onAction: hasFilters
+              ? ref.read(searchFiltersProvider.notifier).clearFilters
+              : null,
         ),
       );
     }
 
-    return SliverList(
-      delegate: SliverChildBuilderDelegate((context, index) {
+    return ListView.builder(
+      padding: EdgeInsets.only(
+        bottom: bottomPadding,
+        top: AppDimens.spacing2xs,
+      ),
+      itemCount: results.length,
+      itemBuilder: (context, index) {
         final result = results[index];
 
         if (result is ClusterResult) {
@@ -373,17 +433,18 @@ class ExplorerContentList extends ConsumerWidget {
             onTap: () => _handleSearchResultTap(context, result),
           ),
         );
-      }, childCount: results.length),
+      },
     );
   }
 
-  Widget _buildSearchErrorSliver(
+  Widget _buildSearchError(
     BuildContext context,
     WidgetRef ref,
     Object error,
     String currentQuery,
   ) {
-    return SliverToBoxAdapter(
+    return Padding(
+      padding: EdgeInsets.only(bottom: bottomPadding),
       child: StatusView(
         type: StatusType.error,
         title: Strings.searchErrorOccurred,
@@ -585,6 +646,75 @@ class ExplorerContentList extends ConsumerWidget {
       ),
     );
   }
+
+  List<_ExplorerListItem> _buildSuspensionItems(List<Object> items) {
+    return items
+        .map(
+          (item) => _ExplorerListItem(
+            payload: item,
+            tag: _tagForItem(item),
+          ),
+        )
+        .toList();
+  }
+
+  String _tagForItem(Object item) {
+    if (item is GenericGroupEntity) return item.getSuspensionTag();
+    if (item is GroupCluster && item.groups.isNotEmpty) {
+      return item.groups.first.getSuspensionTag();
+    }
+    if (item is List<GenericGroupEntity> && item.isNotEmpty) {
+      return item.first.getSuspensionTag();
+    }
+    return '#';
+  }
+
+  IndexBarOptions _buildIndexBarOptions(BuildContext context) {
+    final theme = context.shadTheme;
+    return IndexBarOptions(
+      needRebuild: true,
+      textStyle: theme.textTheme.small.copyWith(
+        color: theme.colorScheme.mutedForeground,
+      ),
+      selectTextStyle: theme.textTheme.small.copyWith(
+        color: theme.colorScheme.primary,
+        fontWeight: FontWeight.bold,
+      ),
+      selectItemDecoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: theme.colorScheme.primary.withValues(alpha: 0.1),
+      ),
+      indexHintDecoration: BoxDecoration(
+        color: theme.colorScheme.card,
+        borderRadius: theme.radius,
+        border: Border.all(color: theme.colorScheme.border),
+      ),
+      indexHintTextStyle: theme.textTheme.h4.copyWith(
+        color: theme.colorScheme.foreground,
+        fontWeight: FontWeight.w700,
+      ),
+    );
+  }
+
+  Widget _buildIndexHint(BuildContext context, String tag) {
+    return Container(
+      width: 64,
+      height: 64,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: context.shadColors.card,
+        borderRadius: context.shadTheme.radius,
+        border: Border.all(color: context.shadColors.border),
+      ),
+      child: Text(
+        tag,
+        style: context.shadTextTheme.h4.copyWith(
+          color: context.shadColors.foreground,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
 }
 
 class _SkeletonBlock extends StatelessWidget {
@@ -605,4 +735,14 @@ class _SkeletonBlock extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ExplorerListItem extends ISuspensionBean {
+  _ExplorerListItem({required this.payload, required this.tag});
+
+  final Object payload;
+  final String tag;
+
+  @override
+  String getSuspensionTag() => tag;
 }

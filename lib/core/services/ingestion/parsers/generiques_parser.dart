@@ -8,7 +8,7 @@ class _GroupAccumulator {
 }
 
 Future<Either<ParseError, GeneriquesParseResult>> parseGeneriquesImpl(
-  Stream<String>? lines,
+  Stream<List<dynamic>>? rows,
   Map<String, List<String>> cisToCip13,
   Set<String> medicamentCips,
   Map<String, String> compositionMap,
@@ -19,28 +19,25 @@ Future<Either<ParseError, GeneriquesParseResult>> parseGeneriquesImpl(
   final seenGroups = <String>{};
   final groupMeta = <String, _GroupAccumulator>{};
 
-  if (lines == null) {
+  if (rows == null) {
     return Either.right((
       generiqueGroups: generiqueGroups,
       groupMembers: groupMembers,
     ));
   }
 
-  await for (final line in lines) {
-    if (line.trim().isEmpty) continue;
-    final parts = line.split('\t');
+  await for (final row in rows) {
+    if (row.length < 4) continue;
+    final parts = row.map(_cellAsString).toList(growable: false);
     switch (parts) {
       case [
-        final groupIdRaw,
-        final libelleRaw,
-        final cisRaw,
+        final groupId,
+        final libelle,
+        final cis,
         final typeRaw,
         ...,
       ]:
-        final groupId = groupIdRaw.trim();
-        final libelle = libelleRaw.trim();
-        final cis = cisRaw.trim();
-        final type = int.tryParse(typeRaw.trim());
+        final type = int.tryParse(typeRaw);
         final cip13s = cisToCip13[cis];
         final isPrinceps = type == 0;
         final isRecognizedGeneric =
@@ -143,4 +140,30 @@ Future<Either<ParseError, GeneriquesParseResult>> parseGeneriquesImpl(
     generiqueGroups: generiqueGroups,
     groupMembers: groupMembers,
   ));
+}
+
+class GeneriquesParser
+    implements FileParser<Either<ParseError, GeneriquesParseResult>> {
+  GeneriquesParser({
+    required this.cisToCip13,
+    required this.medicamentCips,
+    required this.compositionMap,
+    required this.specialitesMap,
+  });
+
+  final Map<String, List<String>> cisToCip13;
+  final Set<String> medicamentCips;
+  final Map<String, String> compositionMap;
+  final Map<String, String> specialitesMap;
+
+  @override
+  Future<Either<ParseError, GeneriquesParseResult>> parse(
+    Stream<List<dynamic>>? rows,
+  ) => parseGeneriquesImpl(
+    rows,
+    cisToCip13,
+    medicamentCips,
+    compositionMap,
+    specialitesMap,
+  );
 }

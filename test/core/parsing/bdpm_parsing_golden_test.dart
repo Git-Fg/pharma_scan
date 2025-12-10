@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pharma_scan/core/database/database.dart';
+import 'package:pharma_scan/core/database/database.drift.dart';
 import 'package:pharma_scan/core/services/ingestion/bdpm_file_parser.dart'
     show BdpmFileParser, ParseError, SpecialitesParseResult;
 
@@ -38,21 +38,24 @@ void main() {
             .map((e) => e['code_cip'] as String)
             .toSet();
 
-        final sampleStream = sampleFile
-            .openRead()
-            .transform(latin1.decoder)
-            .transform(const LineSplitter());
+        final sampleStream = BdpmFileParser.openRowStream(
+          'tool/data/sample_bdpm_compo.txt',
+        );
+        expect(sampleStream, isNotNull);
 
         // Build cis -> cip13 map from real BDPM CIS/CIP file, filtered to the
         // CIS present in the sample composition.
         final sampleCis = <String>{};
-        await for (final line in sampleStream) {
-          final cis = line.split('\t').first.trim();
+        String cell(dynamic value) => value?.toString().trim() ?? '';
+
+        await for (final row in sampleStream!) {
+          if (row.isEmpty) continue;
+          final cis = cell(row.first);
           if (cis.isNotEmpty) sampleCis.add(cis);
         }
 
         final specialitesResult = await BdpmFileParser.parseSpecialites(
-          BdpmFileParser.openLineStream('tool/data/CIS_bdpm.txt'),
+          BdpmFileParser.openRowStream('tool/data/CIS_bdpm.txt'),
           const <String, String>{},
           const <String, String>{},
         );
@@ -63,7 +66,7 @@ void main() {
         );
 
         final medicamentsResult = await BdpmFileParser.parseMedicaments(
-          BdpmFileParser.openLineStream('tool/data/CIS_CIP_bdpm.txt'),
+          BdpmFileParser.openRowStream('tool/data/CIS_CIP_bdpm.txt'),
           specialites,
         );
 
@@ -85,10 +88,10 @@ void main() {
         }
 
         // Re-open sample stream for parsing after initial CIS collection
-        final stream = sampleFile
-            .openRead()
-            .transform(latin1.decoder)
-            .transform(const LineSplitter());
+        final stream = BdpmFileParser.openRowStream(
+          'tool/data/sample_bdpm_compo.txt',
+        );
+        expect(stream, isNotNull);
 
         final resultEither = await BdpmFileParser.parsePrincipesActifs(
           stream,

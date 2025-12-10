@@ -27,6 +27,10 @@ analyzer:
     - "**/*.freezed.dart"
     - "**/*.mapper.dart"
     - "**/*.drift.dart"
+    - "**/*.drift.types.temp.dart"
+    - "**/*.expr.temp.dart"
+    - "**/*.types.temp.dart"
+    - ".dart_tool/**"
     - "test/**/*.mocks.dart"
     - "tool/**"
   language:

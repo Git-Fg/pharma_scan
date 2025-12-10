@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:pharma_scan/core/mappers/mappable_library.dart';
 import 'package:pharma_scan/core/providers/theme_provider.dart';
 import 'package:pharma_scan/core/router/app_router.dart';
 import 'package:pharma_scan/core/router/router_provider.dart';
@@ -17,6 +18,7 @@ import 'package:talker_riverpod_logger/talker_riverpod_logger.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  initializeMappers();
 
   unawaited(
     Future.microtask(() {

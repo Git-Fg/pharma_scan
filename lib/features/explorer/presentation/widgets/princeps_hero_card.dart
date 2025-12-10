@@ -6,8 +6,9 @@ import 'package:pharma_scan/core/utils/formatters.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/product_badges.dart';
 import 'package:pharma_scan/features/explorer/domain/entities/group_detail_entity.dart';
+import 'package:pharma_scan/features/explorer/domain/extensions/medication_status_extensions.dart';
 import 'package:pharma_scan/features/explorer/domain/extensions/view_group_detail_extensions.dart';
-import 'package:pharma_scan/features/explorer/presentation/mappers/medication_ui_mapper.dart';
+import 'package:pharma_scan/features/explorer/presentation/widgets/status_badges.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 class PrincepsHeroCard extends StatelessWidget {
@@ -32,6 +33,9 @@ class PrincepsHeroCard extends StatelessWidget {
     final labDisplay = princeps.parsedTitulaire.isEmpty
         ? Strings.unknownHolder
         : princeps.parsedTitulaire;
+    final statusFlags = princeps.statusFlags(
+      availabilityStatus: princeps.trimmedAvailabilityStatus,
+    );
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -116,9 +120,9 @@ class PrincepsHeroCard extends StatelessWidget {
               spacing: AppDimens.spacing2xs,
               runSpacing: AppDimens.spacing2xs,
               children: [
-                ...MedicationUiMapper.buildStatusBadgesForGroup(
-                  context: context,
-                  medicament: princeps,
+                ...buildStatusBadges(
+                  context,
+                  statusFlags,
                   availabilityStatus: princeps.trimmedAvailabilityStatus,
                 ),
                 RegulatoryBadges(

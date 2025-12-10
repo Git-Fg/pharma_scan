@@ -1,7 +1,6 @@
 // test/fixtures/data_factory.dart
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
-import 'package:pharma_scan/core/database/daos/database_dao.dart';
 import 'package:pharma_scan/core/database/database.dart';
 
 /// WHY: Centralize creation of integration-test data passed to

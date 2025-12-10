@@ -2,29 +2,20 @@ import 'package:pharma_scan/core/services/ingestion/schema/bdpm_parsers.dart';
 import 'package:pharma_scan/core/services/ingestion/schema/bdpm_schema.dart';
 import 'package:test/test.dart';
 
-class _TestParser with BdpmRowParser {}
-
 void main() {
-  group('BdpmRowParser', () {
-    final parser = _TestParser();
-
-    test('splitLine validates column count', () {
-      expect(parser.splitLine('a\tb', 3), isEmpty);
-      expect(parser.splitLine('a\tb\tc', 3), ['a', 'b', 'c']);
-    });
-
+  group('Bdpm parsing helpers', () {
     test('parseDate handles FR format', () {
       expect(
-        parser.parseDate('01/02/2024')?.toIso8601String(),
+        parseBdpmDate('01/02/2024')?.toIso8601String(),
         '2024-02-01T00:00:00.000Z',
       );
-      expect(parser.parseDate(''), isNull);
-      expect(parser.parseDate('invalid'), isNull);
+      expect(parseBdpmDate(''), isNull);
+      expect(parseBdpmDate('invalid'), isNull);
     });
 
     test('parseDouble normalizes comma and spaces', () {
-      expect(parser.parseDouble('1 234,50'), 1234.5);
-      expect(parser.parseDouble(''), isNull);
+      expect(parseBdpmDouble('1 234,50'), 1234.5);
+      expect(parseBdpmDouble(''), isNull);
     });
   });
 

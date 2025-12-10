@@ -1,106 +1,46 @@
 ---
-description: Responsive design, MediaQuery optimization, and layout patterns
+description: Layout standards, Gap usage, and Responsive design
 alwaysApply: false
 ---
-# UI Layout & Responsive Design (2025)
 
-## MediaQuery Optimization (Critical)
+# UI Layout & Spacing (2025 Standard)
 
-**FORBIDDEN:** `MediaQuery.of(context)` (triggers rebuild on ANY metadata change)
+## The Hybrid Spacing Matrix
 
-**REQUIRED:** Use property-specific selectors:
+With Flutter 3.27+, we adhere to a strict decision matrix for spacing to optimize performance and semantics.
 
-```dart
-// ❌ BAD: Triggers rebuild on accessibility changes
-final size = MediaQuery.of(context).size;
+| Scenario | Tool | Logic |
+| :--- | :--- | :--- |
+| **Uniform Lists** (Grids, Button Bars) | **Native `spacing`** | `Row(spacing: 8, children: ...)` - Zero widget inflation. |
+| **Semantic Grouping** (Sections, Forms) | **Gap Package** | `Column(children: [Header(), Gap(32), Form()])` - Semantic breaks. |
+| **Scroll Views** (Slivers) | **SliverGap** | `SliverGap(16)` - Avoids `SliverToBoxAdapter` overhead. |
+| **Responsive Constraints** | **MaxGap** | Prevents overflow errors on small screens. |
 
-// ✅ GOOD: Rebuilds only when size changes
-final size = MediaQuery.sizeOf(context);
-final padding = MediaQuery.paddingOf(context);
-final viewInsets = MediaQuery.viewInsetsOf(context);
-final textScaler = MediaQuery.textScalerOf(context);
-```
+## Responsive Design
 
-## Responsive Design (Shadcn Native)
+**1. Breakpoints**
 
-**Mandate:** Use `ShadResponsiveBuilder` or `context.breakpoint` extension. Raw width checks FORBIDDEN.
+- Use `ShadResponsiveBuilder` or `context.breakpoint` (Shadcn theme).
+- **Forbidden:** Raw `MediaQuery.of(context).size.width` checks.
 
-### Preferred: ShadResponsiveBuilder
+**2. The "Thumb Zone" Rule**
 
-```dart
-ShadResponsiveBuilder(
-  builder: (context, breakpoint) {
-    return switch (breakpoint) {
-      ShadBreakpointTN() => const MobileView(),
-      ShadBreakpointSM() => const MobileView(),
-      ShadBreakpointMD() => const TabletView(),
-      ShadBreakpointLG() => const DesktopView(),
-      ShadBreakpointXL() => const DesktopView(),
-      ShadBreakpointXXL() => const DesktopView(),
-    };
-  },
-);
-```
+- **Sheets:** Prefer `ShadSheet` (Side: Bottom) for complex interactions on mobile.
+- **Dialogs:** Reserve for critical confirmations only.
 
-### Alternative: context.breakpoint Extension
+## Performance Constraints
 
-```dart
-final breakpoint = context.breakpoint;
-if (breakpoint >= context.shadTheme.breakpoints.md) {
-  return DesktopLayout();
-}
-return MobileLayout();
-```
+**1. The Blur Bottleneck (Impeller/Android)**
 
-## Breakpoint Values
+- **Problem:** `BackdropFilter` (used in Shadcn Sheets/Dialogs) causes shader jank on low-end Android.
+- **Mandate:** In `theme.dart`, configure `modalBarrierColor` to use a solid transparent color (e.g., `Colors.black54`) instead of blur if performance issues arise.
 
-Via `ShadTheme.of(context).breakpoints` or `context.breakpoints`:
+**2. Render Tree Depth**
 
-- `tn` - Tiny (0)
-- `sm` - Small (640)
-- `md` - Medium (768)
-- `lg` - Large (1024)
-- `xl` - Extra Large (1280)
-- `xxl` - Extra Extra Large (1536)
-
-## Layout Principles
-
-**Content Owns Layout:** Each widget handles its own constraints.
-
-- Sheets should NOT calculate keyboard padding → Form inside handles it
-- Cards should NOT handle scrolling → ListView containing them handles it
-- Use `showShadSheet(side: ShadSheetSide.bottom)` directly (native Shadcn)
-
-**Exception:** Use `DraggableScrollableSheet` ONLY for drag-to-snap panels.
-
-## Elastic Sizing & Overflow Prevention
-
-- Prefer `constraints: BoxConstraints(minHeight: X)` over fixed `height` on tappable rows; minHeight protects hit targets while allowing text to grow (accessibility).
-- Ban fixed heights on text containers/cards; let padding dictate vertical rhythm.
-- When stacking >2 vertical controls or forms, wrap the column in `SingleChildScrollView` (or `ListView`) to avoid keyboard/small-screen overflows.
-- Keep `Expanded` around text columns to absorb horizontal growth; avoid clamping siblings with fixed widths.
-- Use `IntrinsicHeight` only when necessary for matched heights; prefer background decoration or `Stack` when possible.
-
-## Spacing (Gap Package)
-
-- Use `Gap` for inline spacing in rows/columns; avoid `SizedBox` when it only creates space.
-- For slivers, prefer `SliverGap` over wrapping `Gap` in `SliverToBoxAdapter`.
-- `SizedBox` remains acceptable only when constraining a child (e.g., loader size) rather than spacing between siblings.
+- Avoid nesting `Padding` > `Container` > `Padding`. Use `Container(padding: ...)` or `Gap` to flatten the tree.
 
 ## Anti-Patterns
 
-- ❌ `MediaQuery.of(context)` without property selector
-- ❌ Raw `MediaQuery.sizeOf(context).width` checks for responsive design
-- ❌ Parent widgets calculating child padding
-- ❌ Manual sheet sizing calculations
-- ✅ `ShadResponsiveBuilder` with sealed breakpoints
-- ✅ `context.breakpoint` extension
-- ✅ Property-specific `MediaQuery.*Of(context)` selectors
-
-## Scaffold Protocol (The "No-Nested-Scaffold" Rule)
-
-**Mandate:** Do not define an `appBar` in the root `MainScreen`.
-
-- **Root Layer:** `MainScreen` contains `AutoTabsRouter` + `BottomNavigationBar` only.
-- **Leaf Layer:** Each Tab Route must define its own `Scaffold` with `appBar` (if needed).
-- **Reasoning:** Prevents "Double Header" visual bugs and allows feature-specific AppBars (e.g., "Clear List" action on Restock vs "Settings" on Explorer).
+- ❌ Using `Gap` inside a `Stack` (It has no flow direction).
+- ❌ Using `Gap` at the start/end of a list (Use `padding` on the container).
+- ❌ `SliverToBoxAdapter(child: SizedBox(...))` -> Use `SliverGap`.

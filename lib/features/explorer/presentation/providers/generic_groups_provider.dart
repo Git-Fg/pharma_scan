@@ -21,8 +21,8 @@ class GenericGroupsState with GenericGroupsStateMappable {
 class GenericGroupsNotifier extends _$GenericGroupsNotifier {
   @override
   Future<GenericGroupsState> build() async {
-    ref.watch(lastSyncEpochStreamProvider);
     final filters = ref.watch(searchFiltersProvider);
+    ref.watch(lastSyncEpochStreamProvider);
     return _fetchAllGroups(filters);
   }
 
@@ -41,6 +41,7 @@ class GenericGroupsNotifier extends _$GenericGroupsNotifier {
       limit: 10000,
     );
 
-    return GenericGroupsState(items: groups);
+    // Ensure downstream listeners receive a fresh list instance on each fetch.
+    return GenericGroupsState(items: List<GenericGroupEntity>.of(groups));
   }
 }

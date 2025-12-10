@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
@@ -10,6 +8,7 @@ import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/utils/test_tags.dart';
 import 'package:pharma_scan/core/widgets/adaptive_bottom_panel.dart';
 import 'package:pharma_scan/core/widgets/testable.dart';
+import 'package:pharma_scan/features/scanner/presentation/models/scanner_ui_state.dart';
 import 'package:pharma_scan/features/scanner/presentation/providers/scanner_provider.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
@@ -22,30 +21,48 @@ import 'package:shadcn_ui/shadcn_ui.dart';
 /// - Entrance animations
 class ScannerControls extends ConsumerWidget {
   const ScannerControls({
-    required this.mode,
-    required this.isCameraActive,
-    required this.isInitializing,
+    required this.state,
     required this.onToggleCamera,
     required this.onGallery,
     required this.onManualEntry,
-    required this.torchState,
     required this.onToggleTorch,
     required this.onToggleMode,
     super.key,
   });
 
-  final ScannerMode mode;
-  final bool isCameraActive;
-  final bool isInitializing;
+  final ScannerUiState state;
   final VoidCallback onToggleCamera;
   final VoidCallback onGallery;
   final VoidCallback onManualEntry;
-  final TorchState torchState;
   final VoidCallback onToggleTorch;
   final VoidCallback onToggleMode;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final (
+      :mode,
+      :isCameraRunning,
+      :torchState,
+      :isInitializing,
+    ) = switch (state) {
+      ScannerInitializing(:final mode) => (
+        mode: mode,
+        isCameraRunning: false,
+        torchState: TorchState.off,
+        isInitializing: true,
+      ),
+      ScannerActive(
+        :final mode,
+        :final torchState,
+        :final isCameraRunning,
+      ) =>
+        (
+          mode: mode,
+          isCameraRunning: isCameraRunning,
+          torchState: torchState,
+          isInitializing: false,
+        ),
+    };
     final buttonColor = mode == ScannerMode.restock
         ? context.shadColors.destructive
         : context.shadColors.primary;
@@ -63,21 +80,20 @@ class ScannerControls extends ConsumerWidget {
                       constraints: const BoxConstraints(maxWidth: 600),
                       child: ClipRRect(
                         borderRadius: context.shadTheme.radius,
-                        child: BackdropFilter(
-                          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                          child: Container(
-                            padding: const EdgeInsets.all(
-                              AppDimens.spacingLg,
-                            ),
-                            decoration: BoxDecoration(
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: ShadTheme.of(
+                              context,
+                            ).colorScheme.background.withValues(alpha: 0.9),
+                            border: Border.all(
                               color: ShadTheme.of(
                                 context,
-                              ).colorScheme.background.withValues(alpha: 0.9),
-                              border: Border.all(
-                                color: ShadTheme.of(
-                                  context,
-                                ).colorScheme.border.withValues(alpha: 0.5),
-                              ),
+                              ).colorScheme.border.withValues(alpha: 0.5),
+                            ),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(
+                              AppDimens.spacingLg,
                             ),
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
@@ -95,7 +111,7 @@ class ScannerControls extends ConsumerWidget {
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Testable(
-                                        id: isCameraActive
+                                        id: isCameraRunning
                                             ? TestTags.scanStopBtn
                                             : TestTags.scanStartBtn,
                                         child: SizedBox(
@@ -106,7 +122,7 @@ class ScannerControls extends ConsumerWidget {
                                                 ? null
                                                 : onToggleCamera,
                                             icon: Icon(
-                                              isCameraActive
+                                              isCameraRunning
                                                   ? LucideIcons.cameraOff
                                                   : LucideIcons.scanLine,
                                               size: AppDimens.iconXl,
@@ -167,7 +183,7 @@ class ScannerControls extends ConsumerWidget {
                                         ),
                                       ),
                                     ),
-                                    if (isCameraActive) ...[
+                                    if (isCameraRunning) ...[
                                       const Gap(AppDimens.spacingSm),
                                       Semantics(
                                         button: true,
@@ -175,7 +191,8 @@ class ScannerControls extends ConsumerWidget {
                                             ? Strings.turnOffTorch
                                             : Strings.turnOnTorch,
                                         child: ShadIconButton.secondary(
-                                          onPressed: isCameraActive
+                                          onPressed:
+                                              isCameraRunning && !isInitializing
                                               ? onToggleTorch
                                               : null,
                                           icon: Icon(

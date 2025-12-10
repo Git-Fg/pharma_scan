@@ -50,19 +50,19 @@ class BdpmFileValidator {
       throw ValidationFailure('Missing $fileKey file at ${file.path}');
     }
 
-    final stream = BdpmFileParser.openLineStream(file.path);
+    final stream = BdpmFileParser.openRowStream(file.path);
     if (stream == null) {
       throw ValidationFailure('Unable to read $fileKey at ${file.path}');
     }
 
-    final lines = await stream.take(5).toList();
+    final rows = await stream.take(5).toList();
 
-    if (lines.isEmpty) {
+    if (rows.isEmpty) {
       throw ValidationFailure('File $fileKey is empty');
     }
 
-    for (final line in lines) {
-      final columns = line.split('\t');
+    for (final row in rows) {
+      final columns = row.map((e) => e?.toString().trim() ?? '').toList();
       if (columns.length < expected) {
         throw ValidationFailure(
           'File $fileKey has ${columns.length} columns (expected >= $expected)',

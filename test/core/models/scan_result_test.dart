@@ -50,7 +50,15 @@ void main() {
       final result = ScanResult(
         summary: summary,
         cip: cip,
-        expDate: today,
+        metadata: (
+          price: null,
+          refundRate: null,
+          boxStatus: null,
+          availabilityStatus: null,
+          isHospitalOnly: false,
+          libellePresentation: null,
+          expDate: today,
+        ),
       );
 
       expect(result.isExpired, isFalse);
@@ -69,7 +77,15 @@ void main() {
       final result = ScanResult(
         summary: summary,
         cip: cip,
-        expDate: expiry,
+        metadata: (
+          price: null,
+          refundRate: null,
+          boxStatus: null,
+          availabilityStatus: null,
+          isHospitalOnly: false,
+          libellePresentation: null,
+          expDate: expiry,
+        ),
       );
 
       expect(result.isExpired, isTrue);

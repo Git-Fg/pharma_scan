@@ -30,14 +30,18 @@ environment:
 # versions available, run `dart pub outdated`.
 dependencies:
   auto_route: ^11.0.0
+  azlistview: ^2.0.0
+  characters: ^1.4.0
   collection: ^1.19.1
   crypto: ^3.0.6
+  csv: ^6.0.0
   dart_either: ^2.0.0
   dart_mappable: ^4.6.1
   decimal: ^3.2.4
   diacritic: ^0.1.3
   dio: ^5.9.0
-  drift: ^2.29.0
+  drift: ^2.30.0
+  drift_flutter: ^0.2.8
   enough_convert: ^1.6.0
   flutter:
     sdk: flutter
@@ -56,6 +60,7 @@ dependencies:
   riverpod: ^3.0.3
   riverpod_annotation: ^3.0.3
   scroll_to_index: ^3.0.1
+  scrollable_positioned_list: ^0.2.3
   shadcn_ui: ^0.40.2
   sqlite3: ^2.9.4
   sqlite3_flutter_libs: ^0.5.40
@@ -67,9 +72,9 @@ dependencies:
 dev_dependencies:
   accessibility_tools: ^2.8.0
   auto_route_generator: ^10.3.0
-  build_runner: ^2.7.1
+  build_runner: ^2.10.4
   dart_mappable_builder: ^4.6.1
-  drift_dev: ^2.29.0
+  drift_dev: ^2.30.0
   flutter_launcher_icons: ^0.14.4
   flutter_test:
     sdk: flutter

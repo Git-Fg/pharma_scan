@@ -1,10 +1,22 @@
 part of 'package:pharma_scan/core/services/ingestion/bdpm_file_parser.dart';
 
-class _BdpmParser with BdpmRowParser {
-  const _BdpmParser();
+String _cellAsString(dynamic value) {
+  if (value == null) return '';
+  if (value is String) return value.trim();
+  return value.toString().trim();
 }
 
-const _bdpmParser = _BdpmParser();
+bool _cellAsBool(dynamic value) {
+  final raw = _cellAsString(value).toLowerCase();
+  return raw == 'oui' || raw == '1' || raw == 'true';
+}
+
+DateTime? _cellAsDate(dynamic value) => parseBdpmDate(_cellAsString(value));
+
+double? _cellAsDouble(dynamic value) {
+  final raw = _cellAsString(value);
+  return parseBdpmDouble(raw);
+}
 
 double? _parseDecimal(String? raw) {
   if (raw == null) return null;

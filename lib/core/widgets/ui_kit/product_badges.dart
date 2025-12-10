@@ -24,20 +24,18 @@ class ProductTypeBadge extends StatelessWidget {
     final warningScheme = theme.brightness == Brightness.dark
         ? const ShadOrangeColorScheme.dark()
         : const ShadOrangeColorScheme.light();
-    final (badge, tooltip) = switch (memberType) {
+    final (:badge, :tooltip) = switch (memberType) {
       0 => (
-        ShadBadge.secondary(
+        badge: ShadBadge.secondary(
           child: Text(
-            compact
-                ? Strings.badgePrinceps.substring(0, 1)
-                : Strings.badgePrinceps,
+            compact ? Strings.badgePrinceps[0] : Strings.badgePrinceps,
             style: theme.textTheme.small,
           ),
         ),
-        Strings.badgePrincepsTooltip,
+        tooltip: Strings.badgePrincepsTooltip,
       ),
       2 => (
-        ShadBadge(
+        badge: ShadBadge(
           backgroundColor: warningScheme.primary,
           hoverBackgroundColor: warningScheme.ring,
           foregroundColor: warningScheme.primaryForeground,
@@ -61,10 +59,10 @@ class ProductTypeBadge extends StatelessWidget {
             ],
           ),
         ),
-        Strings.badgeGenericComplementaryTooltip,
+        tooltip: Strings.badgeGenericComplementaryTooltip,
       ),
       1 || 3 || 4 => (
-        ShadBadge.outline(
+        badge: ShadBadge.outline(
           child: Text(
             compact
                 ? 'G'
@@ -74,20 +72,20 @@ class ProductTypeBadge extends StatelessWidget {
             style: theme.textTheme.small,
           ),
         ),
-        memberType == 1
+        tooltip: memberType == 1
             ? Strings.badgeGenericTooltip
             : Strings.badgeGenericSubstitutableTooltip,
       ),
       _ => (
-        ShadBadge.outline(
+        badge: ShadBadge.outline(
           child: Text(
             compact
-                ? Strings.genericTypeUnknown.substring(0, 1)
+                ? Strings.genericTypeUnknown[0]
                 : Strings.genericTypeUnknown,
             style: theme.textTheme.small,
           ),
         ),
-        Strings.genericTypeUnknown,
+        tooltip: Strings.genericTypeUnknown,
       ),
     };
 

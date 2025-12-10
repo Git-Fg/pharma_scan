@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:gap/gap.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:pharma_scan/core/presentation/hooks/use_debounced_controller.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
@@ -22,10 +23,8 @@ class ExplorerSearchBar extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final searchController = useTextEditingController();
+    final search = useDebouncedController();
     final searchFocusNode = useFocusNode();
-    final debounceTimer = useRef<Timer?>(null);
-    final debouncedQuery = useState('');
     final onSearchChangedRef = useRef(onSearchChanged);
 
     useEffect(() {
@@ -33,25 +32,22 @@ class ExplorerSearchBar extends HookConsumerWidget {
       return null;
     }, [onSearchChanged]);
 
+    useListenable(search.debouncedText);
     useEffect(() {
-      void listener() {
-        debounceTimer.value?.cancel();
-        debounceTimer.value = Timer(const Duration(milliseconds: 300), () {
-          final trimmed = searchController.text.trim();
-          debouncedQuery.value = trimmed;
-          onSearchChangedRef.value(trimmed);
-        });
+      void handleDebounced() {
+        final trimmed = search.debouncedText.value.trim();
+        onSearchChangedRef.value(trimmed);
       }
 
-      searchController.addListener(listener);
-      return () {
-        debounceTimer.value?.cancel();
-        searchController.removeListener(listener);
-      };
-    }, [searchController]);
+      handleDebounced();
+      search.debouncedText.addListener(handleDebounced);
+      return () => search.debouncedText.removeListener(handleDebounced);
+    }, [search.debouncedText]);
+
+    final debouncedQuery = search.debouncedText.value;
 
     final isFetching = ref
-        .watch(searchResultsProvider(debouncedQuery.value))
+        .watch(searchResultsProvider(debouncedQuery))
         .isLoading;
 
     return Container(
@@ -76,11 +72,9 @@ class ExplorerSearchBar extends HookConsumerWidget {
                 child: _buildSearchInput(
                   context,
                   ref,
-                  searchController,
+                  search,
                   searchFocusNode,
                   isFetching,
-                  debounceTimer,
-                  debouncedQuery,
                   onSearchChangedRef,
                 ),
               ),
@@ -96,11 +90,10 @@ class ExplorerSearchBar extends HookConsumerWidget {
   Widget _buildSearchInput(
     BuildContext context,
     WidgetRef ref,
-    TextEditingController searchController,
+    ({TextEditingController controller, ValueNotifier<String> debouncedText})
+    search,
     FocusNode focusNode,
     bool isFetching,
-    ObjectRef<Timer?> debounceTimer,
-    ValueNotifier<String> debouncedQuery,
     ObjectRef<ValueChanged<String>> onSearchChangedRef,
   ) {
     return Testable(
@@ -109,14 +102,14 @@ class ExplorerSearchBar extends HookConsumerWidget {
         textField: true,
         label: Strings.searchLabel,
         hint: Strings.searchHint,
-        value: searchController.text,
+        value: search.controller.text,
         child: ConstrainedBox(
           constraints: const BoxConstraints(
             minHeight: AppDimens.inputFieldHeight,
           ),
           child: ShadInput(
             focusNode: focusNode,
-            controller: searchController,
+            controller: search.controller,
             placeholder: const Text(Strings.searchPlaceholder),
             textInputAction: TextInputAction.search,
             leading: Icon(
@@ -134,15 +127,14 @@ class ExplorerSearchBar extends HookConsumerWidget {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     ),
                   )
-                : (searchController.text.isNotEmpty && !isFetching
+                : (search.controller.text.isNotEmpty && !isFetching
                       ? ShadButton.ghost(
                           size: ShadButtonSize.sm,
                           onPressed: () {
-                            searchController.clear();
+                            search.controller.clear();
                             _commitSearchQuery(
                               '',
-                              debounceTimer,
-                              debouncedQuery,
+                              search,
                               onSearchChangedRef,
                             );
                           },
@@ -150,9 +142,8 @@ class ExplorerSearchBar extends HookConsumerWidget {
                         )
                       : null),
             onSubmitted: (_) => _commitSearchQuery(
-              searchController.text,
-              debounceTimer,
-              debouncedQuery,
+              search.controller.text,
+              search,
               onSearchChangedRef,
             ),
           ),
@@ -213,13 +204,12 @@ class ExplorerSearchBar extends HookConsumerWidget {
 
   void _commitSearchQuery(
     String rawValue,
-    ObjectRef<Timer?> debounceTimer,
-    ValueNotifier<String> debouncedQuery,
+    ({TextEditingController controller, ValueNotifier<String> debouncedText})
+    search,
     ObjectRef<ValueChanged<String>> onSearchChangedRef,
   ) {
-    debounceTimer.value?.cancel();
     final trimmed = rawValue.trim();
-    debouncedQuery.value = trimmed;
+    search.debouncedText.value = trimmed;
     onSearchChangedRef.value(trimmed);
   }
 

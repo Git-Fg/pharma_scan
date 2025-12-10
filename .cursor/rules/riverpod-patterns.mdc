@@ -2,200 +2,68 @@
 description: Riverpod state management patterns and provider architecture
 alwaysApply: false
 ---
-# Riverpod Patterns (2025)
 
-## Mandates
+# Riverpod Patterns (2025 Standard)
 
-- USE `@riverpod` annotations exclusively (manual Provider creation forbidden)
-- This includes singletons like loggers/config: use `@Riverpod(keepAlive: true)` and generate parts, never a hand-written `Provider`
-- DEFAULT to `ConsumerWidget`; `HookConsumerWidget` only for ephemeral UI state
-- HANDLE mutations with `AsyncValue.guard` in Notifiers (no custom guard mixins)
-- LISTEN errors via `ref.listen` in widgets (never in build logic)
-- Choose provider type by data behavior: Streams for live/reactive, Futures for static/snapshot reads
-- FORBIDDEN: manual `listen` + `ref.onDispose` bridging when DAO exposes streams; surface them as `Stream` providers instead
-- ALGORITHMIC LOGIC: keep pure algorithms as top-level functions or inside Notifiers; avoid static helper classes
-- READ-ONLY RULE: If a Notifier exposes no public methods beyond `build()`, convert it to a functional provider (`@riverpod Future/Stream ...`) and move helpers to file-level functions.
+## Core Mandates
 
-## Notifier Responsibility
+1. **Generation:** Use `@riverpod` annotations exclusively. Manual `Provider` definitions are **BANNED**.
+2. **Lifecycle:** Use `autoDispose` by default. Use `keepAlive: true` only for global singletons (Auth, Database).
 
-- **FORBIDDEN:** Notifiers performing complex business logic, parsing, or direct DB transactions.
-- **REQUIRED:** Delegate decision logic to a pure Dart orchestrator or service. Notifiers manage state and side effects only.
+## The "Mounted Guard" Protocol
 
-## Provider Selection
-
-| Use Case | Type | Annotation |
-|----------|------|------------|
-| Data fetch | `Future<T>` | `@riverpod` |
-| Real-time DB | `Stream<T>` | `@riverpod` |
-| Complex logic | `AsyncNotifier` | `@riverpod` |
-| Static config | keepAlive | `@Riverpod(keepAlive: true)` |
-
-## Data Access Protocol
-
-1. **Live/Reactive Data (inventory, search results, settings that change):**
-   - ✅ Use `Stream<T>` providers (`dao.watch*`).
-   - Rationale: UI reacts immediately to DB updates.
-
-2. **Static or Snapshot Data (app info, legal text, one-off lookups, stats):**
-   - ✅ Use `Future<T>` providers (`dao.get*`).
-   - Rationale: Lower overhead than keeping streams alive. Trigger refresh with `ref.invalidate(...)` when needed.
-
-## Implementation Patterns
-
-### A. Stream Pattern (Reactive Data)
+**Critical:** To prevent "Zombie State" exceptions (setting state after widget disposal), you MUST check `ref.mounted` after every `await` in a Notifier.
 
 ```dart
 @riverpod
-Stream<List<Item>> searchResults(Ref ref, String query) {
-  final dao = ref.watch(catalogDaoProvider);
-  return dao.watchItems(query);
-}
-```
-
-```dart
-// ✅ Config/state from DAO without manual subscriptions
-@riverpod
-Stream<ThemeMode> theme(Ref ref) {
-  final db = ref.watch(appDatabaseProvider);
-  return db.settingsDao.watchSettings().map(
-        (settings) =>
-            themeSettingFromStorage(settings.themeMode).asThemeMode,
-      );
-}
-```
-
-### B. AsyncNotifier Pattern (Mutations)
-
-```dart
-@riverpod
-class MyNotifier extends _$MyNotifier {
+class AuthController extends _$AuthController {
   @override
-  Future<MyState> build() async => await _fetchInitialState();
-
-  Future<void> saveData(Data data) async {
+  FutureOr<void> build() {}
+  Future<void> login() async {
     state = const AsyncLoading();
-    state = await AsyncValue.guard(() => repository.save(data));
-  }
-}
-```
-
-### C. Error Listening (UI Layer)
-
-```dart
-class MyWidget extends ConsumerWidget {
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    ref.listen(myNotifierProvider, (prev, next) {
-      if (next is AsyncError) {
-        ShadToaster.of(context).show(
-          ShadToast.destructive(
-            title: Text(Strings.error),
-            description: Text(next.error.toString()),
-          ),
-        );
-      }
-    });
+    final result = await _repo.login();
     
-    final state = ref.watch(myNotifierProvider);
-    return state.when(
-      data: (data) => MyContent(data: data),
-      loading: () => CircularProgressIndicator(),
-      error: (error, _) => ErrorView(error: error),
-    );
+    // 🛑 SAFETY CHECK
+    if (!ref.mounted) return;
+    
+    state = AsyncData(null);
   }
 }
 ```
 
-### D. Router Injection
+## Performance: The `.select()` Rule
+
+**Rule:** Never watch a full object if you only need a specific field.
+
+**Why:** Prevents unnecessary widget rebuilds when unrelated fields change.
 
 ```dart
-// Provider
-@Riverpod(keepAlive: true)
-AppRouter appRouter(Ref ref) => AppRouter();
-
-// Usage in Notifier
-void performAction() {
-  final router = ref.read(appRouterProvider);
-  router.push(const DetailRoute());
-}
+// ❌ BAD: Rebuilds on ANY user change
+final user = ref.watch(userProvider);
+// ✅ GOOD: Rebuilds ONLY when name changes
+final name = ref.watch(userProvider.select((u) => u.valueOrNull?.name));
 ```
 
-### E. UI extensions with `listen`
+## Architecture Layers
 
-- Use the shared `listenErrors` helper in `lib/core/utils/ui_extensions.dart` for toast-based error surfacing. It expects `ProviderListenable<AsyncValue<T>>` typed from `flutter_riverpod/misc.dart` (the only allowed misc import).
-- If you add more `WidgetRef.listen` helpers, also type them with `ProviderListenable<AsyncValue<T>>` from `flutter_riverpod/misc.dart`. Do not import `riverpod/misc.dart` directly.
+1. **Data Layer:** Functional Providers (`@riverpod`) returning Repositories.
+2. **App Layer:** Notifiers (`class ... extends _$Notifier`) managing state.
+3. **UI Layer:** `ConsumerWidget` consuming state via `ref.watch`.
 
-## Capability Wrapping (Smart Services)
+## AsyncValue Pattern
 
-**Problem:** Manually checking user preferences (e.g., `if (hapticsEnabled)`) in every Notifier is fragile and leads to inconsistencies.
-
-**Solution:** Wrap raw capabilities in a "Smart Service" that consumes the setting.
-
-**Problem:** Manually checking settings (e.g., `if (hapticsEnabled)`) in every
-Notifier is fragile.
-
-**Solution:** The service itself should own the configuration state.
-
-### ✅ Standard (Direct Config Injection)
-
-Do not create a "Raw" service and a "Logic" service. Create **one** service that
-consumes the setting.
+- **Read:** Return `Future<T>` or `Stream<T>` from providers. Let `AsyncValue` handle loading/error states in UI.
+- **Write:** Use `AsyncValue.guard` in Notifiers to capture errors automatically.
 
 ```dart
-@riverpod
-HapticService hapticService(Ref ref) {
-  // 1. Watch the setting directly
-  final enabled = ref.watch(settingsProvider).haptics;
-  // 2. Return the service configured with the current value
-  return HapticService(enabled: enabled);
-}
-
-class HapticService {
-  final bool enabled;
-  const HapticService({required this.enabled});
-
-  void success() {
-    if (enabled) HapticFeedback.lightImpact(); // 3. Internal check
-  }
+Future<void> update() async {
+  state = const AsyncLoading();
+  state = await AsyncValue.guard(() => _repo.update());
 }
 ```
-
-**Anti-Pattern (Wrapper Hell):**
-❌ `RawHapticService` → `UserFeedbackService(RawHapticService)` → `Notifier`
 
 ## Anti-Patterns
 
-- ❌ `StateProvider` (deprecated)
-- ❌ `ref.watch` in callbacks/lifecycle methods (use `ref.read`)
-- ❌ Side effects in `build()` (use `ref.listen`)
-- ❌ `Either` crossing into Notifier layer
-- ❌ Manual `Provider` creation (use `@riverpod`)
-- ❌ Custom guard helpers/mixins/extensions that replicate `AsyncValue.guard`
-- ❌ Manual stream bridging (`listen` + `ref.onDispose`) when a DAO already exposes `watch*` streams
-- ❌ `AsyncValue<Map<String, dynamic>>` for app data; prefer typed records/structs so UI remains strongly typed.
-
-### F. StreamNotifier Pattern (Unified Read/Write)
-
-**Context:** Features backed by a real-time Database Stream (Drift).
-
-**Guideline:**
-
-- **Prefer:** `class MyNotifier extends _$MyNotifier` returning `Stream<T>`.
-- **Why:** Co-locates the data source (`build()`) and the business logic (methods) in one file.
-- **State Updates:**
-  - For fast DB operations, **DO NOT** set `state = AsyncLoading()`. It causes UI flicker (replacing list with spinner).
-  - Just call the DAO. The DB will emit a new value to the stream, automatically updating `state`.
-  - Return `Future<void>` from methods so UI can `await` completion if needed.
-
-**Example:**
-
-```dart
-@riverpod
-class CartNotifier extends _$CartNotifier {
-  @override
-  Stream<List<Item>> build() => dao.watchItems();
-
-  Future<void> addItem(Item item) async {
-    await dao.add(item); // DB update triggers stream refresh
-  }
-}
+- ❌ `StateNotifier` / `ChangeNotifier` (Legacy).
+- ❌ Passing `Ref` to UI widgets or Repositories.
+- ❌ Side effects in `build()` (Use `ref.listen` in the Widget).

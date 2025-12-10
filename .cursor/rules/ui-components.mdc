@@ -2,160 +2,38 @@
 description: Shadcn UI components, forms, accessibility, and theme patterns
 alwaysApply: false
 ---
-# UI Components (2025 Standard)
 
-## Core Philosophy
+# UI Components & Shadcn (2025 Standard)
 
-- USE `shadcn_ui` widgets exclusively
-- ICONS: `LucideIcons` only (FORBIDDEN: `Icons.` Material)
-- THEME: Access via `ShadTheme.of(context)` or `context.shadTheme` extension
-- FORBIDDEN: Hardcoded colors, typography, or shapes
-- APP BAR ACTIONS: use `ShadIconButton` variants (ghost/secondary) instead of Material `IconButton`.
+## The "No Dumb Wrapper" Rule (Clarified)
 
-## Theme Extension (Recommended)
+- **Do Not:** Wrap Shadcn components just to add static padding or styling.
+- **Do:** Create specialized "Semantic Components" (e.g., `AppPrimaryButton`) IF AND ONLY IF you need to enforce logic (e.g., specific loading state behavior) across the entire app.
 
-```dart
-// lib/core/theme/theme_extensions.dart
-extension ShadThemeContext on BuildContext {
-  ShadThemeData get shadTheme => ShadTheme.of(this);
-  ShadTextTheme get shadTextTheme => shadTheme.textTheme;
-  ShadColorScheme get shadColors => shadTheme.colorScheme;
-  ShadBreakpoints get breakpoints => shadTheme.breakpoints;
-}
+## Resource Disposal (Critical)
 
-// Usage
-Text('Hello', style: context.shadTextTheme.p);
-Icon(LucideIcons.star, color: context.shadColors.primary);
-```
+Any component using a manual Controller must ensure disposal to prevent memory leaks in the Overlay layer.
 
-## Application Setup (Theming)
+- **Checklist:**
+  - `ShadPopoverController.dispose()`
+  - `ShadTooltipController.dispose()`
+  - `FocusNode.dispose()`
+  - `TextEditingController.dispose()`
 
-**Design System Identity:** "Pharmacie Moderne & Sobre"
+*Tip:* Use `flutter_hooks` (`useFocusNode`, `useTextEditingController`) to handle disposal automatically.
 
-- **Base:** `ShadGreenColorScheme` (neutral zinc/slate surfaces with semantic green accents).
-- **Primary Color (Light):** Teal 700 (`0xFF0F766E`) — medical, serious, institutional.
-- **Primary Color (Dark):** Teal 500 (`0xFF14B8A6`) — brighter for readability on dark backgrounds.
+## Forms & Validation
 
-```dart
-import 'package:shadcn_ui/shadcn_ui.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
+- **Pattern:** Use `ShadForm` with `GlobalKey<ShadFormState>`.
+- **Validation Bridge:** Use `key.currentState.fields['id']?.setInternalFieldError(...)` to map server-side errors to UI fields.
 
-class MyApp extends HookConsumerWidget {
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final appRouter = ref.watch(appRouterProvider);
-    final themeMode = ref.watch(themeProvider).value ?? ThemeMode.system;
-    
-    return ShadApp.custom(
-      themeMode: themeMode,
-      // ☀️ LIGHT: Teal 700 (Medical Deep Green)
-      theme: ShadThemeData(
-        brightness: Brightness.light,
-        colorScheme: const ShadGreenColorScheme.light(
-          primary: Color(0xFF0F766E),
-        ),
-      ),
-      // 🌙 DARK: Teal 500 (Accessible Emerald)
-      darkTheme: ShadThemeData(
-        brightness: Brightness.dark,
-        colorScheme: const ShadGreenColorScheme.dark(
-          primary: Color(0xFF14B8A6),
-        ),
-      ),
-      appBuilder: (context) => MaterialApp.router(
-        supportedLocales: const [Locale('en'), Locale('fr')],
-        localizationsDelegates: const [
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-        ],
-        builder: (context, child) => ShadAppBuilder(child: child!),
-        routerConfig: appRouter.config(),
-      ),
-    );
-  }
-}
-```
+## Theming
 
-## Form Handling
-
-```dart
-// ✅ ShadForm with GlobalKey is ONLY allowed pattern
-class MyForm extends HookConsumerWidget {
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final formKey = useMemoized(() => GlobalKey<ShadFormState>());
-    
-    return ShadForm(
-      key: formKey,
-      child: Column(
-        children: [
-          ShadInputFormField(
-            id: 'email', // CRITICAL: Unique ID
-            label: Text(Strings.email),
-            validator: (v) => v.isEmpty ? Strings.required : null,
-          ),
-          ShadButton(
-            onPressed: () {
-              if (formKey.currentState!.saveAndValidate()) {
-                final data = formKey.currentState!.value;
-                final email = data['email'] as String;
-                // Process data
-              }
-            },
-            child: Text(Strings.submit),
-          ),
-        ],
-      ),
-    );
-  }
-}
-```
-
-**Exception:** `useTextEditingController` is acceptable for non-form inputs (search bars with debouncing).
-
-## Accessibility (Trust by Default)
-
-**Core Principle:** Shadcn widgets with `title`, `label`, `description` provide accessibility automatically.
-
-**When to Add Explicit Semantics:**
-
-1. Custom widgets without Shadcn components
-2. Additional context beyond Shadcn properties
-3. Icon-only buttons without tooltips
-
-**When NOT to Add:**
-
-1. Shadcn widgets with title/label (already accessible)
-2. Redundant information
-3. Standard use cases
+- **Access:** Use `context.shadTheme` or specific extensions (`context.shadColors`).
+- **Typography:** Use `context.shadTextTheme`. Do not hardcode `TextStyle`.
 
 ## Anti-Patterns
 
-- ❌ Manual form state management (`TextEditingController` in forms)
-- ❌ External UI libraries (Material-only patterns)
-- ❌ `Icons.` Material icons (use `LucideIcons`)
-- ❌ Hardcoded colors/typography
-- ❌ Redundant semantic labels on Shadcn widgets
-- ✅ `ShadForm` with `GlobalKey<ShadFormState>`
-- ✅ Theme via `context.shadTheme`
-- ✅ Trust Shadcn's built-in accessibility
-
-## Tooltips (ShadTooltip)
-
-- REQUIRED: provide `builder: (context) => Text(...)`; there is no `message` shortcut.
-- Preferred wrapper for icon-only actions (`ShadIconButton`) instead of Material `Tooltip`.
-
-## Tappable Rows / List Items
-
-- Use `ShadButton.raw(variant: ShadButtonVariant.ghost, width: double.infinity, padding: EdgeInsets.zero)` wrapping the row content to inherit focus/hover/pressed states.
-- Keep visual padding/borders inside the child container; do not style the button directly.
-- Avoid `InkWell`/`GestureDetector` for simple taps; reserve them for gestures not covered by buttons.
-
-## Alerts, Banners, and Status Surfaces
-
-- Prefer `ShadAlert` for banners and status surfaces; use `ShadAlert.destructive` for failures.
-- Use `ShadCard` for neutral/empty states; avoid custom wrappers when Shad spacing/typography is sufficient.
-- Place progress UI inside the alert/card description (e.g., stacked `ShadProgress` + label).
-- Inline actions live inside the alert content as `ShadButton.outline`/`ghost` (no external button rows).
-- In slivers, do not measure width with `LayoutBuilder`/`ConstrainedBox`; set `width: double.infinity` on `ShadButton.raw` to satisfy constraints.
+- ❌ `TextField` (Material) inside `ShadCard`. Use `ShadInput`.
+- ❌ Inline colors (`Colors.red`). Use `context.shadColors.destructive`.
+- ❌ Hardcoded border radius. Use `context.shadTheme.radius`.

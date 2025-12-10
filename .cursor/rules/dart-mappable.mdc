@@ -12,6 +12,17 @@ alwaysApply: false
 - FORBIDDEN: `freezed`, `json_serializable`
 - State/Notifier state classes (immutable) MUST also use `@MappableClass` (no hand-written `copyWith`/`==`/`toJson`)
 
+## Dart 3 Features
+
+- **Records:**
+  - **MANDATORY:** Use **Named Records** (`({double lat, double lng})`) at serialization boundaries.
+  - **FORBIDDEN:** Positional Records (`(double, double)`) in API/DTO contracts (brittle `$1`, `$2` keys).
+  - **Typedefs:** Use `@MappableRecord()` for reusable record definitions.
+- **Sealed Classes:**
+  - Prefer standard `sealed` class hierarchies over legacy `freezed` unions.
+  - Use `discriminatorKey` and `discriminatorValue` for polymorphic JSON handling.
+  - Lean on native pattern matching (`switch`) for exhaustive handling.
+
 ## Standard Data Class
 
 ```dart
@@ -74,11 +85,15 @@ final result = switch (uiState) {
 
 **build.yaml:**
 
-```dart
+```yaml
 dart_mappable_builder:
   options:
     caseStyle: camelCase
     generateMethods: [decode, encode, copy, stringify, equals]
+    renameMethods:
+      fromMap: fromJson
+      toMap: toJson
+    generateInitializerForScope: package
 ```
 
 ## Anti-Patterns

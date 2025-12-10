@@ -1,14 +1,14 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:dart_either/dart_either.dart';
 import 'package:decimal/decimal.dart';
 import 'package:drift/drift.dart';
-import 'package:enough_convert/enough_convert.dart';
 import 'package:pharma_scan/core/constants/chemical_constants.dart';
 import 'package:pharma_scan/core/database/database.dart';
+import 'package:pharma_scan/core/database/database.drift.dart';
 import 'package:pharma_scan/core/logic/sanitizer.dart';
+import 'package:pharma_scan/core/services/ingestion/bdpm_stream_factory.dart';
 import 'package:pharma_scan/core/services/ingestion/schema/bdpm_parsers.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 
@@ -20,89 +20,70 @@ part 'parsers/parser_models.dart';
 part 'parsers/parser_utils.dart';
 part 'parsers/specialites_parser.dart';
 
-class BdpmFileParser {
-  BdpmFileParser._();
+abstract class FileParser<T> {
+  Future<T> parse(Stream<List<dynamic>>? rows);
+}
 
-  static Stream<String>? openLineStream(String? path) {
+class BdpmFileParser {
+  const BdpmFileParser();
+
+  static final CompositionsParser _compositionsParser = CompositionsParser();
+
+  static Stream<List<dynamic>>? openRowStream(String? path) {
     if (path == null || path.isEmpty) return null;
     final file = File(path);
     if (!file.existsSync()) return null;
-
-    Encoding codec = const Windows1252Codec();
-
-    try {
-      final raf = file.openSync();
-      try {
-        final preview = raf.readSync(4096);
-        if (preview.isNotEmpty) {
-          final decoded = const Utf8Decoder(allowMalformed: true).convert(
-            preview,
-          );
-          final hasReplacement = decoded.contains('\uFFFD');
-          if (!hasReplacement) {
-            codec = utf8;
-          }
-        }
-      } finally {
-        raf.closeSync();
-      }
-    } on Exception {
-      codec = const Windows1252Codec();
-    }
-
-    return file
-        .openRead()
-        .transform(codec.decoder)
-        .transform(
-          const LineSplitter(),
-        );
+    return createBdpmRowStream(path);
   }
 
   static Future<Either<ParseError, SpecialitesParseResult>> parseSpecialites(
-    Stream<String>? lines,
+    Stream<List<dynamic>>? rows,
     Map<String, String> conditionsByCis,
     Map<String, String> mitmMap,
-  ) => parseSpecialitesImpl(lines, conditionsByCis, mitmMap);
+  ) => SpecialitesParser(
+    conditionsByCis: conditionsByCis,
+    mitmMap: mitmMap,
+  ).parse(rows);
 
   static Future<Either<ParseError, MedicamentsParseResult>> parseMedicaments(
-    Stream<String>? lines,
+    Stream<List<dynamic>>? rows,
     SpecialitesParseResult specialitesResult,
-  ) => parseMedicamentsImpl(lines, specialitesResult);
+  ) => MedicamentsParser(specialitesResult).parse(rows);
 
   static Future<Map<String, String>> parseCompositions(
-    Stream<String>? lines,
-  ) => parseCompositionsImpl(lines);
+    Stream<List<dynamic>>? rows,
+  ) => _compositionsParser.parse(rows);
 
   static Future<Either<ParseError, List<PrincipesActifsCompanion>>>
   parsePrincipesActifs(
-    Stream<String>? lines,
+    Stream<List<dynamic>>? rows,
     Map<String, List<String>> cisToCip13,
-  ) => parsePrincipesActifsImpl(lines, cisToCip13);
+  ) => PrincipesActifsParser(cisToCip13).parse(rows);
 
   static Future<Either<ParseError, GeneriquesParseResult>> parseGeneriques(
-    Stream<String>? lines,
+    Stream<List<dynamic>>? rows,
     Map<String, List<String>> cisToCip13,
     Set<String> medicamentCips,
     Map<String, String> compositionMap,
     Map<String, String> specialitesMap,
-  ) => parseGeneriquesImpl(
-    lines,
-    cisToCip13,
-    medicamentCips,
-    compositionMap,
-    specialitesMap,
-  );
+  ) => GeneriquesParser(
+    cisToCip13: cisToCip13,
+    medicamentCips: medicamentCips,
+    compositionMap: compositionMap,
+    specialitesMap: specialitesMap,
+  ).parse(rows);
 
   static Future<Map<String, String>> parseConditions(
-    Stream<String>? lines,
-  ) => parseConditionsImpl(lines);
+    Stream<List<dynamic>>? rows,
+  ) => const ConditionsParser().parse(rows);
 
-  static Future<Map<String, String>> parseMitm(Stream<String>? lines) =>
-      parseMitmImpl(lines);
+  static Future<Map<String, String>> parseMitm(
+    Stream<List<dynamic>>? rows,
+  ) => const MitmParser().parse(rows);
 
   static Future<Either<ParseError, List<MedicamentAvailabilityCompanion>>>
   parseAvailability(
-    Stream<String>? lines,
+    Stream<List<dynamic>>? rows,
     Map<String, List<String>> cisToCip13,
-  ) => parseAvailabilityImpl(lines, cisToCip13);
+  ) => AvailabilityParser(cisToCip13).parse(rows);
 }

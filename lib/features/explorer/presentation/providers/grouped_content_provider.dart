@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:pharma_scan/features/explorer/domain/logic/grouping_algorithms.dart';
 import 'package:pharma_scan/features/explorer/domain/models/generic_group_entity.dart';
 import 'package:pharma_scan/features/explorer/presentation/providers/generic_groups_provider.dart';
@@ -48,7 +47,7 @@ _processGroupingInBackground(List<GenericGroupEntity> items) {
   return (groupedItems: groupedItems, letterIndex: letterIndex);
 }
 
-@riverpod
+@Riverpod(keepAlive: true)
 Future<({List<Object> groupedItems, Map<String, int> letterIndex})>
 groupedExplorerContent(
   Ref ref,
@@ -62,5 +61,6 @@ groupedExplorerContent(
     );
   }
 
-  return compute(_processGroupingInBackground, groups.items);
+  // Run synchronously to keep behavior predictable and avoid isolate overhead.
+  return _processGroupingInBackground(groups.items);
 }

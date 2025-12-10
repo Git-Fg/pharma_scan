@@ -183,8 +183,8 @@ Future<void> _parseAndInsertBdpmData(
   AppDatabase database,
   Map<String, String> filePaths,
 ) async {
-  Stream<String>? streamForKey(String key) =>
-      BdpmFileParser.openLineStream(filePaths[key]);
+  Stream<List<dynamic>>? streamForKey(String key) =>
+      BdpmFileParser.openRowStream(filePaths[key]);
 
   final conditionsMap = await BdpmFileParser.parseConditions(
     streamForKey('conditions'),
