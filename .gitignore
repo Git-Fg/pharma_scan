@@ -36,6 +36,7 @@ migrate_working_dir/
 # Build runner generated files
 *.freezed.dart
 *.g.dart
+*.gr.dart
 *.mocks.dart
 *.mapper.dart
 # Drift modular generated artifacts (analyzer/modular builders)
@@ -66,3 +67,11 @@ tool/data/
 
 # Ignore generated reports in tool/report/
 tool/report/
+
+# Python
+.pytest_cache
+backend_pipeline/output/
+backend_pipeline/.venv/
+backend_pipeline/__pycache__/  
+backend_pipeline/uv.lock
+backend_pipeline/data

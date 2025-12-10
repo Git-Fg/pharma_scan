@@ -28,6 +28,6 @@ enum PharmaFormType {
     PharmaFormType.liquid => colors.formLiquid,
     PharmaFormType.semiSolid => colors.formSemiSolid,
     PharmaFormType.injectable => colors.formInjectable,
-    PharmaFormType.other => colors.mutedForeground,
+    PharmaFormType.other => colors.muted,
   };
 }

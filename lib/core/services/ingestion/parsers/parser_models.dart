@@ -5,22 +5,6 @@ sealed class ParseError {
   const ParseError();
 }
 
-typedef SpecialiteRow = ({
-  String cisCode,
-  String nomSpecialite,
-  String? statutAdministratif,
-  String procedureType,
-  String? formePharmaceutique,
-  String? voiesAdministration,
-  String? etatCommercialisation,
-  String? titulaire,
-  int? titulaireId,
-  String? conditionsPrescription,
-  DateTime? dateAmm,
-  String? atcCode,
-  bool isSurveillance,
-});
-
 typedef SpecialitesParseResult = ({
   List<SpecialitesCompanion> specialites,
   Map<String, String> namesByCis,

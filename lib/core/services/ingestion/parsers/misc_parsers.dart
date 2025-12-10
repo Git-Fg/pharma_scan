@@ -8,16 +8,18 @@ Future<Map<String, String>> parseConditionsImpl(
   if (rows == null) return conditions;
 
   await for (final row in rows) {
-    if (row.length < 2) continue;
-    final cis = _cellAsString(row[0]);
-    final condition = _cellAsString(row[1]);
-    if (cis.isNotEmpty && condition.isNotEmpty) {
-      final existing = conditions[cis];
-      if (existing != null && existing.isNotEmpty) {
-        conditions[cis] = '$existing, $condition';
-      } else {
-        conditions[cis] = condition;
-      }
+    switch (row.map(_cellAsString).toList(growable: false)) {
+      case [final cis, final condition, ...]:
+        if (cis.isNotEmpty && condition.isNotEmpty) {
+          final existing = conditions[cis];
+          if (existing != null && existing.isNotEmpty) {
+            conditions[cis] = '$existing, $condition';
+          } else {
+            conditions[cis] = condition;
+          }
+        }
+      default:
+        continue;
     }
   }
 
@@ -29,11 +31,13 @@ Future<Map<String, String>> parseMitmImpl(Stream<List<dynamic>>? rows) async {
   if (rows == null) return mitmMap;
 
   await for (final row in rows) {
-    if (row.length < 2) continue;
-    final cis = _cellAsString(row[0]);
-    final atc = _cellAsString(row[1]);
-    if (cis.isNotEmpty && atc.isNotEmpty) {
-      mitmMap[cis] = atc;
+    switch (row.map(_cellAsString).toList(growable: false)) {
+      case [final cis, final atc, ...]:
+        if (cis.isNotEmpty && atc.isNotEmpty) {
+          mitmMap[cis] = atc;
+        }
+      default:
+        continue;
     }
   }
   return mitmMap;
@@ -50,45 +54,50 @@ parseAvailabilityImpl(
   }
 
   await for (final row in rows) {
-    if (row.length < 4) continue;
     final parts = row.map(_cellAsString).toList(growable: false);
+    switch (parts) {
+      case [
+        final cisCode,
+        final cip13,
+        final statusCode,
+        final statusLabel,
+        ...final tail,
+      ]:
+        final dateDebutRaw = tail.isNotEmpty ? tail[0] : null;
+        final dateFinRaw = tail.length > 1 ? tail[1] : null;
+        final lienRaw = tail.length > 2 ? tail[2] : '';
 
-    final cisCode = parts.isNotEmpty ? parts[0] : '';
-    final cip13 = parts.length > 1 ? parts[1] : '';
-    final statusCode = parts.length > 2 ? parts[2] : '';
-    final statusLabel = parts[3];
-    final dateDebutRaw = parts.length > 4 ? parts[4] : null;
-    final dateFinRaw = parts.length > 5 ? parts[5] : null;
-    final lienRaw = parts.length > 6 ? parts[6] : '';
+        if (statusCode != '1' && statusCode != '2') continue;
+        if (statusLabel.isEmpty) continue;
 
-    if (statusCode != '1' && statusCode != '2') continue;
-    if (statusLabel.isEmpty) continue;
+        final dateDebut = _parseBdpmDate(dateDebutRaw);
+        final dateFin = _parseBdpmDate(dateFinRaw);
 
-    final dateDebut = _parseBdpmDate(dateDebutRaw);
-    final dateFin = _parseBdpmDate(dateFinRaw);
+        void addAvailabilityEntry(String codeCip) {
+          if (codeCip.isEmpty) return;
+          availability.add(
+            MedicamentAvailabilityCompanion(
+              codeCip: Value(codeCip),
+              statut: Value(statusLabel),
+              dateDebut: Value(dateDebut),
+              dateFin: Value(dateFin),
+              lien: Value(lienRaw.isNotEmpty ? lienRaw : null),
+            ),
+          );
+        }
 
-    void addAvailabilityEntry(String codeCip) {
-      if (codeCip.isEmpty) return;
-      availability.add(
-        MedicamentAvailabilityCompanion(
-          codeCip: Value(codeCip),
-          statut: Value(statusLabel),
-          dateDebut: Value(dateDebut),
-          dateFin: Value(dateFin),
-          lien: Value(lienRaw.isNotEmpty ? lienRaw : null),
-        ),
-      );
+        if (cip13.isNotEmpty) {
+          addAvailabilityEntry(cip13);
+          continue;
+        }
+
+        if (cisCode.isEmpty) continue;
+        final expandedCips = cisToCip13[cisCode];
+        if (expandedCips == null || expandedCips.isEmpty) continue;
+        expandedCips.forEach(addAvailabilityEntry);
+      default:
+        continue;
     }
-
-    if (cip13.isNotEmpty) {
-      addAvailabilityEntry(cip13);
-      continue;
-    }
-
-    if (cisCode.isEmpty) continue;
-    final expandedCips = cisToCip13[cisCode];
-    if (expandedCips == null || expandedCips.isEmpty) continue;
-    expandedCips.forEach(addAvailabilityEntry);
   }
 
   return Right(availability);

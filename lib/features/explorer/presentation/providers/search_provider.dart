@@ -144,8 +144,9 @@ SearchResultItem? _mapSearchRowToItem(SearchResultsResult row) {
 }
 
 List<GenericGroupEntity> _parseGroups(String? groupsJson) {
-  if (groupsJson == null || groupsJson.isEmpty)
+  if (groupsJson == null || groupsJson.isEmpty) {
     return const <GenericGroupEntity>[];
+  }
   try {
     final decoded = jsonDecode(groupsJson) as List<dynamic>;
     return decoded
@@ -167,7 +168,7 @@ List<GenericGroupEntity> _parseGroups(String? groupsJson) {
           ),
         )
         .toList();
-  } catch (_) {
+  } on Exception {
     return const <GenericGroupEntity>[];
   }
 }
@@ -189,7 +190,7 @@ List<String> _decodePrinciples(String raw) {
           .where((p) => p.isNotEmpty)
           .toList();
     }
-  } catch (_) {
+  } on Exception {
     // ignore parse errors, return empty
   }
   return const [];

@@ -24,36 +24,47 @@ class CompositionsParser implements FileParser<Map<String, String>> {
     }
 
     await for (final row in rows) {
-      if (row.length < 8) continue;
       final cols = row.map(_cellAsString).toList(growable: false);
-      final cis = cols[0];
-      final substanceCodeRaw = cols[2];
-      final denominationSubst = cols[3];
-      final dosage = cols[4];
-      final natureComposant = cols[6];
-      final substanceCode = substanceCodeRaw.trim();
-      if (cis.isEmpty || substanceCode.isEmpty) continue;
+      switch (cols) {
+        case [
+          final cis,
+          _,
+          final substanceCodeRaw,
+          final denominationSubst,
+          final dosageRaw,
+          _,
+          final natureComposant,
+          _,
+          ...,
+        ]:
+          final substanceCode = substanceCodeRaw.trim();
+          if (cis.isEmpty || substanceCode.isEmpty) continue;
 
-      final normalizedDenomination = _normalizeSaltPrefix(denominationSubst);
-      final compositionRow = (
-        cis: cis,
-        substanceCode: substanceCode,
-        denomination: normalizedDenomination,
-        dosage: dosage.trim(),
-        nature: natureComposant,
-      );
+          final normalizedDenomination = _normalizeSaltPrefix(
+            denominationSubst,
+          );
+          final compositionRow = (
+            cis: cis,
+            substanceCode: substanceCode,
+            denomination: normalizedDenomination,
+            dosage: dosageRaw.trim(),
+            nature: natureComposant,
+          );
 
-      final cisRows = compositionMap.putIfAbsent(cis, () => {});
-      final existing = cisRows[compositionRow.substanceCode];
-      final isExistingFt =
-          existing != null && existing.nature.toUpperCase() == 'FT';
-      final isNewFt = compositionRow.nature.toUpperCase() == 'FT';
+          final cisRows = compositionMap.putIfAbsent(cis, () => {});
+          final existing = cisRows[compositionRow.substanceCode];
+          final isExistingFt =
+              existing != null && existing.nature.toUpperCase() == 'FT';
+          final isNewFt = compositionRow.nature.toUpperCase() == 'FT';
 
-      if (isExistingFt) {
-        continue;
-      }
-      if (existing == null || isNewFt) {
-        cisRows[compositionRow.substanceCode] = compositionRow;
+          if (isExistingFt) {
+            continue;
+          }
+          if (existing == null || isNewFt) {
+            cisRows[compositionRow.substanceCode] = compositionRow;
+          }
+        default:
+          continue;
       }
     }
 
@@ -91,31 +102,44 @@ class PrincipesActifsParser
     final rowsByKey = <String, _CompositionGroup>{};
 
     await for (final row in rows) {
-      if (row.length < 8) continue;
       final cols = row.map(_cellAsString).toList(growable: false);
-      final cis = cols[0];
-      final codeSubstanceRaw = cols[2];
-      final denominationSubst = cols[3];
-      final dosageRaw = cols[4];
-      final natureRaw = cols[6];
-      final codeSubstance = codeSubstanceRaw.trim();
-      if (cis.isEmpty || codeSubstance.isEmpty || denominationSubst.isEmpty) {
-        continue;
+      switch (cols) {
+        case [
+          final cis,
+          _,
+          final codeSubstanceRaw,
+          final denominationSubst,
+          final dosageRaw,
+          _,
+          final natureRaw,
+          _,
+          ...,
+        ]:
+          final codeSubstance = codeSubstanceRaw.trim();
+          if (cis.isEmpty ||
+              codeSubstance.isEmpty ||
+              denominationSubst.isEmpty) {
+            continue;
+          }
+          if (!cisToCip13.containsKey(cis)) continue;
+
+          final normalizedDenomination = _normalizeSaltPrefix(
+            denominationSubst,
+          );
+
+          final compositionRow = (
+            cis: cis,
+            substanceCode: codeSubstance,
+            denomination: normalizedDenomination,
+            dosage: dosageRaw.trim(),
+            nature: natureRaw,
+          );
+          final key = '${compositionRow.cis}_${compositionRow.substanceCode}';
+          final group = rowsByKey.putIfAbsent(key, _CompositionGroup.new);
+          group.rows.add(compositionRow);
+        default:
+          continue;
       }
-      if (!cisToCip13.containsKey(cis)) continue;
-
-      final normalizedDenomination = _normalizeSaltPrefix(denominationSubst);
-
-      final compositionRow = (
-        cis: cis,
-        substanceCode: codeSubstance,
-        denomination: normalizedDenomination,
-        dosage: dosageRaw.trim(),
-        nature: natureRaw,
-      );
-      final key = '${compositionRow.cis}_${compositionRow.substanceCode}';
-      final group = rowsByKey.putIfAbsent(key, _CompositionGroup.new);
-      group.rows.add(compositionRow);
     }
 
     int naturePriority(String nature) {

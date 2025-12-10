@@ -102,8 +102,8 @@ The Base de Données Publique des Médicaments (BDPM) is the official French med
 ### 2.1 Schema Layer (BDPM Schema)
 
 * **Location:** `lib/core/services/ingestion/schema/`
-* **Content:** `bdpm_parsers.dart` (locale-safe primitives) and `bdpm_schema.dart` (one row struct per BDPM TXT file).
-* **Usage:** Every ingestion parser converts `Stream<String>` → `Bdpm*Row` first, then maps to DB DTOs. Column order is defined in `bdpm_schema.dart`; adjust only there when ANSM changes formats.
+* **Content:** `bdpm_parsers.dart` (locale-safe primitives for dates, decimals, booleans).
+* **Usage:** Ingestion parsers now stream BDPM rows directly into Drift `Companion` objects; column positions are documented in each parser. When ANSM updates a TXT layout, adjust the column offsets in the corresponding parser.
 
 ### 2.2 Pipeline Stages
 

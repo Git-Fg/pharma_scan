@@ -1,5 +1,20 @@
 part of 'package:pharma_scan/core/services/ingestion/bdpm_file_parser.dart';
 
+typedef _SpecialiteSeed = ({
+  String cisCode,
+  String nomSpecialite,
+  String? statutAdministratif,
+  String procedureType,
+  String? formePharmaceutique,
+  String? voiesAdministration,
+  String? etatCommercialisation,
+  String titulaire,
+  String? conditionsPrescription,
+  DateTime? dateAmm,
+  String? atcCode,
+  bool isSurveillance,
+});
+
 Future<Either<ParseError, SpecialitesParseResult>> parseSpecialitesImpl(
   Stream<List<dynamic>>? rows,
   Map<String, String> conditionsByCis,
@@ -9,7 +24,7 @@ Future<Either<ParseError, SpecialitesParseResult>> parseSpecialitesImpl(
     return const Either.left(EmptyContentError('specialites'));
   }
 
-  final specialites = <SpecialiteRow>[];
+  final seeds = <_SpecialiteSeed>[];
   final namesByCis = <String, String>{};
   final seenCis = <String>{};
   final holderNames = <String>{};
@@ -18,49 +33,57 @@ Future<Either<ParseError, SpecialitesParseResult>> parseSpecialitesImpl(
   var hasData = false;
 
   await for (final row in rows) {
-    if (row.length < 12) continue;
-    final cols = row.map(_cellAsString).toList(growable: false);
     hadLines = true;
-    final cis = cols[0];
-    final denomination = cols[1];
-    final formePharma = cols[2];
-    final voiesAdmin = cols[3];
-    final statutAdmin = cols[4];
-    final typeProcedure = cols[5];
-    final etatCommercialisation = cols[6];
-    final dateAmm = _cellAsDate(cols[7]);
-    final titulaire = cols[10];
-    final surveillanceRenforcee = _cellAsBool(cols[11]);
+    final cols = row.map(_cellAsString).toList(growable: false);
+    switch (cols) {
+      case [
+        final cis,
+        final denomination,
+        final formePharma,
+        final voiesAdmin,
+        final statutAdmin,
+        final typeProcedure,
+        final etatCommercialisation,
+        final dateAmmRaw,
+        _,
+        _,
+        final titulaire,
+        final surveillanceRaw,
+        ...,
+      ]:
+        final dateAmm = _cellAsDate(dateAmmRaw);
+        final surveillanceRenforcee = _cellAsBool(surveillanceRaw);
 
-    if (titulaire.isNotEmpty) {
-      holderNames.add(titulaire);
-    }
+        if (titulaire.isNotEmpty) {
+          holderNames.add(titulaire);
+        }
 
-    if (titulaire.toUpperCase().contains('BOIRON')) {
-      continue;
-    }
+        if (titulaire.toUpperCase().contains('BOIRON')) {
+          continue;
+        }
 
-    if (cis.isNotEmpty && denomination.isNotEmpty && seenCis.add(cis)) {
-      hasData = true;
-      final record = (
-        cisCode: cis,
-        nomSpecialite: denomination,
-        statutAdministratif: statutAdmin.isEmpty ? null : statutAdmin,
-        procedureType: typeProcedure,
-        formePharmaceutique: formePharma.isEmpty ? null : formePharma,
-        voiesAdministration: voiesAdmin.isEmpty ? null : voiesAdmin,
-        etatCommercialisation: etatCommercialisation.isEmpty
-            ? null
-            : etatCommercialisation,
-        titulaire: titulaire,
-        titulaireId: null,
-        conditionsPrescription: conditionsByCis[cis],
-        dateAmm: dateAmm,
-        atcCode: mitmMap[cis],
-        isSurveillance: surveillanceRenforcee,
-      );
-      specialites.add(record);
-      namesByCis[cis] = denomination;
+        if (cis.isNotEmpty && denomination.isNotEmpty && seenCis.add(cis)) {
+          hasData = true;
+          seeds.add((
+            cisCode: cis,
+            nomSpecialite: denomination,
+            statutAdministratif: statutAdmin.isEmpty ? null : statutAdmin,
+            procedureType: typeProcedure,
+            formePharmaceutique: formePharma.isEmpty ? null : formePharma,
+            voiesAdministration: voiesAdmin.isEmpty ? null : voiesAdmin,
+            etatCommercialisation: etatCommercialisation.isEmpty
+                ? null
+                : etatCommercialisation,
+            titulaire: titulaire,
+            conditionsPrescription: conditionsByCis[cis],
+            dateAmm: dateAmm,
+            atcCode: mitmMap[cis],
+            isSurveillance: surveillanceRenforcee,
+          ));
+          namesByCis[cis] = denomination;
+        }
+      default:
+        continue;
     }
   }
 
@@ -82,43 +105,23 @@ Future<Either<ParseError, SpecialitesParseResult>> parseSpecialitesImpl(
     labIdsByName[sortedHolders[i]] = i + 1;
   }
 
-  final enrichedSpecialites = specialites
+  final specialitesCompanions = seeds
       .map(
-        (s) => (
-          cisCode: s.cisCode,
-          nomSpecialite: s.nomSpecialite,
-          statutAdministratif: s.statutAdministratif,
-          procedureType: s.procedureType,
-          formePharmaceutique: s.formePharmaceutique,
-          voiesAdministration: s.voiesAdministration,
-          etatCommercialisation: s.etatCommercialisation,
-          titulaire: s.titulaire,
-          titulaireId: (s.titulaire?.isEmpty ?? true)
-              ? null
-              : labIdsByName[s.titulaire],
-          conditionsPrescription: s.conditionsPrescription,
-          dateAmm: s.dateAmm,
-          atcCode: s.atcCode,
-          isSurveillance: s.isSurveillance,
-        ),
-      )
-      .toList();
-
-  final specialitesCompanions = enrichedSpecialites
-      .map(
-        (s) => SpecialitesCompanion(
-          cisCode: Value(s.cisCode),
-          nomSpecialite: Value(s.nomSpecialite),
-          procedureType: Value(s.procedureType),
-          statutAdministratif: Value(s.statutAdministratif),
-          formePharmaceutique: Value(s.formePharmaceutique),
-          voiesAdministration: Value(s.voiesAdministration),
-          etatCommercialisation: Value(s.etatCommercialisation),
-          titulaireId: Value(s.titulaireId),
-          conditionsPrescription: Value(s.conditionsPrescription),
-          dateAmm: Value(s.dateAmm),
-          atcCode: Value(s.atcCode),
-          isSurveillance: Value(s.isSurveillance),
+        (seed) => SpecialitesCompanion(
+          cisCode: Value(seed.cisCode),
+          nomSpecialite: Value(seed.nomSpecialite),
+          procedureType: Value(seed.procedureType),
+          statutAdministratif: Value(seed.statutAdministratif),
+          formePharmaceutique: Value(seed.formePharmaceutique),
+          voiesAdministration: Value(seed.voiesAdministration),
+          etatCommercialisation: Value(seed.etatCommercialisation),
+          titulaireId: Value(
+            seed.titulaire.isEmpty ? null : labIdsByName[seed.titulaire],
+          ),
+          conditionsPrescription: Value(seed.conditionsPrescription),
+          dateAmm: Value(seed.dateAmm),
+          atcCode: Value(seed.atcCode),
+          isSurveillance: Value(seed.isSurveillance),
         ),
       )
       .toList();

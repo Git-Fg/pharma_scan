@@ -101,6 +101,7 @@ CREATE TABLE app_settings(
 
         await db.close();
       },
+      skip: 'Schema reset to v1 with drift_flutter; legacy migrations removed.',
     );
   });
 }

@@ -73,11 +73,12 @@ When investigating data quality, parsing logic, or search ranking:
 2. **Implement:** Write code.
 3. **Synchronize:** Update documentation in `docs/` if architecture or domain logic changes.
 4. **Quality Gate:**
-   - `dart run build_runner build --delete-conflicting-outputs` (if models/providers changed).
    - `dart fix --apply` (Automatic cleanup).
    - `dart analyze` (Strict adherence).
    - `flutter test` (Run unit tests and **relevant** integration tests).
 5. **Fix & Finalize:** If tests fail, diagnose using abductive reasoning (root cause), fix, and re-run.
+
+Important : Admit the user is running build_runner in watch mode. Except for specific conditions, you should not need to run the build runner by yourself. 
 </workflow_phases>
 
 <constraints>

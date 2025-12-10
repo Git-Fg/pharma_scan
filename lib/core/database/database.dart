@@ -1,8 +1,6 @@
 import 'dart:convert';
-import 'dart:io';
-
 import 'package:drift/drift.dart';
-import 'package:drift/native.dart';
+import 'package:drift_flutter/drift_flutter.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:pharma_scan/core/database/daos/catalog_dao.dart';
@@ -14,9 +12,7 @@ import 'package:pharma_scan/core/database/tables/restock_items.dart';
 import 'package:pharma_scan/core/database/tables/scanned_boxes.dart';
 import 'package:pharma_scan/core/database/tables/settings.dart';
 import 'package:pharma_scan/core/logic/sanitizer.dart';
-import 'package:pharma_scan/core/services/logger_service.dart';
-import 'package:sqlite3/sqlite3.dart';
-import 'package:sqlite3_flutter_libs/sqlite3_flutter_libs.dart';
+import 'package:sqlite3/common.dart';
 
 export 'daos/catalog_dao.dart';
 export 'daos/database_dao.dart';
@@ -57,29 +53,6 @@ class StringListJsonbConverter extends TypeConverter<List<String>, Uint8List>
 
   @override
   List<dynamic> toJson(List<String> value) => value;
-}
-
-// Nullable wrapper that preserves JSON support for drift-generated views.
-class NullableStringListJsonbConverter
-    extends NullAwareTypeConverter<List<String>, Uint8List>
-    with JsonTypeConverter2<List<String>?, Uint8List?, List<dynamic>?> {
-  const NullableStringListJsonbConverter();
-
-  static const _inner = StringListJsonbConverter();
-
-  @override
-  List<String> requireFromSql(Uint8List fromDb) => _inner.fromSql(fromDb);
-
-  @override
-  Uint8List requireToSql(List<String> value) => _inner.toSql(value);
-
-  @override
-  List<String>? fromJson(List<dynamic>? json) =>
-      json == null ? null : _inner.fromJson(json);
-
-  @override
-  List<dynamic>? toJson(List<String>? value) =>
-      value == null ? null : _inner.toJson(value);
 }
 
 // -- Table Definitions --
@@ -194,8 +167,8 @@ class MedicamentSummary extends Table {
   IntColumn get memberType =>
       integer().withDefault(const Constant(0))(); // raw BDPM generic type
   BlobColumn get principesActifsCommuns => blob().map(
-    const NullableStringListJsonbConverter(),
-  )(); // JSONB array of common active ingredients (nullable wrapper for views)
+    const StringListJsonbConverter(),
+  )(); // JSONB array of common active ingredients
   TextColumn get princepsDeReference =>
       text()(); // reference princeps name for group
   TextColumn get formePharmaceutique => text().nullable()(); // for filtering
@@ -263,135 +236,44 @@ class Laboratories extends Table {
   include: {'queries.drift', 'views.drift'},
 )
 class AppDatabase extends $AppDatabase {
-  AppDatabase() : super(_openConnection());
+  AppDatabase()
+    : super(
+        driftDatabase(
+          name: 'medicaments',
+          native: DriftNativeOptions(
+            databasePath: () async {
+              final dir = await getApplicationDocumentsDirectory();
+              return p.join(dir.path, 'medicaments.db');
+            },
+            shareAcrossIsolates: true,
+            setup: configureAppSQLite,
+          ),
+        ),
+      );
 
   // Test constructor
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 9;
-
-  @override
-  MigrationStrategy get migration {
-    return MigrationStrategy(
-      onCreate: (Migrator m) async {
-        await m.createAll();
-      },
-      onUpgrade: (Migrator m, int from, int to) async {
-        if (from < 6) {
-          // Destructive reset accepted per user instruction (DB will be reseeded).
-          await m.database.customStatement(
-            'DROP VIEW IF EXISTS view_aggregated_grouped;',
-          );
-          await m.database.customStatement(
-            'DROP VIEW IF EXISTS view_aggregated_standalone;',
-          );
-          await m.database.customStatement(
-            'DROP VIEW IF EXISTS view_group_details;',
-          );
-          await m.database.customStatement(
-            'DROP VIEW IF EXISTS view_generic_group_summaries;',
-          );
-          await m.database.customStatement(
-            'DROP VIEW IF EXISTS detailed_scan_results;',
-          );
-          await m.database.customStatement(
-            'DROP TABLE IF EXISTS search_index;',
-          );
-          await m.deleteTable(medicamentAvailability.actualTableName);
-          await m.deleteTable(groupMembers.actualTableName);
-          await m.deleteTable(principesActifs.actualTableName);
-          await m.deleteTable(medicaments.actualTableName);
-          await m.deleteTable(generiqueGroups.actualTableName);
-          await m.deleteTable(medicamentSummary.actualTableName);
-          await m.deleteTable(specialites.actualTableName);
-          await m.deleteTable(restockItems.actualTableName);
-          await m.deleteTable(scannedBoxes.actualTableName);
-          await m.deleteTable(appSettings.actualTableName);
-          await m.deleteTable(laboratories.actualTableName);
-          await m.createAll();
-        }
-        if (from < 7) {
-          await m.createTable(scannedBoxes);
-        }
-        if (from < 8) {
-          await m.addColumn(appSettings, appSettings.scanHistoryLimit);
-        }
-        if (from < 9) {
-          // Normalize legacy restock timestamps that were stored as unix seconds.
-          // Drift's DateTimeColumn expects ISO-like strings or integer millis.
-          await m.database.customStatement(
-            """
-UPDATE restock_items
-SET added_at = datetime(added_at, 'unixepoch')
-WHERE typeof(added_at) IN ('text', 'integer');
-""",
-          );
-          // Normalize legacy scan timestamps and expiry dates.
-          await m.database.customStatement(
-            """
-UPDATE scanned_boxes
-SET scanned_at = datetime(scanned_at, 'unixepoch')
-WHERE typeof(scanned_at) IN ('text', 'integer');
-""",
-          );
-          await m.database.customStatement(
-            """
-UPDATE scanned_boxes
-SET expiry_date = datetime(expiry_date, 'unixepoch')
-WHERE expiry_date IS NOT NULL AND typeof(expiry_date) IN ('text', 'integer');
-""",
-          );
-
-          await m.deleteTable(medicamentSummary.actualTableName);
-          await m.createTable(medicamentSummary);
-        }
-      },
-    );
-  }
+  int get schemaVersion => 1;
 }
 
-void _registerNormalizeTextFunction(Database database) {
-  database.createFunction(
-    functionName: 'normalize_text',
-    argumentCount: const AllowedArgumentCount(1),
-    deterministic: true,
-    directOnly: false,
-    function: (args) {
-      final source = args.isEmpty ? '' : args.first?.toString() ?? '';
-      if (source.isEmpty) return '';
-      return normalizeForSearch(source);
-    },
-  );
-}
-
-void configureAppSQLite(Database database) {
+void configureAppSQLite(CommonDatabase database) {
   database
     ..execute('PRAGMA journal_mode=WAL')
-    ..execute('PRAGMA busy_timeout=30000');
-  _registerNormalizeTextFunction(database);
-}
-
-LazyDatabase _openConnection() {
-  return LazyDatabase(() async {
-    final dbFolder = await getApplicationDocumentsDirectory();
-    final file = File(p.join(dbFolder.path, 'medicaments.db'));
-
-    if (!await dbFolder.exists()) {
-      await dbFolder.create(recursive: true);
-    }
-
-    if (Platform.isAndroid) {
-      await applyWorkaroundToOpenSqlite3OnOldAndroidVersions();
-    }
-
-    final cachebase = (await getTemporaryDirectory()).path;
-    sqlite3.tempDirectory = cachebase;
-
-    LoggerService.db('SQLite Database Opened at ${file.path}');
-    return NativeDatabase.createInBackground(
-      file,
-      setup: configureAppSQLite,
+    ..execute('PRAGMA busy_timeout=30000')
+    ..execute('PRAGMA synchronous=NORMAL')
+    ..execute('PRAGMA mmap_size=300000000')
+    ..execute('PRAGMA temp_store=MEMORY')
+    ..createFunction(
+      functionName: 'normalize_text',
+      argumentCount: const AllowedArgumentCount(1),
+      deterministic: true,
+      directOnly: false,
+      function: (List<Object?> args) {
+        final source = args.isEmpty ? '' : args.first?.toString() ?? '';
+        if (source.isEmpty) return '';
+        return normalizeForSearch(source);
+      },
     );
-  });
 }

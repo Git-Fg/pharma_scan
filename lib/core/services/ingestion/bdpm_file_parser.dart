@@ -20,6 +20,8 @@ part 'parsers/parser_models.dart';
 part 'parsers/parser_utils.dart';
 part 'parsers/specialites_parser.dart';
 
+// FileParser acts as a small interface used by multiple parsers; keep as-is.
+// ignore: one_member_abstracts
 abstract class FileParser<T> {
   Future<T> parse(Stream<List<dynamic>>? rows);
 }
