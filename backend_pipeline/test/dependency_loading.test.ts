@@ -79,7 +79,23 @@ describe("Dependency pre-materialization", () => {
 
     expect(groupsData.length).toBe(1);
 
-    expect(shortageMap.get("1234567890123")?.status).toBe("Disponible");
-    expect(shortageMap.get("00000099")?.status).toBe("Rupture");
+    expect(shortageMap.get("1234567890123")?.statusLabel).toBe("Disponible");
+    expect(shortageMap.get("00000099")?.statusLabel).toBe("Rupture");
+  });
+
+  test("loads real BDPM dataset (full files)", async () => {
+    const base = process.cwd();
+    const { dependencyMaps, groupsData, shortageMap } = await loadDependencies({
+      conditionsPath: join(base, "data", "CIS_CPD_bdpm.txt"),
+      compositionsPath: join(base, "data", "CIS_COMPO_bdpm.txt"),
+      presentationsPath: join(base, "data", "CIS_CIP_bdpm.txt"),
+      genericsPath: join(base, "data", "CIS_GENER_bdpm.txt"),
+      availabilityPath: join(base, "data", "CIS_CIP_Dispo_Spec.txt"),
+      mitmPath: join(base, "data", "CIS_MITM.txt")
+    });
+
+    expect(dependencyMaps.presentations.size).toBeGreaterThan(1000);
+    expect(groupsData.length).toBeGreaterThan(500);
+    expect(shortageMap.size).toBeGreaterThan(10);
   });
 });

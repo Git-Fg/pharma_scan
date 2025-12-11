@@ -1,18 +1,34 @@
 import { ReferenceDatabase } from "../src/db";
-import { generateClusterId, normalizeString } from "../src/logic";
+import { detectComboMolecules, generateClusterId, normalizeString } from "../src/logic";
 import { CisIdSchema, GroupIdSchema, GenericType } from "../src/types";
-import type { CisId, Cluster, GroupId, Product, ProductGroupingUpdate } from "../src/types";
+import type { CisId, Cluster, GroupId, Product, ProductGroupingUpdate, GroupRow } from "../src/types";
+
+type RawGroupExtras = {
+  canonical_name?: string;
+  historical_princeps_raw?: string | null;
+  generic_label_clean?: string | null;
+  naming_source?: string;
+  princeps_aliases?: string;
+  safety_flags?: string;
+  routes?: string;
+};
 
 export class TestDbBuilder {
   db: ReferenceDatabase;
   cisNames = new Map<CisId, string>();
   private products: Product[] = [];
-  private groups: Array<{ id: GroupId; label: string; princepsCis?: CisId }> = [];
+  private groups: Array<{
+    id: GroupId;
+    label: string;
+    princepsCis?: CisId;
+    extras?: Partial<Pick<Product, "routes" | "regulatory_info">> &
+      Partial<Pick<RawGroupExtras, "canonical_name" | "historical_princeps_raw" | "generic_label_clean" | "naming_source" | "princeps_aliases" | "safety_flags" | "routes">>;
+  }> = [];
   private manufacturers = new Map<string, number>();
   private nextManufacturerId = 1;
 
-  constructor() {
-    this.db = new ReferenceDatabase(":memory:");
+  constructor(dbPath: string = ":memory:") {
+    this.db = new ReferenceDatabase(dbPath);
   }
 
   addSpecialty(
@@ -20,7 +36,8 @@ export class TestDbBuilder {
     label: string,
     isPrinceps = false,
     compositionCodes: string[] = [],
-    manufacturerLabel = "LAB"
+    manufacturerLabel = "LAB",
+    options?: { routes?: string; regulatoryInfoJson?: string }
   ) {
     const cisId = typeof cis === "string" ? CisIdSchema.parse(cis) : cis;
     this.cisNames.set(cisId, label);
@@ -38,11 +55,13 @@ export class TestDbBuilder {
       generic_type: isPrinceps ? GenericType.PRINCEPS : GenericType.UNKNOWN,
       group_id: null,
       form: "Comprimé",
-      routes: "orale",
+      routes: options?.routes ?? "orale",
+      type_procedure: "Procédure nationale",
+      surveillance_renforcee: false,
       manufacturer_id: manufacturerId,
       marketing_status: "Actif",
       date_amm: "2020-01-01",
-      regulatory_info: "{}",
+      regulatory_info: options?.regulatoryInfoJson ?? "{}",
       composition: "[]",
       composition_codes: JSON.stringify(compositionCodes),
       composition_display: "",
@@ -52,12 +71,22 @@ export class TestDbBuilder {
     return this;
   }
 
-  addGroup(groupId: string | GroupId, rawLabel: string, princepsCis?: string | CisId) {
+  // Method to get products for testing
+  getProducts(): Product[] {
+    return this.products;
+  }
+
+  addGroup(
+    groupId: string | GroupId,
+    rawLabel: string,
+    princepsCis?: string | CisId,
+    extras?: Partial<RawGroupExtras>
+  ) {
     const groupIdValue = typeof groupId === "string" ? GroupIdSchema.parse(groupId) : groupId;
     const princepsCisValue =
       typeof princepsCis === "string" ? CisIdSchema.parse(princepsCis) : princepsCis;
 
-    this.groups.push({ id: groupIdValue, label: rawLabel, princepsCis: princepsCisValue });
+    this.groups.push({ id: groupIdValue, label: rawLabel, princepsCis: princepsCisValue, extras });
     return this;
   }
 
@@ -91,10 +120,12 @@ export class TestDbBuilder {
               .sort((a, b) => a.localeCompare(b))
               .join("|")
           : "";
+      const hasComboSignal =
+        signature.split("|").filter(Boolean).length <= 1 && detectComboMolecules(product.label);
       productMeta.set(product.cis, {
         label: product.label,
         codes,
-        signature,
+        signature: hasComboSignal ? "" : signature,
         isPrinceps: false,
         groupId: null,
         genericType: product.generic_type
@@ -180,18 +211,29 @@ export class TestDbBuilder {
     for (const [cis, meta] of productMeta) {
       if (meta.signature) continue;
       const normalized = normalizeString(meta.label);
-      const clusterId = generateClusterId(normalized, meta.isPrinceps ? cis : undefined);
+      const clusterId = generateClusterId(normalized || meta.label);
       ensureCluster(clusterId, meta.label, meta.label, normalized || "unknown");
       cisToCluster.set(cis, clusterId);
     }
 
     // Build group rows
-    const groupRows: Array<{ id: GroupId; cluster_id: string; label: string }> = [];
-    for (const { id, label, princepsCis } of this.groups) {
-      const clusterId =
-        (princepsCis && cisToCluster.get(princepsCis)) ||
-        generateClusterId(normalizeString(label), princepsCis);
-      groupRows.push({ id, cluster_id: clusterId, label });
+    const groupRows: Array<GroupRow> = [];
+    for (const { id, label, princepsCis, extras } of this.groups) {
+      const normalized = normalizeString(label) || label;
+      const clusterId = (princepsCis && cisToCluster.get(princepsCis)) || generateClusterId(normalized);
+      const canonical = normalized.toUpperCase();
+      groupRows.push({
+        id,
+        cluster_id: clusterId,
+        label,
+        canonical_name: extras?.canonical_name ?? canonical,
+        historical_princeps_raw: extras?.historical_princeps_raw ?? null,
+        generic_label_clean: extras?.generic_label_clean ?? canonical.toLowerCase(),
+        naming_source: extras?.naming_source ?? "GENER_PARSING",
+        princeps_aliases: extras?.princeps_aliases ?? "[]",
+        safety_flags: extras?.safety_flags ?? "{}",
+        routes: extras?.routes ?? "[]"
+      });
     }
 
     this.db.insertClusters(Array.from(clusters.values()));

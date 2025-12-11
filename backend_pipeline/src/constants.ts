@@ -32,6 +32,12 @@ export const SALT_SUFFIXES = [
   "DE MAGNESIUM",
   "DE LITHIUM",
   "DE ZINC",
+  "SODIQUE",
+  "CALCIQUE",
+  "POTASSIQUE",
+  "ALGINIQUE",
+  "ZINCIQUE",
+  "FERRIQUE",
   "ARGININE",
   "TERT-BUTYLAMINE",
   "ERBUMINE",
@@ -69,7 +75,38 @@ export const NOISE_WORDS = [
   "SOLUTION DE",
   "CONCENTRAT DE",
   "FORME PULVERULENTE",
-  "LIQUIDE"
+  "LIQUIDE",
+  "SANS SUCRE",
+  "SANS SEL",
+  "SANS ASPARTAM",
+  "SANS ALCOOL",
+  "GYNO",
+  "RHINO",
+  "CORTO",
+  "CONSERVATEUR",
+  "ADRENALINEE",
+  "AROME",
+  "PARFUM",
+  "FAIBLE",
+  "FORT",
+  "MITIE",
+  "ENFANT",
+  "ENFANTS",
+  "NOURRISSON",
+  "NOURRISSONS",
+  "ADULTE",
+  "ADULTES"
+];
+
+export const PREFIX_STOP_WORDS = [
+  "GYNO",
+  "RHINO",
+  "CORTO",
+  "NEURO",
+  "CARDIO",
+  "DERMO",
+  "OPHTALMO",
+  "OTOLO"
 ];
 
 // Tokens that differ only by oral solid form (tablet/capsule) and should not split clusters.
@@ -91,3 +128,74 @@ export const ORAL_FORM_TOKENS = [
   "LP",
   "RETARD"
 ];
+
+export const TARGET_POPULATION_TOKENS = [
+  "ADULTE",
+  "ADULTES",
+  "ENFANT",
+  "ENFANTS",
+  "NOURRISSON",
+  "NOURRISSONS",
+  "BEBE",
+  "BEBES"
+];
+
+export const MANUFACTURER_STOP_WORDS = new Set([
+  "LABORATOIRES",
+  "LABORATOIRE",
+  "ROCHE",
+  "BAYER",
+  "JANSSEN",
+  "GSK",
+  "SANOFI",
+  "PFIZER",
+  "BRISTOL",
+  "MYERS",
+  "SQUIBB",
+  "MSD",
+  "ASTRAZENECA",
+  "PHARMA",
+  "PHARMACEUTICALS",
+  "HEALTHCARE",
+  "GROUP",
+  "FRANCE",
+  "EUROPE",
+  "INTERNATIONAL",
+  "DEUTSCHLAND",
+  "GMBH",
+  "SAS",
+  "SA",
+  "LTD",
+  "AB",
+  "OY",
+  "S.P.A",
+  "SPA",
+  "INC",
+  "NV",
+  "BV",
+  "LIMITED",
+  "THERAPEUTICS",
+  "SCIENCES",
+  "HOLDING",
+  "HOLDINGS"
+]);
+
+export const MANUFACTURER_IGNORE_PAIRS = new Set<string>([
+  "basilea pharmaceutica deutschland|idorsia pharmaceuticals deutschland",
+  "bene - arzneimittel|betapharm arzneimittel",
+  "bene - arzneimittel|biosyn arzneimittel",
+  "bene - arzneimittel|cesra arzneimittel",
+  "bene - arzneimittel|desitin arzneimittel",
+  "betapharm arzneimittel|cesra arzneimittel",
+  "betapharm arzneimittel|dipharma arzneimittel",
+  "biosyn arzneimittel|cesra arzneimittel",
+  "biosyn arzneimittel|desitin arzneimittel",
+  "biosyn arzneimittel|dipharma arzneimittel",
+  "cesra arzneimittel|desitin arzneimittel",
+  "cesra arzneimittel|dipharma arzneimittel",
+  "desitin arzneimittel|dipharma arzneimittel",
+  "fairmed healthcare|siemens healthcare",
+  "kowa pharmaceutical europe|towa pharmaceutical europe",
+  "laboratorios lesvi|laboratorios lorien",
+  "basilea pharmaceutica deutschland|idorsia pharmaceuticals deutschland"
+]);

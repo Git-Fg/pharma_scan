@@ -49,7 +49,8 @@ export const RawGroupSchema = z
     GroupIdSchema, // 0: Group ID
     z.string(), // 1: Label
     CisIdSchema, // 2: CIS
-    z.string() // 3: Type (0=Princeps, 1=Generic...)
+    z.string(), // 3: Type (0=Princeps, 1=Generic...)
+    z.string() // 4: Sort (historical ordering flag)
   ])
   .rest(z.string());
 
@@ -124,6 +125,7 @@ export type RefGenerique = {
   label: string;
   cis: CisId;
   type: number;
+  sort: string;
 };
 
 // --- 4. Dependency Maps (Pre-materialized Relations) ---
@@ -131,6 +133,7 @@ export type GenericInfo = {
   groupId: string;
   type: string;
   label: string;
+  sort: string;
 };
 
 export type DependencyMaps = {
@@ -176,6 +179,7 @@ export type Presentation = {
   cis: CisId;
   price_cents: number | null;
   reimbursement_rate: string | null;
+  market_status: string | null;
   availability_status: string | null;
   ansm_link: string | null;
   date_commercialisation: string | null;
@@ -193,6 +197,13 @@ export type GroupRow = {
   id: string;
   cluster_id: string;
   label: string;
+  canonical_name: string;
+  historical_princeps_raw: string | null;
+  generic_label_clean: string | null;
+  naming_source: NamingSource;
+  princeps_aliases: string;
+  routes: string;
+  safety_flags: string;
 };
 
 export type ProductGroupingUpdate = {
@@ -207,4 +218,7 @@ export type RegulatoryInfo = {
   list2: boolean;
   narcotic: boolean;
   hospital: boolean;
+  dental: boolean;
 };
+
+export type NamingSource = "GOLDEN_PRINCEPS" | "TYPE_0_LINK" | "GENER_PARSING";

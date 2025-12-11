@@ -1,4 +1,6 @@
 import { Database, type SQLQueryBindings } from "bun:sqlite";
+import fs from "node:fs";
+import path from "node:path";
 import type {
   Cluster,
   GroupRow,
@@ -7,15 +9,24 @@ import type {
   ProductGroupingUpdate
 } from "./types";
 
+export const DEFAULT_DB_PATH = path.join("data", "reference.db");
+
 export class ReferenceDatabase {
   private db: Database;
 
-  constructor(path: string) {
-    this.db = new Database(path, { create: true });
-    this.db.exec("PRAGMA journal_mode = WAL;");
+  constructor(databasePath: string) {
+    const fullPath = databasePath === ":memory:" ? databasePath : path.resolve(databasePath);
+    if (fullPath !== ":memory:") {
+      fs.mkdirSync(path.dirname(fullPath), { recursive: true });
+    }
+    console.log(`📂 Opening database at: ${fullPath}`);
+    this.db = new Database(fullPath, { create: true, readwrite: true });
+    this.db.exec("PRAGMA journal_mode = DELETE;");
     this.db.exec("PRAGMA synchronous = NORMAL;");
     this.db.exec("PRAGMA foreign_keys = ON;");
+    this.db.exec("PRAGMA locking_mode = NORMAL;");
     this.initSchema();
+    console.log(`✅ Database initialized successfully`);
   }
 
   private initSchema() {
@@ -34,6 +45,13 @@ export class ReferenceDatabase {
         id TEXT PRIMARY KEY,
         cluster_id TEXT NOT NULL,
         label TEXT NOT NULL,
+        canonical_name TEXT NOT NULL,
+        historical_princeps_raw TEXT,
+        generic_label_clean TEXT,
+        naming_source TEXT NOT NULL,
+        princeps_aliases TEXT NOT NULL,
+        safety_flags TEXT NOT NULL,
+        routes TEXT NOT NULL,
         FOREIGN KEY(cluster_id) REFERENCES clusters(id)
       );
 
@@ -71,6 +89,7 @@ export class ReferenceDatabase {
         cis TEXT NOT NULL,
         price_cents INTEGER,
         reimbursement_rate TEXT,
+        market_status TEXT,
         availability_status TEXT,
         ansm_link TEXT,
         date_commercialisation TEXT,
@@ -93,17 +112,18 @@ export class ReferenceDatabase {
   ) {
     const cols = columns.map(String).join(", ");
     const vals = columns.map(() => "?").join(", ");
-    const stmt = this.db.prepare(`INSERT OR REPLACE INTO ${table} (${cols}) VALUES (${vals})`);
 
-    return this.db.transaction((rows: ReadonlyArray<T>) => {
+    return (rows: ReadonlyArray<T>) => {
       for (const row of rows) {
         const values = columns.map((col) => row[col]) as SQLQueryBindings[];
+        const stmt = this.db.prepare(`INSERT OR REPLACE INTO ${table} (${cols}) VALUES (${vals})`);
         stmt.run(...values);
       }
-    });
+    };
   }
 
   public insertClusters(rows: ReadonlyArray<Cluster>) {
+    console.log(`📊 Inserting ${rows.length} clusters...`);
     const columns = [
       "id",
       "label",
@@ -112,20 +132,28 @@ export class ReferenceDatabase {
       "text_brand_label"
     ] as const satisfies ReadonlyArray<keyof Cluster>;
     this.prepareInsert<Cluster>("clusters", columns)(rows);
+    console.log(`✅ Inserted ${rows.length} clusters`);
   }
 
   public insertGroups(rows: ReadonlyArray<GroupRow>) {
-    const columns = ["id", "cluster_id", "label"] as const satisfies ReadonlyArray<keyof GroupRow>;
+    console.log(`📊 Inserting ${rows.length} groups...`);
+    const columns = [
+      "id",
+      "cluster_id",
+      "label",
+      "canonical_name",
+      "historical_princeps_raw",
+      "generic_label_clean",
+      "naming_source",
+      "princeps_aliases",
+      "safety_flags",
+      "routes"
+    ] as const satisfies ReadonlyArray<keyof GroupRow>;
     this.prepareInsert("groups", columns)(rows);
+    console.log(`✅ Inserted ${rows.length} groups`);
   }
 
   public insertProducts(rows: ReadonlyArray<Product>) {
-    const safeRows = rows.map((row) => ({
-      ...row,
-      is_princeps: row.is_princeps ? 1 : 0,
-      surveillance_renforcee: row.surveillance_renforcee ? 1 : 0
-    }));
-
     const columns = [
       "cis",
       "label",
@@ -146,12 +174,16 @@ export class ReferenceDatabase {
       "drawer_label"
     ] as const satisfies ReadonlyArray<keyof Product>;
 
-    this.prepareInsert("products", columns)(safeRows);
+    console.log(`📊 Inserting ${rows.length} products...`);
+    this.prepareInsert("products", columns)(rows);
+    console.log(`✅ Inserted ${rows.length} products`);
   }
 
   public insertManufacturers(rows: ReadonlyArray<{ id: number; label: string }>) {
+    console.log(`📊 Inserting ${rows.length} manufacturers...`);
     const columns = ["id", "label"] as const satisfies ReadonlyArray<"id" | "label">;
     this.prepareInsert("manufacturers", columns)(rows);
+    console.log(`✅ Inserted ${rows.length} manufacturers`);
   }
 
   public updateProductGrouping(
@@ -171,7 +203,7 @@ export class ReferenceDatabase {
           {
             $cis: item.cis,
             $group_id: item.group_id,
-            $is_princeps: item.is_princeps ? 1 : 0,
+            $is_princeps: item.is_princeps,
             $generic_type: item.generic_type
           } satisfies Record<string, string | number | boolean>
         );
@@ -185,6 +217,7 @@ export class ReferenceDatabase {
       "cis",
       "price_cents",
       "reimbursement_rate",
+      "market_status",
       "availability_status",
       "ansm_link",
       "date_commercialisation"
@@ -201,7 +234,12 @@ export class ReferenceDatabase {
   }
 
   public optimize() {
-    this.db.exec("VACUUM; ANALYZE;");
+    // WAL mode requires checkpoint before vacuum to avoid IOERR on some FS
+    this.db.exec("PRAGMA wal_checkpoint(TRUNCATE); VACUUM; ANALYZE;");
+  }
+
+  public close() {
+    this.db.close();
   }
 
   // Testing helper: raw query access (read-only usage in tests)

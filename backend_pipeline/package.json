@@ -5,7 +5,8 @@
   "module": "src/index.ts",
   "scripts": {
     "build:db": "bun run src/index.ts",
-    "test": "bun test && bun run tool/audit_unified.ts"
+    "test": "bun test",
+    "tool": "bun run tool/export_preview.ts && bun run tool/audit_unified.ts && bun run tool/verify_clusters.ts"
   },
   "devDependencies": {
     "@types/bun": "latest"

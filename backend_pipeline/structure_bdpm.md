@@ -7,7 +7,7 @@ Fichier central : existence du médicament.
 | **1** | Code CIS | Identifiant unique (8 chiffres). | **Critique**. PK `products.cis`. |
 | **2** | Dénomination | Libellé complet. | **Haute**. Fallback affichage + FTS. |
 | **3** | Forme pharma | Forme galénique. | **Moyenne**. Distinguer cp/sirop. |
-| **4** | Voies admin | Voie d’administration. | **Faible**. |
+| **4** | Voies admin | Voie d’administration. | **Join**. Propagation `routes` au niveau groupe (union des voies CIS). |
 | **5** | Statut AMM | État de l’autorisation. | **Moyenne**. Filtrer retirés. |
 | **6** | Type procédure | Type d’AMM. | **Nulle**. |
 | **7** | État commercial | Statut commercialisation. | **Haute**. Éviter produits morts. |
@@ -63,9 +63,10 @@ Exemples (données `data/CIS_CIP_bdpm.txt`) :
 | # | Nom | Description réelle | Action ETL |
 | :--- | :--- | :--- | :--- |
 | **1** | ID Groupe | Identifiant tiroir. | **Group By**. |
-| **2** | Libellé | DCI + dosage + princeps. | **Display**. |
+| **2** | Libellé | DCI + dosage + princeps. | **Display** + fallback naming (`historical_princeps_raw`, `generic_label_clean`). |
 | **3** | CIS | Lien produit. | **Join**. |
 | **4** | Type | 0=Princeps, 1=Générique, 2=Complémentaire, 4=Substituable. | **Logic**. 0 = chef visuel; 1/2/4 rangés sous le 0. |
+| **5** | Ordre historique |incrémenté à chaque valeur, la valeur 1 est canonique |
 
 Exemples (données `data/CIS_GENER_bdpm.txt`) :
 
@@ -78,6 +79,12 @@ Exemples (données `data/CIS_GENER_bdpm.txt`) :
 - `4` | `CIMETIDINE 800 mg - TAGAMET 800 mg, comprimé pelliculé sécable` | `62844636` | `2` (complémentaire)
 - `7` | `RANITIDINE...` | `66024386` | `2` (autre type non-princeps)
 
+Notes ETL :
+
+- `TYPE 0` prioritaire pour le nom canonique : `CIS_bdpm` princeps nettoyé (form/dosage retirés) → `canonical_name` + `princeps_aliases`.
+- Fallback parsing texte : partie droite du dernier “ - ” nettoyée → `historical_princeps_raw` + `naming_source=GENER_PARSING`; partie gauche du premier “ - ” → `generic_label_clean`.
+- Agrégation groupe : `routes` = union des voies CIS du groupe, `safety_flags` = OR des badges CPD.
+
 ---
 
 **4. 📁 CIS_CPD_bdpm.txt (Conditions Prescription)**
@@ -87,7 +94,7 @@ Relation one-to-many.
 | # | Nom | Description réelle | Action ETL |
 | :--- | :--- | :--- | :--- |
 | **1** | CIS | Clé produit. | **Join**. |
-| **2** | Condition | Texte libre (liste I/II, stupéfiant, hospitalier). | **Scan & Tag** (badges rouge/vert/bleu/hôpital). |
+| **2** | Condition | Texte libre (liste I/II, stupéfiant, hospitalier, dentaire). | **Scan & Tag** (badges rouge/vert/bleu/hôpital/dentaire) + agrégation `safety_flags` par groupe. |
 
 Exemples (données `data/CIS_CPD_bdpm.txt`) :
 
@@ -135,8 +142,8 @@ Colonnes réelles corrigées.
 | :--- | :--- | :--- | :--- |
 | **1** | CIS | Code produit. | **Join**. |
 | **2** | CIP13 | Présentation (souvent vide = tout le CIS). | **Logic**. |
-| **3** | Code Statut | 1=Rupture, 2=Tension, 3=Arrêt, 4=Remise dispo. | **Logic** couleur alerte. |
-| **4** | Libellé Statut | Ex: « Tension d’approvisionnement ». | **Display**. |
+| **3** | Code Statut | 1=Rupture, 2=Tension, 3=Arrêt, 4=Remise dispo. | **Logic** (stocké en `availability_status` préfixe code). |
+| **4** | Libellé Statut | Ex: « Tension d’approvisionnement ». | **Display** (suffixe `availability_status`). |
 | **5** | Date Début | Début problème. | **Display**. |
 | **6** | Date Fin Prev | Retour prévu. | **Display**. |
 | **8** | Lien ANSM | URL PDF officiel. | **Link**. |
@@ -179,18 +186,3 @@ Exemples (données `data/CIS_MITM.txt`) :
 - `67592694` | `A04AA02` | `KYTRIL 1 mg, comprimé pelliculé` | `https://base-donnees-publique.medicaments.gouv.fr/extrait.php?specid=67592694`
 - `69335481` | `A02BC01` | `OMEPRAZOLE ARROW LAB 20 mg, gélule gastro-résistante` | `https://base-donnees-publique.medicaments.gouv.fr/extrait.php?specid=69335481`
 - `4000+` lignes montrent variété ATC : antiacides (A), antiémétiques (A04), antifongiques (J02), etc. (voir données brutes pour autres classes).
-
----
-
-**🛠 Résumé architecture PharmaScan**
-
-Ingérer 6 fichiers référentiel + dispo « chaude » :
-
-1. CIS_bdpm (général + surveillance)
-2. CIS_CIP_bdpm (codes barre, prix global, texte remboursement)
-3. CIS_COMPO_bdpm (substances propres, join-first)
-4. CIS_GENER_bdpm (tiroirs/princeps)
-5. CIS_CPD_bdpm (sécurité/listes)
-6. CIS_MITM.txt (classification ATC)
-
-Dispo (CIS_CIP_Dispo_Spec) est gérée à part car mise à jour quotidienne (donnée chaude).

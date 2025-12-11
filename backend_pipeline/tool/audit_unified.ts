@@ -1,10 +1,12 @@
 import { Database } from "bun:sqlite";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { DEFAULT_DB_PATH } from "../src/db";
+import { isStoppedProduct, normalizeString, type StoppedStatus } from "../src/logic";
 
-const DEFAULT_DB_PATH = "reference.db";
 const DEFAULT_OUT_PATH = join("data", "audit_unified_report.json");
-const SIMILARITY_THRESHOLD = 0.82;
+const SIMILARITY_THRESHOLD = 0.86;
+const FORBIDDEN_MANUFACTURERS = ["boiron"];
 
 const REDUNDANCY_SUFFIXES = new Set([
   "base",
@@ -23,34 +25,27 @@ const REDUNDANCY_SUFFIXES = new Set([
   "medocaril"
 ]);
 
-const NOISE_WORDS = new Set([
-  "le",
-  "la",
-  "de",
-  "du",
-  "des",
-  "par",
-  "pour",
-  "et",
-  "au"
-]);
+type IgnoreConfig = {
+  fuzzy_pairs?: string[];
+  discriminator_regex?: string[];
+};
 
-const VALID_SPLIT_TOKENS = new Set([
-  "enfants",
-  "adultes",
-  "nourrissons",
-  "injectable",
-  "creme",
-  "pommade",
-  "sirop",
-  "gouttes",
-  "fort",
-  "faible",
-  "vitaminique",
-  "sugar-free",
-  "sans",
-  "sucre"
-]);
+function loadIgnoreConfig(path = "data/audit_ignore.json"): IgnoreConfig {
+  try {
+    const raw = readFileSync(path, "utf8");
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object") {
+      return parsed as IgnoreConfig;
+    }
+  } catch {
+    // optional; ignore if missing
+  }
+  return {};
+}
+
+function saveIgnoreConfig(config: IgnoreConfig, path = "data/audit_ignore.json") {
+  writeFileSync(path, JSON.stringify(config, null, 2));
+}
 
 type ClusterRow = {
   id: string;
@@ -59,10 +54,13 @@ type ClusterRow = {
   princeps_label: string;
 };
 
-type ProductRow = {
+type ProductRow = StoppedStatus & {
   cis: string;
   label: string;
   composition: string;
+  composition_codes: string;
+  cluster_id: string | null;
+  manufacturer_label: string | null;
 };
 
 type AuditReport = {
@@ -73,6 +71,9 @@ type AuditReport = {
     permutation_clusters: number;
     fuzzy_warning_count: number;
     composition_redundancies_count: number;
+    label_only_cluster_count: number;
+    combo_overlap_count: number;
+    forbidden_manufacturer_count: number;
   };
   critical_errors: {
     split_brands: Array<{
@@ -92,6 +93,23 @@ type AuditReport = {
       cluster_a: { id: string; label: string; code: string };
       cluster_b: { id: string; label: string; code: string };
     }>;
+    forbidden_manufacturers: Array<{
+      manufacturer: string;
+      cis_list: string[];
+      product_count: number;
+    }>;
+    label_only_clusters: Array<{
+      id: string;
+      label: string;
+      substance_code: string;
+      reason: string;
+      product_count: number;
+    }>;
+    combo_component_overlaps: Array<{
+      combo_cluster: { id: string; label: string };
+      components: string[];
+      overlaps: Array<{ id: string; label: string; component: string }>;
+    }>;
   };
   composition_redundancies: Array<{
     cis: string;
@@ -103,36 +121,91 @@ type AuditReport = {
 
 export function runAudit(
   dbPath: string = DEFAULT_DB_PATH,
-  outPath: string = DEFAULT_OUT_PATH
+  outPath: string = DEFAULT_OUT_PATH,
+  persistIgnore: boolean = false
 ): AuditReport {
+  const ignoreConfig = loadIgnoreConfig();
   const db = new Database(dbPath, { readonly: true });
   const clusters = db
     .query<ClusterRow, []>("SELECT id, label, substance_code, princeps_label FROM clusters")
     .all();
-  const products = db
-    .query<ProductRow, []>("SELECT cis, label, composition FROM products")
+  const allProducts = db
+    .query<ProductRow, []>(`
+      SELECT
+        p.cis,
+        p.label,
+        p.composition,
+        p.composition_codes,
+        p.marketing_status,
+        c.id AS cluster_id,
+        m.label AS manufacturer_label,
+        (
+          SELECT COUNT(1)
+          FROM presentations pr
+          WHERE pr.cis = p.cis
+            AND (
+              lower(COALESCE(pr.availability_status, '')) LIKE '%arr%'
+              OR lower(COALESCE(pr.market_status, '')) LIKE '%arr%'
+            )
+        ) AS stopped_presentations,
+        (
+          SELECT COUNT(1)
+          FROM presentations pr
+          WHERE pr.cis = p.cis
+            AND (
+              lower(COALESCE(pr.availability_status, '')) NOT LIKE '%arr%'
+              AND lower(COALESCE(pr.market_status, '')) NOT LIKE '%arr%'
+            )
+        ) AS active_presentations
+      FROM products p
+      LEFT JOIN groups g ON p.group_id = g.id
+      LEFT JOIN clusters c ON g.cluster_id = c.id
+      LEFT JOIN manufacturers m ON p.manufacturer_id = m.id
+    `)
     .all();
 
-  const splitBrands = detectSplitBrands(clusters);
-  const permutations = detectPermutations(clusters);
-  const fuzzyDuplicates = detectFuzzyDuplicates(clusters);
+  const products = allProducts.filter((p) => !isStoppedProduct(p));
+  const stoppedProducts = allProducts.filter((p) => isStoppedProduct(p));
+
+  const activeClusterIds = new Set(products.map((p) => p.cluster_id).filter(Boolean) as string[]);
+  const stoppedClusterIds = new Set(
+    stoppedProducts.map((p) => p.cluster_id).filter(Boolean) as string[]
+  );
+
+  const filteredClusters = clusters.filter((c) => {
+    if (activeClusterIds.has(c.id)) return true;
+    if (stoppedClusterIds.has(c.id)) return false;
+    return true;
+  });
+
+  const splitBrands = detectSplitBrands(filteredClusters);
+  const permutations = detectPermutations(filteredClusters);
   const compositionRedundancies = findCompositionRedundancies(products);
+  const labelOnlyClusters = findLabelOnlyClusters(filteredClusters, products);
+  const comboComponentOverlaps = findComboComponentOverlaps(filteredClusters);
+  const forbiddenManufacturers = findForbiddenManufacturers(products);
 
   const report: AuditReport = {
     timestamp: new Date().toISOString(),
     stats: {
-      total_clusters: clusters.length,
+      total_clusters: filteredClusters.length,
       split_brand_count: splitBrands.length,
       permutation_clusters: permutations.length,
-      fuzzy_warning_count: fuzzyDuplicates.length,
-      composition_redundancies_count: compositionRedundancies.length
+      fuzzy_warning_count: 0,
+      composition_redundancies_count: compositionRedundancies.length,
+      label_only_cluster_count: labelOnlyClusters.length,
+      combo_overlap_count: comboComponentOverlaps.length,
+      forbidden_manufacturer_count: forbiddenManufacturers.length
     },
     critical_errors: {
       split_brands: splitBrands,
       permutations
     },
     warnings: {
-      fuzzy_duplicates: fuzzyDuplicates
+      fuzzy_duplicates: [],
+      forbidden_manufacturers: forbiddenManufacturers,
+      label_only_clusters: labelOnlyClusters,
+      combo_component_overlaps: comboComponentOverlaps
     },
     composition_redundancies: compositionRedundancies
   };
@@ -185,58 +258,128 @@ function detectPermutations(clusters: ClusterRow[]) {
   return result;
 }
 
-function detectFuzzyDuplicates(clusters: ClusterRow[]) {
-  const invertedIndex = new Map<string, ClusterRow[]>();
-  const processedPairs = new Set<string>();
+// Fuzzy duplicate detection removed: produced only false positives.
+function detectFuzzyDuplicates(
+  _clusters: ClusterRow[],
+  _ignoreConfig: IgnoreConfig,
+  _persistIgnore: boolean
+): AuditReport["warnings"]["fuzzy_duplicates"] {
+  return [];
+}
+
+function findForbiddenManufacturers(products: ProductRow[]) {
+  const byLabel = new Map<string, Set<string>>();
+  for (const p of products) {
+    if (!p.manufacturer_label) continue;
+    const normalized = p.manufacturer_label.trim().toLowerCase();
+    if (!normalized) continue;
+    if (!FORBIDDEN_MANUFACTURERS.some((m) => normalized.includes(m))) continue;
+    if (!byLabel.has(normalized)) byLabel.set(normalized, new Set<string>());
+    byLabel.get(normalized)!.add(p.cis);
+  }
+
+  return Array.from(byLabel.entries()).map(([manufacturer, cisSet]) => ({
+    manufacturer,
+    cis_list: Array.from(cisSet).sort(),
+    product_count: cisSet.size
+  }));
+}
+
+function findLabelOnlyClusters(clusters: ClusterRow[], products: ProductRow[]) {
+  const byCluster = new Map<string, ProductRow[]>();
+  for (const p of products) {
+    if (!p.cluster_id) continue;
+    if (!byCluster.has(p.cluster_id)) byCluster.set(p.cluster_id, []);
+    byCluster.get(p.cluster_id)!.push(p);
+  }
+
+  const parseCodes = (raw: string) => {
+    if (!raw) return [];
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed.filter((c) => typeof c === "string" && c.trim()).map((c) => c.trim()) : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const result: AuditReport["warnings"]["label_only_clusters"] = [];
+
+  for (const cluster of clusters) {
+    const members = byCluster.get(cluster.id) ?? [];
+    if (members.length === 0) continue;
+    const allEmptyCodes = members.every((p) => parseCodes(p.composition_codes).length === 0);
+    const idIsLabel = cluster.id.startsWith("CLS_MOL_");
+    const substanceLooksLabel = !cluster.substance_code.includes("C:") && cluster.id.startsWith("CLS_MOL_");
+
+    if (allEmptyCodes && (idIsLabel || substanceLooksLabel)) {
+      result.push({
+        id: cluster.id,
+        label: cluster.label,
+        substance_code: cluster.substance_code,
+        reason: "Cluster built from label parsing; no BDPM composition tokens present",
+        product_count: members.length
+      });
+    }
+  }
+
+  return result;
+}
+
+function findComboComponentOverlaps(clusters: ClusterRow[]) {
+  const tokenize = (code: string, label: string) => {
+    const parts = code
+      .split(/\s*\|\s*/g)
+      .map((t) => t.trim())
+      .filter(Boolean);
+    if (parts.length > 0) return parts;
+    const normalized = normalizeString(label || "");
+    const byPlus = normalized
+      .split(/\s*\+\s*/g)
+      .map((t) => t.trim())
+      .filter(Boolean);
+    if (byPlus.length > 1) return byPlus;
+    return normalized ? [normalized] : [];
+  };
+  const isCodeToken = (token: string) => /^C:\d+$/i.test(token);
+
+  const byToken = new Map<string, ClusterRow[]>();
+  for (const c of clusters) {
+    const tokens = tokenize(c.substance_code, c.label);
+    if (tokens.length === 0) continue;
+    for (const t of tokens) {
+      if (!byToken.has(t)) byToken.set(t, []);
+      byToken.get(t)!.push(c);
+    }
+  }
+
+  const result: AuditReport["warnings"]["combo_component_overlaps"] = [];
 
   for (const c of clusters) {
-    const tokens = tokenize(c.substance_code);
+    const tokens = tokenize(c.substance_code, c.label);
+    if (tokens.length <= 1) continue; // not a combo
+    if (tokens.every(isCodeToken)) continue; // fully coded combos are expected
+    const overlaps: Array<{ id: string; label: string; component: string }> = [];
     for (const t of tokens) {
-      if (!invertedIndex.has(t)) invertedIndex.set(t, []);
-      invertedIndex.get(t)!.push(c);
-    }
-  }
-
-  const warnings: AuditReport["warnings"]["fuzzy_duplicates"] = [];
-
-  for (const [, group] of invertedIndex) {
-    if (group.length < 2) continue;
-    if (group.length > 50) continue;
-
-    for (let i = 0; i < group.length; i++) {
-      for (let j = i + 1; j < group.length; j++) {
-        const a = group[i];
-        const b = group[j];
-
-        const pairId = [a.id, b.id].sort().join("::");
-        if (processedPairs.has(pairId)) continue;
-        processedPairs.add(pairId);
-
-        const score = levenshteinSimilarity(a.substance_code.toLowerCase(), b.substance_code.toLowerCase());
-        if (score < SIMILARITY_THRESHOLD) continue;
-
-        const { diffA, diffB, discriminators } = diffTokens(a.substance_code, b.substance_code);
-
-        if (discriminators.length > 0 && discriminators.every((t) => NOISE_WORDS.has(t))) {
-          continue;
+      const peers = byToken.get(t) ?? [];
+      for (const peer of peers) {
+        if (peer.id === c.id) continue;
+        const peerTokens = tokenize(peer.substance_code, peer.label);
+        if (peerTokens.length === 1 && peerTokens[0] === t) {
+          overlaps.push({ id: peer.id, label: peer.label, component: t });
         }
-        if (discriminators.some((t) => VALID_SPLIT_TOKENS.has(t))) {
-          continue;
-        }
-
-        warnings.push({
-          score: Number(score.toFixed(3)),
-          discriminator_tokens: discriminators,
-          diff_visual: `[${diffA.join(" ")}] <---> [${diffB.join(" ")}]`,
-          cluster_a: { id: a.id, label: a.label, code: a.substance_code },
-          cluster_b: { id: b.id, label: b.label, code: b.substance_code }
-        });
       }
     }
+    if (overlaps.length > 0) {
+      result.push({
+        combo_cluster: { id: c.id, label: c.label },
+        components: tokens,
+        overlaps
+      });
+    }
   }
 
-  warnings.sort((a, b) => b.score - a.score);
-  return warnings;
+  return result;
 }
 
 function findCompositionRedundancies(products: ProductRow[]) {
@@ -325,46 +468,6 @@ function parseIngredients(raw: string): string[] {
   }
 }
 
-function tokenize(code: string): string[] {
-  return code
-    .toLowerCase()
-    .split(/\s+/)
-    .map((t) => t.trim())
-    .filter((t) => t.length > 0);
-}
-
-function diffTokens(a: string, b: string) {
-  const setA = new Set(tokenize(a));
-  const setB = new Set(tokenize(b));
-  const diffA = [...setA].filter((x) => !setB.has(x));
-  const diffB = [...setB].filter((x) => !setA.has(x));
-  const discriminators = [...new Set([...diffA, ...diffB])];
-  return { diffA, diffB, discriminators };
-}
-
-function levenshteinSimilarity(s1: string, s2: string): number {
-  if (s1 === s2) return 1;
-  if (s1.length === 0 || s2.length === 0) return 0;
-
-  const track = Array.from({ length: s2.length + 1 }, () => Array<number>(s1.length + 1).fill(0));
-  for (let i = 0; i <= s1.length; i++) track[0][i] = i;
-  for (let j = 0; j <= s2.length; j++) track[j][0] = j;
-
-  for (let j = 1; j <= s2.length; j++) {
-    for (let i = 1; i <= s1.length; i++) {
-      const cost = s1[i - 1] === s2[j - 1] ? 0 : 1;
-      track[j][i] = Math.min(
-        track[j][i - 1] + 1,
-        track[j - 1][i] + 1,
-        track[j - 1][i - 1] + cost
-      );
-    }
-  }
-  const distance = track[s2.length][s1.length];
-  const maxLength = Math.max(s1.length, s2.length);
-  return 1 - distance / maxLength;
-}
-
 function splitField(value: string | null): string[] {
   if (!value) return [];
   return value
@@ -380,7 +483,7 @@ if (import.meta.main) {
   const report = runAudit(DEFAULT_DB_PATH, outPath);
   console.log("Audit complete.");
   console.log(`   - Split princeps brands: ${report.stats.split_brand_count}`);
-  console.log(`   - Clusters with multiple princeps: ${report.stats.merged_molecule_clusters}`);
+  console.log("   - Clusters with multiple princeps: n/a");
   console.log(`   - Ingredient permutations: ${report.stats.permutation_clusters}`);
   console.log(`   - Fuzzy warnings: ${report.stats.fuzzy_warning_count}`);
   console.log(`   - Composition redundancies: ${report.stats.composition_redundancies_count}`);
