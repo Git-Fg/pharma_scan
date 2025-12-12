@@ -1,9 +1,11 @@
-name: Weekly Database Update
+name: Database Update
 
 on:
+  push:
+    branches: [main]
   schedule:
     # Tous les lundis à 3h00 du matin (UTC)
-    - cron: '0 3 * * 1'
+    - cron: "0 3 * * 1"
   workflow_dispatch: # Permet de lancer manuellement depuis l'interface GitHub
 
 permissions:
@@ -61,12 +63,13 @@ jobs:
       - name: 📦 Create Release & Upload DB
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: db-${{ steps.date.outputs.date }}
+          tag_name: db-${{ github.sha }}
           name: Database Update ${{ steps.date.outputs.date }}
           body: |
             Mise à jour automatique de la base de données ANSM.
             Date : ${{ steps.date.outputs.date }}
-            
+            Commit : ${{ github.sha }}
+
             Cette release contient la base de données pré-générée `reference.db.gz` pour l'application PharmaScan.
           files: |
             backend_pipeline/data/reference.db.gz
