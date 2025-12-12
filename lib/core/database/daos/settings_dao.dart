@@ -144,6 +144,24 @@ class SettingsDao extends DatabaseAccessor<AppDatabase> with $SettingsDaoMixin {
         );
   }
 
+  /// Récupère la version de la DB pré-générée (stockée dans sourceHashes)
+  Future<String?> getDbVersionTag() async {
+    final hashes = await getSourceHashes();
+    return hashes['db_version_tag'];
+  }
+
+  /// Sauvegarde la version de la DB pré-générée (dans sourceHashes)
+  Future<void> setDbVersionTag(String? version) async {
+    await _ensureSettingsRow();
+    final hashes = await getSourceHashes();
+    if (version != null) {
+      hashes['db_version_tag'] = version;
+    } else {
+      hashes.remove('db_version_tag');
+    }
+    await saveSourceHashes(hashes);
+  }
+
   Future<void> updateHapticFeedback({required bool enabled}) async {
     await _ensureSettingsRow();
     await attachedDatabase.managers.appSettings

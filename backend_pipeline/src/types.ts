@@ -284,6 +284,22 @@ export interface MedicamentAvailability {
   lien?: string;
 }
 
+// Info Importante (CIS_InfoImportante.txt)
+export interface SafetyAlert {
+  cisCode: string;
+  dateDebut: string;
+  dateFin: string;
+  texte: string;
+}
+
+// SMR/ASMR (CIS_HAS_SMR_bdpm.txt, CIS_HAS_ASMR_bdpm.txt)
+export interface HasEvaluation {
+  cisCode: string;
+  niveau: string; // SMR: "Important", "Modéré", "Faible", "Insuffisant" | ASMR: "I", "II", "III", "IV", "V"
+  motif?: string;
+  dateAvis?: string;
+}
+
 export interface PrincipeActif {
   id?: number;
   codeCip: string;
@@ -342,6 +358,12 @@ export interface MedicamentSummary {
   isOtc?: boolean;
   representativeCip?: string;
   clusterId?: string; // NEW - for clustering
+  smrNiveau?: string; // Service Médical Rendu (ex: "Important", "Modéré", "Faible", "Insuffisant")
+  smrDate?: string; // Date de l'avis SMR (format YYYYMMDD)
+  asmrNiveau?: string; // Amélioration du Service Médical Rendu (ex: "I", "II", "III", "IV", "V")
+  asmrDate?: string; // Date de l'avis ASMR (format YYYYMMDD)
+  urlNotice?: string; // Lien vers PDF Notice officielle
+  hasSafetyAlert?: boolean; // Flag rapide pour UI (présence d'alerte de sécurité active)
   rowid?: number; // For FTS content_rowid
 }
 

@@ -338,6 +338,30 @@ export const ROUTE_COMPATIBILITY = new Set<string>([
 ]);
 
 /**
+ * Keywords to detect prescription conditions and safety flags
+ * from CIS_CPD_bdpm.txt
+ */
+export const PRESCRIPTION_FLAGS = {
+  LIST_1: /liste\s+i\b/i,
+  LIST_2: /liste\s+ii\b/i,
+  NARCOTIC: /stupéfiant/i,
+  HOSPITAL: /hospitalier/i,
+  DENTAL: /dentaire/i,
+  EXCEPTION: /d'exception/i, // Médicament d'exception
+  RESTRICTED: /restreinte/i // Prescription restreinte
+} as const;
+
+/**
+ * Availability status mapping from CIS_CIP_Dispo_Spec.txt
+ */
+export const AVAILABILITY_STATUS = {
+  "1": "Rupture de stock",
+  "2": "Tension d'approvisionnement",
+  "3": "Arrêt de commercialisation",
+  "4": "Remise à disposition"
+} as const;
+
+/**
  * Clusters allowed to bridge multiple ATC roots (therapeutic polymorphism).
  * Keys are normalized substance/cluster labels (uppercase, accent-stripped).
  */

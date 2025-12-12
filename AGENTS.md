@@ -82,6 +82,7 @@ Important : Admit the user is running build_runner in watch mode. Except for spe
 </workflow_phases>
 
 <constraints>
+- Admit the user is running build_runner in watch mode. Except for specific conditions, you should not need to run the build runner by yourself. 
 - **Native Tool Supremacy:** Use `read`, `grep`. NEVER use `cat`, `sed`.
 - **String Literal Ban:** User-facing strings MUST go to `lib/core/utils/strings.dart`.
 - **SQL-First Logic:** Never use Dart to map/group/sort if a SQL View can do it.

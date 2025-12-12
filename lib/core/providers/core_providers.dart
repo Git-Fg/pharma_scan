@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/database/tables/settings.drift.dart';
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
+import 'package:pharma_scan/core/services/database_updater_service.dart';
 import 'package:pharma_scan/core/services/file_download_service.dart';
 import 'package:pharma_scan/core/services/ingestion/bdpm_downloader.dart';
 import 'package:pharma_scan/core/services/ingestion/bdpm_parser_service.dart';
@@ -44,12 +45,14 @@ DataInitializationService dataInitializationService(Ref ref) {
   final downloader = ref.watch(bdpmDownloaderProvider);
   final parserService = ref.watch(bdpmParserServiceProvider);
   final repository = ref.watch(bdpmRepositoryProvider);
+  final databaseUpdaterService = ref.watch(databaseUpdaterServiceProvider);
 
   return DataInitializationService(
     database: db,
     downloader: downloader,
     parserService: parserService,
     repository: repository,
+    databaseUpdaterService: databaseUpdaterService,
   );
 }
 
@@ -65,4 +68,9 @@ Stream<int?> lastSyncEpochStream(Ref ref) {
 CatalogDao catalogDao(Ref ref) {
   final db = ref.watch(appDatabaseProvider);
   return db.catalogDao;
+}
+
+@Riverpod(keepAlive: true)
+DatabaseUpdaterService databaseUpdaterService(Ref ref) {
+  return DatabaseUpdaterService();
 }

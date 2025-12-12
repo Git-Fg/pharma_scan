@@ -1,0 +1,76 @@
+name: Weekly Database Update
+
+on:
+  schedule:
+    # Tous les lundis à 3h00 du matin (UTC)
+    - cron: '0 3 * * 1'
+  workflow_dispatch: # Permet de lancer manuellement depuis l'interface GitHub
+
+permissions:
+  contents: write # Nécessaire pour créer la Release
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🍞 Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: 📦 Install dependencies
+        run: cd backend_pipeline && bun install
+
+      - name: ⬇️ Download Raw Data (ANSM)
+        run: |
+          cd backend_pipeline
+          mkdir -p data
+          cd data
+          # On télécharge les fichiers définis dans le pipeline
+          curl -L -o CIS_bdpm.txt https://base-donnees-publique.medicaments.gouv.fr/download/file/CIS_bdpm.txt
+          curl -L -o CIS_CIP_bdpm.txt https://base-donnees-publique.medicaments.gouv.fr/download/file/CIS_CIP_bdpm.txt
+          curl -L -o CIS_COMPO_bdpm.txt https://base-donnees-publique.medicaments.gouv.fr/download/file/CIS_COMPO_bdpm.txt
+          curl -L -o CIS_GENER_bdpm.txt https://base-donnees-publique.medicaments.gouv.fr/download/file/CIS_GENER_bdpm.txt
+          curl -L -o CIS_CPD_bdpm.txt https://base-donnees-publique.medicaments.gouv.fr/download/file/CIS_CPD_bdpm.txt
+          curl -L -o CIS_MITM.txt https://base-donnees-publique.medicaments.gouv.fr/download/file/CIS_MITM.txt
+          curl -L -o CIS_CIP_Dispo_Spec.txt https://base-donnees-publique.medicaments.gouv.fr/download/file/CIS_CIP_Dispo_Spec.txt
+          curl -L -o CIS_InfoImportante.txt https://base-donnees-publique.medicaments.gouv.fr/download/file/CIS_InfoImportante.txt
+          curl -L -o CIS_HAS_SMR_bdpm.txt https://base-donnees-publique.medicaments.gouv.fr/download/file/CIS_HAS_SMR_bdpm.txt
+          curl -L -o CIS_HAS_ASMR_bdpm.txt https://base-donnees-publique.medicaments.gouv.fr/download/file/CIS_HAS_ASMR_bdpm.txt
+          cd ../..
+
+      - name: 🚀 Run ETL Pipeline
+        run: cd backend_pipeline && bun run build:db
+        env:
+          DATA_DIR: ./data
+          DB_PATH: ./data/reference.db
+
+      - name: 🗜️ Compress Database
+        run: |
+          cd backend_pipeline/data
+          gzip -k -f reference.db
+          ls -lh reference.db*
+
+      - name: 🏷️ Generate Version Tag
+        id: date
+        run: echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+
+      - name: 📦 Create Release & Upload DB
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: db-${{ steps.date.outputs.date }}
+          name: Database Update ${{ steps.date.outputs.date }}
+          body: |
+            Mise à jour automatique de la base de données ANSM.
+            Date : ${{ steps.date.outputs.date }}
+            
+            Cette release contient la base de données pré-générée `reference.db.gz` pour l'application PharmaScan.
+          files: |
+            backend_pipeline/data/reference.db.gz
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -152,6 +152,7 @@ function main() {
   samples.push(...qOrphans.all().map((r: any) => ({ ...r, _audit_tag: "STRATE_ORPHELIN" })));
 
   // Parser principes_actifs_communs_json si présent (déjà validé dans la vue)
+  // Les nouveaux champs (smr_niveau, url_notice, has_safety_alert) sont déjà inclus via ms.*
   const cleanSamples = samples.map((row: any) => {
     if (row.principes_actifs_communs_json) {
       try {
@@ -162,6 +163,14 @@ function main() {
     }
     // Supprimer la colonne temporaire
     delete row.principes_actifs_communs_json;
+    
+    // Normaliser les nouveaux champs pour l'audit
+    // smr_niveau, url_notice, has_safety_alert sont déjà présents via ms.*
+    // Convertir has_safety_alert en boolean si c'est un nombre (SQLite retourne 0/1)
+    if (typeof row.has_safety_alert === 'number') {
+      row.has_safety_alert = Boolean(row.has_safety_alert);
+    }
+    
     return row;
   });
 

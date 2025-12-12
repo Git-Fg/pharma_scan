@@ -218,3 +218,74 @@ Astuce :
 * `69380042` | `J02AC04` | `NOXAFIL 100 mg, comprimé gastro-résistant` | `https://base-...`
 * `65731654` | `J02AC03` | `VORICONAZOLE TEVA 200 mg, comprimé pelliculé` | `https://base-...`
 * `68368941` | `A04AA01` | `ONDANSETRON ZENTIVA 8 mg, comprimé pelliculé` | `https://base-...`
+
+---
+
+## **8. 📁 CIS_HAS_SMR_bdpm.txt (Service Médical Rendu)**
+
+**Source** : `https://base-donnees-publique.medicaments.gouv.fr/download/file/CIS_HAS_SMR_bdpm.txt`
+**Contenu** : Évaluations du Service Médical Rendu (SMR) par la Commission de la Transparence (CT) de la HAS.
+
+### 🛠️ Notes de Parsing
+
+* **Relation One-to-Many** : Un même CIS peut apparaître sur plusieurs lignes si plusieurs avis existent (inscription initiale, réévaluation, extension d'indication).
+* **Niveaux SMR (Col 5)** :
+  * `Important` : Service médical rendu important.
+  * `Modéré` : Service médical rendu modéré.
+  * `Faible` : Service médical rendu faible.
+  * `Insuffisant` : Service médical rendu insuffisant pour justifier une prise en charge.
+* **Format Date (Col 4)** : Format `YYYYMMDD` (ex: `20251105` pour le 5 novembre 2025).
+* **HTML dans le texte** : La colonne 6 peut contenir des balises HTML (`<br>`, etc.) pour le formatage. Il faut les parser ou les supprimer selon les besoins.
+* **Types d'avis (Col 3)** : Peut être "Inscription (CT)", "Réévaluation SMR et ASMR", "Extension d'indication", "Réévaluation suite saisine Ministères (CT)".
+
+| # | Nom | Description réelle |
+| :--- | :--- | :--- |
+| **1** | CIS | Code produit (lien vers CIS_bdpm). |
+| **2** | Code CT | Identifiant de l'avis de la Commission de la Transparence (format CT-XXXXX). |
+| **3** | Type Avis | Type d'évaluation (Inscription, Réévaluation, Extension d'indication...). |
+| **4** | Date | Date de l'avis (format YYYYMMDD). |
+| **5** | Niveau SMR | Niveau du Service Médical Rendu (Important, Modéré, Faible, Insuffisant). |
+| **6** | Texte | Justification détaillée de l'évaluation (peut contenir du HTML). |
+
+**Exemples :**
+* `63741219` | `CT-21573` | `Inscription (CT)` | `20251105` | `Important` | `Le service médical rendu par IG VENA (immunoglobuline humaine normale) est important dans les déficits immunitaires primitifs et secondaires...`
+* `61946403` | `CT-21550` | `Inscription (CT)` | `20251022` | `Important` | `Le service médical rendu par ASPIRINE ARROW (acide acétylsalicylique) 75 mg, boite de 90 comprimés gastro-résistants, est important...`
+* `62405952` | `CT-21516` | `Inscription (CT)` | `20250924` | `Modéré` | `Le service médical rendu par BECLOMETASONE/FORMOTEROL TEVA 100/6 µg/dose (béclométasone/formotérol), solution pour inhalation en flacon pressurisé, est modéré dans l'indication de l'AMM concernant la BPCO.`
+* `66266368` | `CT-21506` | `Inscription (CT)` | `20250827` | `Faible` | `Le service médical rendu par RIZMOIC 200 µg (naldémédine), comprimé pelliculé en boite de 30 comprimés unidoses, est faible dans le traitement de la constipation induite par les opioïdes...`
+* `60382686` | `CT-21502` | `Inscription (CT)` | `20250924` | `Insuffisant` | `Le service médical rendu par ÉFAVIRENZ/EMTRICITABINE/TÉNOFOVIR DISOPROXIL BGR (EFV/FTC/TDF) est insuffisant pour les nouvelles instaurations de traitement...`
+
+---
+
+## **9. 📁 CIS_HAS_ASMR_bdpm.txt (Amélioration du Service Médical Rendu)**
+
+**Source** : `https://base-donnees-publique.medicaments.gouv.fr/download/file/CIS_HAS_ASMR_bdpm.txt`
+**Contenu** : Évaluations de l'Amélioration du Service Médical Rendu (ASMR) par la Commission de la Transparence (CT) de la HAS.
+
+### 🛠️ Notes de Parsing
+
+* **Relation One-to-Many** : Un même CIS peut apparaître sur plusieurs lignes si plusieurs avis existent (inscription initiale, extension d'indication).
+* **Niveaux ASMR (Col 5)** :
+  * `I` : Amélioration majeure (meilleur niveau).
+  * `II` : Amélioration importante.
+  * `III` : Amélioration modérée.
+  * `IV` : Amélioration mineure.
+  * `V` : Pas d'amélioration du service médical rendu.
+* **Format Date (Col 4)** : Format `YYYYMMDD` (ex: `20251105` pour le 5 novembre 2025).
+* **HTML dans le texte** : La colonne 6 peut contenir des balises HTML (`<br>`, etc.) pour le formatage. Il faut les parser ou les supprimer selon les besoins.
+* **Types d'avis (Col 3)** : Principalement "Inscription (CT)" ou "Extension d'indication".
+
+| # | Nom | Description réelle |
+| :--- | :--- | :--- |
+| **1** | CIS | Code produit (lien vers CIS_bdpm). |
+| **2** | Code CT | Identifiant de l'avis de la Commission de la Transparence (format CT-XXXXX). |
+| **3** | Type Avis | Type d'évaluation (Inscription, Extension d'indication...). |
+| **4** | Date | Date de l'avis (format YYYYMMDD). |
+| **5** | Niveau ASMR | Niveau de l'Amélioration du Service Médical Rendu (I, II, III, IV, V). |
+| **6** | Texte | Justification détaillée de l'évaluation (peut contenir du HTML). |
+
+**Exemples :**
+* `63741219` | `CT-21573` | `Inscription (CT)` | `20251105` | `V` | `IG VENA (immunoglobuline humaine normale) 50 g/L n'apporte pas d'amélioration du service médical rendu (ASMR V) par rapport aux autres immunoglobulines humaines normales...`
+* `61946403` | `CT-21550` | `Inscription (CT)` | `20251022` | `V` | `Cette spécialité est un complément de gamme qui n'apporte pas d'amélioration du service médical rendu (ASMR V) par rapport aux présentations d'ASPIRINE ARROW...`
+* `66831305` | `CT-21440` | `Inscription (CT)` | `20250924` | `III` | `Compte tenu de la démonstration dans une étude de phase III comparative... la Commission considère que COLUMVI (glofitamab) apporte une amélioration du service médical rendu modérée (ASMR III)...`
+* `64181296` | `CT-21428` | `Inscription (CT)` | `20251008` | `III` | `VYJUVEK (bérémagène géperpavec), suspension et gel pour usage cutané apporte une amélioration du service médical rendu modérée (ASMR III)...`
+* `65773151` | `CT-21293` | `Inscription (CT)` | `20250716` | `IV` | `L'association de RYBREVANT (amivantamab) 350 mg... apporte une amélioration du service médical rendu mineure (ASMR IV) par rapport à TAGRISSO (osimertinib).`

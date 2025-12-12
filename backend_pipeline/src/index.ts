@@ -7,6 +7,14 @@ import {
   parseCompositions,
   parseGeneriques,
   parsePrincipesActifs,
+  parseAtcCodes,
+  parseConditions,
+  parseAvailability,
+  parseSafetyAlerts,
+  parseSMR,
+  parseASMR,
+  type SmrEvaluation,
+  type AsmrEvaluation,
 } from "./parsing";
 import { computeClusters, type ClusteringInput, findCommonWordPrefix } from "./clustering";
 import { applyPharmacologicalMask, formatPrinciples, isPureGalenicDescription } from "./sanitizer";
@@ -21,6 +29,12 @@ const FILES = {
   CIS_CIP: "CIS_CIP_bdpm.txt",
   CIS_COMPO: "CIS_COMPO_bdpm.txt",
   CIS_GENER: "CIS_GENER_bdpm.txt",
+  CIS_CPD: "CIS_CPD_bdpm.txt",
+  CIS_MITM: "CIS_MITM.txt",
+  CIS_DISPO: "CIS_CIP_Dispo_Spec.txt",
+  CIS_INFO: "CIS_InfoImportante.txt",
+  CIS_SMR: "CIS_HAS_SMR_bdpm.txt",
+  CIS_ASMR: "CIS_HAS_ASMR_bdpm.txt",
 };
 
 async function main() {
@@ -69,12 +83,52 @@ async function main() {
   db.db.run("DELETE FROM generique_groups");
   db.db.run("DELETE FROM principes_actifs");
   db.db.run("DELETE FROM medicament_availability");
+  db.db.run("DELETE FROM safety_alerts");
   db.db.run("DELETE FROM medicaments");
   db.db.run("DELETE FROM specialites");
   db.db.run("DELETE FROM medicament_summary");
   db.db.run("DELETE FROM search_index");
   
   console.log("✅ Tables truncated");
+
+  // --- 0b. Pre-load Enrichment Data (ATC & Conditions & SMR) ---
+  console.log("📥 Pre-loading enrichment data (ATC & Conditions & SMR)...");
+  
+  let atcMap = new Map<string, string>();
+  const mitmPath = path.join(DATA_DIR, FILES.CIS_MITM);
+  if (fs.existsSync(mitmPath)) {
+    atcMap = await parseAtcCodes(streamBdpmFile(mitmPath));
+    console.log(`   ✅ Mapped ATC codes for ${atcMap.size} CIS`);
+  } else {
+    console.warn(`   ⚠️ File not found: ${mitmPath}`);
+  }
+
+  let conditionsMap = new Map<string, string>();
+  const cpdPath = path.join(DATA_DIR, FILES.CIS_CPD);
+  if (fs.existsSync(cpdPath)) {
+    conditionsMap = await parseConditions(streamBdpmFile(cpdPath));
+    console.log(`   ✅ Mapped conditions for ${conditionsMap.size} CIS`);
+  } else {
+    console.warn(`   ⚠️ File not found: ${cpdPath}`);
+  }
+
+  let smrMap = new Map<string, SmrEvaluation>();
+  const smrPath = path.join(DATA_DIR, FILES.CIS_SMR);
+  if (fs.existsSync(smrPath)) {
+    smrMap = await parseSMR(streamBdpmFile(smrPath));
+    console.log(`   ✅ Mapped SMR for ${smrMap.size} CIS`);
+  } else {
+    console.warn(`   ⚠️ File not found: ${smrPath}`);
+  }
+
+  let asmrMap = new Map<string, AsmrEvaluation>();
+  const asmrPath = path.join(DATA_DIR, FILES.CIS_ASMR);
+  if (fs.existsSync(asmrPath)) {
+    asmrMap = await parseASMR(streamBdpmFile(asmrPath));
+    console.log(`   ✅ Mapped ASMR for ${asmrMap.size} CIS`);
+  } else {
+    console.warn(`   ⚠️ File not found: ${asmrPath}`);
+  }
 
   // --- 1. Load & Insert Specialites (CIS) ---
   console.log("📦 Processing Specialites (CIS)...");
@@ -92,21 +146,33 @@ async function main() {
     console.log(`🏭 Found ${uniqueTitulaires.size} laboratories`);
 
     const labStmt = db['db'].prepare("INSERT OR IGNORE INTO laboratories (name) VALUES (?)");
-    // Using transaction for speed
-    db['db'].transaction(() => {
-      for (const t of uniqueTitulaires) labStmt.run(t);
-    })();
+    // Insert without transaction to avoid disk I/O errors blocking everything
+    // The OR IGNORE handles duplicates gracefully
+    let insertedCount = 0;
+    for (const t of uniqueTitulaires) {
+      try {
+        labStmt.run(t);
+        insertedCount++;
+      } catch (e: any) {
+        // Skip duplicates or other errors (OR IGNORE should handle most cases)
+        if (!e.message?.includes('UNIQUE constraint') && !e.message?.includes('disk I/O')) {
+          console.warn(`⚠️ Failed to insert laboratory ${t}: ${e.message}`);
+        }
+      }
+    }
+    console.log(`✅ Inserted ${insertedCount} laboratories`);
 
     // 1b. Load Lab Map
     const labRows = db.runQuery<{ id: number, name: string }>("SELECT id, name FROM laboratories");
     const labMap = new Map<string, number>();
     labRows.forEach(l => labMap.set(l.name, l.id));
 
-    // 1c. Insert Specialites
+    // 1c. Insert Specialites WITH ENRICHMENT
     const specialites: Specialite[] = rows.map((row) => {
+      const cis = row[0];
       const titulaireName = row[10]?.trim();
       return {
-        cisCode: row[0],
+        cisCode: cis,
         nomSpecialite: row[1],
         formePharmaceutique: row[2],
         voiesAdministration: row[3],
@@ -118,10 +184,13 @@ async function main() {
         numeroEuropeen: row[9],
         titulaireId: labMap.get(titulaireName) || 0,
         isSurveillance: row[11]?.trim().toUpperCase() === "OUI",
+        // ENRICHISSEMENT ICI
+        atcCode: atcMap.get(cis) || null,
+        conditionsPrescription: conditionsMap.get(cis) || null,
       }
     });
     db.insertSpecialites(specialites);
-    console.log(`✅ Inserted ${specialites.length} specialites`);
+    console.log(`✅ Inserted ${specialites.length} specialites (with ATC & Conditions)`);
   } else {
     console.warn(`⚠️ File not found: ${specialitesPath}`);
   }
@@ -190,6 +259,22 @@ async function main() {
     console.log(`✅ Loaded ${medicamentsInput.length} medicament records (CIPs)`);
   } else {
     console.warn(`⚠️ File not found: ${availabilityPath}`);
+  }
+
+  // --- 2b. Insert Availability (Shortages) ---
+  const dispoPath = path.join(DATA_DIR, FILES.CIS_DISPO);
+  if (fs.existsSync(dispoPath)) {
+    console.log("⚠️ Processing Stock Shortages...");
+    // Note: cisToCip13 is needed to handle CIS-level alerts (when CIP13 is empty)
+    const dispoRows = await parseAvailability(streamBdpmFile(dispoPath), activeCips, cisToCip13);
+    if (dispoRows.length > 0) {
+      db.insertMedicamentAvailability(dispoRows);
+      console.log(`✅ Inserted ${dispoRows.length} active shortage records`);
+    } else {
+      console.log("   No active shortages found");
+    }
+  } else {
+    console.warn(`⚠️ File not found: ${dispoPath}`);
   }
 
   // --- 3. Parse & Insert Compositions & Principes ---
@@ -449,6 +534,12 @@ async function main() {
 
   // Vue 3: Échantillons avec principes_actifs_communs déjà parsé en JSON
   // Note: SQLite retourne déjà les JSON comme text, mais on peut utiliser json() pour validation
+  // Cette vue inclut tous les champs de medicament_summary via ms.*, notamment :
+  // - smr_niveau, smr_date (Service Médical Rendu)
+  // - asmr_niveau, asmr_date (Amélioration du Service Médical Rendu)
+  // - url_notice (Lien vers PDF Notice officielle)
+  // - has_safety_alert (Flag pour présence d'alerte de sécurité active)
+  // - Tous les flags de prescription (is_narcotic, is_list1, is_list2, etc.)
   db.db.run(`DROP VIEW IF EXISTS v_samples_audit`);
   db.db.run(`
     CREATE VIEW v_samples_audit AS
@@ -674,6 +765,27 @@ async function main() {
 
   console.log(`✅ Calculated canonical compositions for ${groupCanonicalCompo.size} groups`);
 
+  // --- 5ter. Load Safety Alerts (BEFORE aggregation so table exists) ---
+  console.log("🚨 Processing Safety Alerts (Info Importante)...");
+  const safetyAlertsCis = new Set<string>(); // Pour mettre à jour le flag has_safety_alert
+  
+  const infoPath = path.join(DATA_DIR, FILES.CIS_INFO);
+  if (fs.existsSync(infoPath)) {
+    const alerts = await parseSafetyAlerts(streamBdpmFile(infoPath));
+    
+    if (alerts.length > 0) {
+      db.insertSafetyAlerts(alerts);
+      for (const alert of alerts) {
+        safetyAlertsCis.add(alert.cisCode);
+      }
+      console.log(`✅ Inserted ${alerts.length} safety alerts`);
+    } else {
+      console.log("   No active safety alerts found");
+    }
+  } else {
+    console.warn(`⚠️ File not found: ${infoPath}`);
+  }
+
   // --- 6. Aggregate (SQL) ---
   console.log("📊 Aggregating MedicamentSummary...");
 
@@ -692,7 +804,9 @@ async function main() {
       conditions_prescription, date_amm, is_surveillance, formatted_dosage,
       atc_code, status, price_min, price_max, aggregated_conditions,
       ansm_alert_url, is_hospital, is_dental, is_list1, is_list2,
-      is_narcotic, is_exception, is_restricted, is_otc
+      is_narcotic, is_exception, is_restricted, is_otc,
+      smr_niveau, smr_date, asmr_niveau, asmr_date, url_notice, has_safety_alert,
+      representative_cip
     )
     SELECT
       s.cis_code,
@@ -730,14 +844,37 @@ async function main() {
       ) AS price_max,
       '[]' AS aggregated_conditions,
       NULL AS ansm_alert_url,
-      0 AS is_hospital,
-      0 AS is_dental,
-      0 AS is_list1,
-      0 AS is_list2,
-      0 AS is_narcotic,
-      0 AS is_exception,
-      0 AS is_restricted,
-      1 AS is_otc
+      -- Calcul dynamique des flags depuis conditions_prescription
+      -- Note: "LISTE I" est contenu dans "LISTE II", donc on vérifie d'abord LISTE II, puis LISTE I seul (sans II)
+      CASE WHEN UPPER(COALESCE(s.conditions_prescription, '')) LIKE '%LISTE II%' THEN 0 
+           WHEN UPPER(COALESCE(s.conditions_prescription, '')) LIKE '%LISTE I%' 
+            AND UPPER(COALESCE(s.conditions_prescription, '')) NOT LIKE '%LISTE II%' THEN 1 
+           ELSE 0 END AS is_list1,
+      CASE WHEN UPPER(COALESCE(s.conditions_prescription, '')) LIKE '%LISTE II%' THEN 1 ELSE 0 END AS is_list2,
+      CASE WHEN UPPER(COALESCE(s.conditions_prescription, '')) LIKE '%STUPÉFIANT%' OR UPPER(COALESCE(s.conditions_prescription, '')) LIKE '%STUPEFIANT%' THEN 1 ELSE 0 END AS is_narcotic,
+      CASE WHEN UPPER(COALESCE(s.conditions_prescription, '')) LIKE '%HOSPITALIER%' THEN 1 ELSE 0 END AS is_hospital,
+      CASE WHEN UPPER(COALESCE(s.conditions_prescription, '')) LIKE '%EXCEPTION%' THEN 1 ELSE 0 END AS is_exception,
+      CASE WHEN UPPER(COALESCE(s.conditions_prescription, '')) LIKE '%RESTREINTE%' THEN 1 ELSE 0 END AS is_restricted,
+      CASE WHEN UPPER(COALESCE(s.conditions_prescription, '')) LIKE '%DENTAIRE%' THEN 1 ELSE 0 END AS is_dental,
+      -- Logique OTC : Si pas Liste I, pas Liste II, pas Stupéfiant -> OTC
+      CASE WHEN (
+          UPPER(COALESCE(s.conditions_prescription, '')) NOT LIKE '%LISTE I%' AND 
+          UPPER(COALESCE(s.conditions_prescription, '')) NOT LIKE '%LISTE II%' AND 
+          (UPPER(COALESCE(s.conditions_prescription, '')) NOT LIKE '%STUPÉFIANT%' AND UPPER(COALESCE(s.conditions_prescription, '')) NOT LIKE '%STUPEFIANT%')
+      ) THEN 1 ELSE 0 END AS is_otc,
+      -- SMR & ASMR & Safety (sera mis à jour après insertion)
+      NULL AS smr_niveau,
+      NULL AS smr_date,
+      NULL AS asmr_niveau,
+      NULL AS asmr_date,
+      'https://base-donnees-publique.medicaments.gouv.fr/affichageDoc.php?specid=' || s.cis_code || '&typedoc=N' AS url_notice,
+      CASE WHEN EXISTS(SELECT 1 FROM safety_alerts sa WHERE sa.cis_code = s.cis_code) THEN 1 ELSE 0 END AS has_safety_alert,
+      (
+        SELECT MIN(m5.code_cip)
+        FROM medicaments m5
+        INNER JOIN group_members gm5 ON m5.code_cip = gm5.code_cip
+        WHERE gm5.group_id = gg.group_id AND m5.cis_code = s.cis_code
+      ) AS representative_cip
     FROM generique_groups gg
     INNER JOIN group_members gm ON gg.group_id = gm.group_id
     INNER JOIN medicaments m ON gm.code_cip = m.code_cip
@@ -753,7 +890,8 @@ async function main() {
       conditions_prescription, date_amm, is_surveillance, formatted_dosage,
       atc_code, status, price_min, price_max, aggregated_conditions,
       ansm_alert_url, is_hospital, is_dental, is_list1, is_list2,
-      is_narcotic, is_exception, is_restricted, is_otc, representative_cip
+      is_narcotic, is_exception, is_restricted, is_otc,
+      smr_niveau, smr_date, asmr_niveau, asmr_date, url_notice, has_safety_alert, representative_cip
     )
     SELECT
       s.cis_code,
@@ -803,14 +941,31 @@ async function main() {
       ) AS price_max,
       '[]' AS aggregated_conditions,
       NULL AS ansm_alert_url,
-      0 AS is_hospital,
-      0 AS is_dental,
-      0 AS is_list1,
-      0 AS is_list2,
-      0 AS is_narcotic,
-      0 AS is_exception,
-      0 AS is_restricted,
-      1 AS is_otc,
+      -- Calcul dynamique des flags depuis conditions_prescription
+      -- Note: "LISTE I" est contenu dans "LISTE II", donc on vérifie d'abord LISTE II, puis LISTE I seul (sans II)
+      CASE WHEN UPPER(COALESCE(s.conditions_prescription, '')) LIKE '%LISTE II%' THEN 0 
+           WHEN UPPER(COALESCE(s.conditions_prescription, '')) LIKE '%LISTE I%' 
+            AND UPPER(COALESCE(s.conditions_prescription, '')) NOT LIKE '%LISTE II%' THEN 1 
+           ELSE 0 END AS is_list1,
+      CASE WHEN UPPER(COALESCE(s.conditions_prescription, '')) LIKE '%LISTE II%' THEN 1 ELSE 0 END AS is_list2,
+      CASE WHEN UPPER(COALESCE(s.conditions_prescription, '')) LIKE '%STUPÉFIANT%' OR UPPER(COALESCE(s.conditions_prescription, '')) LIKE '%STUPEFIANT%' THEN 1 ELSE 0 END AS is_narcotic,
+      CASE WHEN UPPER(COALESCE(s.conditions_prescription, '')) LIKE '%HOSPITALIER%' THEN 1 ELSE 0 END AS is_hospital,
+      CASE WHEN UPPER(COALESCE(s.conditions_prescription, '')) LIKE '%EXCEPTION%' THEN 1 ELSE 0 END AS is_exception,
+      CASE WHEN UPPER(COALESCE(s.conditions_prescription, '')) LIKE '%RESTREINTE%' THEN 1 ELSE 0 END AS is_restricted,
+      CASE WHEN UPPER(COALESCE(s.conditions_prescription, '')) LIKE '%DENTAIRE%' THEN 1 ELSE 0 END AS is_dental,
+      -- Logique OTC : Si pas Liste I, pas Liste II, pas Stupéfiant -> OTC
+      CASE WHEN (
+          UPPER(COALESCE(s.conditions_prescription, '')) NOT LIKE '%LISTE I%' AND 
+          UPPER(COALESCE(s.conditions_prescription, '')) NOT LIKE '%LISTE II%' AND 
+          (UPPER(COALESCE(s.conditions_prescription, '')) NOT LIKE '%STUPÉFIANT%' AND UPPER(COALESCE(s.conditions_prescription, '')) NOT LIKE '%STUPEFIANT%')
+      ) THEN 1 ELSE 0 END AS is_otc,
+      -- SMR & ASMR & Safety (sera mis à jour après insertion)
+      NULL AS smr_niveau,
+      NULL AS smr_date,
+      NULL AS asmr_niveau,
+      NULL AS asmr_date,
+      'https://base-donnees-publique.medicaments.gouv.fr/affichageDoc.php?specid=' || s.cis_code || '&typedoc=N' AS url_notice,
+      CASE WHEN EXISTS(SELECT 1 FROM safety_alerts sa WHERE sa.cis_code = s.cis_code) THEN 1 ELSE 0 END AS has_safety_alert,
       (
         SELECT MIN(m5.code_cip)
         FROM medicaments m5
@@ -865,6 +1020,197 @@ async function main() {
     )
     WHERE group_id IS NULL
   `);
+
+  // Inject SMR and ASMR levels and dates from pre-loaded maps
+  console.log("💉 Injecting SMR and ASMR levels and dates...");
+  const updateSmrStmt = db['db'].prepare("UPDATE medicament_summary SET smr_niveau = ?, smr_date = ? WHERE cis_code = ?");
+  const updateAsmrStmt = db['db'].prepare("UPDATE medicament_summary SET asmr_niveau = ?, asmr_date = ? WHERE cis_code = ?");
+  
+  db['db'].transaction(() => {
+    for (const [cis, smr] of smrMap.entries()) {
+      updateSmrStmt.run(smr.niveau, smr.date, cis);
+    }
+    for (const [cis, asmr] of asmrMap.entries()) {
+      updateAsmrStmt.run(asmr.niveau, asmr.date, cis);
+    }
+  })();
+  
+  console.log(`✅ Injected SMR levels and dates for ${smrMap.size} CIS`);
+  console.log(`✅ Injected ASMR levels and dates for ${asmrMap.size} CIS`);
+
+  // --- 6bis. Harmonisation & Propagation des Données Manquantes ---
+  console.log("⚖️  Harmonizing missing data (Propagation by Group Majority)...");
+
+  // 1. Récupérer les données brutes par groupe pour calculer les consensus
+  // On ne prend que les colonnes "structurelles" (pas les prix ni les ruptures)
+  const groupDataQuery = db.runQuery<{
+    group_id: string;
+    cis_code: string;
+    is_list1: number;
+    is_list2: number;
+    is_narcotic: number;
+    is_hospital: number;
+    is_dental: number;
+    is_exception: number;
+    is_restricted: number;
+    atc_code: string | null;
+    conditions_prescription: string | null;
+  }>(`
+    SELECT 
+      group_id, cis_code, 
+      is_list1, is_list2, is_narcotic, is_hospital, is_dental, is_exception, is_restricted,
+      atc_code, conditions_prescription
+    FROM medicament_summary
+    WHERE group_id IS NOT NULL
+  `);
+
+  // 2. Calculer le consensus par groupe
+  const groupConsensus = new Map<string, {
+    list1: number;
+    list2: number;
+    narcotic: number;
+    hospital: number;
+    dental: number;
+    exception: number;
+    restricted: number;
+    atc: string | null;
+    conditions: string | null;
+  }>();
+
+  // Regroupement temporaire
+  const groupsBuffer = new Map<string, Array<typeof groupDataQuery[0]>>();
+
+  for (const row of groupDataQuery) {
+    if (!groupsBuffer.has(row.group_id)) groupsBuffer.set(row.group_id, []);
+    groupsBuffer.get(row.group_id)!.push(row);
+  }
+
+  // Analyse statistique par groupe
+  for (const [groupId, members] of groupsBuffer.entries()) {
+    const count = members.length;
+    if (count === 0) continue;
+
+    // Calcul des moyennes pour les booléens (vote majoritaire > 50%)
+    const sumList1 = members.reduce((acc, m) => acc + m.is_list1, 0);
+    const sumList2 = members.reduce((acc, m) => acc + m.is_list2, 0);
+    const sumNarc = members.reduce((acc, m) => acc + m.is_narcotic, 0);
+    const sumHosp = members.reduce((acc, m) => acc + m.is_hospital, 0);
+    const sumDental = members.reduce((acc, m) => acc + m.is_dental, 0);
+    const sumException = members.reduce((acc, m) => acc + m.is_exception, 0);
+    const sumRestricted = members.reduce((acc, m) => acc + m.is_restricted, 0);
+
+    // Pour le texte (ATC et Conditions), on cherche le mode (valeur la plus fréquente non nulle)
+    const getMode = (extractor: (m: typeof members[0]) => string | null) => {
+      const counts = new Map<string, number>();
+      for (const m of members) {
+        const val = extractor(m);
+        if (val && val.trim().length > 0) {
+          counts.set(val, (counts.get(val) || 0) + 1);
+        }
+      }
+      // Trier par fréquence décroissante
+      const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+      return sorted.length > 0 ? sorted[0][0] : null;
+    };
+
+    groupConsensus.set(groupId, {
+      // Vote majoritaire pour les drapeaux de sécurité (> 50% = vrai pour tout le groupe)
+      // Logique : Si > 50% du groupe a le flag, c'est une propriété de la molécule, donc vrai pour tous
+      list1: sumList1 / count > 0.5 ? 1 : 0,
+      list2: sumList2 / count > 0.5 ? 1 : 0,
+      narcotic: sumNarc / count > 0.5 ? 1 : 0,
+      hospital: sumHosp / count > 0.5 ? 1 : 0,
+      dental: sumDental / count > 0.5 ? 1 : 0,
+      exception: sumException / count > 0.5 ? 1 : 0,
+      restricted: sumRestricted / count > 0.5 ? 1 : 0,
+      // Mode (valeur la plus fréquente) pour le texte (ATC et Conditions)
+      // Utilisé pour remplir les trous avec COALESCE, pas pour forcer
+      atc: getMode(m => m.atc_code),
+      conditions: getMode(m => m.conditions_prescription)
+    });
+  }
+
+  // 3. Appliquer la propagation (Batch Update)
+  // Stratégie différenciée selon le type de données :
+  // - Drapeaux de sécurité (is_list1, is_narcotic, etc.) : FORCE la valeur majoritaire sur TOUS les membres
+  //   Car c'est une propriété chimique/légale de la molécule. Si 8 génériques sont Liste I et le 9ème non (erreur ANSM),
+  //   il DOIT être considéré comme Liste I. On force donc la valeur majoritaire (> 50%).
+  // - Codes texte (atc_code, conditions_prescription) : Ne remplace que les valeurs NULL (COALESCE)
+  //   Car un groupe générique partage la même molécule, donc le même code ATC. On remplit seulement les trous.
+  const updateHarmonizedStmt = db['db'].prepare(`
+    UPDATE medicament_summary
+    SET 
+      -- Drapeaux de sécurité : FORCE la valeur majoritaire (propriété de la molécule)
+      is_list1 = ?,
+      is_list2 = ?,
+      is_narcotic = ?,
+      is_hospital = ?,
+      is_dental = ?,
+      is_exception = ?,
+      is_restricted = ?,
+      -- Codes texte : Ne remplace que les valeurs NULL (remplissage des trous)
+      atc_code = COALESCE(atc_code, ?),
+      conditions_prescription = COALESCE(conditions_prescription, ?)
+    WHERE group_id = ?
+  `);
+
+  let updatedGroups = 0;
+  try {
+    db['db'].transaction(() => {
+      for (const [groupId, consensus] of groupConsensus.entries()) {
+        updateHarmonizedStmt.run(
+          consensus.list1,
+          consensus.list2,
+          consensus.narcotic,
+          consensus.hospital,
+          consensus.dental,
+          consensus.exception,
+          consensus.restricted,
+          consensus.atc,
+          consensus.conditions,
+          groupId
+        );
+        updatedGroups++;
+      }
+    })();
+  } catch (error: any) {
+    // Fallback: insert without transaction if transaction fails
+    console.warn(`⚠️ Transaction failed, retrying without transaction: ${error.message}`);
+    for (const [groupId, consensus] of groupConsensus.entries()) {
+      try {
+        updateHarmonizedStmt.run(
+          consensus.list1,
+          consensus.list2,
+          consensus.narcotic,
+          consensus.hospital,
+          consensus.dental,
+          consensus.exception,
+          consensus.restricted,
+          consensus.atc,
+          consensus.conditions,
+          groupId
+        );
+        updatedGroups++;
+      } catch (e: any) {
+        console.warn(`⚠️ Failed to harmonize group ${groupId}: ${e.message}`);
+      }
+    }
+  }
+
+  console.log(`✅ Propagated majority data across ${updatedGroups} groups`);
+
+  // Recalculer is_otc après harmonisation (car il dépend des autres flags)
+  console.log("🔄 Recalculating OTC flags after harmonization...");
+  db.db.run(`
+    UPDATE medicament_summary
+    SET is_otc = CASE WHEN (
+        is_list1 = 0 AND 
+        is_list2 = 0 AND 
+        is_narcotic = 0
+    ) THEN 1 ELSE 0 END
+    WHERE group_id IS NOT NULL
+  `);
+  console.log(`✅ Recalculated OTC flags`);
 
   // Créer une table de mapping cluster_id -> cluster_name pour faciliter les requêtes
   // Cette table stocke le nom du cluster calculé par LCP et le princeps clean
@@ -1217,6 +1563,11 @@ async function main() {
   db.populateSearchIndex();
   console.log("✅ Search index populated");
 
+  // Switch to WAL mode for better concurrent access (after all inserts are done)
+  console.log("💾 Switching to WAL mode and flushing checkpoint...");
+  db.db.exec("PRAGMA journal_mode = WAL;");
+  db.db.exec("PRAGMA wal_checkpoint(TRUNCATE);");
+  
   console.log("✨ Pipeline Completed Successfully!");
 }
 
@@ -1226,7 +1577,13 @@ async function readBdpmFile(filePath: string): Promise<string[][]> {
   const content = await fs.promises.readFile(filePath);
   const decoded = iconv.decode(content, "latin1"); // ISO-8859-1
   return new Promise((resolve, reject) => {
-    parse(decoded, { delimiter: "\t", relax_quotes: true }, (err, records) => {
+    parse(decoded, { 
+      delimiter: "\t", 
+      relax_quotes: true,
+      relax_column_count: true, // Allow inconsistent column counts
+      skip_empty_lines: true, // Skip empty lines
+      skip_records_with_error: true // Skip records with errors
+    }, (err, records) => {
       if (err) reject(err);
       else resolve(records);
     });
@@ -1237,10 +1594,19 @@ async function readBdpmFile(filePath: string): Promise<string[][]> {
 async function* streamBdpmFile(filePath: string): AsyncIterable<string[]> {
   const stream = fs.createReadStream(filePath)
     .pipe(iconv.decodeStream("latin1"))
-    .pipe(parse({ delimiter: "\t", relax_quotes: true }));
+    .pipe(parse({ 
+      delimiter: "\t", 
+      relax_quotes: true,
+      relax_column_count: true, // Allow inconsistent column counts
+      skip_empty_lines: true, // Skip empty lines
+      skip_records_with_error: true // Skip records with errors
+    }));
 
   for await (const row of stream) {
-    yield row;
+    // Filter out empty rows or rows with only whitespace
+    if (row && row.length > 0 && row.some((cell: string) => cell && cell.trim().length > 0)) {
+      yield row;
+    }
   }
 }
 

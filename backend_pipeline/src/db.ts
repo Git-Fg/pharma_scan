@@ -16,7 +16,8 @@ import type {
   Cluster,
   Product,
   GroupRow,
-  ProductGroupingUpdate
+  ProductGroupingUpdate,
+  SafetyAlert
 } from "./types";
 
 export const DEFAULT_DB_PATH = path.join("data", "reference.db");
@@ -31,11 +32,15 @@ export class ReferenceDatabase {
     }
     console.log(`📂 Opening database at: ${fullPath}`);
     this.db = new Database(fullPath, { create: true, readwrite: true });
+    // Use DELETE mode during initialization to avoid WAL locking issues
     this.db.exec("PRAGMA journal_mode = DELETE;");
     this.db.exec("PRAGMA synchronous = NORMAL;");
     this.db.exec("PRAGMA foreign_keys = ON;");
     this.db.exec("PRAGMA locking_mode = NORMAL;");
+    this.db.exec("PRAGMA busy_timeout = 30000;"); // 30 second timeout for locks
     this.initSchema();
+    // Switch to WAL mode after schema is initialized
+    this.db.exec("PRAGMA journal_mode = WAL;");
     console.log(`✅ Database initialized successfully`);
   }
 
@@ -63,7 +68,8 @@ export class ReferenceDatabase {
       console.warn('Warning: Could not register normalize_text function (likely in test environment)');
     }
     this.db.run("PRAGMA foreign_keys = ON;");
-    this.db.run("PRAGMA journal_mode = WAL;");
+    // Keep DELETE mode during initialization, switch to WAL after all inserts are done
+    // this.db.run("PRAGMA journal_mode = WAL;");
 
     // 1. Raw Data Tables (Staging)
     this.db.run(`
@@ -105,6 +111,20 @@ export class ReferenceDatabase {
         date_fin TEXT,
         lien TEXT
       );
+    `);
+
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS safety_alerts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        cis_code TEXT NOT NULL REFERENCES specialites(cis_code) ON DELETE CASCADE,
+        date_debut TEXT,
+        date_fin TEXT,
+        texte TEXT
+      );
+    `);
+
+    this.db.run(`
+      CREATE INDEX IF NOT EXISTS idx_safety_alerts_cis ON safety_alerts(cis_code);
     `);
 
     this.db.run(`
@@ -229,13 +249,46 @@ export class ReferenceDatabase {
         is_restricted BOOLEAN NOT NULL DEFAULT 0,
         is_otc BOOLEAN NOT NULL DEFAULT 1,
         
+        -- SMR & ASMR & Safety
+        smr_niveau TEXT,
+        smr_date TEXT,
+        asmr_niveau TEXT,
+        asmr_date TEXT,
+        url_notice TEXT,
+        has_safety_alert BOOLEAN DEFAULT 0,
+        
         representative_cip TEXT,
         
         FOREIGN KEY(titulaire_id) REFERENCES laboratories(id),
         FOREIGN KEY(cluster_id) REFERENCES cluster_names(cluster_id)
       );
+    `);
 
-      -- App settings table (from Flutter)
+    // Ajouter les colonnes SMR/ASMR si elles n'existent pas (pour les bases existantes)
+    try {
+      this.db.run(`ALTER TABLE medicament_summary ADD COLUMN asmr_niveau TEXT`);
+    } catch (e: any) {
+      if (!e.message?.includes('duplicate column')) {
+        throw e;
+      }
+    }
+    try {
+      this.db.run(`ALTER TABLE medicament_summary ADD COLUMN smr_date TEXT`);
+    } catch (e: any) {
+      if (!e.message?.includes('duplicate column')) {
+        throw e;
+      }
+    }
+    try {
+      this.db.run(`ALTER TABLE medicament_summary ADD COLUMN asmr_date TEXT`);
+    } catch (e: any) {
+      if (!e.message?.includes('duplicate column')) {
+        throw e;
+      }
+    }
+
+    // App settings table (from Flutter)
+    this.db.run(`
       CREATE TABLE IF NOT EXISTS app_settings (
         key TEXT PRIMARY KEY,
         value BLOB NOT NULL
@@ -485,6 +538,20 @@ export class ReferenceDatabase {
     console.log(`✅ Inserted ${rows.length} availability records`);
   }
 
+  public insertSafetyAlerts(rows: ReadonlyArray<SafetyAlert>) {
+    console.log(`📊 Inserting ${rows.length} safety alerts...`);
+
+    const transformedRows = rows.map(row => ({
+      cis_code: row.cisCode,
+      date_debut: row.dateDebut,
+      date_fin: row.dateFin,
+      texte: row.texte
+    }));
+
+    this.prepareInsert<any>("safety_alerts", Object.keys(transformedRows[0] || {}) as any)(transformedRows);
+    console.log(`✅ Inserted ${rows.length} safety alerts`);
+  }
+
   public insertPrincipesActifs(rows: ReadonlyArray<PrincipeActif>) {
     console.log(`📊 Inserting ${rows.length} principes actifs...`);
 
@@ -565,6 +632,12 @@ export class ReferenceDatabase {
       is_exception: row.isException ? 1 : 0,
       is_restricted: row.isRestricted ? 1 : 0,
       is_otc: row.isOtc ? 1 : 0,
+      smr_niveau: row.smrNiveau,
+      smr_date: row.smrDate,
+      asmr_niveau: row.asmrNiveau,
+      asmr_date: row.asmrDate,
+      url_notice: row.urlNotice,
+      has_safety_alert: row.hasSafetyAlert ? 1 : 0,
       representative_cip: row.representativeCip,
       cluster_id: row.clusterId // NEW - cluster assignment
     }));
@@ -697,6 +770,12 @@ export class ReferenceDatabase {
       isException: Boolean(row.is_exception),
       isRestricted: Boolean(row.is_restricted),
       isOtc: Boolean(row.is_otc),
+      smrNiveau: row.smr_niveau,
+      smrDate: row.smr_date,
+      asmrNiveau: row.asmr_niveau,
+      asmrDate: row.asmr_date,
+      urlNotice: row.url_notice,
+      hasSafetyAlert: Boolean(row.has_safety_alert),
       representativeCip: row.representative_cip,
       clusterId: row.cluster_id
     }));
@@ -1008,6 +1087,12 @@ export class ReferenceDatabase {
         is_exception,
         is_restricted,
         is_otc,
+        smr_niveau,
+        smr_date,
+        asmr_niveau,
+        asmr_date,
+        url_notice,
+        has_safety_alert,
         representative_cip,
         cluster_id
       FROM medicament_summary
@@ -1050,6 +1135,12 @@ export class ReferenceDatabase {
       isException: Boolean(row.is_exception),
       isRestricted: Boolean(row.is_restricted),
       isOtc: Boolean(row.is_otc),
+      smrNiveau: row.smr_niveau,
+      smrDate: row.smr_date,
+      asmrNiveau: row.asmr_niveau,
+      asmrDate: row.asmr_date,
+      urlNotice: row.url_notice,
+      hasSafetyAlert: Boolean(row.has_safety_alert),
       representativeCip: row.representative_cip,
       clusterId: row.cluster_id
     }));
@@ -1088,6 +1179,12 @@ export class ReferenceDatabase {
         is_exception,
         is_restricted,
         is_otc,
+        smr_niveau,
+        smr_date,
+        asmr_niveau,
+        asmr_date,
+        url_notice,
+        has_safety_alert,
         representative_cip,
         cluster_id
       FROM medicament_summary
@@ -1129,6 +1226,10 @@ export class ReferenceDatabase {
       isException: Boolean(row.is_exception),
       isRestricted: Boolean(row.is_restricted),
       isOtc: Boolean(row.is_otc),
+      smrNiveau: row.smr_niveau,
+      asmrNiveau: row.asmr_niveau,
+      urlNotice: row.url_notice,
+      hasSafetyAlert: Boolean(row.has_safety_alert),
       representativeCip: row.representative_cip,
       clusterId: row.cluster_id
     };

@@ -4,7 +4,7 @@ import {
   MINERAL_TOKENS,
 } from "./constants";
 import { normalizePrincipleOptimal, normalizeForSearchIndex } from "./sanitizer";
-import type { GeneriqueGroup, GroupMember, PrincipeActif } from "./types";
+import type { GeneriqueGroup, GroupMember, PrincipeActif, MedicamentAvailability, SafetyAlert } from "./types";
 
 // --- 0. Core Parsing Generators/Interfaces ---
 
@@ -641,5 +641,293 @@ export async function parseGeneriques(
   }
 
   return { groups: generiqueGroups, members: groupMembers };
+}
+
+// --- 4. ATC Codes Parser (CIS_MITM.txt) ---
+
+/**
+ * Parses CIS_MITM.txt to extract ATC Codes.
+ * Returns a Map<CIS, ATC_CODE>
+ */
+export async function parseAtcCodes(
+  rows: Iterable<string[]> | AsyncIterable<string[]>
+): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  for await (const row of rows) {
+    if (row.length >= 2) {
+      const cis = row[0]?.trim();
+      const atc = row[1]?.trim(); // Code ATC (ex: J01AA02)
+      if (cis && atc) {
+        map.set(cis, atc);
+      }
+    }
+  }
+  return map;
+}
+
+// --- 5. Prescription Conditions Parser (CIS_CPD_bdpm.txt) ---
+
+/**
+ * Parses CIS_CPD_bdpm.txt to extract Prescription Conditions.
+ * Returns a Map<CIS, FullConditionString>
+ * Multiple conditions for the same CIS are joined with " | "
+ */
+export async function parseConditions(
+  rows: Iterable<string[]> | AsyncIterable<string[]>
+): Promise<Map<string, string>> {
+  const map = new Map<string, string[]>();
+  
+  for await (const row of rows) {
+    if (row.length >= 2) {
+      const cis = row[0]?.trim();
+      const condition = row[1]?.trim();
+      if (cis && condition) {
+        if (!map.has(cis)) map.set(cis, []);
+        map.get(cis)!.push(condition);
+      }
+    }
+  }
+
+  // Flatten array to single string for DB storage
+  const result = new Map<string, string>();
+  for (const [cis, conds] of map.entries()) {
+    result.set(cis, conds.join(" | "));
+  }
+  return result;
+}
+
+// --- 6. Availability Parser (CIS_CIP_Dispo_Spec.txt) ---
+
+/**
+ * Parses CIS_CIP_Dispo_Spec.txt for Shortages.
+ * Returns availability objects.
+ * Columns: [0]CIS, [1]CIP13, [2]CodeStatut, [3]Libellé, [4]DateDebut, [5]DateFin, [6]DateRetour, [7]Lien
+ * 
+ * IMPORTANT: If CIP13 (col 1) is empty, the alert applies to ALL CIPs of the CIS.
+ * In this case, we create an entry for each CIP of that CIS.
+ */
+export async function parseAvailability(
+  rows: Iterable<string[]> | AsyncIterable<string[]>,
+  activeCips: Set<string>, // Only keep relevant CIPs
+  cisToCip13: Map<string, string[]> // Map CIS -> CIP13s (for CIS-level alerts)
+): Promise<MedicamentAvailability[]> {
+  const results: MedicamentAvailability[] = [];
+
+  for await (const row of rows) {
+    // Columns: [0]CIS, [1]CIP13, [2]CodeStatut, [3]Libellé, [4]DateDebut, [5]DateFin, [6]DateRetour, [7]Lien
+    const cis = row[0]?.trim();
+    const cip = row[1]?.trim();
+    const statut = row[3]?.trim() || "Inconnu";
+    const dateDebut = row[4]?.trim() || undefined;
+    const dateFin = row[5]?.trim() || undefined;
+    const lien = row[7]?.trim() || undefined;
+
+    if (!cis) continue;
+
+    // Case 1: CIP13 is specified -> alert applies only to this CIP
+    if (cip) {
+      if (activeCips.has(cip)) {
+        results.push({
+          codeCip: cip,
+          statut,
+          dateDebut,
+          dateFin,
+          lien
+        });
+      }
+    } 
+    // Case 2: CIP13 is empty -> alert applies to ALL CIPs of the CIS
+    else {
+      const cipsForCis = cisToCip13.get(cis);
+      if (cipsForCis) {
+        for (const cip13 of cipsForCis) {
+          if (activeCips.has(cip13)) {
+            results.push({
+              codeCip: cip13,
+              statut,
+              dateDebut,
+              dateFin,
+              lien
+            });
+          }
+        }
+      }
+    }
+  }
+  return results;
+}
+
+// --- 7. Safety Alerts Parser (CIS_InfoImportante.txt) ---
+
+/**
+ * Helper: Compare DD/MM/YYYY dates
+ * Returns: -1 if d1 < d2, 0 if equal, 1 if d1 > d2
+ */
+function compareBdpmDates(d1: string, d2: string): number {
+  if (!d1 || !d2) return 0;
+  
+  // Convert DD/MM/YYYY to YYYYMMDD for string comparison
+  const toIso = (d: string): string => {
+    if (d.includes('-')) {
+      // Already YYYY-MM-DD format
+      return d.replace(/-/g, '');
+    }
+    const parts = d.split('/');
+    if (parts.length !== 3) return '';
+    // Ensure 2-digit day and month
+    const day = parts[0].padStart(2, '0');
+    const month = parts[1].padStart(2, '0');
+    const year = parts[2];
+    return `${year}${month}${day}`;
+  };
+  
+  const iso1 = toIso(d1);
+  const iso2 = toIso(d2);
+  if (!iso1 || !iso2) return 0;
+  
+  return iso1.localeCompare(iso2);
+}
+
+/**
+ * Parse CIS_InfoImportante.txt
+ * Format: CIS, DateDebut, DateFin, Texte
+ * Only keeps alerts that are active (dateFin is empty or in the future)
+ */
+export async function parseSafetyAlerts(
+  rows: Iterable<string[]> | AsyncIterable<string[]>
+): Promise<SafetyAlert[]> {
+  const alerts: SafetyAlert[] = [];
+  const now = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+
+  for await (const row of rows) {
+    if (row.length >= 4) {
+      const cis = row[0]?.trim();
+      const dateDebut = row[1]?.trim();
+      const dateFin = row[2]?.trim();
+      const texte = row[3]?.trim();
+      
+      if (cis && texte) {
+        // On ne garde que les alertes en cours ou futures (pas celles périmées)
+        // Si dateFin est vide, l'alerte est toujours active
+        if (!dateFin || compareBdpmDates(dateFin, now) >= 0) {
+          alerts.push({
+            cisCode: cis,
+            dateDebut: dateDebut || '',
+            dateFin: dateFin || '',
+            texte: texte
+          });
+        }
+      }
+    }
+  }
+  return alerts;
+}
+
+/**
+ * Helper: Compare YYYYMMDD dates (format used in SMR/ASMR files)
+ * Returns: -1 if d1 < d2, 0 if equal, 1 if d1 > d2
+ */
+function compareYyyyMmDdDates(d1: string, d2: string): number {
+  if (!d1 || !d2) return 0;
+  // Dates are already in YYYYMMDD format, can compare directly as strings
+  if (d1 < d2) return -1;
+  if (d1 > d2) return 1;
+  return 0;
+}
+
+// --- 8. SMR Parser (CIS_HAS_SMR_bdpm.txt) ---
+
+export type SmrEvaluation = {
+  niveau: string;
+  date: string;
+};
+
+/**
+ * Parse CIS_HAS_SMR_bdpm.txt to get the latest evaluation
+ * Format: CIS, CodeCT, TypeAvis, Date (YYYYMMDD), NiveauSMR, Texte
+ * Returns Map<CIS, { niveau, date }> (keeping only the most recent evaluation per CIS)
+ */
+export async function parseSMR(
+  rows: Iterable<string[]> | AsyncIterable<string[]>
+): Promise<Map<string, SmrEvaluation>> {
+  // Map CIS -> {date, niveau}
+  // On doit garder uniquement le SMR le plus récent pour chaque CIS
+  const tempMap = new Map<string, { date: string, niveau: string }>();
+
+  for await (const row of rows) {
+    // Format: CIS, CodeCT, TypeAvis, Date (YYYYMMDD), NiveauSMR, Texte
+    if (row.length >= 6) {
+      const cis = row[0]?.trim();
+      const dateAvis = row[3]?.trim(); // Format YYYYMMDD
+      const niveau = row[4]?.trim(); // NiveauSMR (ex: "Important", "Modéré", "Faible", "Insuffisant")
+      
+      if (cis && niveau) {
+        if (!tempMap.has(cis)) {
+          tempMap.set(cis, { date: dateAvis || '', niveau });
+        } else {
+          // Si cette ligne est plus récente, on remplace
+          const existing = tempMap.get(cis)!;
+          if (dateAvis && compareYyyyMmDdDates(dateAvis, existing.date) > 0) {
+            tempMap.set(cis, { date: dateAvis, niveau });
+          }
+        }
+      }
+    }
+  }
+
+  // Return Map<CIS, { niveau, date }>
+  const result = new Map<string, SmrEvaluation>();
+  for (const [cis, val] of tempMap.entries()) {
+    result.set(cis, { niveau: val.niveau, date: val.date });
+  }
+  return result;
+}
+
+// --- 9. ASMR Parser (CIS_HAS_ASMR_bdpm.txt) ---
+
+export type AsmrEvaluation = {
+  niveau: string;
+  date: string;
+};
+
+/**
+ * Parse CIS_HAS_ASMR_bdpm.txt to get the latest evaluation
+ * Format: CIS, CodeCT, TypeAvis, Date (YYYYMMDD), NiveauASMR, Texte
+ * Returns Map<CIS, { niveau, date }> (keeping only the most recent evaluation per CIS)
+ */
+export async function parseASMR(
+  rows: Iterable<string[]> | AsyncIterable<string[]>
+): Promise<Map<string, AsmrEvaluation>> {
+  // Map CIS -> {date, niveau}
+  // On doit garder uniquement l'ASMR le plus récent pour chaque CIS
+  const tempMap = new Map<string, { date: string, niveau: string }>();
+
+  for await (const row of rows) {
+    // Format: CIS, CodeCT, TypeAvis, Date (YYYYMMDD), NiveauASMR, Texte
+    if (row.length >= 6) {
+      const cis = row[0]?.trim();
+      const dateAvis = row[3]?.trim(); // Format YYYYMMDD
+      const niveau = row[4]?.trim(); // NiveauASMR (ex: "I", "II", "III", "IV", "V")
+      
+      if (cis && niveau) {
+        if (!tempMap.has(cis)) {
+          tempMap.set(cis, { date: dateAvis || '', niveau });
+        } else {
+          // Si cette ligne est plus récente, on remplace
+          const existing = tempMap.get(cis)!;
+          if (dateAvis && compareYyyyMmDdDates(dateAvis, existing.date) > 0) {
+            tempMap.set(cis, { date: dateAvis, niveau });
+          }
+        }
+      }
+    }
+  }
+
+  // Return Map<CIS, { niveau, date }>
+  const result = new Map<string, AsmrEvaluation>();
+  for (const [cis, val] of tempMap.entries()) {
+    result.set(cis, { niveau: val.niveau, date: val.date });
+  }
+  return result;
 }
 

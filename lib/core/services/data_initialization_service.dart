@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:pharma_scan/core/config/data_sources.dart';
 import 'package:pharma_scan/core/database/database.dart';
+import 'package:pharma_scan/core/services/database_updater_service.dart';
 import 'package:pharma_scan/core/services/file_download_service.dart';
 import 'package:pharma_scan/core/services/ingestion/bdpm_downloader.dart';
 import 'package:pharma_scan/core/services/ingestion/bdpm_parser_service.dart';
@@ -35,6 +36,7 @@ class DataInitializationService {
     BdpmRepository? repository,
     String? cacheDirectory,
     FileDownloadService? fileDownloadService,
+    DatabaseUpdaterService? databaseUpdaterService,
   }) : _db = database,
        _globalCacheDir = cacheDirectory ?? _resolveDefaultCacheDir(),
        _validator = BdpmFileValidator(),
@@ -45,7 +47,8 @@ class DataInitializationService {
              cacheDirectory: cacheDirectory ?? _resolveDefaultCacheDir(),
            ),
        _parserService = parserService ?? const BdpmParserService(),
-       _repository = repository ?? BdpmRepository(database);
+       _repository = repository ?? BdpmRepository(database),
+       _databaseUpdaterService = databaseUpdaterService;
 
   static const _currentDataVersion = '2025-03-01-laboratories-normalization';
   static const String dataVersion = _currentDataVersion;
@@ -56,6 +59,7 @@ class DataInitializationService {
   final BdpmDownloader _downloader;
   final BdpmParserService _parserService;
   final BdpmRepository _repository;
+  final DatabaseUpdaterService? _databaseUpdaterService;
   final _stepController = StreamController<InitializationStep>.broadcast();
   final _detailController = StreamController<String>.broadcast();
 
@@ -95,9 +99,70 @@ class DataInitializationService {
 
     LoggerService.info(
       '[DataInit] Initialization required (force: $forceRefresh). '
-      'Starting full refresh…',
+      'Trying prebuilt database download first...',
+    );
+
+    // Essayer d'abord de télécharger la DB pré-générée
+    final prebuiltDownloaded = await tryDownloadPrebuiltDatabase();
+    if (prebuiltDownloaded) {
+      LoggerService.info(
+        '[DataInit] Prebuilt database downloaded successfully. Skipping BDPM parsing.',
+      );
+      // Vérifier que la DB est valide après téléchargement
+      final hasData = await _db.catalogDao.hasExistingData();
+      if (hasData) {
+        try {
+          await _db.settingsDao.updateBdpmVersion(_currentDataVersion);
+        } on Exception catch (e, stackTrace) {
+          LoggerService.error(
+            '[DataInit] Failed to update BDPM version',
+            e,
+            stackTrace,
+          );
+        }
+        await _markSyncAsFresh();
+        _stepController.add(InitializationStep.ready);
+        _safeEmitDetail(Strings.initializationReady);
+        return;
+      } else {
+        LoggerService.warning(
+          '[DataInit] Prebuilt database downloaded but appears empty. Falling back to BDPM parsing.',
+        );
+      }
+    }
+
+    // Fallback vers le parsing BDPM si le téléchargement a échoué ou si la DB est vide
+    LoggerService.info(
+      '[DataInit] Starting full BDPM refresh (download + parse + aggregate).',
     );
     await _performFullRefresh();
+  }
+
+  /// Tente de télécharger la base de données pré-générée depuis GitHub Releases
+  ///
+  /// Retourne `true` si le téléchargement et le remplacement ont réussi, `false` sinon.
+  Future<bool> tryDownloadPrebuiltDatabase() async {
+    if (_databaseUpdaterService == null) {
+      LoggerService.info(
+        '[DataInit] DatabaseUpdaterService not available, skipping prebuilt download',
+      );
+      return false;
+    }
+
+    try {
+      _safeEmitDetail('Vérification des mises à jour...');
+      _stepController.add(InitializationStep.downloading);
+
+      final updated = await _databaseUpdaterService.checkForUpdate(_db);
+      return updated;
+    } catch (e, stackTrace) {
+      LoggerService.error(
+        '[DataInit] Failed to download prebuilt database, will fallback to BDPM parsing',
+        e,
+        stackTrace,
+      );
+      return false;
+    }
   }
 
   Future<void> _performFullRefresh() async {
