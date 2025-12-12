@@ -62,8 +62,29 @@ Lecture des fichiers plats (Windows-1252) et conversion en objets structurés.
 
 Nettoyage des chaînes de caractères pour la recherche et l'affichage.
 
-* Suppression des suffixes de sels inutiles pour le grand public (ex: "Amoxicilline *Trihydratée*" -> "Amoxicilline").
-* Normalisation pour l'index FTS5 (recherche tolérante aux accents/fautes).
+#### 🎯 Protocole de Normalisation "Universelle" pour Trigram FTS5
+
+La fonction `normalizeForSearch` implémente un protocole de normalisation **strictement linguistique** qui doit être répliqué **à l'identique** côté Flutter (`lib/core/logic/sanitizer.dart`).
+
+**Règles :**
+1. **Suppression des diacritiques** : `é` → `e`, `ï` → `i`, etc.
+2. **Conversion en minuscules** : `DOLIPRANE` → `doliprane`
+3. **Alphanumériques uniquement** : Remplacement de `[^a-z0-9\s]` par un espace
+4. **Collapse des espaces** : Espaces multiples → espace unique
+5. **Trim** : Suppression des espaces de début/fin
+
+**Exemples :**
+```
+normalizeForSearch("DOLIPRANE®")       → "doliprane"
+normalizeForSearch("Paracétamol 500mg") → "paracetamol 500mg"
+normalizeForSearch("Amoxicilline/Acide clavulanique") → "amoxicilline acide clavulanique"
+```
+
+**Pourquoi Trigram ?** Le tokenizer FTS5 `trigram` découpe le texte en segments de 3 caractères (`dol`, `oli`, `lip`...), permettant une recherche **fuzzy native** : taper `dolipprane` (avec 2 p) trouvera quand même `DOLIPRANE` car de nombreux trigrammes se chevauchent.
+
+#### Autres normalisations
+
+* **`normalizeForSearchIndex`** : Normalisation chimique avancée pour l'indexation (suppression des sels, stéréo-isomères, etc.). Utilisée lors de la construction de l'index, pas lors des requêtes de recherche.
 * **Masque Galénique Relationnel** (`applyPharmacologicalMask`) : Extraction du nom commercial pur en soustrayant la forme pharmaceutique connue (Colonne 3) du libellé complet (Colonne 2). Cette approche relationnelle évite les regex fragiles en exploitant directement la structure de la BDPM.
   * Exemple : `"CLAMOXYL 500 mg, gélule"` + forme `"gélule"` → `"CLAMOXYL 500 mg"`
   * Appliqué automatiquement lors du raffinement des métadonnées de groupe (Step 4) et lors du clustering (Step 5).
@@ -156,7 +177,7 @@ Le schéma est strictement aligné sur le code Dart de l'application Flutter (`l
 
 * `medicament_summary` : Table principale optimisée. Contient la colonne `group_id` (Substitution légale) ET `cluster_id` (Regroupement visuel). Les compositions sont harmonisées via vote majoritaire (groupe) puis super-vote (cluster).
 * `cluster_names` : Table de mapping `cluster_id` → nom canonique calculé par LCP.
-* `search_index` : Index Full-Text Search (FTS5) pour la recherche instantanée.
+* `search_index` : Index Full-Text Search (FTS5) avec tokenizer **trigram** pour recherche fuzzy native. Permet de trouver "Doliprane" en tapant "dolipprane" (typo). **Requiert SQLite 3.34+** (bundlé via `sqlite3_flutter_libs` sur mobile).
 * `scanned_boxes` / `restock_items` : Tables locales utilisateur (vides à la génération, gérées par l'app).
 
 **Tables de référence :**

@@ -107,7 +107,9 @@ void main() {
         ).thenAnswer((_) async {});
         when(
           () => mockDataInit.applyUpdate(any<Map<String, File>>()),
-        ).thenAnswer((_) async {});
+        ).thenAnswer((_) async {
+          return null;
+        });
 
         final container1 = ProviderContainer(
           overrides: [
@@ -182,7 +184,9 @@ void main() {
         ).thenAnswer((_) async {});
         when(
           () => mockDataInit2.applyUpdate(any<Map<String, File>>()),
-        ).thenAnswer((_) async {});
+        ).thenAnswer((_) async {
+          return null;
+        });
 
         final container2 = ProviderContainer(
           overrides: [
@@ -227,7 +231,9 @@ void main() {
         ).thenAnswer((_) async {});
         when(
           () => mockDataInit3.applyUpdate(any<Map<String, File>>()),
-        ).thenAnswer((_) async {});
+        ).thenAnswer((_) async {
+          return null;
+        });
 
         final container3 = ProviderContainer(
           overrides: [

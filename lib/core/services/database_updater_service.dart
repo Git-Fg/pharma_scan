@@ -46,10 +46,10 @@ class DatabaseUpdaterService {
       }
 
       final json = response.data!;
-      final String latestTag = json['tag_name'] as String;
+      final latestTag = json['tag_name'] as String;
 
       // Trouver l'URL de téléchargement de l'asset reference.db.gz
-      final List<dynamic> assets = json['assets'] as List<dynamic>;
+      final assets = json['assets'] as List<dynamic>;
       final asset = assets.firstWhere(
         (a) =>
             (a as Map<String, dynamic>)['name'] ==
@@ -64,7 +64,7 @@ class DatabaseUpdaterService {
         return false;
       }
 
-      final String downloadUrl =
+      final downloadUrl =
           (asset as Map<String, dynamic>)['browser_download_url'] as String;
 
       // 2. Comparer avec la version locale (stockée dans sourceHashes)
@@ -118,7 +118,7 @@ class DatabaseUpdaterService {
     }
 
     final dir = await getApplicationDocumentsDirectory();
-    final dbPath = p.join(dir.path, 'medicaments.db');
+    final dbPath = p.join(dir.path, DatabaseConfig.dbFilename);
     final tempGzPath = p.join(
       dir.path,
       '${DatabaseConfig.compressedDbFilename}_temp',

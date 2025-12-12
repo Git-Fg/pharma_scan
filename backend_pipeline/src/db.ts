@@ -15,6 +15,7 @@ import type {
   ScannedBox,
   Cluster,
   Product,
+  Presentation,
   GroupRow,
   ProductGroupingUpdate,
   SafetyAlert
@@ -47,9 +48,11 @@ export class ReferenceDatabase {
   public initSchema() {
     // Register normalize_text function before creating tables
     // Note: createFunction may not be available in test environment
+    // Cast to 'any' to work around bun:sqlite typing limitations
     try {
-      if (typeof this.db.createFunction === 'function') {
-        this.db.createFunction(
+      const sqliteDb = this.db as any;
+      if (typeof sqliteDb.createFunction === 'function') {
+        sqliteDb.createFunction(
           'normalize_text',
           1,
           true,
@@ -162,7 +165,7 @@ export class ReferenceDatabase {
         PRIMARY KEY (code_cip, group_id)
       );
     `);
-    
+
     // Ajouter la colonne sort_order si elle n'existe pas (pour les bases existantes)
     try {
       this.db.run(`ALTER TABLE group_members ADD COLUMN sort_order INTEGER DEFAULT 0`);
@@ -193,7 +196,7 @@ export class ReferenceDatabase {
         secondary_princeps TEXT           -- JSON Array ["NUROFEN", "SPEDIFEN"] pour co-marketing/rachats
       );
     `);
-    
+
     // Ajouter la colonne secondary_princeps si elle n'existe pas (pour les bases existantes)
     try {
       this.db.run(`ALTER TABLE cluster_names ADD COLUMN secondary_princeps TEXT`);
@@ -323,13 +326,15 @@ export class ReferenceDatabase {
         scan_timestamp TEXT NOT NULL DEFAULT (datetime('now'))
       );
 
-      -- FTS5 virtual table for full-text search (matching Flutter implementation)
-      -- Note: Flutter uses 'trigram' tokenizer, but we use 'unicode61 remove_diacritics 2' for compatibility
+      -- FTS5 virtual table for full-text search with TRIGRAM tokenizer
+      -- TRIGRAM enables powerful fuzzy matching (e.g., "dolipprane" finds "doliprane")
+      -- This tokenizer breaks text into 3-character chunks for substring/typo tolerance
+      -- Requires SQLite 3.34+ (bundled via sqlite3_flutter_libs on mobile)
       CREATE VIRTUAL TABLE IF NOT EXISTS search_index USING fts5(
-        cis_code UNINDEXED,
-        molecule_name,
-        brand_name,
-        tokenize='unicode61 remove_diacritics 2'
+        cis_code UNINDEXED,   -- Keep unindexed for joining
+        molecule_name,        -- Indexed: "Paracetamol"
+        brand_name,           -- Indexed: "Doliprane"
+        tokenize='trigram'    -- The magic switch for fuzzy search
       );
 
       -- FTS triggers for keeping search index in sync
@@ -404,7 +409,7 @@ export class ReferenceDatabase {
     `);
 
     // --- 4. VUES OPTIMISÉES POUR LE MOBILE ---
-    
+
     // Vue A : Explorer List (Liste principale)
     this.db.run(`DROP VIEW IF EXISTS view_explorer_list`);
     this.db.run(`
@@ -737,7 +742,7 @@ export class ReferenceDatabase {
       sql += ` LIMIT ${limit}`;
     }
 
-    const rows = this.db.query<any, []>(sql).all(query);
+    const rows = this.db.query<any, []>(sql).all();
 
     return rows.map(row => ({
       cisCode: row.cis_code,
@@ -808,7 +813,7 @@ export class ReferenceDatabase {
       libelle: cluster.label,
       princepsLabel: cluster.princeps_label,
       moleculeLabel: cluster.substance_code,
-      rawLabel: cluster.text_brand_label,
+      rawLabel: cluster.text_brand_label ?? undefined, // Convert null to undefined
       parsingMethod: undefined
     }));
     this.insertGeneriqueGroups(groups);
@@ -883,18 +888,19 @@ export class ReferenceDatabase {
     console.log(`⚠️ Deprecated: insertGroups is legacy. Use insertGeneriqueGroups instead.`);
 
     // For backward compatibility, also insert into legacy groups table
+    // GroupRow uses snake_case properties as defined in types.ts
     const transformedRows = rows.map(row => ({
-      cluster_id: row.cluster_id || row.clusterId,
+      cluster_id: row.cluster_id,
       id: row.id,
       label: row.label,
-      canonical_name: row.canonical_name || row.canonicalName,
-      historical_princeps_raw: row.historical_princeps_raw || row.historicalPrincepsRaw,
-      generic_label_clean: row.generic_label_clean || row.genericLabelClean,
-      naming_source: row.naming_source || row.namingSource,
-      princeps_aliases: row.princeps_aliases || row.princepsAliases,
-      safety_flags: row.safety_flags || row.safetyFlags,
-      routes: row.routes || row.routes,
-      confidence_score: row.confidence_score || row.confidenceScore
+      canonical_name: row.canonical_name,
+      historical_princeps_raw: row.historical_princeps_raw,
+      generic_label_clean: row.generic_label_clean,
+      naming_source: row.naming_source,
+      princeps_aliases: row.princeps_aliases,
+      safety_flags: row.safety_flags,
+      routes: row.routes,
+      confidence_score: row.confidence_score
     }));
 
     const columns = Object.keys(transformedRows[0] || {});
@@ -905,10 +911,10 @@ export class ReferenceDatabase {
     const groups: GeneriqueGroup[] = rows.map(group => ({
       groupId: group.id,
       libelle: group.label,
-      princepsLabel: group.canonicalName,
-      moleculeLabel: group.genericLabelClean,
-      rawLabel: group.historicalPrincepsRaw,
-      parsingMethod: group.namingSource
+      princepsLabel: group.canonical_name,
+      moleculeLabel: group.generic_label_clean ?? undefined,
+      rawLabel: group.historical_princeps_raw ?? undefined,
+      parsingMethod: group.naming_source
     }));
 
     this.insertGeneriqueGroups(groups);
@@ -938,8 +944,8 @@ export class ReferenceDatabase {
       codeCip: pres.cip13,
       cisCode: pres.cis,
       presentationLabel: undefined, // Not in the old schema
-      commercialisationStatut: pres.market_status,
-      tauxRemboursement: pres.reimbursement_rate,
+      commercialisationStatut: pres.market_status ?? undefined, // Convert null to undefined
+      tauxRemboursement: pres.reimbursement_rate ?? undefined, // Convert null to undefined
       prixPublic: pres.price_cents ? pres.price_cents / 100 : undefined,
       agrementCollectivites: undefined
     }));
@@ -954,44 +960,45 @@ export class ReferenceDatabase {
    */
   public populateSearchIndex() {
     console.log("📇 Populating search_index from medicament_summary...");
-    
+
     // Drop triggers first
     this.db.run("DROP TRIGGER IF EXISTS search_index_ai");
     this.db.run("DROP TRIGGER IF EXISTS search_index_au");
     this.db.run("DROP TRIGGER IF EXISTS search_index_ad");
-    
+
     // Drop and recreate the FTS5 table to avoid rowid issues
+    // IMPORTANT: Use trigram tokenizer for fuzzy search support
     this.db.run("DROP TABLE IF EXISTS search_index");
     this.db.run(`
       CREATE VIRTUAL TABLE search_index USING fts5(
         cis_code UNINDEXED,
         molecule_name,
         brand_name,
-        tokenize='unicode61 remove_diacritics 2'
+        tokenize='trigram'
       )
     `);
-    
+
     // Fetch all summaries and insert with normalized text (using TypeScript normalization)
     const summaries = this.db.query<{
       cis_code: string;
       nom_canonique: string | null;
       princeps_de_reference: string | null;
-    }>(`
+    }, []>(`
       SELECT cis_code, nom_canonique, princeps_de_reference
       FROM medicament_summary
     `).all();
-    
+
     const stmt = this.db.prepare(`
       INSERT INTO search_index (cis_code, molecule_name, brand_name)
       VALUES (?, ?, ?)
     `);
-    
+
     for (const summary of summaries) {
       const moleculeName = normalizeForSearch(summary.nom_canonique || '');
       const brandName = normalizeForSearch(summary.princeps_de_reference || '');
       stmt.run(summary.cis_code, moleculeName, brandName);
     }
-    
+
     // Recreate triggers for future updates
     this.db.run(`
       CREATE TRIGGER search_index_ai AFTER INSERT ON medicament_summary BEGIN
@@ -1043,7 +1050,7 @@ export class ReferenceDatabase {
         );
       END;
     `);
-    
+
     console.log("✅ Search index populated");
   }
 

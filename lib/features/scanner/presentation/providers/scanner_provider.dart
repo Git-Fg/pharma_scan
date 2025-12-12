@@ -79,7 +79,7 @@ ScanTrafficControl scanTrafficControl(Ref ref) {
 ScanOrchestrator scanOrchestrator(Ref ref) {
   return ScanOrchestrator(
     catalogDao: ref.read(catalogDaoProvider),
-    restockDao: ref.read(appDatabaseProvider).restockDao,
+    restockDao: ref.read(databaseProvider).restockDao,
     trafficControl: ref.read(scanTrafficControlProvider),
   );
 }

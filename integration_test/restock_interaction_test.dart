@@ -31,7 +31,9 @@ void main() {
       ).thenAnswer((_) async {});
       when(
         () => mockDataInit.applyUpdate(any<Map<String, File>>()),
-      ).thenAnswer((_) async {});
+      ).thenAnswer((_) async {
+        return null;
+      });
 
       final container = ProviderContainer(
         overrides: [

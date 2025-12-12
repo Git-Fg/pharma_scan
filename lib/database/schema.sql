@@ -1,0 +1,367 @@
+CREATE TABLE specialites (
+        cis_code TEXT PRIMARY KEY NOT NULL,
+        nom_specialite TEXT NOT NULL,
+        forme_pharmaceutique TEXT,
+        voies_administration TEXT,
+        statut_administratif TEXT,
+        procedure_type TEXT,
+        etat_commercialisation TEXT,
+        date_amm TEXT,
+        statut_bdm TEXT,
+        numero_europeen TEXT,
+        titulaire_id INTEGER,
+        is_surveillance BOOLEAN DEFAULT 0,
+        conditions_prescription TEXT,
+        atc_code TEXT
+      );
+CREATE TABLE medicaments (
+        code_cip TEXT PRIMARY KEY NOT NULL,
+        cis_code TEXT NOT NULL REFERENCES specialites(cis_code) ON DELETE CASCADE,
+        presentation_label TEXT,
+        commercialisation_statut TEXT,
+        taux_remboursement TEXT,
+        prix_public REAL,
+        agrement_collectivites TEXT
+      );
+CREATE TABLE medicament_availability (
+        code_cip TEXT PRIMARY KEY NOT NULL REFERENCES medicaments(code_cip) ON DELETE CASCADE,
+        statut TEXT,
+        date_debut TEXT,
+        date_fin TEXT,
+        lien TEXT
+      );
+CREATE TABLE safety_alerts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        cis_code TEXT NOT NULL REFERENCES specialites(cis_code) ON DELETE CASCADE,
+        date_debut TEXT,
+        date_fin TEXT,
+        texte TEXT
+      );
+CREATE TABLE sqlite_sequence(name,seq);
+CREATE INDEX idx_safety_alerts_cis ON safety_alerts(cis_code);
+CREATE TABLE principes_actifs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        code_cip TEXT,
+        principe TEXT NOT NULL,
+        principe_normalized TEXT,
+        dosage TEXT,
+        dosage_unit TEXT
+      );
+CREATE INDEX idx_principes_cip ON principes_actifs(code_cip);
+CREATE TABLE generique_groups (
+        group_id TEXT PRIMARY KEY NOT NULL,
+        libelle TEXT NOT NULL,
+        princeps_label TEXT,
+        molecule_label TEXT,
+        raw_label TEXT,
+        parsing_method TEXT
+      );
+CREATE TABLE group_members (
+        code_cip TEXT NOT NULL REFERENCES medicaments(code_cip) ON DELETE CASCADE,
+        group_id TEXT NOT NULL REFERENCES generique_groups(group_id) ON DELETE CASCADE,
+        type INTEGER NOT NULL,
+        sort_order INTEGER DEFAULT 0,
+        PRIMARY KEY (code_cip, group_id)
+      );
+CREATE TABLE laboratories (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE
+      );
+CREATE TABLE cluster_names (
+        cluster_id TEXT PRIMARY KEY NOT NULL,
+        cluster_name TEXT NOT NULL,       -- Titre "Clean" (ex: "DOLIPRANE")
+        substance_code TEXT,              -- Sous-titre (ex: "Paracétamol")
+        cluster_princeps TEXT,            -- Nom princeps pour référence interne
+        secondary_princeps TEXT           -- JSON Array ["NUROFEN", "SPEDIFEN"] pour co-marketing/rachats
+      );
+CREATE TABLE medicament_summary (
+        cis_code TEXT PRIMARY KEY NOT NULL,
+        -- Identification
+        nom_canonique TEXT NOT NULL,
+        princeps_de_reference TEXT NOT NULL,
+        is_princeps BOOLEAN NOT NULL DEFAULT 0,
+        
+        -- Clustering & Grouping
+        cluster_id TEXT,
+        group_id TEXT,
+        
+        -- Composition & Galénique
+        principes_actifs_communs TEXT, -- JSON Array: ["Amoxicilline"]
+        formatted_dosage TEXT,
+        forme_pharmaceutique TEXT,
+        voies_administration TEXT,
+        
+        -- Métadonnées
+        member_type INTEGER NOT NULL DEFAULT 0,
+        princeps_brand_name TEXT NOT NULL,
+        procedure_type TEXT,
+        titulaire_id INTEGER,
+        conditions_prescription TEXT,
+        date_amm TEXT,
+        is_surveillance BOOLEAN NOT NULL DEFAULT 0,
+        atc_code TEXT,
+        status TEXT,
+        price_min REAL,
+        price_max REAL,
+        aggregated_conditions TEXT,
+        ansm_alert_url TEXT,
+        
+        -- Flags
+        is_hospital BOOLEAN NOT NULL DEFAULT 0,
+        is_dental BOOLEAN NOT NULL DEFAULT 0,
+        is_list1 BOOLEAN NOT NULL DEFAULT 0,
+        is_list2 BOOLEAN NOT NULL DEFAULT 0,
+        is_narcotic BOOLEAN NOT NULL DEFAULT 0,
+        is_exception BOOLEAN NOT NULL DEFAULT 0,
+        is_restricted BOOLEAN NOT NULL DEFAULT 0,
+        is_otc BOOLEAN NOT NULL DEFAULT 1,
+        
+        -- SMR & ASMR & Safety
+        smr_niveau TEXT,
+        smr_date TEXT,
+        asmr_niveau TEXT,
+        asmr_date TEXT,
+        url_notice TEXT,
+        has_safety_alert BOOLEAN DEFAULT 0,
+        
+        representative_cip TEXT,
+        
+        FOREIGN KEY(titulaire_id) REFERENCES laboratories(id),
+        FOREIGN KEY(cluster_id) REFERENCES cluster_names(cluster_id)
+      );
+CREATE TABLE app_settings (
+        key TEXT PRIMARY KEY,
+        value BLOB NOT NULL
+      );
+CREATE TABLE restock_items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        cis_code TEXT NOT NULL,
+        cip_code TEXT NOT NULL,
+        nom_canonique TEXT NOT NULL,
+        is_princeps INTEGER NOT NULL,
+        princeps_de_reference TEXT,
+        forme_pharmaceutique TEXT,
+        voies_administration TEXT,
+        formatted_dosage TEXT,
+        representative_cip TEXT,
+        expiry_date TEXT,
+        stock_count INTEGER NOT NULL DEFAULT 1,
+        location TEXT,
+        notes TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+CREATE TABLE scanned_boxes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        box_label TEXT NOT NULL,
+        cis_code TEXT,
+        cip_code TEXT,
+        scan_timestamp TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+CREATE INDEX idx_medicaments_cis_code ON medicaments(cis_code);
+CREATE INDEX idx_principes_code_cip ON principes_actifs(code_cip);
+CREATE INDEX idx_principes_normalized_cip ON principes_actifs(principe_normalized, code_cip);
+CREATE INDEX idx_group_members_group_id ON group_members(group_id);
+CREATE INDEX idx_group_members_code_cip ON group_members(code_cip);
+CREATE INDEX idx_medicament_summary_group_id ON medicament_summary(group_id);
+CREATE INDEX idx_medicament_summary_forme_pharmaceutique ON medicament_summary(forme_pharmaceutique);
+CREATE INDEX idx_medicament_summary_voies_administration ON medicament_summary(voies_administration);
+CREATE INDEX idx_medicament_summary_procedure_type ON medicament_summary(procedure_type);
+CREATE INDEX idx_summary_princeps_ref ON medicament_summary(princeps_de_reference);
+CREATE INDEX idx_medicament_summary_principes_actifs_communs ON medicament_summary(principes_actifs_communs);
+CREATE INDEX idx_medicament_summary_cluster_id ON medicament_summary(cluster_id);
+CREATE INDEX idx_summary_cluster ON medicament_summary(cluster_id);
+CREATE INDEX idx_summary_group ON medicament_summary(group_id);
+CREATE INDEX idx_restock_items_cis_code ON restock_items(cis_code);
+CREATE INDEX idx_restock_items_expiry_date ON restock_items(expiry_date);
+CREATE INDEX idx_scanned_boxes_scan_timestamp ON scanned_boxes(scan_timestamp);
+CREATE VIEW view_explorer_list AS
+      SELECT 
+        cn.cluster_id,
+        cn.cluster_name AS title,
+        cn.cluster_princeps AS subtitle,
+        cn.secondary_princeps, -- JSON Array des princeps secondaires pour recherche/affichage
+        -- On agrège les flags critiques du cluster (si un seul est stupéfiant, le cluster l'est)
+        MAX(ms.is_narcotic) as is_narcotic,
+        COUNT(ms.cis_code) AS variant_count,
+        MIN(ms.cis_code) AS representative_cis
+      FROM cluster_names cn
+      JOIN medicament_summary ms ON cn.cluster_id = ms.cluster_id
+      GROUP BY cn.cluster_id
+/* view_explorer_list(cluster_id,title,subtitle,secondary_princeps,is_narcotic,variant_count,representative_cis) */;
+CREATE VIEW view_cluster_variants AS
+      SELECT 
+        ms.cluster_id,
+        ms.cis_code,
+        ms.nom_canonique AS label,
+        ms.formatted_dosage AS dosage,
+        ms.forme_pharmaceutique AS form,
+        ms.is_princeps,
+        ms.voies_administration AS routes,
+        ms.is_otc,
+        COALESCE(ms.representative_cip, (SELECT m.code_cip FROM medicaments m WHERE m.cis_code = ms.cis_code LIMIT 1)) AS default_cip,
+        (SELECT m.prix_public FROM medicaments m WHERE m.cis_code = ms.cis_code LIMIT 1) AS prix_public
+      FROM medicament_summary ms
+      WHERE ms.cluster_id IS NOT NULL
+/* view_cluster_variants(cluster_id,cis_code,label,dosage,form,is_princeps,routes,is_otc,default_cip,prix_public) */;
+CREATE VIEW view_scanner_check AS
+      SELECT 
+        m.code_cip,
+        ms.cis_code,
+        ms.nom_canonique,
+        ms.cluster_id,
+        cn.cluster_name AS ref_name,
+        ms.group_id,
+        ms.is_princeps
+      FROM medicaments m
+      JOIN medicament_summary ms ON m.cis_code = ms.cis_code
+      LEFT JOIN cluster_names cn ON ms.cluster_id = cn.cluster_id
+/* view_scanner_check(code_cip,cis_code,nom_canonique,cluster_id,ref_name,group_id,is_princeps) */;
+CREATE TABLE medicament_names_clean (
+      cis_code TEXT NOT NULL,
+      nom_clean TEXT NOT NULL,
+      PRIMARY KEY (cis_code, nom_clean)
+    );
+CREATE TABLE group_princeps_clean (
+      group_id TEXT NOT NULL,
+      princeps_name_clean TEXT NOT NULL,
+      PRIMARY KEY (group_id, princeps_name_clean)
+    );
+CREATE VIEW v_clusters_audit AS
+    SELECT 
+      ms.cluster_id,
+      cn.cluster_name as unified_name, -- Nom unifié (substance clean)
+      cn.cluster_princeps, -- Princeps primaire (pour référence)
+      cn.secondary_princeps, -- JSON Array des princeps secondaires
+      -- Retourner le JSON brut pour parsing dans le script TypeScript (plus fiable)
+      (SELECT principes_actifs_communs 
+       FROM medicament_summary ms2 
+       WHERE ms2.cluster_id = ms.cluster_id 
+         AND ms2.principes_actifs_communs IS NOT NULL
+         AND typeof(ms2.principes_actifs_communs) = 'text'
+         AND json_valid(ms2.principes_actifs_communs) = 1
+       LIMIT 1) as substance_label_json,
+      COUNT(*) as cis_count,
+      SUM(ms.is_princeps) as princeps_count,
+      -- Utiliser GROUP_CONCAT avec séparateur '|' (dédupliquer d'abord dans une sous-requête)
+      (SELECT GROUP_CONCAT(value, '|') 
+       FROM (SELECT DISTINCT ms2.formatted_dosage as value 
+             FROM medicament_summary ms2 
+             WHERE ms2.cluster_id = ms.cluster_id AND ms2.formatted_dosage IS NOT NULL)) as dosages_available,
+      (SELECT GROUP_CONCAT(value, '|') 
+       FROM (SELECT DISTINCT gpc2.princeps_name_clean as value 
+             FROM medicament_summary ms2
+             JOIN group_princeps_clean gpc2 ON ms2.group_id = gpc2.group_id
+             WHERE ms2.cluster_id = ms.cluster_id AND gpc2.princeps_name_clean IS NOT NULL)) as all_princeps_names,
+      (SELECT GROUP_CONCAT(value, '|') 
+       FROM (SELECT DISTINCT gpc2.princeps_name_clean as value 
+             FROM medicament_summary ms2
+             JOIN group_princeps_clean gpc2 ON ms2.group_id = gpc2.group_id
+             WHERE ms2.cluster_id = ms.cluster_id AND gpc2.princeps_name_clean IS NOT NULL)) as all_brand_names
+    FROM medicament_summary ms
+    LEFT JOIN cluster_names cn ON ms.cluster_id = cn.cluster_id
+    WHERE ms.cluster_id IS NOT NULL
+    GROUP BY ms.cluster_id
+/* v_clusters_audit(cluster_id,unified_name,cluster_princeps,secondary_princeps,substance_label_json,cis_count,princeps_count,dosages_available,all_princeps_names,all_brand_names) */;
+CREATE VIEW v_groups_audit AS
+    SELECT 
+      gg.group_id,
+      gg.libelle as raw_label,
+      gg.princeps_label,
+      gg.molecule_label,
+      gg.parsing_method,
+      (
+        SELECT DISTINCT cluster_id
+        FROM medicament_summary ms_cluster
+        WHERE ms_cluster.group_id = gg.group_id
+        LIMIT 1
+      ) as cluster_id,
+      (SELECT COUNT(*) FROM (SELECT DISTINCT gm2.code_cip FROM group_members gm2 WHERE gm2.group_id = gg.group_id)) as member_count,
+      (SELECT COUNT(*) FROM (SELECT DISTINCT gm2.code_cip FROM group_members gm2 WHERE gm2.group_id = gg.group_id AND gm2.type = 0)) as princeps_count,
+      (SELECT COUNT(*) FROM (SELECT DISTINCT gm2.code_cip FROM group_members gm2 WHERE gm2.group_id = gg.group_id AND gm2.type > 0)) as generic_count,
+      (SELECT GROUP_CONCAT(value, '|') 
+       FROM (SELECT DISTINCT s2.forme_pharmaceutique as value 
+             FROM group_members gm2
+             JOIN medicaments m2 ON gm2.code_cip = m2.code_cip
+             JOIN specialites s2 ON m2.cis_code = s2.cis_code
+             WHERE gm2.group_id = gg.group_id AND s2.forme_pharmaceutique IS NOT NULL)) as forms_available,
+      (
+        SELECT principes_actifs_communs
+        FROM medicament_summary ms2
+        WHERE ms2.group_id = gg.group_id
+        LIMIT 1
+      ) as principes_actifs_communs
+    FROM generique_groups gg
+    LEFT JOIN group_members gm ON gg.group_id = gm.group_id
+    GROUP BY gg.group_id
+/* v_groups_audit(group_id,raw_label,princeps_label,molecule_label,parsing_method,cluster_id,member_count,princeps_count,generic_count,forms_available,principes_actifs_communs) */;
+CREATE VIEW v_samples_audit AS
+    SELECT 
+      ms.*,
+      -- Valider et parser principes_actifs_communs si c'est une string JSON valide
+      CASE 
+        WHEN ms.principes_actifs_communs IS NOT NULL 
+         AND json_valid(ms.principes_actifs_communs) = 1 
+        THEN ms.principes_actifs_communs
+        ELSE NULL
+      END as principes_actifs_communs_json
+    FROM medicament_summary ms
+/* v_samples_audit(cis_code,nom_canonique,princeps_de_reference,is_princeps,cluster_id,group_id,principes_actifs_communs,formatted_dosage,forme_pharmaceutique,voies_administration,member_type,princeps_brand_name,procedure_type,titulaire_id,conditions_prescription,date_amm,is_surveillance,atc_code,status,price_min,price_max,aggregated_conditions,ansm_alert_url,is_hospital,is_dental,is_list1,is_list2,is_narcotic,is_exception,is_restricted,is_otc,smr_niveau,smr_date,asmr_niveau,asmr_date,url_notice,has_safety_alert,representative_cip,principes_actifs_communs_json) */;
+CREATE VIRTUAL TABLE search_index USING fts5(
+        cis_code UNINDEXED,
+        molecule_name,
+        brand_name,
+        tokenize='unicode61 remove_diacritics 2'
+      )
+/* search_index(cis_code,molecule_name,brand_name) */;
+CREATE TABLE IF NOT EXISTS 'search_index_data'(id INTEGER PRIMARY KEY, block BLOB);
+CREATE TABLE IF NOT EXISTS 'search_index_idx'(segid, term, pgno, PRIMARY KEY(segid, term)) WITHOUT ROWID;
+CREATE TABLE IF NOT EXISTS 'search_index_content'(id INTEGER PRIMARY KEY, c0, c1, c2);
+CREATE TABLE IF NOT EXISTS 'search_index_docsize'(id INTEGER PRIMARY KEY, sz BLOB);
+CREATE TABLE IF NOT EXISTS 'search_index_config'(k PRIMARY KEY, v) WITHOUT ROWID;
+CREATE TRIGGER search_index_ai AFTER INSERT ON medicament_summary BEGIN
+        INSERT INTO search_index(
+          cis_code,
+          molecule_name,
+          brand_name
+        ) VALUES (
+          new.cis_code,
+          normalize_text(COALESCE(new.nom_canonique, '')),
+          normalize_text(COALESCE(new.princeps_de_reference, ''))
+        );
+      END;
+CREATE TRIGGER search_index_ad AFTER DELETE ON medicament_summary BEGIN
+        INSERT INTO search_index(
+          search_index,
+          cis_code,
+          molecule_name,
+          brand_name
+        ) VALUES (
+          'delete',
+          old.cis_code,
+          normalize_text(COALESCE(old.nom_canonique, '')),
+          normalize_text(COALESCE(old.princeps_de_reference, ''))
+        );
+      END;
+CREATE TRIGGER search_index_au AFTER UPDATE ON medicament_summary BEGIN
+        INSERT INTO search_index(
+          search_index,
+          cis_code,
+          molecule_name,
+          brand_name
+        ) VALUES (
+          'delete',
+          old.cis_code,
+          normalize_text(COALESCE(old.nom_canonique, '')),
+          normalize_text(COALESCE(old.princeps_de_reference, ''))
+        );
+        INSERT INTO search_index(
+          cis_code,
+          molecule_name,
+          brand_name
+        ) VALUES (
+          new.cis_code,
+          normalize_text(COALESCE(new.nom_canonique, '')),
+          normalize_text(COALESCE(new.princeps_de_reference, ''))
+        );
+      END;

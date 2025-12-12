@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:pharma_scan/core/database/database.dart';
+import 'package:pharma_scan/core/database/models/medicament_summary_data.dart';
 import 'package:pharma_scan/core/database/queries.drift.dart';
 import 'package:pharma_scan/core/domain/types/ids.dart';
 import 'package:pharma_scan/core/domain/types/semantic_types.dart';
@@ -84,37 +84,110 @@ SearchResultItem? _mapSearchRowToItem(SearchResultsResult row) {
     case 'standalone':
       if (row.cisCode == null) return null;
       final principlesList = _decodePrinciples(row.principesActifsCommuns);
+      // Convertir les valeurs de SearchResultsResult (qui sont des String?)
+      // vers les types attendus par MedicamentSummaryData
+      final isPrincepsStr = row.isPrinceps;
+      final isPrinceps =
+          isPrincepsStr != null &&
+          (isPrincepsStr == '1' || isPrincepsStr.toLowerCase() == 'true');
+
+      final memberTypeStr = row.memberType;
+      final memberType = memberTypeStr != null
+          ? int.tryParse(memberTypeStr) ?? 0
+          : 0;
+
+      final titulaireIdStr = row.titulaireId;
+      final titulaireId = titulaireIdStr != null
+          ? int.tryParse(titulaireIdStr)
+          : null;
+
+      final isSurveillanceStr = row.isSurveillance;
+      final isSurveillance =
+          isSurveillanceStr != null &&
+          (isSurveillanceStr == '1' ||
+              isSurveillanceStr.toLowerCase() == 'true');
+
+      final priceMinStr = row.priceMin;
+      final priceMin = priceMinStr != null
+          ? double.tryParse(priceMinStr)
+          : null;
+
+      final priceMaxStr = row.priceMax;
+      final priceMax = priceMaxStr != null
+          ? double.tryParse(priceMaxStr)
+          : null;
+
+      final isHospitalStr = row.isHospital;
+      final isHospital =
+          isHospitalStr != null &&
+          (isHospitalStr == '1' || isHospitalStr.toLowerCase() == 'true');
+
+      final isDentalStr = row.isDental;
+      final isDental =
+          isDentalStr != null &&
+          (isDentalStr == '1' || isDentalStr.toLowerCase() == 'true');
+
+      final isList1Str = row.isList1;
+      final isList1 =
+          isList1Str != null &&
+          (isList1Str == '1' || isList1Str.toLowerCase() == 'true');
+
+      final isList2Str = row.isList2;
+      final isList2 =
+          isList2Str != null &&
+          (isList2Str == '1' || isList2Str.toLowerCase() == 'true');
+
+      final isNarcoticStr = row.isNarcotic;
+      final isNarcotic =
+          isNarcoticStr != null &&
+          (isNarcoticStr == '1' || isNarcoticStr.toLowerCase() == 'true');
+
+      final isExceptionStr = row.isException;
+      final isException =
+          isExceptionStr != null &&
+          (isExceptionStr == '1' || isExceptionStr.toLowerCase() == 'true');
+
+      final isRestrictedStr = row.isRestricted;
+      final isRestricted =
+          isRestrictedStr != null &&
+          (isRestrictedStr == '1' || isRestrictedStr.toLowerCase() == 'true');
+
+      final isOtcStr = row.isOtc;
+      final isOtc =
+          isOtcStr != null &&
+          (isOtcStr == '1' || isOtcStr.toLowerCase() == 'true');
+
       final summary = MedicamentSummaryData(
         cisCode: row.cisCode!,
         nomCanonique: row.nomCanonique ?? '',
-        isPrinceps: row.isPrinceps ?? false,
+        isPrinceps: isPrinceps,
         groupId: row.groupId,
-        memberType: row.memberType ?? 0,
+        memberType: memberType,
         principesActifsCommuns: principlesList,
         princepsDeReference: row.princepsDeReference ?? '',
         formePharmaceutique: row.formePharmaceutique,
         voiesAdministration: row.voiesAdministration,
         princepsBrandName: row.princepsBrandName ?? '',
         procedureType: row.procedureType,
-        titulaireId: row.titulaireId,
+        titulaireId: titulaireId,
         conditionsPrescription: row.conditionsPrescription,
         dateAmm: row.dateAmm,
-        isSurveillance: row.isSurveillance ?? false,
+        isSurveillance: isSurveillance,
         formattedDosage: row.formattedDosage,
         atcCode: row.atcCode,
         status: row.status,
-        priceMin: row.priceMin,
-        priceMax: row.priceMax,
+        priceMin: priceMin,
+        priceMax: priceMax,
         aggregatedConditions: row.aggregatedConditions,
         ansmAlertUrl: row.ansmAlertUrl,
-        isHospitalOnly: row.isHospital ?? false,
-        isDental: row.isDental ?? false,
-        isList1: row.isList1 ?? false,
-        isList2: row.isList2 ?? false,
-        isNarcotic: row.isNarcotic ?? false,
-        isException: row.isException ?? false,
-        isRestricted: row.isRestricted ?? false,
-        isOtc: row.isOtc ?? false,
+        isHospitalOnly: isHospital,
+        isDental: isDental,
+        isList1: isList1,
+        isList2: isList2,
+        isNarcotic: isNarcotic,
+        isException: isException,
+        isRestricted: isRestricted,
+        isOtc: isOtc,
         representativeCip: row.representativeCip,
       );
       final entity = MedicamentEntity.fromData(

@@ -36,7 +36,7 @@ class InitializationStateNotifier extends _$InitializationStateNotifier {
     state = InitializationState.initializing;
     _lastErrorMessage = null;
     try {
-      final db = ref.read(appDatabaseProvider);
+      final db = ref.read(databaseProvider);
       final hasData = await db.catalogDao.hasExistingData();
       final version = await db.settingsDao.getBdpmVersion();
       const currentVersion = DataInitializationService.dataVersion;
@@ -90,7 +90,7 @@ Stream<InitializationStep> initializationStep(Ref ref) async* {
   );
 
   try {
-    final db = ref.read(appDatabaseProvider);
+    final db = ref.read(databaseProvider);
     final hasData = await db.catalogDao.hasExistingData();
     final version = await db.settingsDao.getBdpmVersion();
     const currentVersion = DataInitializationService.dataVersion;

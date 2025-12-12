@@ -3,111 +3,154 @@ import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:pharma_scan/core/database/daos/settings_dao.drift.dart';
 import 'package:pharma_scan/core/database/database.dart';
-import 'package:pharma_scan/core/database/tables/settings.dart';
-import 'package:pharma_scan/core/database/tables/settings.drift.dart';
+import 'package:pharma_scan/core/database/models/app_setting.dart';
 
-@DriftAccessor(tables: [AppSettings])
+/// DAO pour gérer les paramètres de l'application.
+///
+/// Utilise la structure key-value du schéma SQL distant :
+/// - key: TEXT PRIMARY KEY
+/// - value: BLOB NOT NULL (sérialisé en JSON)
+///
+/// La table app_settings est définie dans le schéma SQL et accessible via customSelect/customUpdate.
+@DriftAccessor()
 class SettingsDao extends DatabaseAccessor<AppDatabase> with $SettingsDaoMixin {
   SettingsDao(super.attachedDatabase);
 
-  static const _settingsRowId = 1;
-
-  Future<AppSetting> _getOrCreateSettingsRow() async {
-    final settingsManager = attachedDatabase.managers.appSettings;
-
-    final existing = await settingsManager
-        .filter((tbl) => tbl.id.equals(_settingsRowId))
-        .getSingleOrNull();
-    if (existing != null) return existing;
-
-    await settingsManager.create(
-      (tbl) => tbl(id: const Value(_settingsRowId)),
-      mode: InsertMode.insertOrReplace,
-    );
-
-    return settingsManager
-        .filter((tbl) => tbl.id.equals(_settingsRowId))
-        .getSingle();
+  /// Récupère une valeur depuis app_settings
+  Future<T?> _getValue<T>(String key, T Function(dynamic) decoder) async {
+    final rows = await customSelect(
+      'SELECT value FROM app_settings WHERE key = ?',
+      variables: [Variable<String>(key)],
+      readsFrom: {},
+    ).get();
+    if (rows.isEmpty) return null;
+    try {
+      final blob = rows.first.read<Uint8List>('value');
+      final json = jsonDecode(utf8.decode(blob));
+      return decoder(json);
+    } catch (_) {
+      return null;
+    }
   }
 
-  Future<AppSetting> getSettings() async => _getOrCreateSettingsRow();
+  /// Sauvegarde une valeur dans app_settings
+  Future<void> _setValue(String key, dynamic value) async {
+    final encoded = utf8.encode(jsonEncode(value));
+    await customUpdate(
+      'INSERT INTO app_settings (key, value) VALUES (?, ?) '
+      'ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+      variables: [
+        Variable<String>(key),
+        Variable<Uint8List>(Uint8List.fromList(encoded)),
+      ],
+      updates: {},
+    );
+  }
 
+  /// Récupère toutes les settings sous forme de map
+  Future<Map<String, dynamic>> _getAllSettings() async {
+    final rows = await customSelect(
+      'SELECT key, value FROM app_settings',
+      readsFrom: {},
+    ).get();
+    final result = <String, dynamic>{};
+    for (final row in rows) {
+      try {
+        final key = row.read<String>('key');
+        final blob = row.read<Uint8List>('value');
+        result[key] = jsonDecode(utf8.decode(blob));
+      } catch (_) {
+        // Ignore les valeurs invalides
+      }
+    }
+    return result;
+  }
+
+  /// Récupère les settings avec une structure compatible avec l'ancienne API
+  Future<AppSetting> getSettings() async {
+    final settings = await _getAllSettings();
+    return AppSetting(
+      themeMode: settings['theme_mode'] as String? ?? 'system',
+      updateFrequency: settings['update_frequency'] as String? ?? 'daily',
+      bdpmVersion: settings['bdpm_version'] as String?,
+      lastSyncEpoch: settings['last_sync_epoch'] as int?,
+      sourceHashes: settings['source_hashes'] as String? ?? '{}',
+      sourceDates: settings['source_dates'] as String? ?? '{}',
+      hapticFeedbackEnabled:
+          settings['haptic_feedback_enabled'] as bool? ?? true,
+      preferredSorting: settings['preferred_sorting'] as String? ?? 'princeps',
+      scanHistoryLimit: settings['scan_history_limit'] as int? ?? 100,
+    );
+  }
+
+  /// Stream des settings
   Stream<AppSetting> watchSettings() async* {
-    await _ensureSettingsRow();
-    yield* attachedDatabase.managers.appSettings
-        .filter((tbl) => tbl.id.equals(_settingsRowId))
-        .watchSingle();
+    yield* customSelect(
+      'SELECT key, value FROM app_settings',
+      readsFrom: {},
+    ).watch().asyncMap((_) => getSettings());
   }
 
   Future<String?> getBdpmVersion() async {
-    final settings = await getSettings();
-    return settings.bdpmVersion;
-  }
-
-  Future<void> _ensureSettingsRow() async {
-    await _getOrCreateSettingsRow();
+    return _getValue<String>('bdpm_version', (v) => v.toString());
   }
 
   Future<void> updateBdpmVersion(String? version) async {
-    await _ensureSettingsRow();
-    await attachedDatabase.managers.appSettings
-        .filter((tbl) => tbl.id.equals(_settingsRowId))
-        .update((tbl) => tbl(bdpmVersion: Value(version)));
+    if (version == null) {
+      await customUpdate(
+        'DELETE FROM app_settings WHERE key = ?',
+        variables: [const Variable<String>('bdpm_version')],
+        updates: {},
+      );
+    } else {
+      await _setValue('bdpm_version', version);
+    }
   }
 
   Future<DateTime?> getLastSyncTime() async {
-    final settings = await getSettings();
-    final millis = settings.lastSyncEpoch;
-    if (millis == null) return null;
-    return DateTime.fromMillisecondsSinceEpoch(millis);
+    final epoch = await _getValue<int>('last_sync_epoch', (v) => v as int);
+    if (epoch == null) return null;
+    return DateTime.fromMillisecondsSinceEpoch(epoch);
   }
 
   Future<void> updatePreferredSorting(String mode) async {
-    await _ensureSettingsRow();
-    await attachedDatabase.managers.appSettings
-        .filter((tbl) => tbl.id.equals(_settingsRowId))
-        .update((tbl) => tbl(preferredSorting: Value(mode)));
+    await _setValue('preferred_sorting', mode);
   }
 
   Future<void> updateTheme(String mode) async {
-    await _ensureSettingsRow();
-    await attachedDatabase.managers.appSettings
-        .filter((tbl) => tbl.id.equals(_settingsRowId))
-        .update((tbl) => tbl(themeMode: Value(mode)));
+    await _setValue('theme_mode', mode);
   }
 
   Future<void> updateSyncFrequency(String frequency) async {
-    await _ensureSettingsRow();
-    await attachedDatabase.managers.appSettings
-        .filter((tbl) => tbl.id.equals(_settingsRowId))
-        .update((tbl) => tbl(updateFrequency: Value(frequency)));
+    await _setValue('update_frequency', frequency);
   }
 
   Future<void> updateSyncTimestamp(int epochMillis) async {
-    await _ensureSettingsRow();
-    await attachedDatabase.managers.appSettings
-        .filter((tbl) => tbl.id.equals(_settingsRowId))
-        .update((tbl) => tbl(lastSyncEpoch: Value(epochMillis)));
+    await _setValue('last_sync_epoch', epochMillis);
   }
 
   Future<Map<String, String>> getSourceHashes() async {
-    final settings = await getSettings();
-    return _decodeStringMap(settings.sourceHashes);
+    final hashes = await _getValue<Map<String, dynamic>>(
+      'source_hashes',
+      (v) => v as Map<String, dynamic>,
+    );
+    if (hashes == null) return {};
+    return hashes.map((key, value) => MapEntry(key, value?.toString() ?? ''));
   }
 
   Future<void> saveSourceHashes(Map<String, String> hashes) async {
-    await _ensureSettingsRow();
-    await attachedDatabase.managers.appSettings
-        .filter((tbl) => tbl.id.equals(_settingsRowId))
-        .update((tbl) => tbl(sourceHashes: Value(jsonEncode(hashes))));
+    await _setValue('source_hashes', hashes);
   }
 
   Future<Map<String, DateTime>> getSourceDates() async {
-    final settings = await getSettings();
-    final decoded = _decodeStringMap(settings.sourceDates);
+    final dates = await _getValue<Map<String, dynamic>>(
+      'source_dates',
+      (v) => v as Map<String, dynamic>,
+    );
+    if (dates == null) return {};
     final result = <String, DateTime>{};
-    for (final entry in decoded.entries) {
-      final parsed = DateTime.tryParse(entry.value);
+    for (final entry in dates.entries) {
+      final parsed = DateTime.tryParse(entry.value?.toString() ?? '');
       if (parsed != null) {
         result[entry.key] = parsed;
       }
@@ -116,32 +159,27 @@ class SettingsDao extends DatabaseAccessor<AppDatabase> with $SettingsDaoMixin {
   }
 
   Future<void> saveSourceDates(Map<String, DateTime> dates) async {
-    await _ensureSettingsRow();
     final encoded = dates.map(
       (key, value) => MapEntry(key, value.toIso8601String()),
     );
-    await attachedDatabase.managers.appSettings
-        .filter((tbl) => tbl.id.equals(_settingsRowId))
-        .update((tbl) => tbl(sourceDates: Value(jsonEncode(encoded))));
+    await _setValue('source_dates', encoded);
   }
 
   Future<void> updateSourceHashes(Map<String, String> hashes) async {
-    await _ensureSettingsRow();
-    await attachedDatabase.managers.appSettings
-        .filter((tbl) => tbl.id.equals(_settingsRowId))
-        .update((tbl) => tbl(sourceHashes: Value(jsonEncode(hashes))));
+    await saveSourceHashes(hashes);
   }
 
   Future<void> clearSourceMetadata() async {
-    await _ensureSettingsRow();
-    await attachedDatabase.managers.appSettings
-        .filter((tbl) => tbl.id.equals(_settingsRowId))
-        .update(
-          (tbl) => tbl(
-            sourceHashes: const Value('{}'),
-            sourceDates: const Value('{}'),
-          ),
-        );
+    await customUpdate(
+      'DELETE FROM app_settings WHERE key IN (?, ?)',
+      variables: [
+        const Variable<String>('source_hashes'),
+        const Variable<String>('source_dates'),
+      ],
+      updates: {},
+    );
+    await _setValue('source_hashes', <String, String>{});
+    await _setValue('source_dates', <String, String>{});
   }
 
   /// Récupère la version de la DB pré-générée (stockée dans sourceHashes)
@@ -152,7 +190,6 @@ class SettingsDao extends DatabaseAccessor<AppDatabase> with $SettingsDaoMixin {
 
   /// Sauvegarde la version de la DB pré-générée (dans sourceHashes)
   Future<void> setDbVersionTag(String? version) async {
-    await _ensureSettingsRow();
     final hashes = await getSourceHashes();
     if (version != null) {
       hashes['db_version_tag'] = version;
@@ -163,40 +200,17 @@ class SettingsDao extends DatabaseAccessor<AppDatabase> with $SettingsDaoMixin {
   }
 
   Future<void> updateHapticFeedback({required bool enabled}) async {
-    await _ensureSettingsRow();
-    await attachedDatabase.managers.appSettings
-        .filter((tbl) => tbl.id.equals(_settingsRowId))
-        .update(
-          (tbl) => tbl(
-            hapticFeedbackEnabled: Value(enabled),
-          ),
-        );
+    await _setValue('haptic_feedback_enabled', enabled);
   }
 
   Future<void> resetSettingsMetadata() async {
-    await _ensureSettingsRow();
-    await attachedDatabase.managers.appSettings
-        .filter((tbl) => tbl.id.equals(_settingsRowId))
-        .update(
-          (tbl) => tbl(
-            bdpmVersion: const Value(null),
-            lastSyncEpoch: const Value(null),
-          ),
-        );
-  }
-
-  Map<String, String> _decodeStringMap(String raw) {
-    if (raw.isEmpty) return {};
-    try {
-      final decoded = jsonDecode(raw);
-      if (decoded is Map<String, dynamic>) {
-        return decoded.map(
-          (key, value) => MapEntry(key, value?.toString() ?? ''),
-        );
-      }
-    } on Exception {
-      // ignore decode errors and return empty map
-    }
-    return {};
+    await customUpdate(
+      'DELETE FROM app_settings WHERE key IN (?, ?)',
+      variables: [
+        const Variable<String>('bdpm_version'),
+        const Variable<String>('last_sync_epoch'),
+      ],
+      updates: {},
+    );
   }
 }

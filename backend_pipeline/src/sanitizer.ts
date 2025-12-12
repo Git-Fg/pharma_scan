@@ -14,16 +14,35 @@ function removeDiacritics(str: string): string {
 }
 
 /**
- * Canonical normalization for search queries/columns.
- * Corresponds to normalizeForSearch in Dart.
+ * "Universal" Search Normalizer for Trigram FTS5.
+ * 
+ * This is the CANONICAL normalization function that MUST be replicated
+ * exactly in Dart (lib/core/logic/sanitizer.dart) for search parity.
+ * 
+ * Rules:
+ * 1. Remove Diacritics (é -> e, ï -> i, etc.)
+ * 2. Lowercase (A -> a)
+ * 3. Alphanumeric Only - replace [^a-z0-9\s] with space
+ * 4. Collapse multiple spaces to single space
+ * 5. Trim leading/trailing whitespace
+ * 
+ * WHY TRIGRAM: The FTS5 trigram tokenizer handles fuzzy matching natively
+ * (e.g., "dolipprane" matches "doliprane"). We only need to normalize
+ * the input to remove accents and ensure consistent casing.
+ * 
+ * @example
+ * normalizeForSearch("DOLIPRANE®") => "doliprane"
+ * normalizeForSearch("Paracétamol 500mg") => "paracetamol 500mg"
+ * normalizeForSearch("Amoxicilline/Acide clavulanique") => "amoxicilline acide clavulanique"
  */
 export function normalizeForSearch(input: string): string {
     if (!input) return "";
 
-    let result = removeDiacritics(input).toLowerCase();
-    result = result.replace(/[-'":.]/g, " ");
-    result = result.replace(/\s+/g, " ");
-    return result.trim();
+    return removeDiacritics(input)
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, " ")  // Replace non-alphanumeric with space
+        .replace(/\s+/g, " ")           // Collapse multiple spaces
+        .trim();
 }
 
 /**
@@ -377,29 +396,29 @@ export function getDisplayTitle(summary: {
  *   Result: "DOLIPRANE 1000 mg"
  */
 export function applyPharmacologicalMask(fullLabel: string, formLabel: string | null): string {
-  if (!fullLabel) return "";
-  if (!formLabel) return fullLabel.trim();
+    if (!fullLabel) return "";
+    if (!formLabel) return fullLabel.trim();
 
-  const normLabel = fullLabel.toLowerCase();
-  const normForm = formLabel.toLowerCase();
+    const normLabel = fullLabel.toLowerCase();
+    const normForm = formLabel.toLowerCase();
 
-  // 1. Recherche directe de la forme dans le libellé
-  const index = normLabel.lastIndexOf(normForm);
+    // 1. Recherche directe de la forme dans le libellé
+    const index = normLabel.lastIndexOf(normForm);
 
-  if (index > -1) {
-    // On coupe tout ce qui est à partir de la forme
-    let clean = fullLabel.substring(0, index);
-    
-    // Nettoyage des résidus de ponctuation en fin de chaîne (virgules, espaces)
-    // Ex: "DOLIPRANE 1000 mg, " -> "DOLIPRANE 1000 mg"
-    clean = clean.replace(/[\s,;-]+$/, "");
-    
-    return clean.trim();
-  }
+    if (index > -1) {
+        // On coupe tout ce qui est à partir de la forme
+        let clean = fullLabel.substring(0, index);
 
-  // Fallback : Si la forme exacte n'est pas trouvée (cas rares de fautes de frappe ANSM),
-  // on renvoie le libellé complet ou on tente un split sur la virgule.
-  return fullLabel.split(",")[0].trim();
+        // Nettoyage des résidus de ponctuation en fin de chaîne (virgules, espaces)
+        // Ex: "DOLIPRANE 1000 mg, " -> "DOLIPRANE 1000 mg"
+        clean = clean.replace(/[\s,;-]+$/, "");
+
+        return clean.trim();
+    }
+
+    // Fallback : Si la forme exacte n'est pas trouvée (cas rares de fautes de frappe ANSM),
+    // on renvoie le libellé complet ou on tente un split sur la virgule.
+    return fullLabel.split(",")[0].trim();
 }
 
 /**
@@ -487,11 +506,11 @@ export function isPureGalenicDescription(text: string): boolean {
     const lower = text.toLowerCase();
     // Split plus robuste : espaces, virgules, points, tirets
     const words = lower.split(/[\s,.-]+/).filter(w => w.length > 0);
-    
+
     if (words.length === 0) return false;
-    
+
     // Si tous les mots de la chaîne sont des mots-clés galéniques (ou des lettres isolées)
-    return words.every(word => 
+    return words.every(word =>
         word.length < 2 || // ignore les lettres isolées
         GALENIC_FORM_KEYWORDS.some(k => word.includes(k))
     );
@@ -507,10 +526,10 @@ export function isPureGalenicDescription(text: string): boolean {
 export function isFormulationDescription(text: string): boolean {
     if (!text) return false;
     const lower = text.toLowerCase().trim();
-    
+
     // Si la chaîne est une forme galénique pure, c'est une description
     if (isPureGalenicDescription(text)) return true;
-    
+
     // Mots-clés typiques des descriptions de formulation
     const formulationKeywords = [
         'édulcorée', 'édulcoré', 'édulcorer',
@@ -526,25 +545,25 @@ export function isFormulationDescription(text: string): boolean {
         'molle', 'sécable', 'pelliculé', 'enrobé', // Adjectifs de forme
         'dispositif', 'système', 'présentation' // Autres descripteurs
     ];
-    
+
     // Si la chaîne contient plusieurs de ces mots-clés, c'est probablement une description
     const keywordCount = formulationKeywords.filter(kw => lower.includes(kw)).length;
     if (keywordCount >= 2) return true;
-    
+
     // Si la chaîne est très longue (> 60 caractères) et contient des mots descriptifs
     if (text.length > 60 && keywordCount >= 1) return true;
-    
+
     // Si la chaîne commence par une minuscule et ne contient QUE des mots descriptifs/formes
     if (text.length > 0 && text[0] === text[0].toLowerCase()) {
         // Vérifier si tous les mots sont des formes galéniques ou des mots descriptifs
         const words = lower.split(/\s+/);
-        const allDescriptive = words.every(word => 
-            word.length < 2 || 
+        const allDescriptive = words.every(word =>
+            word.length < 2 ||
             GALENIC_FORM_KEYWORDS.some(k => word.includes(k)) ||
             formulationKeywords.some(k => word.includes(k))
         );
         if (allDescriptive && words.length > 0) return true;
     }
-    
+
     return false;
 }

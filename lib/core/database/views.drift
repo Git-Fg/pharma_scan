@@ -441,6 +441,15 @@ WHERE NOT EXISTS (
 );
 
 -- View exposing UI-ready group member rows with CIP metadata
+-- RADICALLY SIMPLIFIED: medicament_summary contains ALL aggregated data from the remote DB
+-- We only join with:
+--   - group_members: for group_id and code_cip mapping
+--   - medicaments: for prix_public and taux_remboursement (CIP-level data)
+--   - medicament_availability: for availability_status (CIP-level data)
+--   - generique_groups: for raw_label and parsing_method
+--   - laboratories: for titulaire name (already referenced in medicament_summary.titulaire_id)
+-- 
+-- NO JOIN with specialites needed: medicament_summary already contains all specialite data!
 CREATE VIEW view_group_details AS
 SELECT
   gm.group_id,
@@ -461,25 +470,17 @@ SELECT
   ms.princeps_brand_name,
   ms.is_princeps,
   ms.status,
-  COALESCE(ms.forme_pharmaceutique, s.forme_pharmaceutique) AS forme_pharmaceutique,
+  ms.forme_pharmaceutique,
   ms.voies_administration,
   ms.principes_actifs_communs,
-  COALESCE(
-    NULLIF(ms.formatted_dosage, ''),
-    (
-      SELECT vag.formatted_dosage
-      FROM view_aggregated_grouped vag
-      WHERE vag.group_id = gm.group_id AND vag.is_princeps = 1
-      LIMIT 1
-    )
-  ) AS formatted_dosage,
+  ms.formatted_dosage,
   ls.name AS summary_titulaire,
-  ls2.name AS official_titulaire,
-  s.nom_specialite,
-  s.procedure_type,
-  s.conditions_prescription,
+  ls.name AS official_titulaire,  -- Same as summary_titulaire since medicament_summary is source of truth
+  ms.nom_canonique AS nom_specialite,  -- Use nom_canonique from medicament_summary
+  ms.procedure_type,
+  ms.conditions_prescription,
   ms.is_surveillance,
-  s.atc_code,
+  ms.atc_code,
   gm.type AS member_type,
   m.prix_public,
   m.taux_remboursement,
@@ -492,14 +493,19 @@ SELECT
   ms.is_exception,
   ms.is_restricted,
   ms.is_otc,
-  ma.statut AS availability_status
+  ma.statut AS availability_status,
+  -- SMR & ASMR & Safety data from medicament_summary
+  ms.smr_niveau,
+  ms.smr_date,
+  ms.asmr_niveau,
+  ms.asmr_date,
+  ms.url_notice,
+  ms.has_safety_alert
 FROM group_members gm
 INNER JOIN medicaments m ON gm.code_cip = m.code_cip
 INNER JOIN medicament_summary ms ON ms.cis_code = m.cis_code
-INNER JOIN specialites s ON s.cis_code = m.cis_code
 INNER JOIN generique_groups gg ON gg.group_id = gm.group_id
 LEFT JOIN laboratories ls ON ls.id = ms.titulaire_id
-LEFT JOIN laboratories ls2 ON ls2.id = s.titulaire_id
 LEFT JOIN medicament_availability ma ON ma.code_cip = gm.code_cip;
 
 -- View providing pre-formatted group summaries with ordered common principles.

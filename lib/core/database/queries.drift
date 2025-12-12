@@ -1,6 +1,5 @@
 import 'database.dart';
 import 'views.drift';
-import 'tables/scanned_boxes.dart';
 
 -- Queries for MedicamentSummary table
 getMedicamentSummaryByCis: SELECT * FROM medicament_summary WHERE cis_code = ?;
@@ -21,118 +20,20 @@ WHERE search_index MATCH :fts
 ORDER BY bm25(search_index) ASC, ms.nom_canonique
 LIMIT 50;
 
--- Search results with SQL-side polymorphism (cluster/group/standalone)
-searchResults:
-WITH
-base AS (
-  SELECT
-    ms.cis_code,
-    ms.group_id,
-    l.name AS lab_name,
-    ms.nom_canonique
-  FROM medicament_summary ms
-  LEFT JOIN laboratories l ON l.id = ms.titulaire_id
-  INNER JOIN search_index si ON ms.cis_code = si.cis_code
-  WHERE search_index MATCH :fts
-    AND (:routeFilter = '' OR ms.voies_administration LIKE '%' || :routeFilter || '%')
-    AND (:atcFilter = '' OR ms.atc_code LIKE :atcFilter || '%')
-    AND (:labFilter = -1 OR ms.titulaire_id = :labFilter)
-  ORDER BY bm25(search_index) ASC, ms.nom_canonique
-  LIMIT 50
-),
-base_groups AS (
-  SELECT DISTINCT b.group_id
-  FROM base b
-  WHERE b.group_id IS NOT NULL
-),
-base_standalone AS (
-  SELECT DISTINCT b.cis_code
-  FROM base b
-  WHERE b.group_id IS NULL
-),
-base_normalized AS (
-  SELECT
-    bg.group_id,
-    LOWER(TRIM(COALESCE(vggs.common_principes, ''))) AS normalized_common
-  FROM base_groups bg
-  INNER JOIN view_generic_group_summaries vggs ON vggs.group_id = bg.group_id
-)
-SELECT
-  vsr.type,
-  vsr.normalized_common,
-  vsr.group_id,
-  vsr.common_principes,
-  vsr.princeps_reference_name,
-  vsr.princeps_cis_code,
-  vsr.groups_json,
-  vsr.display_name,
-  vsr.sort_key,
-  vsr.cis_code,
-  vsr.nom_canonique,
-  vsr.is_princeps,
-  vsr.member_type,
-  vsr.principes_actifs_communs,
-  vsr.princeps_de_reference,
-  vsr.forme_pharmaceutique,
-  vsr.voies_administration,
-  vsr.princeps_brand_name,
-  vsr.procedure_type,
-  vsr.titulaire_id,
-  vsr.conditions_prescription,
-  vsr.date_amm,
-  vsr.is_surveillance,
-  vsr.formatted_dosage,
-  vsr.atc_code,
-  vsr.status,
-  vsr.price_min,
-  vsr.price_max,
-  vsr.aggregated_conditions,
-  vsr.ansm_alert_url,
-  vsr.is_hospital,
-  vsr.is_dental,
-  vsr.is_list1,
-  vsr.is_list2,
-  vsr.is_narcotic,
-  vsr.is_exception,
-  vsr.is_restricted,
-  vsr.is_otc,
-  vsr.representative_cip,
-  CASE
-    WHEN vsr.type = 'standalone' THEN vsr.lab_name
-    ELSE NULL
-  END AS lab_name
-FROM view_search_results vsr
-WHERE
-  (vsr.type = 'standalone' AND vsr.cis_code IN (SELECT cis_code FROM base_standalone))
-  OR (vsr.type = 'group' AND vsr.group_id IN (SELECT group_id FROM base_groups))
-  OR (
-    vsr.type = 'cluster'
-    AND vsr.normalized_common IN (
-      SELECT DISTINCT bn.normalized_common
-      FROM base_normalized bn
-      WHERE bn.normalized_common != ''
-    )
-  )
-ORDER BY
-  CASE vsr.type
-    WHEN 'cluster' THEN 0
-    WHEN 'group' THEN 1
-    ELSE 2
-  END,
-  LOWER(COALESCE(vsr.sort_key, vsr.nom_canonique));
 
 -- Scan history (reverse chronological, limited)
+-- Utilise la structure du schéma SQL distant : scanned_boxes avec cip_code et scan_timestamp
 getScanHistory:
 SELECT 
-    sb.cip,
-    sb.scanned_at,
+    sb.cip_code AS cip,
+    datetime(sb.scan_timestamp) AS scanned_at,
     COALESCE(ms.nom_canonique, 'Produit inconnu') AS label,
     ms.princeps_de_reference,
-    ms.is_princeps
+    COALESCE(ms.is_princeps, 0) AS is_princeps
 FROM scanned_boxes sb
-LEFT JOIN medicaments m ON m.code_cip = sb.cip
+LEFT JOIN medicaments m ON m.code_cip = sb.cip_code
 LEFT JOIN medicament_summary ms ON ms.cis_code = m.cis_code
-ORDER BY sb.scanned_at DESC
+ORDER BY sb.scan_timestamp DESC
 LIMIT :limit;
 
 CREATE VIRTUAL TABLE search_index USING fts5(
@@ -157,15 +58,17 @@ SELECT
   normalize_text(COALESCE(ms.princeps_de_reference, '')) AS brand_name
 FROM medicament_summary ms;
 
+-- SIMPLIFIED: medicament_summary already contains all specialite data
+-- No need to join with specialites table
 CREATE VIEW detailed_scan_results AS
 SELECT
   m.code_cip,
   m.cis_code,
-  s.nom_specialite,
-  s.procedure_type AS specialite_procedure_type,
-  s.forme_pharmaceutique,
-  COALESCE(ls.name, ls2.name) AS specialite_titulaire,
-  s.conditions_prescription AS specialite_conditions_prescription,
+  ms.nom_canonique AS nom_specialite,  -- Use nom_canonique from medicament_summary
+  ms.procedure_type AS specialite_procedure_type,
+  ms.forme_pharmaceutique,
+  ls.name AS specialite_titulaire,  -- Single source from medicament_summary.titulaire_id
+  ms.conditions_prescription AS specialite_conditions_prescription,
   ms.group_id,
   ms.is_princeps,
   ms.nom_canonique,
@@ -174,92 +77,12 @@ SELECT
   ms.princeps_brand_name,
   ms.forme_pharmaceutique AS summary_forme_pharmaceutique,
   ms.procedure_type AS summary_procedure_type,
-  COALESCE(ls.name, ls2.name) AS summary_titulaire,
+  ls.name AS summary_titulaire,  -- Same as specialite_titulaire
   ms.conditions_prescription AS summary_conditions_prescription
 FROM medicaments m
-INNER JOIN specialites s ON s.cis_code = m.cis_code
 INNER JOIN medicament_summary ms ON ms.cis_code = m.cis_code
-LEFT JOIN laboratories ls ON ls.id = ms.titulaire_id
-LEFT JOIN laboratories ls2 ON ls2.id = s.titulaire_id;
+LEFT JOIN laboratories ls ON ls.id = ms.titulaire_id;
 
--- Aggregation queries for populating medicament_summary table
--- These queries are validated at compile time against the schema
-deleteMedicamentSummaries: DELETE FROM medicament_summary;
-
--- Insert grouped medications from view_aggregated_grouped view.
--- The view contains all the aggregation logic with CTEs for compile-time validation.
-insertGroupedMedicamentSummaries:
-INSERT OR REPLACE INTO medicament_summary (
-  cis_code,
-  nom_canonique,
-  is_princeps,
-  group_id,
-  member_type,
-  principes_actifs_communs,
-  princeps_de_reference,
-  forme_pharmaceutique,
-  voies_administration,
-  princeps_brand_name,
-  procedure_type,
-  titulaire_id,
-  conditions_prescription,
-  date_amm,
-  is_surveillance,
-  formatted_dosage,
-  atc_code,
-  status,
-  price_min,
-  price_max,
-  aggregated_conditions,
-  ansm_alert_url,
-  is_hospital,
-  is_dental,
-  is_list1,
-  is_list2,
-  is_narcotic,
-  is_exception,
-  is_restricted,
-  is_otc
-)
-SELECT * FROM view_aggregated_grouped;
-
--- Insert standalone medications from view_aggregated_standalone view.
--- The view contains all the aggregation logic with CTEs for compile-time validation.
-insertStandaloneMedicamentSummaries:
-INSERT OR REPLACE INTO medicament_summary (
-  cis_code,
-  nom_canonique,
-  is_princeps,
-  group_id,
-  member_type,
-  principes_actifs_communs,
-  princeps_de_reference,
-  forme_pharmaceutique,
-  voies_administration,
-  princeps_brand_name,
-  procedure_type,
-  titulaire_id,
-  conditions_prescription,
-  date_amm,
-  is_surveillance,
-  formatted_dosage,
-  atc_code,
-  status,
-  price_min,
-  price_max,
-  aggregated_conditions,
-  ansm_alert_url,
-  is_hospital,
-  is_dental,
-  is_list1,
-  is_list2,
-  is_narcotic,
-  is_exception,
-  is_restricted,
-  is_otc,
-  representative_cip
-)
-SELECT * FROM view_aggregated_standalone;
 
 getMedicamentSummaryCount: SELECT COUNT(*) AS count FROM medicament_summary;
 

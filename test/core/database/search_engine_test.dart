@@ -161,7 +161,6 @@ void main() {
           isTrue,
         );
       },
-      skip: 'FTS diacritic normalization currently unstable in test fixture',
     );
 
     test(
@@ -184,5 +183,77 @@ void main() {
         );
       },
     );
+
+    test('search handles ligatures - oeuf finds œuf (unicode61 tokenizer)', () async {
+      // Add test data with ligature
+      await db.databaseDao.insertBatchData(
+        batchData: IngestionBatch(
+          laboratories: [
+            buildLaboratoryCompanion(id: 10, name: 'LIGATURELAB'),
+          ],
+          specialites: [
+            buildSpecialiteCompanion(
+              cisCode: 'L1',
+              nomSpecialite: 'ŒUFPROTECT',
+              procedureType: 'Autorisation',
+              formePharmaceutique: 'comprime',
+              titulaireId: 10,
+            ),
+          ],
+          medicaments: [
+            buildMedicamentCompanion(
+              codeCip: '9999999999999',
+              cisCode: 'L1',
+              presentationLabel: 'Œuf-based protection',
+            ),
+          ],
+          principesActifs: [
+            buildPrincipeActifCompanion(
+              codeCip: '9999999999999',
+              designationSubstance: 'ŒUF EXTRACT',
+              dosageSubstance: '100mg',
+            ),
+          ],
+          medicamentSummary: [
+            buildMedicamentSummaryCompanion(
+              cisCode: 'L1',
+              nomCanonique: 'ŒUFPROTECT',
+              princepsDeReference: 'ŒUFPROTECT',
+              princepsBrandName: 'ŒUFPROTECT',
+              isPrinceps: true,
+              principesActifsCommuns: '["ŒUF EXTRACT"]',
+              voiesAdministration: 'orale',
+            ),
+          ],
+        ),
+      );
+
+      // Test searching with "oeuf" should find "ŒUFPROTECT"
+      final results = await db.catalogDao.searchMedicaments(
+        NormalizedQuery.fromString('oeuf'),
+      );
+
+      expect(results, isNotEmpty);
+      expect(
+        results.any((row) => row.summary.nomCanonique.contains('ŒUFPROTECT')),
+        isTrue,
+        reason: 'Searching "oeuf" should find "ŒUFPROTECT" with unicode61 tokenizer',
+      );
+    });
+
+    test('search is case insensitive - doliprane finds DOLIPRANE', () async {
+      final results = await db.catalogDao.searchMedicaments(
+        NormalizedQuery.fromString('doliprane'),
+      );
+
+      expect(results, isNotEmpty);
+      expect(
+        results.any(
+          (row) => row.summary.princepsBrandName.toUpperCase() == 'DOLIPRANE',
+        ),
+        isTrue,
+        reason: 'Case insensitive search should work',
+      );
+    });
   });
 }

@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:pharma_scan/core/database/tables/settings.drift.dart';
+import 'package:pharma_scan/core/database/models/app_setting.dart';
 import 'package:pharma_scan/core/providers/core_providers.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -45,7 +45,7 @@ extension ThemeSettingMapper on ThemeSetting {
 
 @riverpod
 Stream<ThemeMode> theme(Ref ref) {
-  final db = ref.watch(appDatabaseProvider);
+  final db = ref.watch(databaseProvider);
   return db.settingsDao.watchSettings().map(
     (AppSetting settings) =>
         themeSettingFromStorage(settings.themeMode).asThemeMode,
@@ -60,7 +60,7 @@ class ThemeMutation extends _$ThemeMutation {
   Future<void> setTheme(ThemeSetting setting) async {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
-      await ref.read(appDatabaseProvider).settingsDao.updateTheme(setting.name);
+      await ref.read(databaseProvider).settingsDao.updateTheme(setting.name);
     });
   }
 }

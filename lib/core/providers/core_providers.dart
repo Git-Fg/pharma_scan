@@ -1,21 +1,17 @@
 import 'dart:async';
 
 import 'package:pharma_scan/core/database/database.dart';
-import 'package:pharma_scan/core/database/tables/settings.drift.dart';
+import 'package:pharma_scan/core/database/models/app_setting.dart';
+import 'package:pharma_scan/core/database/providers.dart';
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
 import 'package:pharma_scan/core/services/database_updater_service.dart';
 import 'package:pharma_scan/core/services/file_download_service.dart';
-import 'package:pharma_scan/core/services/ingestion/bdpm_downloader.dart';
-import 'package:pharma_scan/core/services/ingestion/bdpm_parser_service.dart';
-import 'package:pharma_scan/core/services/ingestion/bdpm_repository.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
-part 'core_providers.g.dart';
+// Export databaseProvider pour faciliter les imports
+export 'package:pharma_scan/core/database/providers.dart' show databaseProvider;
 
-@Riverpod(keepAlive: true)
-AppDatabase appDatabase(Ref ref) {
-  return AppDatabase();
-}
+part 'core_providers.g.dart';
 
 @Riverpod(keepAlive: true)
 FileDownloadService fileDownloadService(Ref ref) {
@@ -23,42 +19,24 @@ FileDownloadService fileDownloadService(Ref ref) {
 }
 
 @Riverpod(keepAlive: true)
-BdpmDownloader bdpmDownloader(Ref ref) {
-  final downloader = ref.watch(fileDownloadServiceProvider);
-  return BdpmDownloader(fileDownloadService: downloader);
-}
-
-@Riverpod(keepAlive: true)
-BdpmParserService bdpmParserService(Ref ref) {
-  return const BdpmParserService();
-}
-
-@Riverpod(keepAlive: true)
-BdpmRepository bdpmRepository(Ref ref) {
-  final db = ref.watch(appDatabaseProvider);
-  return BdpmRepository(db);
+DatabaseUpdaterService databaseUpdaterService(Ref ref) {
+  return DatabaseUpdaterService();
 }
 
 @Riverpod(keepAlive: true)
 DataInitializationService dataInitializationService(Ref ref) {
-  final db = ref.watch(appDatabaseProvider);
-  final downloader = ref.watch(bdpmDownloaderProvider);
-  final parserService = ref.watch(bdpmParserServiceProvider);
-  final repository = ref.watch(bdpmRepositoryProvider);
-  final databaseUpdaterService = ref.watch(databaseUpdaterServiceProvider);
+  final db = ref.watch(databaseProvider);
+  final fileDownloadService = ref.watch(fileDownloadServiceProvider);
 
   return DataInitializationService(
     database: db,
-    downloader: downloader,
-    parserService: parserService,
-    repository: repository,
-    databaseUpdaterService: databaseUpdaterService,
+    fileDownloadService: fileDownloadService,
   );
 }
 
 @riverpod
 Stream<int?> lastSyncEpochStream(Ref ref) {
-  final db = ref.watch(appDatabaseProvider);
+  final db = ref.watch(databaseProvider);
   return db.settingsDao.watchSettings().map(
     (AppSetting settings) => settings.lastSyncEpoch,
   );
@@ -66,11 +44,6 @@ Stream<int?> lastSyncEpochStream(Ref ref) {
 
 @Riverpod(keepAlive: true)
 CatalogDao catalogDao(Ref ref) {
-  final db = ref.watch(appDatabaseProvider);
+  final db = ref.watch(databaseProvider);
   return db.catalogDao;
-}
-
-@Riverpod(keepAlive: true)
-DatabaseUpdaterService databaseUpdaterService(Ref ref) {
-  return DatabaseUpdaterService();
 }

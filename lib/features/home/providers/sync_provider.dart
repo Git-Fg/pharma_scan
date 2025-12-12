@@ -63,7 +63,7 @@ class SyncController extends _$SyncController {
 
     final clock = ref.read(clockProvider);
     final now = clock();
-    final db = ref.read(appDatabaseProvider);
+    final db = ref.read(databaseProvider);
     final lastCheck = await db.settingsDao.getLastSyncTime();
     if (!ref.mounted) return false;
 
@@ -117,7 +117,7 @@ class SyncController extends _$SyncController {
 
     try {
       LoggerService.info('Starting sync run (Notifier)');
-      final db = ref.read(appDatabaseProvider);
+      final db = ref.read(databaseProvider);
       final sourceHashes = await db.settingsDao.getSourceHashes();
       final sourceDates = await db.settingsDao.getSourceDates();
 
@@ -254,8 +254,11 @@ class SyncController extends _$SyncController {
           code: SyncStatusCode.applyingUpdate,
         );
 
-        final dataInit = ref.read(dataInitializationServiceProvider);
-        await dataInit.applyUpdate(downloadedFiles);
+        // La DB est déjà téléchargée et décompressée par DatabaseUpdaterService
+        // Plus besoin d'appliquer de mise à jour car la DB est pré-construite
+        // Vérifier l'intégrité de la DB téléchargée
+        final db = ref.read(databaseProvider);
+        await db.checkDatabaseIntegrity();
         if (!ref.mounted) return false;
       }
 
@@ -314,7 +317,7 @@ class SyncController extends _$SyncController {
       }
       if (ref.mounted) {
         final clock = ref.read(clockProvider);
-        final db = ref.read(appDatabaseProvider);
+        final db = ref.read(databaseProvider);
         try {
           await db.settingsDao.updateSyncTimestamp(
             clock().millisecondsSinceEpoch,

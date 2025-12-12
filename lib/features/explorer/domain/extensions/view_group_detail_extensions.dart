@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:collection/collection.dart';
 import 'package:pharma_scan/core/logic/sanitizer.dart';
 import 'package:pharma_scan/core/utils/formatters.dart';
@@ -7,10 +9,11 @@ import 'package:pharma_scan/features/explorer/domain/entities/group_detail_entit
 extension GroupDetailPresentation on GroupDetailEntity {
   /// Display name for the medication (princeps or generic)
   String get displayName {
-    if (isPrinceps) {
-      return extractPrincepsLabel(princepsDeReference);
+    if (isPrinceps && princepsDeReference != null) {
+      return extractPrincepsLabel(princepsDeReference!);
     }
-    final parts = nomCanonique.split(' - ');
+    final nom = nomCanonique ?? '';
+    final parts = nom.split(' - ');
     return parts.first.trim();
   }
 
@@ -83,13 +86,29 @@ extension GroupDetailListExtensions on List<GroupDetailEntity> {
       }
     }
 
-    final title = first.princepsDeReference.isNotEmpty
-        ? extractPrincepsLabel(first.princepsDeReference)
-        : first.nomCanonique;
+    final princepsRef = first.princepsDeReference;
+    final nomCanon = first.nomCanonique;
+    final title = (princepsRef != null && princepsRef.isNotEmpty)
+        ? extractPrincepsLabel(princepsRef)
+        : (nomCanon ?? '');
+
+    // Parse principesActifsCommuns from JSON string
+    final principesJson = first.principesActifsCommuns;
+    final commonPrincipes = <String>[];
+    if (principesJson != null && principesJson.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(principesJson);
+        if (decoded is List) {
+          commonPrincipes.addAll(decoded.map((e) => e.toString()));
+        }
+      } on FormatException {
+        // Ignore JSON decode errors
+      }
+    }
 
     return (
-      title: title,
-      commonPrincipes: first.principesActifsCommuns,
+      title: title.isNotEmpty ? title : 'Unknown',
+      commonPrincipes: commonPrincipes,
       distinctDosages: dosages.toList()..sort(),
       distinctFormulations: forms.toList()..sort(),
     );
@@ -182,8 +201,10 @@ int _smartMedicationComparator(
   if (aShortage != bShortage) {
     return aShortage ? 1 : -1;
   }
-  if (a.isHospitalOnly != b.isHospitalOnly) {
-    return a.isHospitalOnly ? 1 : -1;
+  final aHospital = a.isHospitalOnly;
+  final bHospital = b.isHospitalOnly;
+  if (aHospital != bHospital) {
+    return aHospital ? 1 : -1;
   }
   return a.displayName.compareTo(b.displayName);
 }

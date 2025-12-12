@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:pharma_scan/core/database/tables/settings.drift.dart';
+import 'package:pharma_scan/core/database/models/app_setting.dart';
 import 'package:pharma_scan/core/models/update_frequency.dart';
 import 'package:pharma_scan/core/providers/core_providers.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -30,7 +30,7 @@ enum SortingPreference {
 
 @Riverpod(keepAlive: true)
 Stream<UpdateFrequency> appPreferences(Ref ref) {
-  final db = ref.watch(appDatabaseProvider);
+  final db = ref.watch(databaseProvider);
   return db.settingsDao.watchSettings().map(
     (AppSetting settings) =>
         UpdateFrequency.fromStorage(settings.updateFrequency),
@@ -46,7 +46,7 @@ class UpdateFrequencyMutation extends _$UpdateFrequencyMutation {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
       await ref
-          .read(appDatabaseProvider)
+          .read(databaseProvider)
           .settingsDao
           .updateSyncFrequency(newFrequency.storageValue);
     });
@@ -55,7 +55,7 @@ class UpdateFrequencyMutation extends _$UpdateFrequencyMutation {
 
 @riverpod
 Stream<bool> hapticSettings(Ref ref) {
-  final db = ref.watch(appDatabaseProvider);
+  final db = ref.watch(databaseProvider);
   return db.settingsDao.watchSettings().map(
     (AppSetting settings) => settings.hapticFeedbackEnabled,
   );
@@ -70,7 +70,7 @@ class HapticMutation extends _$HapticMutation {
     state = const AsyncValue<void>.loading();
     state = await AsyncValue.guard(() async {
       await ref
-          .read(appDatabaseProvider)
+          .read(databaseProvider)
           .settingsDao
           .updateHapticFeedback(enabled: enabled);
     });
@@ -79,7 +79,7 @@ class HapticMutation extends _$HapticMutation {
 
 @riverpod
 Stream<SortingPreference> sortingPreference(Ref ref) {
-  final db = ref.watch(appDatabaseProvider);
+  final db = ref.watch(databaseProvider);
   return db.settingsDao.watchSettings().map(
     (AppSetting settings) =>
         SortingPreference.fromStorage(settings.preferredSorting),
@@ -88,7 +88,7 @@ Stream<SortingPreference> sortingPreference(Ref ref) {
 
 @riverpod
 Stream<int> scanHistoryLimit(Ref ref) {
-  final db = ref.watch(appDatabaseProvider);
+  final db = ref.watch(databaseProvider);
   return db.settingsDao.watchSettings().map(
     (AppSetting settings) => settings.scanHistoryLimit,
   );
@@ -103,7 +103,7 @@ class SortingPreferenceMutation extends _$SortingPreferenceMutation {
     state = const AsyncValue<void>.loading();
     state = await AsyncValue.guard(() async {
       await ref
-          .read(appDatabaseProvider)
+          .read(databaseProvider)
           .settingsDao
           .updatePreferredSorting(pref.storageValue);
     });

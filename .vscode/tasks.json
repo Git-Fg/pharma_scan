@@ -2,6 +2,29 @@
   "version": "2.0.0",
   "tasks": [
     {
+      "label": "watch:schema",
+      "type": "shell",
+      "detail": "Synchronise le schéma SQL du backend vers le dossier Flutter en cas de changement",
+      "command": "mkdir -p lib/database lib/core/database && while true; do rsync -a backend_pipeline/data/schema.sql lib/database/schema.drift && rsync -a backend_pipeline/data/schema.sql lib/core/database/schema.drift; sleep 2; done",
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "custom",
+        "pattern": {
+          "regexp": "^$"
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^.*$",
+          "endsPattern": "^.*$"
+        }
+      },
+      "presentation": {
+        "reveal": "silent",
+        "panel": "shared",
+        "close": true
+      }
+    },
+    {
       "label": "build_runner watch",
       "type": "shell",
       "command": "dart",
@@ -12,11 +35,23 @@
         "--delete-conflicting-outputs"
       ],
       "isBackground": true,
-      "problemMatcher": [],
+      "problemMatcher": [
+        "$dart-build_runner"
+      ],
       "presentation": {
         "reveal": "always",
-        "panel": "dedicated"
-      },
+        "panel": "dedicated",
+        "group": "build"
+      }
+    },
+    {
+      "label": "watch:all",
+      "detail": "Lance la synchro SQL et le build_runner en parallèle",
+      "dependsOn": [
+        "watch:schema",
+        "build_runner watch"
+      ],
+      "problemMatcher": [],
       "group": {
         "kind": "build",
         "isDefault": true

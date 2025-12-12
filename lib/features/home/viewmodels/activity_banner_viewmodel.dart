@@ -86,8 +86,6 @@ ActivityBannerState? activityBannerViewModel(Ref ref) {
   if (isInitializationActive) {
     const stages = [
       InitializationStep.downloading,
-      InitializationStep.parsing,
-      InitializationStep.aggregating,
     ];
     final currentStage = initStep ?? InitializationStep.downloading;
     double? initProgress;
@@ -103,20 +101,20 @@ ActivityBannerState? activityBannerViewModel(Ref ref) {
         Strings.initializationDownloadingDescription,
         LucideIcons.download,
       ),
-      InitializationStep.parsing => (
-        Strings.initializationParsing,
-        Strings.initializationParsingDescription,
-        LucideIcons.fileDigit,
+      InitializationStep.ready => (
+        Strings.initializationReady,
+        Strings.initializationReady,
+        LucideIcons.check,
       ),
-      InitializationStep.aggregating => (
-        Strings.initializationAggregatingTitle,
-        Strings.initializationAggregatingDescription,
-        LucideIcons.database,
+      InitializationStep.error => (
+        Strings.initializationError,
+        Strings.initializationError,
+        LucideIcons.triangleAlert,
       ),
-      _ => (
-        Strings.initializationInProgress,
-        Strings.initializationDescription,
-        LucideIcons.loader,
+      InitializationStep.idle => (
+        '',
+        '',
+        LucideIcons.circleDot,
       ),
     };
     return ActivityBannerState(
