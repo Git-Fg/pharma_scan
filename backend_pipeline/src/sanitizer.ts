@@ -2,15 +2,15 @@
  * Port of lib/core/logic/sanitizer.dart
  * Contains canonical normalization logic for search queries, indexes, and clustering keys.
  */
-import { remove } from "diacritics";
+import { removeAccentsEnhanced } from "@urbanzoo/remove-accents";
 import { SALT_PREFIXES, SALT_SUFFIXES, MINERAL_TOKENS, GALENIC_FORM_KEYWORDS } from "./constants";
 
 /**
  * Remove accents/diacritics from a string.
- * Uses 'diacritics' library as equivalent to 'package:diacritic'.
+ * Uses '@urbanzoo/remove-accents' library as equivalent to 'package:diacritic'.
  */
 function removeDiacritics(str: string): string {
-    return remove(str);
+    return removeAccentsEnhanced(str);
 }
 
 /**
