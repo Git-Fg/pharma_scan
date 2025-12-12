@@ -60,7 +60,7 @@ class GroupHeader extends StatelessWidget {
         : null;
 
     final allBadges = <Widget>[
-      ?regulatoryBadgesWidget,
+      if (regulatoryBadgesWidget != null) regulatoryBadgesWidget,
       ...metadataBadges,
       ...conditionBadges,
     ];

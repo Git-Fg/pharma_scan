@@ -1,26 +1,25 @@
-import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:pharma_scan/core/database/database.dart';
-import 'package:pharma_scan/core/providers/core_providers.dart';
 import 'package:pharma_scan/core/providers/theme_provider.dart';
+import 'package:pharma_scan/core/services/preferences_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('ThemeProvider', () {
-    late AppDatabase database;
     late ProviderContainer container;
+    late PreferencesService preferencesService;
 
     setUp(() async {
-      database = AppDatabase.forTesting(
-        NativeDatabase.memory(setup: configureAppSQLite),
-      );
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      preferencesService = PreferencesService(prefs);
 
       container = ProviderContainer(
         overrides: [
-          databaseProvider.overrideWithValue(database),
+          preferencesServiceProvider.overrideWithValue(preferencesService),
         ],
       );
     });
@@ -86,12 +85,8 @@ void main() {
       );
     });
 
-    test('ThemeNotifier emits default theme', () async {
-      await database.settingsDao.getSettings();
-      final sub = container.listen(themeProvider, (prev, next) {});
-      final themeMode = await container.read(themeProvider.future);
-      sub.close();
-
+    test('themeProvider emits default theme (system)', () {
+      final themeMode = container.read(themeProvider);
       expect(themeMode, equals(ThemeMode.system));
     });
 
@@ -101,11 +96,13 @@ void main() {
 
       await mutation.setTheme(ThemeSetting.dark);
 
-      final state = container.read(themeMutationProvider);
-      expect(state.hasValue, isTrue);
+      // Re-read to verify change
+      final themeMode = container.read(themeProvider);
+      expect(themeMode, equals(ThemeMode.dark));
 
-      final settings = await database.settingsDao.getSettings();
-      expect(settings.themeMode, equals('dark'));
+      // Verify persistence
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString(PrefKeys.themeMode), equals('dark'));
     });
   });
 }

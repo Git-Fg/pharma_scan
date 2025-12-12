@@ -59,7 +59,7 @@ class MedicamentTile extends StatelessWidget {
       ) =>
         (
           princeps.data.nomCanonique,
-          _buildSubtitle(princeps.data.formePharmaceutique, commonPrinciples),
+          _buildSubtitle(princeps.formePharmaceutique, commonPrinciples),
           ProductTypeBadge(
             memberType: princeps.data.memberType,
             compact: true,
@@ -74,7 +74,7 @@ class MedicamentTile extends StatelessWidget {
       ) =>
         (
           generic.data.nomCanonique,
-          _buildSubtitle(generic.data.formePharmaceutique, commonPrinciples),
+          _buildSubtitle(generic.formePharmaceutique, commonPrinciples),
           ProductTypeBadge(
             memberType: generic.data.memberType,
             compact: true,
@@ -88,7 +88,7 @@ class MedicamentTile extends StatelessWidget {
       ) =>
         (
           summary.data.nomCanonique,
-          _buildSubtitle(summary.data.formePharmaceutique, commonPrinciples),
+          _buildSubtitle(summary.formePharmaceutique, commonPrinciples),
           ProductTypeBadge(
             memberType: summary.data.memberType,
             compact: true,
@@ -289,7 +289,7 @@ class MedicamentTile extends StatelessWidget {
     );
   }
 
-  String? _buildSubtitle(String? form, String? principles) {
+  String? _buildSubtitle(String form, String? principles) {
     // Principles are already normalized from the database
     final normalizedPrinciples =
         principles
@@ -300,7 +300,7 @@ class MedicamentTile extends StatelessWidget {
         '';
 
     final segments = <String>[
-      if (form != null && form.isNotEmpty) form,
+      if (form.isNotEmpty) form,
       if (normalizedPrinciples.isNotEmpty) normalizedPrinciples,
     ];
 

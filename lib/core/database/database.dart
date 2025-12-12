@@ -1,37 +1,61 @@
-import 'dart:io';
-
 import 'package:drift/drift.dart';
+import 'package:drift_flutter/drift_flutter.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
+
+// Conditional imports for web vs mobile
+import 'package:drift/wasm.dart' if (dart.library.io) 'drift_native.dart';
+
+// ... imports ...
+
+// ... imports ...
 import 'package:pharma_scan/core/database/daos/catalog_dao.dart';
 import 'package:pharma_scan/core/database/daos/database_dao.dart';
 import 'package:pharma_scan/core/database/daos/restock_dao.dart';
-import 'package:pharma_scan/core/database/daos/settings_dao.dart';
+
 import 'package:pharma_scan/core/database/database.drift.dart';
-import 'package:pharma_scan/core/logic/sanitizer.dart';
-import 'package:sqlite3/common.dart';
 
-export 'daos/catalog_dao.dart';
-export 'daos/database_dao.dart';
-export 'daos/restock_dao.dart';
-export 'daos/settings_dao.dart';
-export 'database.drift.dart';
-
-// -- Database Class --
-
-/// Base de données principale de l'application.
-///
-/// Toutes les tables (BDPM et Flutter) sont définies dans `dbschema.drift`
-/// (synchronisé depuis GitHub) et générées automatiquement par Drift pour garantir
-/// la type safety optimale. Le schéma SQL est la source de vérité unique.
 @DriftDatabase(
-  daos: [SettingsDao, CatalogDao, DatabaseDao, RestockDao],
+  daos: [CatalogDao, DatabaseDao, RestockDao],
   include: {'dbschema.drift', 'queries.drift', 'views.drift'},
 )
 class AppDatabase extends $AppDatabase {
-  /// Constructeur principal acceptant l'exécuteur (la connexion physique)
-  AppDatabase(super.e);
+  /// Constructeur principal utilisant driftDatabase pour la configuration multi-plateforme
+  AppDatabase() : super(_openConnection());
 
   /// Constructeur pour les tests
   AppDatabase.forTesting(super.e);
+
+  @override
+  late final CatalogDao catalogDao = CatalogDao(this);
+  @override
+  late final DatabaseDao databaseDao = DatabaseDao(this);
+  @override
+  late final RestockDao restockDao = RestockDao(this);
+
+  static QueryExecutor _openConnection() {
+    if (kIsWeb) {
+      return Future(() async {
+        final result = await WasmDatabase.open(
+          databaseName: 'pharma_scan_db_v3',
+          sqlite3Uri: Uri.parse('sqlite3.wasm'),
+          driftWorkerUri: Uri.parse('drift_worker.dart.js'),
+          initializeDatabase: () async {
+            final data = await rootBundle.load('assets/reference.db');
+            return data.buffer.asUint8List();
+          },
+        );
+        return result.executor;
+      }) as QueryExecutor;
+    } else {
+      return driftDatabase(
+        name: 'pharma_scan_db_v3',
+        native: const DriftNativeOptions(
+          shareAcrossIsolates: true,
+        ),
+      );
+    }
+  }
 
   @override
   int get schemaVersion => 1;
@@ -48,9 +72,6 @@ class AppDatabase extends $AppDatabase {
             await m.createTable(table);
           }
         }
-
-        // Créer les vues depuis views.drift pour les tests
-        await _createViews(m);
 
         // Créer la table virtuelle FTS5 search_index pour les tests
         await _createFts5Table();
@@ -86,39 +107,6 @@ class AppDatabase extends $AppDatabase {
     }
   }
 
-  /// Crée les vues SQL depuis views.drift (pour les tests uniquement).
-  /// En production, les vues sont déjà créées dans la base téléchargée.
-  Future<void> _createViews(Migrator m) async {
-    try {
-      // Lire le fichier views.drift depuis le système de fichiers
-      // Le chemin est relatif à lib/core/database/
-      final viewsFile = File('lib/core/database/views.drift');
-      if (!await viewsFile.exists()) {
-        // En production ou si le fichier n'est pas accessible, ignorer
-        return;
-      }
-
-      final content = await viewsFile.readAsString();
-
-      // Extraire chaque CREATE VIEW statement (de "CREATE VIEW" jusqu'au ";")
-      final viewPattern = RegExp(
-        r'CREATE VIEW\s+\w+\s+AS\s+.*?;',
-        dotAll: true,
-        caseSensitive: false,
-      );
-
-      final matches = viewPattern.allMatches(content);
-      for (final match in matches) {
-        final viewSql = match.group(0)!;
-        // Exécuter la création de la vue
-        await customStatement(viewSql);
-      }
-    } catch (e) {
-      // En cas d'erreur (fichier non accessible en production), ignorer silencieusement
-      // Les vues seront déjà créées dans la base téléchargée
-    }
-  }
-
   /// Crée la table virtuelle FTS5 search_index (pour les tests uniquement).
   /// En production, la table est déjà créée dans la base téléchargée.
   Future<void> _createFts5Table() async {
@@ -133,7 +121,7 @@ class AppDatabase extends $AppDatabase {
         )
         ''',
       );
-    } catch (e) {
+    } catch (_) {
       // En cas d'erreur, ignorer silencieusement
       // La table sera déjà créée dans la base téléchargée
     }
@@ -143,34 +131,16 @@ class AppDatabase extends $AppDatabase {
   /// En production, ces index sont déjà créés dans la base téléchargée.
   Future<void> _createUniqueIndexes() async {
     try {
-      // Unique constraint for scanned_boxes duplicate detection
+      // Drop existing index if any to recreate cleanly
+      await customStatement('DROP INDEX IF EXISTS idx_scanned_boxes_unique');
+
+      // Create unique constraint for scanned_boxes duplicate detection
       await customStatement(
-        'CREATE UNIQUE INDEX IF NOT EXISTS idx_scanned_boxes_unique ON scanned_boxes(cip_code, box_label)',
+        'CREATE UNIQUE INDEX idx_scanned_boxes_unique ON scanned_boxes(cip_code, box_label)',
       );
-    } catch (e) {
+    } catch (_) {
       // En cas d'erreur, ignorer silencieusement
       // Les index seront déjà créés dans la base téléchargée
     }
   }
-}
-
-/// Configure SQLite avec les optimisations et fonctions personnalisées.
-void configureAppSQLite(CommonDatabase database) {
-  database
-    ..execute('PRAGMA journal_mode=WAL')
-    ..execute('PRAGMA busy_timeout=30000')
-    ..execute('PRAGMA synchronous=NORMAL')
-    ..execute('PRAGMA mmap_size=300000000')
-    ..execute('PRAGMA temp_store=MEMORY')
-    ..createFunction(
-      functionName: 'normalize_text',
-      argumentCount: const AllowedArgumentCount(1),
-      deterministic: true,
-      directOnly: false,
-      function: (List<Object?> args) {
-        final source = args.isEmpty ? '' : args.first?.toString() ?? '';
-        if (source.isEmpty) return '';
-        return normalizeForSearch(source);
-      },
-    );
 }

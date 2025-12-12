@@ -2,6 +2,11 @@ class Strings {
   Strings._();
 
   static const String appName = 'PharmaScan';
+  static const String appInfo = 'Version';
+  static const String appInfoDescription = "Informations sur l'application";
+  static const String version = 'Version';
+  static const String buildNumber = 'Numéro de build';
+  static const String packageName = 'Nom du paquet';
 
   // Navigation
   static const String scanner = 'Scanner';

@@ -1,8 +1,7 @@
 import 'dart:async';
 
-import 'package:pharma_scan/core/database/models/app_setting.dart';
 import 'package:pharma_scan/core/models/update_frequency.dart';
-import 'package:pharma_scan/core/providers/core_providers.dart';
+import 'package:pharma_scan/core/services/preferences_service.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'preferences_provider.g.dart';
@@ -28,13 +27,13 @@ enum SortingPreference {
   };
 }
 
+// --- Update Frequency ---
+
 @Riverpod(keepAlive: true)
-Stream<UpdateFrequency> appPreferences(Ref ref) {
-  final db = ref.watch(databaseProvider);
-  return db.settingsDao.watchSettings().map(
-    (AppSetting settings) =>
-        UpdateFrequency.fromStorage(settings.updateFrequency),
-  );
+UpdateFrequency appPreferences(Ref ref) {
+  final prefs = ref.watch(preferencesServiceProvider);
+  final raw = prefs.getString(PrefKeys.updateFrequency);
+  return UpdateFrequency.fromStorage(raw ?? 'daily');
 }
 
 @riverpod
@@ -45,20 +44,22 @@ class UpdateFrequencyMutation extends _$UpdateFrequencyMutation {
   Future<void> setUpdateFrequency(UpdateFrequency newFrequency) async {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
-      await ref
-          .read(databaseProvider)
-          .settingsDao
-          .updateSyncFrequency(newFrequency.storageValue);
+      final prefs = ref.read(preferencesServiceProvider);
+      await prefs.setString(
+        PrefKeys.updateFrequency,
+        newFrequency.storageValue,
+      );
+      ref.invalidate(appPreferencesProvider);
     });
   }
 }
 
+// --- Haptic Feedback ---
+
 @riverpod
-Stream<bool> hapticSettings(Ref ref) {
-  final db = ref.watch(databaseProvider);
-  return db.settingsDao.watchSettings().map(
-    (AppSetting settings) => settings.hapticFeedbackEnabled,
-  );
+bool hapticSettings(Ref ref) {
+  final prefs = ref.watch(preferencesServiceProvider);
+  return prefs.getBool(PrefKeys.hapticEnabled) ?? true;
 }
 
 @riverpod
@@ -69,29 +70,20 @@ class HapticMutation extends _$HapticMutation {
   Future<void> setEnabled({required bool enabled}) async {
     state = const AsyncValue<void>.loading();
     state = await AsyncValue.guard(() async {
-      await ref
-          .read(databaseProvider)
-          .settingsDao
-          .updateHapticFeedback(enabled: enabled);
+      final prefs = ref.read(preferencesServiceProvider);
+      await prefs.setBool(PrefKeys.hapticEnabled, enabled);
+      ref.invalidate(hapticSettingsProvider);
     });
   }
 }
 
-@riverpod
-Stream<SortingPreference> sortingPreference(Ref ref) {
-  final db = ref.watch(databaseProvider);
-  return db.settingsDao.watchSettings().map(
-    (AppSetting settings) =>
-        SortingPreference.fromStorage(settings.preferredSorting),
-  );
-}
+// --- Sorting Preference ---
 
 @riverpod
-Stream<int> scanHistoryLimit(Ref ref) {
-  final db = ref.watch(databaseProvider);
-  return db.settingsDao.watchSettings().map(
-    (AppSetting settings) => settings.scanHistoryLimit,
-  );
+SortingPreference sortingPreference(Ref ref) {
+  final prefs = ref.watch(preferencesServiceProvider);
+  final raw = prefs.getString(PrefKeys.preferredSorting);
+  return SortingPreference.fromStorage(raw ?? 'princeps');
 }
 
 @riverpod
@@ -102,10 +94,17 @@ class SortingPreferenceMutation extends _$SortingPreferenceMutation {
   Future<void> setSortingPreference(SortingPreference pref) async {
     state = const AsyncValue<void>.loading();
     state = await AsyncValue.guard(() async {
-      await ref
-          .read(databaseProvider)
-          .settingsDao
-          .updatePreferredSorting(pref.storageValue);
+      final prefs = ref.read(preferencesServiceProvider);
+      await prefs.setString(PrefKeys.preferredSorting, pref.storageValue);
+      ref.invalidate(sortingPreferenceProvider);
     });
   }
+}
+
+// --- Scan History Limit ---
+
+@riverpod
+int scanHistoryLimit(Ref ref) {
+  final prefs = ref.watch(preferencesServiceProvider);
+  return prefs.getInt(PrefKeys.scanHistoryLimit) ?? 100;
 }

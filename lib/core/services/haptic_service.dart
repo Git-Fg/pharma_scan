@@ -8,12 +8,7 @@ part 'haptic_service.g.dart';
 
 @Riverpod(keepAlive: true)
 HapticService hapticService(Ref ref) {
-  final enabled = ref
-      .watch(hapticSettingsProvider)
-      .maybeWhen(
-        data: (value) => value,
-        orElse: () => true,
-      );
+  final enabled = ref.watch(hapticSettingsProvider);
   return HapticService(enabled: enabled);
 }
 

@@ -48,9 +48,7 @@ void main() {
         final testClusterId = clusters.first.clusterId;
 
         // Update settings to bypass initialization
-        await db.settingsDao.updateBdpmVersion(
-          DataInitializationService.dataVersion,
-        );
+        // Note: settingsDao doesn't exist in the schema, initialization bypass handled by mock
 
         final mockDataInit = MockDataInitializationService();
         when(
@@ -79,9 +77,7 @@ void main() {
             syncControllerProvider.overrideWith(_FakeSyncController.new),
             appRouterProvider.overrideWithValue(router),
             appPreferencesProvider.overrideWithValue(
-              const AsyncData(
-                UpdateFrequency.daily,
-              ),
+              UpdateFrequency.daily,
             ),
             initializationStepProvider.overrideWith(
               (ref) => Stream<InitializationStep>.value(

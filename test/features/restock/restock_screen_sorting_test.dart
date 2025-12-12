@@ -15,8 +15,9 @@ class _StaticRestockNotifier extends RestockNotifier {
   final List<RestockItemEntity> items;
 
   @override
-  Stream<List<RestockItemEntity>> build() =>
-      Stream<List<RestockItemEntity>>.value(items);
+  Stream<List<RestockItemEntity>> build() {
+    return Stream.value(items);
+  }
 }
 
 void main() {
@@ -33,8 +34,9 @@ void main() {
               () => _StaticRestockNotifier(items),
             ),
             sortingPreferenceProvider.overrideWith(
-              (ref) => Stream<SortingPreference>.value(preference),
+              (ref) => preference,
             ),
+            hapticSettingsProvider.overrideWith((ref) => false),
           ],
           child: ShadApp.custom(
             theme: ShadThemeData(

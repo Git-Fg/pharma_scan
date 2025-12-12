@@ -8,7 +8,10 @@
     "build:db": "bun run src/index.ts && sqlite3 data/reference.db \".schema\" > data/schema.sql",
     "tool": "bun run tool/export_preview.ts && bun run tool/audit_data.ts",
     "preflight": "bun test && bun run build:db && bun run tool",
-    "preflight:bp": "bun run build:db && bun run tool"
+    "preflight:bp": "bun run build:db && bun run tool",
+    "sync": "bun run tool/sync.ts",
+    "update-db": "bun run tool/release.ts",
+    "update-db-force": "bun run tool/release.ts --force"
   },
   "devDependencies": {
     "@types/bun": "latest"

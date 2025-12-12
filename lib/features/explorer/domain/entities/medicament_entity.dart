@@ -1,4 +1,4 @@
-import 'package:pharma_scan/core/database/models/medicament_summary_data.dart';
+import 'package:pharma_scan/core/database/dbschema.drift.dart';
 import 'package:pharma_scan/core/domain/types/ids.dart';
 
 /// Extension Type wrapping [MedicamentSummaryData] to decouple UI from database schema.
@@ -61,4 +61,38 @@ extension type MedicamentEntity(
   /// True when the medication is not marketed.
   bool get isNotMarketed =>
       data.status?.toLowerCase().contains('non commercialis') ?? false;
+
+  // ============================================================================
+  // Normalized Text Properties (Non-Nullable)
+  // ============================================================================
+
+  /// Pharmaceutical form (normalized to non-empty string)
+  String get formePharmaceutique => data.formePharmaceutique ?? '';
+
+  /// Administration routes (normalized to non-empty string)
+  String get voiesAdministration => data.voiesAdministration ?? '';
+
+  /// Prescription conditions (normalized to non-empty string)
+  String get conditionsPrescription => data.conditionsPrescription ?? '';
+
+  /// Formatted dosage (normalized to non-empty string)
+  String get formattedDosage => data.formattedDosage ?? '';
+
+  /// ATC code (normalized to non-empty string)
+  String get atcCode => data.atcCode ?? '';
+
+  /// Medicament status (normalized to non-empty string)
+  String get status => data.status ?? '';
+
+  /// Aggregated conditions (normalized to non-empty string)
+  String get aggregatedConditions => data.aggregatedConditions ?? '';
+
+  /// ANSM alert URL (normalized to non-empty string)
+  String get ansmAlertUrl => data.ansmAlertUrl ?? '';
+
+  /// Procedure type (normalized to non-empty string)
+  String get procedureType => data.procedureType ?? '';
+
+  /// AMM date (normalized to non-empty string)
+  String get dateAmm => data.dateAmm ?? '';
 }

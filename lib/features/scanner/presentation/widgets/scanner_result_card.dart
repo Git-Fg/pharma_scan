@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:diacritic/diacritic.dart';
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
@@ -69,7 +71,9 @@ class ScannerResultCard extends StatelessWidget {
         summary.data.princepsDeReference.isNotEmpty &&
         summary.data.princepsDeReference != 'Inconnu';
 
-    final commercializationStatus = boxStatus ?? summary.data.status;
+    final commercializationStatus = boxStatus?.isNotEmpty ?? false
+        ? boxStatus
+        : summary.status;
 
     // Use princepsBrandName from DB if available
     final displayTitle = isGenericWithPrinceps
@@ -97,7 +101,7 @@ class ScannerResultCard extends StatelessWidget {
         summary.data.isList2 ||
         summary.data.isException ||
         summary.data.isRestricted ||
-        summary.data.isHospitalOnly ||
+        summary.data.isHospital ||
         summary.data.isDental ||
         summary.data.isSurveillance ||
         summary.data.isOtc;
@@ -107,7 +111,7 @@ class ScannerResultCard extends StatelessWidget {
       isList2: summary.data.isList2,
       isException: summary.data.isException,
       isRestricted: summary.data.isRestricted,
-      isHospitalOnly: summary.data.isHospitalOnly,
+      isHospitalOnly: summary.data.isHospital,
       isDental: summary.data.isDental,
       isSurveillance: summary.data.isSurveillance,
       isOtc: summary.data.isOtc,
@@ -349,15 +353,20 @@ class ScannerResultCard extends StatelessWidget {
     if (summary.titulaire != null && summary.titulaire!.isNotEmpty) {
       buffer.write(', ${Strings.holder} ${summary.titulaire}');
     }
-    if (summary.data.principesActifsCommuns.isNotEmpty) {
-      buffer.write(
-        ', ${Strings.activePrinciples} ${summary.data.principesActifsCommuns.take(3).join(', ')}',
-      );
+    if (summary.data.principesActifsCommuns?.isNotEmpty ?? false) {
+      final principles = summary.data.principesActifsCommuns!;
+      final principlesList = json.decode(principles) as List<dynamic>?;
+      if (principlesList != null) {
+        final activePrinciples = principlesList
+            .take(3)
+            .map((e) => e.toString())
+            .join(', ');
+        buffer.write(', ${Strings.activePrinciples} $activePrinciples');
+      }
     }
-    if (summary.data.conditionsPrescription != null &&
-        summary.data.conditionsPrescription!.isNotEmpty) {
+    if (summary.conditionsPrescription.isNotEmpty) {
       buffer.write(
-        ', ${Strings.condition} ${summary.data.conditionsPrescription}',
+        ', ${Strings.condition} ${summary.conditionsPrescription}',
       );
     }
     return buffer.toString();

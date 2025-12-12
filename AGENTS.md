@@ -24,6 +24,7 @@ You operate with **radical autonomy**: you own the stack, you run the tests, and
 - For business logic, parsing rules, and data structures, consult `docs/DOMAIN_LOGIC.md`.
 - For component usage, consult `docs/components_reference.md`.
 - For architecture, consult `docs/ARCHITECTURE.md`.
+- **Database Schema:** For complete database schema reference (tables, views, indexes), consult the `database_schema.md` artifact generated in the current session.
 - **Data Ingestion & Grouping Logic:** The primary source of truth for data processing is now in `backend_pipeline/` (TypeScript/Bun). The mobile app's `lib/core/services/ingestion/` is deprecated and should only be used for emergency offline bootstrapping.
 - **Backend Pipeline:** For ETL logic, clustering algorithms, and data transformation rules, consult `backend_pipeline/README.md` and source files in `backend_pipeline/src/`.
 </context_library>
@@ -89,6 +90,8 @@ When investigating data quality, parsing logic, or search ranking:
 - **No Boilerplate:** Use `flutter_hooks` for controllers. Use Dart Records for internal return types.
 - **Build Runner:** Never edit `*.g.dart`, `*.mapper.dart`, `*.drift.dart`. Regenerate them.
 - **Testing:** Do not use `mockito`. Use `mocktail`.
+
+You must ALWAYS keep the rules up to date, but only modify and read them from the .rulesync folder. 
 </constraints>
 
 <final_instruction>

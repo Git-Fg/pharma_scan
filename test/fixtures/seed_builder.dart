@@ -19,7 +19,6 @@ class SeedBuilder {
   final List<Map<String, dynamic>> _laboratories = [];
   final Map<String, int> _labIds = {};
   String? _currentClusterId;
-  final int _cisCounter = 1;
   int _labIdCounter = 1;
 
   /// WHY: Context switching method to link subsequent medications to a cluster.

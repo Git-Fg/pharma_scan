@@ -16,6 +16,7 @@ import 'package:pharma_scan/features/home/providers/sync_provider.dart';
 import 'package:pharma_scan/features/home/viewmodels/activity_banner_viewmodel.dart';
 import 'package:pharma_scan/features/home/widgets/unified_activity_banner.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
+import 'package:workmanager/workmanager.dart';
 
 @RoutePage()
 class MainScreen extends HookConsumerWidget {
@@ -33,6 +34,19 @@ class MainScreen extends HookConsumerWidget {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         unawaited(
           ref.read(syncControllerProvider.notifier).startSync(),
+        );
+
+        // Register periodic sync task
+        Workmanager().registerPeriodicTask(
+          'weeklyDatabaseUpdate',
+          'weeklyDatabaseUpdate',
+          frequency: const Duration(days: 7),
+          constraints: Constraints(
+            networkType: NetworkType.connected,
+            requiresCharging: true,
+            requiresBatteryNotLow: true,
+          ),
+          existingWorkPolicy: ExistingPeriodicWorkPolicy.replace,
         );
       });
       return null;

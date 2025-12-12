@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:pharma_scan/core/database/daos/catalog_dao.drift.dart';
 import 'package:pharma_scan/core/database/database.dart';
-import 'package:pharma_scan/core/database/models/medicament_summary_data.dart';
+import 'package:pharma_scan/core/database/dbschema.drift.dart';
 import 'package:pharma_scan/core/database/views.drift.dart';
 import 'package:pharma_scan/core/domain/types/ids.dart';
 import 'package:pharma_scan/core/domain/types/semantic_types.dart';
@@ -144,7 +144,7 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with $CatalogDaoMixin {
 
     // Build MedicamentSummaryData from the single query result
     // Since medicament_summary is the source of truth, we always have data here
-    final summary = MedicamentSummaryData.fromQueryRow(row);
+    final summary = _mapQueryRowToMedicamentSummary(row);
 
     final result = ScanResult(
       summary: MedicamentEntity.fromData(summary, labName: labName),
@@ -155,7 +155,7 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with $CatalogDaoMixin {
         boxStatus: commercialisationStatut,
         availabilityStatus: availabilityStatut,
         isHospitalOnly:
-            summary.isHospitalOnly ||
+            summary.isHospital ||
             _isHospitalOnly(
               agrementCollectivites,
               prixPublic,
@@ -180,6 +180,56 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with $CatalogDaoMixin {
     final hasPrice = price != null && price > 0;
     final hasRefund = refundRate != null && refundRate.trim().isNotEmpty;
     return isAgreed && !hasPrice && hasRefund;
+  }
+
+  /// Maps a QueryRow to the Drift-generated MedicamentSummaryData class
+  MedicamentSummaryData _mapQueryRowToMedicamentSummary(QueryRow row) {
+    // Parse JSON data from the principes_actifs_communs field
+    final principesJson = row.readNullable<String>('principes_actifs_communs');
+    final principesActifsCommuns = principesJson != null && principesJson.isNotEmpty
+        ? principesJson
+        : null;
+
+    return MedicamentSummaryData(
+      cisCode: row.read<String>('cis_code'),
+      nomCanonique: row.read<String>('nom_canonique'),
+      princepsDeReference: row.read<String>('princeps_de_reference'),
+      isPrinceps: row.read<bool>('is_princeps'),
+      clusterId: row.readNullable<String>('cluster_id'),
+      groupId: row.readNullable<String>('group_id'),
+      principesActifsCommuns: principesActifsCommuns,
+      formattedDosage: row.readNullable<String>('formatted_dosage'),
+      formePharmaceutique: row.readNullable<String>('forme_pharmaceutique'),
+      voiesAdministration: row.readNullable<String>('voies_administration'),
+      memberType: row.read<int>('member_type'),
+      princepsBrandName: row.read<String>('princeps_brand_name'),
+      procedureType: row.readNullable<String>('procedure_type'),
+      titulaireId: row.readNullable<int>('titulaire_id'),
+      conditionsPrescription: row.readNullable<String>('conditions_prescription'),
+      dateAmm: row.readNullable<String>('date_amm'),
+      isSurveillance: row.read<bool>('is_surveillance'),
+      atcCode: row.readNullable<String>('atc_code'),
+      status: row.readNullable<String>('status'),
+      priceMin: row.readNullable<double>('price_min'),
+      priceMax: row.readNullable<double>('price_max'),
+      aggregatedConditions: row.readNullable<String>('aggregated_conditions'),
+      ansmAlertUrl: row.readNullable<String>('ansm_alert_url'),
+      isHospital: row.read<bool>('is_hospital'),
+      isDental: row.read<bool>('is_dental'),
+      isList1: row.read<bool>('is_list1'),
+      isList2: row.read<bool>('is_list2'),
+      isNarcotic: row.read<bool>('is_narcotic'),
+      isException: row.read<bool>('is_exception'),
+      isRestricted: row.read<bool>('is_restricted'),
+      isOtc: row.read<bool>('is_otc'),
+      smrNiveau: row.readNullable<String>('smr_niveau'),
+      smrDate: row.readNullable<String>('smr_date'),
+      asmrNiveau: row.readNullable<String>('asmr_niveau'),
+      asmrDate: row.readNullable<String>('asmr_date'),
+      urlNotice: row.readNullable<String>('url_notice'),
+      hasSafetyAlert: row.readNullable<bool>('has_safety_alert'),
+      representativeCip: row.readNullable<String>('representative_cip'),
+    );
   }
 
   // ============================================================================
@@ -230,7 +280,7 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with $CatalogDaoMixin {
     ).get();
 
     return queryResults.map((row) {
-      final summary = MedicamentSummaryData.fromQueryRow(row);
+      final summary = _mapQueryRowToMedicamentSummary(row);
       final labName = row.readNullable<String>('lab_name');
       return MedicamentEntity.fromData(summary, labName: labName);
     }).toList();
@@ -277,7 +327,7 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with $CatalogDaoMixin {
       readsFrom: {},
     ).watch().map(
       (rows) => rows.map((row) {
-        final summary = MedicamentSummaryData.fromQueryRow(row);
+        final summary = _mapQueryRowToMedicamentSummary(row);
         final labName = row.readNullable<String>('lab_name');
         return MedicamentEntity.fromData(summary, labName: labName);
       }).toList(),
@@ -703,8 +753,8 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with $CatalogDaoMixin {
       '''
       SELECT
         vel.cluster_id,
-        vel.cluster_name AS title,
-        vel.cluster_princeps AS subtitle,
+        vel.title,
+        vel.subtitle,
         vel.secondary_princeps,
         vel.is_narcotic,
         vel.variant_count,
@@ -733,14 +783,20 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with $CatalogDaoMixin {
           final clusterId = row.read<String>('cluster_id');
           if (clusterId.isEmpty) return null;
 
-          final princepsReference = row.read<String>('subtitle');
-          final commonPrincipes = row.read<String>('principes_actifs_communs');
+          final princepsReference = row.readNullable<String>('subtitle');
+          final commonPrincipes = row.readNullable<String>(
+            'principes_actifs_communs',
+          );
 
-          if (commonPrincipes.trim().isEmpty || princepsReference.isEmpty) {
+          if (commonPrincipes == null ||
+              commonPrincipes.trim().isEmpty ||
+              princepsReference == null ||
+              princepsReference.isEmpty) {
             return null;
           }
 
-          final princepsCisCodeRaw = row.read<String>('representative_cis');
+          final princepsCisCodeRaw =
+              row.readNullable<String>('representative_cis') ?? '';
           final princepsCisCode = princepsCisCodeRaw.isNotEmpty
               ? (princepsCisCodeRaw.length == 8
                     ? CisCode.validated(princepsCisCodeRaw)

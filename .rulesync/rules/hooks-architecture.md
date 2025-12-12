@@ -1,0 +1,38 @@
+---
+targets:
+  - '*'
+root: false
+description: Custom hook standards for Flutter Hooks (2025)
+globs: []
+cursor:
+  alwaysApply: false
+  description: Custom hook standards for Flutter Hooks (2025)
+---
+# Hooks Architecture (2025 Standard)
+
+## Extraction Mandate
+
+- If hook setup inside `build` (controllers, focus, effects, animations) exceeds ~20 lines, extract it into a custom hook to keep widgets declarative.
+
+## Return Types
+
+- Custom hooks MUST return Dart 3 **named records** (e.g., `({TextEditingController controller, FocusNode focusNode})`). Avoid tuples, classes, or positional records for hook results.
+
+## State Separation
+
+- Hooks handle ephemeral UI-only state (text input, focus, scroll, animations).
+- Do NOT orchestrate Riverpod state inside hook effects. If a hook needs to trigger provider writes, accept a callback and invoke it; keep provider logic in Notifiers.
+
+## Lifecycle Hygiene
+
+- Let hooks own their resources (controllers, focus nodes, timers). No manual `dispose` in widgets using the hook.
+- When adding listeners, return a disposer from `useEffect` to clean up timers/listeners.
+
+## Composability Patterns
+
+- Prefer `useMemoized` for expensive factories inside hooks.
+- For debounced inputs, expose both the controller and a debounced `ValueListenable`/`ValueNotifier` via a named record.
+
+## Testing Guidance
+
+- Keep hook logic deterministic (avoid global time/state). Inject durations and callbacks so hooks are easy to unit-test with fake timers.

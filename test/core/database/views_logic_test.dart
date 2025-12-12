@@ -1,12 +1,12 @@
 // test/core/database/views_logic_test.dart
 // Test file uses SQL-first approach for medicament_summary inserts
 
-import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pharma_scan/core/database/database.dart';
 
 import '../../fixtures/seed_builder.dart';
+import '../../helpers/db_loader.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -58,7 +58,6 @@ void main() {
             labName: 'LAB_LIST1',
             isPrinceps: true,
             isList1: true,
-            isNarcotic: false,
           )
           .inGroup('GROUP_NORMAL', 'PARACETAMOL 500 mg')
           .addPrinceps(
@@ -68,7 +67,6 @@ void main() {
             dosage: '500',
             form: 'Comprimé',
             lab: 'LAB_NORMAL',
-            isNarcotic: false,
           )
           .insertInto(database);
 
@@ -130,7 +128,6 @@ void main() {
             formePharmaceutique: 'Comprimé',
             labName: 'LAB_NORMAL',
             isPrinceps: true,
-            isHospital: false,
           )
           .insertInto(database);
 
@@ -178,7 +175,6 @@ void main() {
             labName: 'LAB_LIST1',
             isPrinceps: true,
             isList1: true,
-            isList2: false,
           )
           .insertInto(database);
 
@@ -214,8 +210,8 @@ void main() {
             formePharmaceutique: 'Comprimé',
             labName: 'LAB_PRINCEPS',
             isPrinceps: true,
-            priceMin: 12.0,
-            priceMax: 12.0,
+            priceMin: 12,
+            priceMax: 12,
           )
           .addMedication(
             cisCode: 'CIS_G1',
@@ -226,9 +222,8 @@ void main() {
             formattedDosage: '500',
             formePharmaceutique: 'Comprimé',
             labName: 'LAB_GENERIC1',
-            isPrinceps: false,
-            priceMin: 5.0,
-            priceMax: 5.0,
+            priceMin: 5,
+            priceMax: 5,
           )
           .addMedication(
             cisCode: 'CIS_G2',
@@ -239,9 +234,8 @@ void main() {
             formattedDosage: '500',
             formePharmaceutique: 'Comprimé',
             labName: 'LAB_GENERIC2',
-            isPrinceps: false,
-            priceMin: 10.0,
-            priceMax: 10.0,
+            priceMin: 10,
+            priceMax: 10,
           )
           .insertInto(database);
 
@@ -284,7 +278,6 @@ void main() {
               formePharmaceutique: 'Comprimé',
               labName: 'LAB_NORMAL',
               isPrinceps: true,
-              isSurveillance: false,
             )
             .insertInto(database);
 
@@ -320,7 +313,6 @@ void main() {
               dosage: '500',
               form: 'Comprimé',
               lab: 'LAB_OTC',
-              isOtc: true,
             )
             .inGroup('GROUP_RESTRICTED', 'CODEINE 30 mg')
             .addPrinceps(

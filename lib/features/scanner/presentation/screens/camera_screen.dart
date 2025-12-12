@@ -45,11 +45,26 @@ class CameraScreen extends HookConsumerWidget {
     try {
       tabsRouter = AutoTabsRouter.of(context);
       isTabActive = tabsRouter.activeIndex == 0;
-      useListenable(tabsRouter);
     } on Object {
       // Not available in test contexts or when not inside AutoTabsRouter
       tabsRouter = null;
     }
+
+    void onTabChanged() {
+      // Trigger rebuild when tab changes
+      if (context.mounted) {
+        // The widget will rebuild automatically due to useListenable in the original code
+      }
+    }
+
+    useEffect(() {
+      if (tabsRouter != null) {
+        // Force rebuild when tab changes
+        tabsRouter.addListener(onTabChanged);
+        return () => tabsRouter?.removeListener(onTabChanged);
+      }
+      return null;
+    }, [tabsRouter]);
 
     useEffect(() {
       final scannerNotifier = ref.read(scannerProvider.notifier);

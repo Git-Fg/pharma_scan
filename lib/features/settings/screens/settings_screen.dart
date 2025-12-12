@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:gap/gap.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:pharma_scan/core/models/update_frequency.dart';
 import 'package:pharma_scan/core/providers/core_providers.dart';
 import 'package:pharma_scan/core/providers/preferences_provider.dart';
@@ -28,11 +29,19 @@ class SettingsScreen extends HookConsumerWidget {
 
     final themeState = ref.watch(themeProvider);
     final frequencyState = ref.watch(appPreferencesProvider);
+    final packageInfoState = useState<PackageInfo?>(null);
+
+    useEffect(() {
+      PackageInfo.fromPlatform().then((info) {
+        packageInfoState.value = info;
+      });
+      return null;
+    }, []);
+
     final hapticSettingsState = ref.watch(hapticSettingsProvider);
     final sortingState = ref.watch(sortingPreferenceProvider);
     final databaseStats = ref.watch(databaseStatsProvider);
-    final lastSync = ref.watch(lastSyncEpochStreamProvider);
-    final lastSyncEpoch = lastSync.asData?.value;
+    final lastSyncEpoch = ref.watch(lastSyncEpochProvider);
     final syncDate = lastSyncEpoch != null
         ? DateTime.fromMillisecondsSinceEpoch(lastSyncEpoch)
         : null;
@@ -55,7 +64,7 @@ class SettingsScreen extends HookConsumerWidget {
             : Strings.dataFresh,
       ),
     };
-    final isFrequencyLoading = frequencyState.isLoading;
+    const isFrequencyLoading = false;
     final isResetting = useState(false);
     final isCheckingUpdates = useState(false);
 
@@ -90,34 +99,18 @@ class SettingsScreen extends HookConsumerWidget {
         );
       });
 
-    final themeModeValue = themeState.maybeWhen(
-      data: (mode) => mode,
-      orElse: () => null,
-    );
-    final selectedFrequency = frequencyState.maybeWhen(
-      data: (freq) => freq,
-      orElse: () => null,
-    );
-    final hapticEnabled = hapticSettingsState.maybeWhen(
-      data: (enabled) => enabled,
-      orElse: () => true,
-    );
-    final sortingPreference = sortingState.maybeWhen<SortingPreference>(
-      data: (SortingPreference pref) => pref,
-      orElse: () => SortingPreference.princeps,
-    );
+    final themeModeValue = themeState;
+    final selectedFrequency = frequencyState;
+    final hapticEnabled = hapticSettingsState;
+    final sortingPreference = sortingState;
 
     useEffect(() {
-      if (themeModeValue != null) {
-        themeController.value = themeSettingFromThemeMode(themeModeValue);
-      }
+      themeController.value = themeSettingFromThemeMode(themeModeValue);
       return null;
     }, [themeModeValue]);
 
     useEffect(() {
-      if (selectedFrequency != null) {
-        frequencyController.value = selectedFrequency;
-      }
+      frequencyController.value = selectedFrequency;
       return null;
     }, [selectedFrequency]);
 
@@ -462,7 +455,6 @@ class SettingsScreen extends HookConsumerWidget {
                         key: ValueKey('frequency_$selectedFrequency'),
                         initialValue: selectedFrequency,
                         placeholder: const Text(Strings.syncFrequencyLabel),
-                        enabled: !isFrequencyLoading,
                         selectedOptionBuilder: (context, value) {
                           final (label, icon) = switch (value) {
                             UpdateFrequency.none => (
@@ -586,17 +578,23 @@ class SettingsScreen extends HookConsumerWidget {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Text(
-                                    isCheckingUpdates.value
-                                        ? Strings.checkingUpdatesInProgress
-                                        : Strings.checkUpdatesNow,
+                                  Flexible(
+                                    child: Text(
+                                      isCheckingUpdates.value
+                                          ? Strings.checkingUpdatesInProgress
+                                          : Strings.checkUpdatesNow,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                   ),
                                   const Gap(4),
-                                  Text(
-                                    isCheckingUpdates.value
-                                        ? Strings.pleaseWaitSync
-                                        : Strings.checkUpdatesTitle,
-                                    style: context.shadTextTheme.small,
+                                  Flexible(
+                                    child: Text(
+                                      isCheckingUpdates.value
+                                          ? Strings.pleaseWaitSync
+                                          : Strings.checkUpdatesTitle,
+                                      style: context.shadTextTheme.small,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -618,11 +616,19 @@ class SettingsScreen extends HookConsumerWidget {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  const Text(Strings.forceReset),
+                                  const Flexible(
+                                    child: Text(
+                                      Strings.forceReset,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
                                   const Gap(4),
-                                  Text(
-                                    Strings.forceResetDescription,
-                                    style: context.shadTextTheme.small,
+                                  Flexible(
+                                    child: Text(
+                                      Strings.forceResetDescription,
+                                      style: context.shadTextTheme.small,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -699,6 +705,30 @@ class SettingsScreen extends HookConsumerWidget {
                       loading: () => const SizedBox.shrink(),
                       error: (error, _) => const SizedBox.shrink(),
                     ),
+                    const Gap(AppDimens.spacingMd),
+                    if (packageInfoState.value != null)
+                      ShadCard(
+                        title: const Text(Strings.appInfo),
+                        description: const Text(Strings.appInfoDescription),
+                        child: Column(
+                          children: [
+                            _AppInfoItem(
+                              label: Strings.version,
+                              value: packageInfoState.value!.version,
+                            ),
+                            const Gap(AppDimens.spacingSm),
+                            _AppInfoItem(
+                              label: Strings.buildNumber,
+                              value: packageInfoState.value!.buildNumber,
+                            ),
+                            const Gap(AppDimens.spacingSm),
+                            _AppInfoItem(
+                              label: Strings.packageName,
+                              value: packageInfoState.value!.packageName,
+                            ),
+                          ],
+                        ),
+                      ),
                     const Gap(AppDimens.spacingXl),
                   ],
                 ),
@@ -806,6 +836,42 @@ class _StatsItem extends StatelessWidget {
             color: theme.colorScheme.mutedForeground,
           ),
           textAlign: TextAlign.center,
+        ),
+      ],
+    );
+  }
+}
+
+class _AppInfoItem extends StatelessWidget {
+  const _AppInfoItem({
+    required this.label,
+    required this.value,
+  });
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Flexible(
+          child: Text(
+            label,
+            style: context.shadTextTheme.muted,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        const Gap(AppDimens.spacingSm),
+        Flexible(
+          child: Text(
+            value,
+            style: context.shadTextTheme.small,
+            textAlign: TextAlign.end,
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
       ],
     );

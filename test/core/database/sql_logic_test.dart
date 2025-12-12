@@ -4,6 +4,7 @@ import 'package:drift/drift.dart' hide isNotNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pharma_scan/core/database/database.dart';
+import '../../helpers/db_loader.dart';
 
 /// Simplified test helper for medicament_summary.
 /// In production, medicament_summary is pre-populated by the backend pipeline.
@@ -126,7 +127,8 @@ void main() {
         princepsDeReference: 'Stupefiant',
         isPrinceps: true,
         isNarcotic: 1,
-        isList1: 0, // ignore: avoid_redundant_argument_values
+        isList1:
+            0, // ignore: avoid_redundant_argument_values // Explicitly set to 0 for clarity in test data
       );
       await _insertSummaryRow(
         database,

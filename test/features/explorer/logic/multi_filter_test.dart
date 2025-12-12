@@ -1,14 +1,14 @@
-// ignore_for_file: undefined_identifier
-// Test file uses generated companion types from Drift
+// Test file uses SeedBuilder pattern for reliable database setup
 
-import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pharma_scan/core/database/database.dart';
-import 'package:pharma_scan/core/database/queries.drift.dart';
 import 'package:pharma_scan/core/domain/types/semantic_types.dart';
 import 'package:pharma_scan/features/explorer/domain/models/explorer_enums.dart';
 import 'package:pharma_scan/features/explorer/domain/models/search_filters_model.dart';
+
+import '../../../fixtures/seed_builder.dart';
+import '../../../helpers/db_loader.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -21,88 +21,48 @@ void main() {
         NativeDatabase.memory(setup: configureAppSQLite),
       );
 
-      Future<void> seed({
-        required String cis,
-        required String codeCip,
-        required String name,
-        required String route,
-        required String atc,
-      }) async {
-        await db
-            .into(db.specialites)
-            .insert(
-              SpecialitesCompanion.insert(
-                cisCode: cis,
-                nomSpecialite: name,
-                procedureType: 'AMM',
-                voiesAdministration: Value(route),
-                atcCode: Value(atc),
-              ),
-            );
-        await db
-            .into(db.medicaments)
-            .insert(
-              MedicamentsCompanion.insert(
-                codeCip: codeCip,
-                cisCode: cis,
-              ),
-            );
-        await db
-            .into(db.medicamentSummary)
-            .insert(
-              MedicamentSummaryCompanion.insert(
-                cisCode: cis,
-                nomCanonique: name,
-                isPrinceps: true,
-                groupId: const Value<String?>(null),
-                memberType: const Value(0),
-                principesActifsCommuns: const [],
-                princepsDeReference: name,
-                princepsBrandName: name,
-                voiesAdministration: Value(route),
-                atcCode: Value(atc),
-                isHospital: const Value(false),
-                isDental: const Value(false),
-                isList1: const Value(false),
-                isList2: const Value(false),
-                isNarcotic: const Value(false),
-                isException: const Value(false),
-                isRestricted: const Value(false),
-                isOtc: const Value(true),
-              ),
-            );
-        await db
-            .into(db.searchIndex)
-            .insert(
-              SearchIndexCompanion.insert(
-                cisCode: cis,
-                moleculeName: name.toLowerCase(),
-                brandName: name.toLowerCase(),
-              ),
-            );
-      }
-
-      await seed(
-        cis: 'A',
-        codeCip: '111',
-        name: 'Item A',
-        route: 'Orale',
-        atc: 'A01',
-      );
-      await seed(
-        cis: 'B',
-        codeCip: '222',
-        name: 'Item B',
-        route: 'Orale',
-        atc: 'B02',
-      );
-      await seed(
-        cis: 'C',
-        codeCip: '333',
-        name: 'Item C',
-        route: 'Injectable',
-        atc: 'A01',
-      );
+      // Seed test data using SeedBuilder pattern (same as working tests)
+      await SeedBuilder()
+          .addMedication(
+            cisCode: 'A',
+            nomCanonique: 'Item A',
+            princepsDeReference: 'Item A',
+            cipCode: '111',
+            groupId: 'GROUP_A',
+            formattedDosage: '500 mg',
+            formePharmaceutique: 'comprimé',
+            voiesAdministration: 'Orale',
+            atcCode: 'A01',
+            isPrinceps: true,
+            principesActifsCommuns: '["PARACETAMOL"]',
+          )
+          .addMedication(
+            cisCode: 'B',
+            nomCanonique: 'Item B',
+            princepsDeReference: 'Item B',
+            cipCode: '222',
+            groupId: 'GROUP_B',
+            formattedDosage: '250 mg',
+            formePharmaceutique: 'comprimé',
+            voiesAdministration: 'Orale',
+            atcCode: 'B02',
+            isPrinceps: true,
+            principesActifsCommuns: '["IBUPROFEN"]',
+          )
+          .addMedication(
+            cisCode: 'C',
+            nomCanonique: 'Item C',
+            princepsDeReference: 'Item C',
+            cipCode: '333',
+            groupId: 'GROUP_C',
+            formattedDosage: '5 mg',
+            formePharmaceutique: 'solution injectable',
+            voiesAdministration: 'Injectable',
+            atcCode: 'A01',
+            isPrinceps: true,
+            principesActifsCommuns: '["MORPHINE"]',
+          )
+          .insertInto(db);
     });
 
     tearDown(() async {

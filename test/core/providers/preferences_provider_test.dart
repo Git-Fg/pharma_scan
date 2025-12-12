@@ -1,26 +1,26 @@
-import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/models/update_frequency.dart';
-import 'package:pharma_scan/core/providers/core_providers.dart';
 import 'package:pharma_scan/core/providers/preferences_provider.dart';
+import 'package:pharma_scan/core/services/preferences_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('PreferencesProvider', () {
-    late AppDatabase database;
     late ProviderContainer container;
+    late PreferencesService preferencesService;
 
     setUp(() async {
-      database = AppDatabase.forTesting(
-        NativeDatabase.memory(setup: configureAppSQLite),
-      );
+      // Set up mock SharedPreferences with default values
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      preferencesService = PreferencesService(prefs);
 
       container = ProviderContainer(
         overrides: [
-          databaseProvider.overrideWithValue(database),
+          preferencesServiceProvider.overrideWithValue(preferencesService),
         ],
       );
     });
@@ -29,11 +29,8 @@ void main() {
       container.dispose();
     });
 
-    test('AppPreferences emits default UpdateFrequency', () async {
-      await database.settingsDao.getSettings();
-      final sub = container.listen(appPreferencesProvider, (prev, next) {});
-      final frequency = await container.read(appPreferencesProvider.future);
-      sub.close();
+    test('AppPreferences returns default UpdateFrequency', () {
+      final frequency = container.read(appPreferencesProvider);
 
       expect(frequency, isA<UpdateFrequency>());
       expect(frequency, equals(UpdateFrequency.daily));
@@ -43,20 +40,15 @@ void main() {
       final mutation = container.read(updateFrequencyMutationProvider.notifier);
       await mutation.build();
 
-      await mutation.setUpdateFrequency(UpdateFrequency.daily);
+      await mutation.setUpdateFrequency(UpdateFrequency.weekly);
 
-      final state = container.read(updateFrequencyMutationProvider);
-      expect(state.hasValue, isTrue);
-
-      final settings = await database.settingsDao.getSettings();
-      expect(settings.updateFrequency, equals('daily'));
+      // Re-read after invalidation
+      final frequency = container.read(appPreferencesProvider);
+      expect(frequency, equals(UpdateFrequency.weekly));
     });
 
-    test('hapticSettings emits default value', () async {
-      await database.settingsDao.getSettings();
-      final sub = container.listen(hapticSettingsProvider, (prev, next) {});
-      final enabled = await container.read(hapticSettingsProvider.future);
-      sub.close();
+    test('hapticSettings returns default value (true)', () {
+      final enabled = container.read(hapticSettingsProvider);
 
       expect(enabled, isA<bool>());
       expect(enabled, isTrue);
@@ -68,11 +60,27 @@ void main() {
 
       await mutation.setEnabled(enabled: false);
 
-      final state = container.read(hapticMutationProvider);
-      expect(state.hasValue, isTrue);
+      // Re-read after invalidation
+      final enabled = container.read(hapticSettingsProvider);
+      expect(enabled, isFalse);
+    });
 
-      final settings = await database.settingsDao.getSettings();
-      expect(settings.hapticFeedbackEnabled, isFalse);
+    test('sortingPreference returns default (princeps)', () {
+      final pref = container.read(sortingPreferenceProvider);
+
+      expect(pref, equals(SortingPreference.princeps));
+    });
+
+    test('SortingPreferenceMutation updates sorting', () async {
+      final mutation = container.read(
+        sortingPreferenceMutationProvider.notifier,
+      );
+      await mutation.build();
+
+      await mutation.setSortingPreference(SortingPreference.generic);
+
+      final pref = container.read(sortingPreferenceProvider);
+      expect(pref, equals(SortingPreference.generic));
     });
 
     test('SortingPreference.fromStorage parses values correctly', () {
@@ -99,6 +107,12 @@ void main() {
         SortingPreference.princeps.storageValue,
         equals('princeps'),
       );
+    });
+
+    test('scanHistoryLimit returns default (100)', () {
+      final limit = container.read(scanHistoryLimitProvider);
+
+      expect(limit, equals(100));
     });
   });
 }

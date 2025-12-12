@@ -5,6 +5,8 @@ import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/domain/types/semantic_types.dart';
 import 'package:pharma_scan/core/logic/sanitizer.dart';
 
+import '../../../helpers/db_loader.dart';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 

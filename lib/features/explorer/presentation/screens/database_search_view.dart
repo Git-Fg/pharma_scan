@@ -35,9 +35,8 @@ class DatabaseSearchView extends HookConsumerWidget {
     final debouncedQuery = useState('');
     final viewInsetsBottom = MediaQuery.viewInsetsOf(context).bottom;
     final safeBottomPadding = MediaQuery.paddingOf(context).bottom;
-    final bottomSpace = viewInsetsBottom > 0
-        ? viewInsetsBottom
-        : safeBottomPadding;
+    final bottomSpace =
+        viewInsetsBottom > 0 ? viewInsetsBottom : safeBottomPadding;
     final listBottomPadding =
         AppDimens.searchBarHeaderHeight + bottomSpace + AppDimens.spacingSm;
 
@@ -125,8 +124,7 @@ class DatabaseSearchView extends HookConsumerWidget {
             Expanded(
               child: ExplorerContentList(
                 groups: groups,
-                groupedItems:
-                    groupedData.groupedItems,
+                groupedItems: groupedData.groupedItems,
                 searchResults: searchResults,
                 hasSearchText: hasSearchText,
                 isSearching: isSearching,

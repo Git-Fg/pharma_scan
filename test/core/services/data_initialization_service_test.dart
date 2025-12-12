@@ -1,43 +1,20 @@
 import 'dart:io';
 
-import 'package:dart_either/dart_either.dart';
-import 'package:dio/dio.dart';
-import 'package:drift/drift.dart' as drift;
+import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:path/path.dart' as p;
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
-import 'package:pharma_scan/core/config/data_sources.dart';
 import 'package:pharma_scan/core/database/database.dart';
-import 'package:pharma_scan/core/errors/failures.dart';
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
 import 'package:pharma_scan/core/services/file_download_service.dart';
+import 'package:pharma_scan/core/services/preferences_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../helpers/db_loader.dart';
 import '../../test_utils.dart';
 
 class MockFileDownloadService extends Mock implements FileDownloadService {}
-
-class FakeDownloadService extends Mock implements FileDownloadService {
-  FakeDownloadService(this.root);
-
-  final Directory root;
-
-  @override
-  Future<Either<Failure, File>> downloadTextFile({
-    required String url,
-    required String fileName,
-    CancelToken? cancelToken,
-  }) async {
-    final file = File(p.join(root.path, fileName));
-    await file.writeAsString('dummy');
-    return Either.right(file);
-  }
-
-  @override
-  Future<Either<Failure, List<int>>> downloadToBytes(String url) async =>
-      const Either.right(<int>[]);
-}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -45,6 +22,7 @@ void main() {
   group('DataInitializationService', () {
     late AppDatabase database;
     late MockFileDownloadService mockDownloadService;
+    late PreferencesService preferencesService;
     late String testDataDir;
     late DataInitializationService service;
 
@@ -55,6 +33,11 @@ void main() {
 
       mockDownloadService = MockFileDownloadService();
 
+      // Mock SharedPreferences
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      preferencesService = PreferencesService(prefs);
+
       final tempDir = await Directory.systemTemp.createTemp('pharma_scan_test');
       testDataDir = tempDir.path;
       PathProviderPlatform.instance = FakePathProviderPlatform(testDataDir);
@@ -62,6 +45,7 @@ void main() {
       service = DataInitializationService(
         database: database,
         fileDownloadService: mockDownloadService,
+        preferencesService: preferencesService,
       );
     });
 
@@ -75,15 +59,22 @@ void main() {
       }
     });
 
-    // Note: applyUpdate() method was removed as part of the external DB-driven architecture
-    // The service now only downloads and decompresses pre-aggregated databases
-
     test(
       'initializeDatabase emits ready when data already matches current version',
       () async {
-        await database.settingsDao.updateBdpmVersion(
+        await preferencesService.setDbVersionTag(
           DataInitializationService.dataVersion,
         );
+
+        // Satisfy Foreign Keys by inserting dependencies
+        await database.customInsert(
+          'INSERT INTO laboratories (id, name) VALUES (?, ?)',
+          variables: [Variable.withInt(0), Variable.withString('Dummy Lab')],
+          updates: {database.laboratories},
+        );
+
+        // No FK on group_id in medicament_summary, but explicit insert is safe if needed later
+        // Skipping generic_groups insert as it seems unnecessary for FK constraints based on schema
 
         // Insert medicament_summary using raw SQL
         await database.customInsert(
@@ -96,7 +87,7 @@ void main() {
             price_min, price_max, aggregated_conditions, ansm_alert_url,
             representative_cip, is_hospital, is_dental, is_list1, is_list2,
             is_narcotic, is_exception, is_restricted, is_otc
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ''',
           variables: [
             Variable.withString('00000001'),
@@ -116,8 +107,8 @@ void main() {
             Variable.withString(''),
             Variable.withString(''),
             Variable.withString(''),
-            Variable.withReal(0.0),
-            Variable.withReal(0.0),
+            Variable.withReal(0),
+            Variable.withReal(0),
             Variable.withString('[]'),
             Variable.withString(''),
             Variable.withString(''),

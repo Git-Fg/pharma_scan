@@ -1,13 +1,14 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:meta/meta.dart';
+import 'package:dio/dio.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:pharma_scan/core/config/database_config.dart';
 import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/services/file_download_service.dart';
 import 'package:pharma_scan/core/services/logger_service.dart';
+import 'package:pharma_scan/core/services/preferences_service.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 
 enum InitializationStep { idle, downloading, ready, error }
@@ -19,13 +20,19 @@ class DataInitializationService {
   DataInitializationService({
     required AppDatabase database,
     required FileDownloadService fileDownloadService,
+    required PreferencesService preferencesService,
+    Dio? dio,
   }) : _db = database,
-       _downloadService = fileDownloadService;
+       _downloadService = fileDownloadService,
+       _prefs = preferencesService,
+       _dio = dio ?? _createDefaultDio();
 
   static const String dataVersion = 'remote-database';
 
   final AppDatabase _db;
   final FileDownloadService _downloadService;
+  final PreferencesService _prefs;
+  final Dio _dio;
   final _stepController = StreamController<InitializationStep>.broadcast();
   final _detailController = StreamController<String>.broadcast();
 
@@ -72,7 +79,7 @@ class DataInitializationService {
       await _db.checkDatabaseIntegrity();
 
       // 6. Save version tag
-      await _db.settingsDao.setDbVersionTag(dataVersion);
+      await _prefs.setDbVersionTag(dataVersion);
 
       LoggerService.info('[DataInit] Initialization complete.');
       _emit(InitializationStep.ready, Strings.initializationReady);
@@ -127,5 +134,112 @@ class DataInitializationService {
   void _emit(InitializationStep step, String detail) {
     if (!_stepController.isClosed) _stepController.add(step);
     if (!_detailController.isClosed) _detailController.add(detail);
+  }
+
+  /// Creates a default Dio instance for GitHub API calls
+  static Dio _createDefaultDio() {
+    return Dio(
+      BaseOptions(
+        connectTimeout: const Duration(seconds: 10),
+        receiveTimeout: const Duration(minutes: 5),
+      ),
+    );
+  }
+
+  /// Public method to update the database from GitHub Releases
+  ///
+  /// Returns `true` if an update was performed, `false` if no update was needed
+  /// or if the update failed. This method can be called by SyncController
+  /// or any other service that needs to trigger a database update.
+  Future<bool> updateDatabase({bool force = false}) async {
+    try {
+      LoggerService.info('[DataInit] Checking for database updates...');
+
+      // 1. Get latest release info from GitHub API
+      final response = await _dio.get<Map<String, dynamic>>(
+        DatabaseConfig.githubReleasesUrl,
+        options: Options(responseType: ResponseType.json),
+      );
+
+      if (response.statusCode != 200 || response.data == null) {
+        LoggerService.warning(
+          '[DataInit] GitHub API error: ${response.statusCode}',
+        );
+        return false;
+      }
+
+      final json = response.data!;
+      final latestTag = json['tag_name'] as String;
+
+      // 2. Find the download URL for reference.db.gz asset
+      final assets = json['assets'] as List<dynamic>;
+      final asset = assets.firstWhere(
+        (a) =>
+            (a as Map<String, dynamic>)['name'] ==
+            DatabaseConfig.compressedDbFilename,
+        orElse: () => null,
+      );
+
+      if (asset == null) {
+        LoggerService.warning(
+          '[DataInit] Asset ${DatabaseConfig.compressedDbFilename} not found in release',
+        );
+        return false;
+      }
+
+      final downloadUrl =
+          (asset as Map<String, dynamic>)['browser_download_url'] as String;
+
+      // 3. Check if update is needed
+      if (!force) {
+        final currentTag = _prefs.getDbVersionTag();
+
+        if (currentTag == latestTag) {
+          LoggerService.info(
+            '[DataInit] Database is up to date ($currentTag)',
+          );
+          return false;
+        }
+
+        LoggerService.info(
+          '[DataInit] New version available: $latestTag (current: $currentTag)',
+        );
+      }
+
+      // 4. Perform the update
+      LoggerService.info('[DataInit] Starting database update...');
+      _emit(InitializationStep.downloading, 'Mise à jour de la base...');
+
+      // Download compressed file using FileDownloadService
+      final bytesEither = await _downloadService.downloadToBytes(downloadUrl);
+      final compressedBytes = bytesEither.fold(
+        ifLeft: (f) => throw Exception('Download failed: ${f.message}'),
+        ifRight: (bytes) => bytes,
+      );
+
+      // Decompress and replace database file
+      await _decompressAndReplace(compressedBytes);
+
+      // Verify integrity
+      await _db.checkDatabaseIntegrity();
+
+      // Save the new version tag
+      await _prefs.setDbVersionTag(latestTag);
+
+      LoggerService.info('[DataInit] Database update completed successfully');
+      _emit(InitializationStep.ready, Strings.initializationReady);
+      return true;
+    } on TimeoutException catch (e) {
+      LoggerService.warning('[DataInit] Timeout during update: $e');
+      return false;
+    } on Exception catch (e, stackTrace) {
+      LoggerService.error(
+        '[DataInit] Error during database update',
+        e,
+        stackTrace,
+      );
+      _emit(InitializationStep.error, Strings.initializationError);
+      return false;
+    }
   }
 }

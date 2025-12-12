@@ -17,8 +17,14 @@ This application follows an **offline-first architecture** using:
 - **UI Framework:** Shadcn UI (Flutter)
 - **Navigation:** AutoRoute 11.0.0
 - **Data Models:** Dart Mappable
+- **Development Platform:** macOS Desktop with DevicePreview simulation
+- **Component Testing:** Widgetbook for isolated widget development
 
 The architecture prioritizes **simplicity**, **robustness**, and **performance** in a single-developer environment.
+
+**Target Platforms:** iOS, Android (developed and tested on macOS Desktop)
+
+> **Note:** See `docs/MACOS_DESKTOP_SETUP.md` for complete macOS Desktop development setup and workflow.
 
 ---
 
@@ -168,6 +174,7 @@ PharmaScan operates as a **Thin Client** regarding pharmaceutical data. It does 
 1. **Source of Truth:** The `backend_pipeline/` (TypeScript) parses ANSM files and generates a SQLite artifact (`reference.db`).
 2. **Schema Definition:** The database schema is defined in the backend (`backend_pipeline/src/db.ts`).
 3. **Synchronization:** The mobile app downloads the pre-computed `reference.db`.
+4. **Schema Documentation:** Complete schema reference available in `database_schema.md` (generated artifact).
 
 ### Schema Management (`dbschema.drift`)
 
@@ -178,6 +185,7 @@ The file `lib/core/database/dbschema.drift` is a **read-only mirror** of the bac
   1. Run `bun run build:db` in `backend_pipeline`.
   2. Run the VS Code task `sync:backend`.
   3. Drift generates the Dart code matching the new schema.
+- **Schema Reference:** For complete table structure, indexes, views, and relationships, consult `database_schema.md`.
 
 This ensures the mobile app never drifts (pun intended) from the backend structure.
 
@@ -232,21 +240,26 @@ Data-layer standards are defined in `.cursor/rules/`.
 
 ## Database Structure
 
-### 6.1 Core Tables
+### Complete Schema Reference
 
-#### `RestockItems`
+**CRITICAL:** For complete database schema documentation (all tables, views, indexes, FTS5 configuration), consult `database_schema.md` (generated artifact).
 
-- **PK:** `cip` (Text, 13 digits)
-- Stores the temporary restock list.
-- **Columns:** `quantity` (Int), `isChecked` (Bool), `addedAt` (DateTime).
-- **Note:** This table is persistent but intended for temporary workflows.
+### Mobile-Specific Tables
 
-#### `ScannedBoxes`
+#### `restock_items`
 
-- **PK:** `id` (Int, auto-increment)
-- **Unique:** (`cip`, `serialNumber`) enforcing per-box uniqueness
-- **Columns:** `cip`, `serialNumber` (nullable for legacy stock), `batchNumber`, `expiryDate`, `scannedAt`
-- **Role:** Scan journal (one row per physical box). Works with `RestockItems` for aggregated quantities; duplicates are blocked at this level, quantity overrides via `forceUpdateQuantity`.
+- **PK:** `id` (INTEGER AUTOINCREMENT)
+- Stores the temporary restock/inventory list.
+- **Key Columns:** `cis_code`, `cip_code`, `nom_canonique`, `stock_count`, `expiry_date`, `location`, `notes`
+- **Purpose:** Persistent but intended for temporary inventory workflows.
+- **Indexes:** `idx_restock_items_cis_code`, `idx_restock_items_expiry_date`
+
+#### `scanned_boxes`
+
+- **PK:** `id` (INTEGER AUTOINCREMENT)
+- **Columns:** `box_label`, `cis_code`, `cip_code`, `scan_timestamp`
+- **Role:** Scan journal (one row per scan event). Stores scan history.
+- **Indexes:** `idx_scanned_boxes_scan_timestamp`
 
 ---
 

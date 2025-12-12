@@ -23,5 +23,5 @@ extension type ScanHistoryEntry(GetScanHistoryResult _row) {
 
   String get label => _row.label;
   String? get princepsDeReference => _row.princepsDeReference;
-  bool get isPrinceps => _row.isPrinceps == 1;
+  bool get isPrinceps => _row.isPrinceps;
 }

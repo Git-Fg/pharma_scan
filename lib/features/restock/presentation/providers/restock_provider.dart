@@ -85,12 +85,8 @@ AsyncValue<Map<String, List<RestockItemEntity>>> sortedRestock(Ref ref) {
   final sortingAsync = ref.watch(sortingPreferenceProvider);
 
   return itemsAsync.when(
-    data: (items) => sortingAsync.when(
-      data: (preference) => AsyncValue.data(
-        _groupByInitial(_sortRestockItems(items, preference), preference),
-      ),
-      error: AsyncValue.error,
-      loading: AsyncValue.loading,
+    data: (items) => AsyncValue.data(
+      _groupByInitial(_sortRestockItems(items, sortingAsync), sortingAsync),
     ),
     error: AsyncValue.error,
     loading: AsyncValue.loading,

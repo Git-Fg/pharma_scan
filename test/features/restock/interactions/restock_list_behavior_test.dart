@@ -4,12 +4,14 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:pharma_scan/core/domain/types/ids.dart';
 import 'package:pharma_scan/core/providers/preferences_provider.dart';
 import 'package:pharma_scan/core/services/haptic_service.dart';
+import 'package:pharma_scan/core/services/preferences_service.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/features/restock/domain/entities/restock_item_entity.dart';
 import 'package:pharma_scan/features/restock/presentation/providers/restock_provider.dart';
 import 'package:pharma_scan/features/restock/presentation/screens/restock_screen.dart';
 import 'package:pharma_scan/features/restock/presentation/widgets/restock_list_item.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class _FakeRestockNotifier extends RestockNotifier {
   @override
@@ -103,13 +105,18 @@ void main() {
     });
 
     testWidgets('empty state shows localized message', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final preferencesService = PreferencesService(prefs);
+
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
             restockProvider.overrideWith(_FakeRestockNotifier.new),
             sortingPreferenceProvider.overrideWith(
-              (ref) => Stream.value(SortingPreference.princeps),
+              (ref) => SortingPreference.princeps,
             ),
+            preferencesServiceProvider.overrideWithValue(preferencesService),
           ],
           child: const ShadApp(
             home: RestockScreen(),

@@ -22,7 +22,7 @@ class GenericGroupsNotifier extends _$GenericGroupsNotifier {
   @override
   Future<GenericGroupsState> build() async {
     final filters = ref.watch(searchFiltersProvider);
-    ref.watch(lastSyncEpochStreamProvider);
+    ref.watch(lastSyncEpochProvider);
     return _fetchAllGroups(filters);
   }
 

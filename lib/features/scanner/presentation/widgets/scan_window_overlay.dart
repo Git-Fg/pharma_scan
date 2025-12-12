@@ -50,7 +50,7 @@ class ScanWindowOverlay extends HookConsumerWidget {
             : _ReticleState.idle;
       }
 
-      return null;
+      return () => successResetTimer.value?.cancel();
     }, [bubblesCount, isLoading]);
 
     useEffect(
@@ -111,7 +111,11 @@ class _Reticle extends HookWidget {
     final breathingController = useAnimationController(
       duration: const Duration(milliseconds: 1500),
     );
-    unawaited(breathingController.repeat(reverse: true));
+
+    useEffect(() {
+      unawaited(breathingController.repeat(reverse: true));
+      return breathingController.dispose;
+    }, []);
     final breathingScale = useAnimation(
       Tween<double>(begin: 1, end: 1.05).animate(
         CurvedAnimation(

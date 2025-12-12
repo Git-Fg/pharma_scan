@@ -1,7 +1,7 @@
 // Test file uses generated data types from Drift
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pharma_scan/core/database/models/medicament_summary_data.dart';
+import 'package:pharma_scan/core/database/dbschema.drift.dart';
 import 'package:pharma_scan/core/domain/types/ids.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/product_badges.dart';
 import 'package:pharma_scan/features/explorer/domain/entities/medicament_entity.dart';
@@ -12,18 +12,18 @@ import '../../../helpers/pump_app.dart';
 void main() {
   MedicamentEntity buildSummary() {
     return MedicamentEntity.fromData(
-      MedicamentSummaryData(
+      const MedicamentSummaryData(
         cisCode: '123456',
         nomCanonique: 'Test Médicament',
-        isPrinceps: false,
-        memberType: 1,
-        principesActifsCommuns: ['Test'],
         princepsDeReference: 'Test Princeps',
+        isPrinceps: false,
+        principesActifsCommuns: '["Test"]', // JSON string as expected by Drift
         formePharmaceutique: 'Comprimé',
+        memberType: 1,
         princepsBrandName: 'Test Brand',
         procedureType: 'Procédure',
         isSurveillance: false,
-        isHospitalOnly: false,
+        isHospital: false, // Changed from isHospitalOnly
         isDental: false,
         isList1: false,
         isList2: false,

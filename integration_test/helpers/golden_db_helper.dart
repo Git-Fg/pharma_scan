@@ -6,6 +6,30 @@ import 'dart:math';
 import 'package:drift/native.dart';
 import 'package:path/path.dart' as p;
 import 'package:pharma_scan/core/database/database.dart';
+import 'package:pharma_scan/core/logic/sanitizer.dart';
+import 'package:sqlite3/common.dart';
+
+/// Configure SQLite avec les optimisations et fonctions personnalisées.
+/// This is only used in tests/integration tests (native platform only).
+void configureAppSQLite(CommonDatabase database) {
+  database
+    ..execute('PRAGMA journal_mode=WAL')
+    ..execute('PRAGMA busy_timeout=30000')
+    ..execute('PRAGMA synchronous=NORMAL')
+    ..execute('PRAGMA mmap_size=300000000')
+    ..execute('PRAGMA temp_store=MEMORY')
+    ..createFunction(
+      functionName: 'normalize_text',
+      argumentCount: const AllowedArgumentCount(1),
+      deterministic: true,
+      directOnly: false,
+      function: (List<Object?> args) {
+        final source = args.isEmpty ? '' : args.first?.toString() ?? '';
+        if (source.isEmpty) return '';
+        return normalizeForSearch(source);
+      },
+    );
+}
 
 /// WHY: Implements the "Thin Client" architecture for integration tests.
 /// Instead of manually seeding tables with potentially outdated SQL,

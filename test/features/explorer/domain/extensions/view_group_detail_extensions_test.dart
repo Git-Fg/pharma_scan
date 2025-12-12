@@ -41,7 +41,7 @@ GroupDetailEntity _detail({
     isPrinceps: isPrinceps,
     status: status,
     formePharmaceutique: formePharmaceutique,
-    principesActifsCommuns: principes,
+    principesActifsCommuns: principes.join(','),
     formattedDosage: formattedDosage,
     summaryTitulaire: summaryTitulaire,
     officialTitulaire: officialTitulaire,

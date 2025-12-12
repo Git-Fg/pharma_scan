@@ -210,7 +210,7 @@ class ScanOrchestrator {
       quantity: quantity,
       isChecked: false,
       isPrinceps: catalogResult.summary.data.isPrinceps,
-      form: catalogResult.summary.data.formePharmaceutique,
+      form: catalogResult.summary.formePharmaceutique,
     );
 
     return RestockAdded(

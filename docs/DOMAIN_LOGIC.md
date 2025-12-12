@@ -230,32 +230,40 @@ For mobile-specific UI testing, create scripts in `tool/` using Dart/Flutter tes
 
 **Primary Definition:** `backend_pipeline/src/db.ts`
 
-**Mobile Synchronization:** `lib/core/database/schema.sql`
+**Mobile Synchronization:** `lib/core/database/dbschema.drift`
 
-### 6.2 Core Tables
+**Complete Reference:** See `database_schema.md` (generated artifact) for comprehensive schema documentation covering:
+- Core BDPM tables (`specialites`, `medicaments`, `principes_actifs`, `generique_groups`, `group_members`)
+- Aggregation tables (`medicament_summary`, `cluster_names`)
+- Normalization tables (`medicament_names_clean`, `group_princeps_clean`)
+- Mobile-specific tables (`restock_items`, `scanned_boxes`)
+- FTS5 search configuration (`search_index` with trigram tokenizer)
+- All views, indexes, and relationships
+
+### 6.2 Critical Tables
 
 #### `medicament_summary` (Pre-aggregated)
 
-* **Purpose:** Main table for mobile app queries
+* **Purpose:** Single source of truth for mobile app queries
 * **Generation:** Populated by backend aggregation
 * **Key Columns:**
   * `cis_code`: Primary identifier
   * `nom_canonique`: Normalized name
   * `cluster_id`: Visual grouping identifier
   * `princeps_de_reference`: Reference princeps name
-  * `composition_display`: Pre-formatted composition
+  * `principes_actifs_communs`: JSON Array of active principles
   * `prix_min` / `prix_max`: Price range
-  * Regulatory flags (hospital_only, list1, list2, etc.)
+  * Regulatory flags (is_hospital, is_list1, is_list2, is_narcotic, etc.)
 
 #### `search_index` (FTS5)
 
-* **Purpose:** Full-text search
-* **Tokenization:** Unicode61 with diacritic removal for consistent ligature handling
-* **Normalization:** Applied at insert time
+* **Purpose:** Full-text search with fuzzy matching
+* **Tokenization:** `trigram` for substring/typo tolerance
+* **Normalization:** Applied at insert time via `normalize_text()` SQL function
 
 ### 6.3 Schema Synchronization Rule
 
-**CRITICAL:** Changes to `medicament_summary` schema MUST be done in `backend_pipeline/src/db.ts` first, then synced to `lib/core/database/schema.sql`. The mobile app does not modify the database structure.
+**CRITICAL:** Changes to `medicament_summary` schema MUST be done in `backend_pipeline/src/db.ts` first, then synced to `lib/core/database/dbschema.drift`. The mobile app does not modify the database structure.
 
 ---
 

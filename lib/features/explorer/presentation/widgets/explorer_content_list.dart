@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:auto_route/auto_route.dart';
 import 'package:azlistview/azlistview.dart';
@@ -564,8 +565,8 @@ class ExplorerContentList extends ConsumerWidget {
               buildDetailItem(
                 context,
                 label: Strings.activePrinciplesLabel,
-                value: sanitizedPrinciples.isNotEmpty
-                    ? sanitizedPrinciples.join(', ')
+                value: (sanitizedPrinciples?.isNotEmpty ?? false)
+                    ? _parseAndJoinPrinciplesFromJson(sanitizedPrinciples!)
                     : Strings.notDetermined,
               ),
               const Gap(AppDimens.spacingMd),
@@ -589,13 +590,12 @@ class ExplorerContentList extends ConsumerWidget {
                   value: summary.titulaire!,
                 ),
               ],
-              if (summary.data.formePharmaceutique != null &&
-                  summary.data.formePharmaceutique!.isNotEmpty) ...[
+              if (summary.formePharmaceutique.isNotEmpty) ...[
                 const Gap(AppDimens.spacingMd),
                 buildDetailItem(
                   context,
                   label: Strings.pharmaceuticalFormLabel,
-                  value: summary.data.formePharmaceutique!,
+                  value: summary.formePharmaceutique,
                 ),
               ],
               const Gap(AppDimens.spacingMd),
@@ -672,6 +672,20 @@ class ExplorerContentList extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  String _parseAndJoinPrinciplesFromJson(String jsonStr) {
+    try {
+      final decoded = json.decode(jsonStr);
+      if (decoded is List) {
+        return decoded.map((e) => e.toString()).join(', ');
+      }
+    } on FormatException {
+      // If parsing fails, return the original string
+      return jsonStr;
+    }
+    // If it's not a list, return as is
+    return jsonStr;
   }
 }
 

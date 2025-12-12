@@ -1,0 +1,89 @@
+---
+targets:
+  - '*'
+root: false
+description: 'Drift database patterns, SQL-first logic, and Isolate management'
+globs: []
+cursor:
+  alwaysApply: false
+  description: 'Drift database patterns, SQL-first logic, and Isolate management'
+---
+# Flutter Data Layer
+
+## Core Philosophy: SQL-First & Isolate-First
+
+**1. SQL-First Definitions (`.drift` files)**
+
+- **MANDATE:** Define tables, triggers, and indices in `.drift` files, NOT Dart classes.
+- **Why:** Unlocks SQL power features (JSONB, Window Functions) and reduces build times.
+- **Pattern:**
+
+```sql
+-- lib/database/tables.drift
+CREATE TABLE items (
+    id INT NOT NULL PRIMARY KEY AUTOINCREMENT,
+    meta_data JSONB, -- Uses SQLite 3.45+ JSONB
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+**2. Isolate-First Execution**
+
+- **MANDATE:** All database I/O must occur on a background isolate.
+- **Implementation:** Use `NativeDatabase.createInBackground` in your database provider.
+- **Forbidden:** Instantiating `NativeDatabase(File(...))` on the main thread.
+
+## Interaction Patterns
+
+**1. Records over DTOs**
+
+- **Rule:** Do not create specific DTO classes for query results. Use Dart Records.
+- **Pattern:**
+
+```dart
+// DAO
+Future<List<({String name, double total})>> getStats() async {
+  final query = select(users).join([...]);
+  return query.map((r) => (
+        name: r.readTable(users).name,
+        total: r.read(orders.amount) ?? 0.0,
+      )).get();
+}
+```
+
+**2. Batch Operations**
+
+- **Rule:** Use `batch` for multiple writes. Use `insertFromSelect` for bulk data moves (archiving) to avoid Dart-loop overhead.
+
+## Search (FTS5)
+
+- **Tokenization:** Use `tokenize='unicode61 remove_diacritics 2'` for ligature handling in `search_index`.
+- **Normalization:** Use a custom SQL User Defined Function (UDF) `normalize_text` registered in the connection setup to ensure SQL and Dart logic match exactly.
+
+## Schema Synchronization
+
+**Backend-Driven Architecture**
+
+- **Source of Truth:** The database schema is defined in `backend_pipeline/src/db.ts`
+- **Mobile Consumer:** The mobile app consumes a read-only `reference.db` artifact
+- **Schema Documentation:** Complete schema reference available in `database_schema.md` (generated artifact)
+- **SCHEMA SYNC RULE:** Changes to `medicament_summary` or any core tables MUST be done in the backend first
+- **Forbidden:** Modifying database structure in the mobile app without corresponding backend changes
+- **Mobile Schema File:** `lib/core/database/dbschema.drift` mirrors backend schema, not authored directly
+
+**Critical Rule:** The mobile app is a "Smart Viewer" - it reads pre-processed data but does not perform ETL or schema modifications.
+
+**Key Schema Components:**
+- **Core BDPM Tables:** `specialites`, `medicaments`, `principes_actifs`, `generique_groups`, `group_members`
+- **Aggregation Tables:** `medicament_summary` (single source of truth), `cluster_names`
+- **Normalization Tables:** `medicament_names_clean`, `group_princeps_clean`
+- **Mobile Tables:** `restock_items`, `scanned_boxes`
+- **Search:** FTS5 `search_index` with `trigram` tokenizer
+
+## Anti-Patterns
+
+- ❌ Defining schema in Dart (`class Users extends Table`).
+- ❌ Accessing generated Row classes in the UI (Wrap in Domain Entity Extension Types).
+- ❌ Main-thread DB connections (Causes UI jank).
+- ❌ Modifying `medicament_summary` schema in mobile without backend changes
+- ❌ Running ETL operations in the mobile app (use backend-generated `reference.db`)

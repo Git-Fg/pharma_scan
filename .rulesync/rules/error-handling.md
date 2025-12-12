@@ -1,0 +1,150 @@
+---
+targets:
+  - '*'
+root: false
+description: Error handling with AsyncValue.guard and native Riverpod patterns
+globs:
+  - lib/**/*.dart
+cursor:
+  alwaysApply: false
+  description: Error handling with AsyncValue.guard and native Riverpod patterns
+  globs:
+    - lib/**/*.dart
+---
+# Error Handling (2025 Standard)
+
+## Core Principles
+
+- READ operations: Use `Future<T>`/`Stream<T>`, let exceptions bubble
+- WRITE operations: Use `AsyncValue.guard` in Notifiers
+- UI feedback: Use `ref.listen` for errors (not in `build()`)
+- FORBIDDEN: `try-catch` in Notifiers for business errors
+
+## Read Operations (Data Consumption)
+
+```
+// ✅ Direct Future/Stream - exceptions bubble up
+@riverpod
+Future<List<Data>> myData(Ref ref) async {
+  final dao = ref.watch(catalogDaoProvider);
+  return dao.getData(); // Let exceptions bubble
+}
+
+@riverpod
+Stream<List<Data>> myDataStream(Ref ref) {
+  final dao = ref.watch(catalogDaoProvider);
+  return dao.watchData();
+}
+
+// ❌ FORBIDDEN: Either wrapping for simple reads
+Future<Either<Failure, List<Data>>> getData() { ... }
+```
+
+## Write Operations (Mutations)
+
+```
+// ✅ AsyncValue.guard in Notifiers
+@riverpod
+class MyNotifier extends _$MyNotifier {
+  @override
+  Future<MyState> build() async => await _fetchInitialState();
+
+  Future<void> saveItem(Item data) async {
+    state = const AsyncLoading();
+    // AsyncValue.guard captures exceptions → AsyncError
+    state = await AsyncValue.guard(() => repository.save(data));
+  }
+}
+```
+
+## UI Error Handling
+
+```
+// ✅ ref.listen for side effects
+class MyWidget extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    ref.listen(myNotifierProvider, (prev, next) {
+      if (next is AsyncError) {
+        ShadToaster.of(context).show(
+          ShadToast.destructive(
+            title: Text(Strings.error),
+            description: Text(next.error.toString()),
+          ),
+        );
+      }
+    });
+
+    final state = ref.watch(myNotifierProvider);
+    return state.when(
+      data: (data) => MyContent(data: data),
+      loading: () => CircularProgressIndicator(),
+      error: (error, _) => ErrorView(error: error),
+    );
+  }
+}
+```
+
+## Either Boundary Rule
+
+- Services/ETL MAY use `Either` for complex logic (parsing, retry)
+- Notifiers MUST convert `Either` to exceptions before `AsyncValue.guard`
+
+```
+// ✅ Service with Either
+Future<Either<Failure, Data>> processData() { ... }
+
+// ✅ Notifier converts to exception
+Future<void> process() async {
+  state = const AsyncLoading();
+  state = await AsyncValue.guard(() async {
+    final result = await service.processData();
+    return result.fold(
+      (failure) => throw failure,
+      (data) => data,
+    );
+  });
+}
+```
+
+## Visual Feedback Patterns
+
+```
+// Toast (transient errors)
+ShadToaster.of(context).show(
+  ShadToast.destructive(
+    title: Text(Strings.error),
+    description: Text(Strings.networkError),
+  ),
+);
+
+// Alert (inline errors)
+ShadAlert.destructive(
+  icon: Icon(LucideIcons.circleAlert),
+  title: Text(Strings.error),
+  description: Text(error.toString()),
+);
+
+// Dialog (critical errors)
+showShadDialog(
+  context: context,
+  builder: (context) => ShadDialog.alert(
+    title: Text(Strings.criticalError),
+    description: Text(Strings.requiresUserAction),
+    actions: [
+      ShadButton(
+        child: Text(Strings.ok),
+        onPressed: () => Navigator.pop(context),
+      ),
+    ],
+  ),
+);
+```
+
+## Anti-Patterns
+
+- ❌ `try-catch` in Notifier methods for business errors
+- ❌ Error checks inside `build()` logic
+- ❌ `Either` crossing into UI/Notifier layer
+- ✅ `AsyncValue.guard` for mutations
+- ✅ `ref.listen` for UI side effects

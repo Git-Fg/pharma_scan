@@ -29,10 +29,7 @@ class RestockScreen extends HookConsumerWidget {
     final sortingAsync = ref.watch(sortingPreferenceProvider);
     final haptics = ref.watch(hapticServiceProvider);
 
-    final sortingPreference = sortingAsync.maybeWhen<SortingPreference>(
-      data: (value) => value,
-      orElse: () => SortingPreference.princeps,
-    );
+    final sortingPreference = sortingAsync;
 
     Future<bool> confirmDestructiveAction({
       required String title,

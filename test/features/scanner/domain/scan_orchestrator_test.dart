@@ -1,7 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:pharma_scan/core/database/database.dart';
-import 'package:pharma_scan/core/database/models/medicament_summary_data.dart';
+import 'package:pharma_scan/core/database/daos/catalog_dao.dart';
+import 'package:pharma_scan/core/database/daos/restock_dao.dart';
+import 'package:pharma_scan/core/database/dbschema.drift.dart';
 import 'package:pharma_scan/core/domain/types/ids.dart';
 import 'package:pharma_scan/core/models/scan_result.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
@@ -21,14 +22,14 @@ MedicamentEntity _buildEntity(String cis) {
     MedicamentSummaryData(
       cisCode: cis,
       nomCanonique: 'Produit $cis',
-      isPrinceps: true,
-      memberType: 0,
       princepsDeReference: 'Produit $cis',
+      isPrinceps: true,
       formePharmaceutique: 'Comprimé',
       voiesAdministration: 'Orale',
+      memberType: 0,
       princepsBrandName: 'Produit $cis',
       isSurveillance: false,
-      isHospitalOnly: false,
+      isHospital: false,
       isDental: false,
       isList1: false,
       isList2: false,

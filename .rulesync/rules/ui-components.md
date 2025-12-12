@@ -1,0 +1,44 @@
+---
+targets:
+  - '*'
+root: false
+description: 'Shadcn UI components, forms, accessibility, and theme patterns'
+globs: []
+cursor:
+  alwaysApply: false
+  description: 'Shadcn UI components, forms, accessibility, and theme patterns'
+---
+# UI Components & Shadcn (2025 Standard)
+
+## The "No Dumb Wrapper" Rule (Clarified)
+
+- **Do Not:** Wrap Shadcn components just to add static padding or styling.
+- **Do:** Create specialized "Semantic Components" (e.g., `AppPrimaryButton`) IF AND ONLY IF you need to enforce logic (e.g., specific loading state behavior) across the entire app.
+
+## Resource Disposal (Critical)
+
+Any component using a manual Controller must ensure disposal to prevent memory leaks in the Overlay layer.
+
+- **Checklist:**
+  - `ShadPopoverController.dispose()`
+  - `ShadTooltipController.dispose()`
+  - `FocusNode.dispose()`
+  - `TextEditingController.dispose()`
+
+*Tip:* Use `flutter_hooks` (`useFocusNode`, `useTextEditingController`) to handle disposal automatically.
+
+## Forms & Validation
+
+- **Pattern:** Use `ShadForm` with `GlobalKey<ShadFormState>`.
+- **Validation Bridge:** Use `key.currentState.fields['id']?.setInternalFieldError(...)` to map server-side errors to UI fields.
+
+## Theming
+
+- **Access:** Use `context.shadTheme` or specific extensions (`context.shadColors`).
+- **Typography:** Use `context.shadTextTheme`. Do not hardcode `TextStyle`.
+
+## Anti-Patterns
+
+- ❌ `TextField` (Material) inside `ShadCard`. Use `ShadInput`.
+- ❌ Inline colors (`Colors.red`). Use `context.shadColors.destructive`.
+- ❌ Hardcoded border radius. Use `context.shadTheme.radius`.

@@ -2,6 +2,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:pharma_scan/core/database/views.drift.dart';
 import 'package:pharma_scan/core/domain/types/semantic_types.dart';
 import 'package:pharma_scan/core/providers/core_providers.dart';
 import 'package:pharma_scan/features/explorer/domain/models/search_result_item_model.dart';
@@ -68,7 +69,7 @@ void main() {
       ) {
         capturedQuery = invocation.positionalArguments[0] as NormalizedQuery;
         return Stream.value(
-          const <SearchResultsResult>[],
+          <ViewSearchResult>[],
         );
       });
 
@@ -89,7 +90,7 @@ void main() {
 
       when(() => mockCatalogDao.watchSearchResultsSql(any())).thenAnswer(
         (_) => Stream.value(
-          const <SearchResultsResult>[],
+          <ViewSearchResult>[],
         ),
       );
 
@@ -109,7 +110,7 @@ void main() {
 
       when(() => mockCatalogDao.watchSearchResultsSql(any())).thenAnswer(
         (_) => Stream.value(
-          const <SearchResultsResult>[],
+          <ViewSearchResult>[],
         ),
       );
 
@@ -133,7 +134,7 @@ void main() {
         (invocation) {
           capturedQuery = invocation.positionalArguments[0] as NormalizedQuery;
           return Stream.value(
-            const <SearchResultsResult>[],
+            const <ViewSearchResult>[],
           );
         },
       );

@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:pharma_scan/core/database/models/medicament_summary_data.dart';
+import 'package:pharma_scan/core/database/dbschema.drift.dart';
 import 'package:pharma_scan/core/database/views.drift.dart'
     show ViewSearchResult;
 import 'package:pharma_scan/core/domain/types/ids.dart';
@@ -103,27 +103,29 @@ SearchResultItem? _mapSearchRowToItem(ViewSearchResult row) {
       final summary = MedicamentSummaryData(
         cisCode: row.cisCode!,
         nomCanonique: row.nomCanonique ?? '',
+        princepsDeReference: row.princepsDeReference ?? '',
         isPrinceps: isPrinceps,
         groupId: row.groupId,
-        memberType: memberType,
-        principesActifsCommuns: principlesList,
-        princepsDeReference: row.princepsDeReference ?? '',
+        principesActifsCommuns: row.principesActifsCommuns != null && row.principesActifsCommuns!.isNotEmpty
+            ? row.principesActifsCommuns! // ViewSearchResult has normalized JSON string
+            : null,
+        formattedDosage: row.formattedDosage,
         formePharmaceutique: row.formePharmaceutique,
         voiesAdministration: row.voiesAdministration,
+        memberType: memberType,
         princepsBrandName: row.princepsBrandName ?? '',
         procedureType: row.procedureType,
         titulaireId: titulaireId,
         conditionsPrescription: row.conditionsPrescription,
         dateAmm: row.dateAmm,
         isSurveillance: isSurveillance,
-        formattedDosage: row.formattedDosage,
         atcCode: row.atcCode,
         status: row.status,
         priceMin: priceMin,
         priceMax: priceMax,
         aggregatedConditions: row.aggregatedConditions,
         ansmAlertUrl: row.ansmAlertUrl,
-        isHospitalOnly: isHospital,
+        isHospital: isHospital,
         isDental: isDental,
         isList1: isList1,
         isList2: isList2,

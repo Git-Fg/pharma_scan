@@ -1,0 +1,113 @@
+---
+targets:
+  - '*'
+root: false
+description: 'Dart Mappable data models, serialization patterns, and sealed classes'
+globs: []
+cursor:
+  alwaysApply: false
+  description: 'Dart Mappable data models, serialization patterns, and sealed classes'
+---
+# Dart Mappable (2025 Standard)
+
+## Mandates
+
+- USE `@MappableClass()` with `<ClassName>Mappable` mixin
+- ALL fields must be `final` with `const` constructors
+- INCLUDE `part 'filename.mapper.dart';`
+- FORBIDDEN: `freezed`, `json_serializable`
+- State/Notifier state classes (immutable) MUST also use `@MappableClass` (no hand-written `copyWith`/`==`/`toJson`)
+
+## Dart 3 Features
+
+- **Records:**
+  - **MANDATORY:** Use **Named Records** (`({double lat, double lng})`) at serialization boundaries.
+  - **FORBIDDEN:** Positional Records (`(double, double)`) in API/DTO contracts (brittle `$1`, `$2` keys).
+  - **Typedefs:** Use `@MappableRecord()` for reusable record definitions.
+- **Sealed Classes:**
+  - Prefer standard `sealed` class hierarchies over legacy `freezed` unions.
+  - Use `discriminatorKey` and `discriminatorValue` for polymorphic JSON handling.
+  - Lean on native pattern matching (`switch`) for exhaustive handling.
+
+## Standard Data Class
+
+```dart
+import 'package:dart_mappable/dart_mappable.dart';
+
+part 'user.mapper.dart';
+
+@MappableClass()
+class User with UserMappable {
+  const User({required this.name, this.age});
+
+  final String name;
+  final int? age;
+
+  static final fromMap = UserMapper.fromMap;
+  static final fromJson = UserMapper.fromJson;
+}
+```
+
+## Sealed Classes (Unions)
+
+```dart
+@MappableClass(discriminatorKey: 'type')
+sealed class UiState with UiStateMappable {
+  const UiState();
+}
+
+@MappableClass(discriminatorValue: 'loading')
+class Loading extends UiState with LoadingMappable {
+  const Loading();
+}
+
+@MappableClass(discriminatorValue: 'success')
+class Success extends UiState with SuccessMappable {
+  const Success(this.data);
+  final List<String> data;
+}
+
+@MappableClass(discriminatorValue: 'error')
+class ErrorState extends UiState with ErrorStateMappable {
+  const ErrorState(this.message);
+  final String message;
+}
+```
+
+## Pattern Matching (Dart 3)
+
+```dart
+// ✅ Use switch expressions (not .map/.when)
+final result = switch (uiState) {
+  Loading() => 'Loading...',
+  Success(data: final data) => 'Data: ${data.length}',
+  ErrorState(message: final msg) => 'Error: $msg',
+};
+```
+
+## Configuration
+
+**JSON Keys:** Use `@MappableField(key: 'custom_key')` for custom naming
+
+**build.yaml:**
+
+```yaml
+dart_mappable_builder:
+  options:
+    caseStyle: camelCase
+    generateMethods: [decode, encode, copy, stringify, equals]
+    renameMethods:
+      fromMap: fromJson
+      toMap: toJson
+    generateInitializerForScope: package
+```
+
+## Anti-Patterns
+
+- ❌ Freezed for new models
+- ❌ Mutable fields in data models
+- ❌ Missing `part '*.mapper.dart';`
+- ❌ `.map()` or `.when()` (use `switch` expressions)
+- ❌ Manual `copyWith`/`==`/`toJson` on state or DTO classes—use generated mixins
+- ✅ `sealed class` for unions
+- ✅ `const` constructors

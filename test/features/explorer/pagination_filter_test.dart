@@ -1,19 +1,19 @@
-// ignore_for_file: undefined_function, undefined_identifier
-// Test file uses generated companion types from Drift
-
-import 'package:drift/drift.dart' as drift;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:pharma_scan/core/database/daos/catalog_dao.dart';
 import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/domain/types/ids.dart';
 import 'package:pharma_scan/core/providers/core_providers.dart';
+import 'package:pharma_scan/core/services/preferences_service.dart';
 import 'package:pharma_scan/features/explorer/domain/models/generic_group_entity.dart';
 import 'package:pharma_scan/features/explorer/domain/models/search_filters_model.dart';
 import 'package:pharma_scan/features/explorer/presentation/providers/generic_groups_provider.dart';
 import 'package:pharma_scan/features/explorer/presentation/providers/search_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../fixtures/seed_builder.dart';
+import '../../helpers/db_loader.dart';
 
 class _FakeCatalogDao extends Fake implements CatalogDao {
   @override
@@ -26,8 +26,7 @@ class _FakeCatalogDao extends Fake implements CatalogDao {
     int limit = 100,
     int offset = 0,
   }) async {
-    final hasFilters =
-        (routeKeywords?.isNotEmpty ?? false) ||
+    final hasFilters = (routeKeywords?.isNotEmpty ?? false) ||
         (formKeywords?.isNotEmpty ?? false) ||
         (excludeKeywords?.isNotEmpty ?? false) ||
         (procedureTypeKeywords?.isNotEmpty ?? false) ||
@@ -61,9 +60,7 @@ void main() {
       final builder = SeedBuilder();
       for (var i = 0; i < 50; i++) {
         final cip = '340000000${i.toString().padLeft(4, '0')}';
-        builder
-            .inGroup('GRP_$i', 'Group $i')
-            .addPrinceps(
+        builder.inGroup('GRP_$i', 'Group $i').addPrinceps(
               'Produit $i',
               cip,
               cipCode: 'CIS_$i',
@@ -72,59 +69,17 @@ void main() {
             );
       }
       await builder.insertInto(database);
-      await database.databaseDao.populateFts5Index();
+      // FTS5 search index should be populated by individual tests if needed
 
-      // Ensure at least one group summary exists for pagination assertions.
-      final summaries = await database.viewGenericGroupSummaries.all().get();
-      if (summaries.isEmpty) {
-        await database
-            .into(database.generiqueGroups)
-            .insert(
-              GeneriqueGroupsCompanion(
-                groupId: const drift.Value('GRP_FALLBACK'),
-                libelle: const drift.Value('Fallback Group'),
-                rawLabel: const drift.Value('Fallback Group'),
-                parsingMethod: const drift.Value('manual'),
-              ),
-            );
-        await database
-            .into(database.groupMembers)
-            .insert(
-              GroupMembersCompanion(
-                groupId: const drift.Value('GRP_FALLBACK'),
-                codeCip: const drift.Value('3400000099999'),
-                type: const drift.Value(0),
-              ),
-            );
-        await database
-            .into(database.medicamentSummary)
-            .insert(
-              MedicamentSummaryCompanion.insert(
-                cisCode: 'CIS_FALLBACK',
-                nomCanonique: 'Fallback Drug',
-                isPrinceps: true,
-                groupId: const drift.Value('GRP_FALLBACK'),
-                memberType: const drift.Value(0),
-                principesActifsCommuns: <String>['ACTIVE_PRINCIPLE'],
-                princepsDeReference: 'Fallback Drug',
-                princepsBrandName: 'Fallback Drug',
-                procedureType: const drift.Value('AMM'),
-                conditionsPrescription: const drift.Value(null),
-                dateAmm: const drift.Value(null),
-                isSurveillance: const drift.Value(false),
-                formattedDosage: const drift.Value('500 mg'),
-                atcCode: const drift.Value('A00'),
-                status: const drift.Value('active'),
-                priceMin: const drift.Value(null),
-                priceMax: const drift.Value(null),
-                voiesAdministration: const drift.Value('orale'),
-                formePharmaceutique: const drift.Value('Forme'),
-              ),
-            );
-      }
+      // Note: The SeedBuilder already creates 50 groups with medications,
+      // so there should be data available for pagination testing.
     }
 
     setUp(() async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final preferencesService = PreferencesService(prefs);
+
       database = AppDatabase.forTesting(
         NativeDatabase.memory(setup: configureAppSQLite),
       );
@@ -136,6 +91,7 @@ void main() {
           databaseProvider.overrideWithValue(database),
           catalogDaoProvider.overrideWithValue(fakeCatalogDao),
           searchFiltersProvider.overrideWith(_FakeSearchFiltersNotifier.new),
+          preferencesServiceProvider.overrideWithValue(preferencesService),
         ],
       );
     });

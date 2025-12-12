@@ -6,6 +6,8 @@ import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/domain/types/semantic_types.dart';
 import 'package:pharma_scan/core/logic/sanitizer.dart';
 
+import '../../helpers/db_loader.dart';
+
 void main() {
   group('Search engine with FTS5 molecule/brand columns', () {
     late AppDatabase db;

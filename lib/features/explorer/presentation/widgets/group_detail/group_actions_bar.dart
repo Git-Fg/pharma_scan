@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
-import 'package:pharma_scan/core/config/data_sources.dart';
 import 'package:pharma_scan/core/services/logger_service.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
@@ -22,8 +21,16 @@ class GroupActionsBar extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    final ficheUrl = DataSources.ficheAnsm(cisCode!);
-    final rcpUrl = DataSources.rcpAnsm(cisCode!);
+    /// Generate ANSM fiche URL for a given CIS code
+    String ficheAnsm(String cisCode) =>
+        'https://base-donnees-publique.medicaments.gouv.fr/extrait.php?specid=$cisCode';
+
+    /// Generate ANSM RCP (Résumé des Caractéristiques du Produit) URL for a given CIS code
+    String rcpAnsm(String cisCode) =>
+        'https://base-donnees-publique.medicaments.gouv.fr/medicament/$cisCode/extrait#tab-rcp';
+
+    final ficheUrl = ficheAnsm(cisCode!);
+    final rcpUrl = rcpAnsm(cisCode!);
 
     return Padding(
       padding: const EdgeInsets.only(top: AppDimens.spacingMd),

@@ -119,12 +119,11 @@ class ScannerBubbles extends ConsumerWidget {
       ),
     ];
 
-    if (summary.data.conditionsPrescription != null &&
-        summary.data.conditionsPrescription!.isNotEmpty) {
+    if (summary.conditionsPrescription.isNotEmpty) {
       badges.add(
         ShadBadge.outline(
           child: Text(
-            summary.data.conditionsPrescription!,
+            summary.conditionsPrescription,
             style: context.shadTextTheme.small,
           ),
         ),
@@ -137,17 +136,14 @@ class ScannerBubbles extends ConsumerWidget {
         summary.data.nomCanonique.trim().isNotEmpty) {
       compactSubtitle.add(summary.data.nomCanonique.trim());
     }
-    final form = summary.data.formePharmaceutique;
-    final dosage = summary.data.formattedDosage?.trim();
+    final form = summary.formePharmaceutique.trim();
+    final dosage = summary.formattedDosage.trim();
 
-    if (form != null &&
-        form.isNotEmpty &&
-        dosage != null &&
-        dosage.isNotEmpty) {
+    if (form.isNotEmpty && dosage.isNotEmpty) {
       compactSubtitle.add('$form • $dosage');
-    } else if (form != null && form.isNotEmpty) {
+    } else if (form.isNotEmpty) {
       compactSubtitle.add(form);
-    } else if (dosage != null && dosage.isNotEmpty) {
+    } else if (dosage.isNotEmpty) {
       compactSubtitle.add(dosage);
     }
 

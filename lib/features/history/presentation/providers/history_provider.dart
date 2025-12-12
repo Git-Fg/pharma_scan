@@ -10,8 +10,7 @@ part 'history_provider.g.dart';
 class HistoryController extends _$HistoryController {
   @override
   Stream<List<ScanHistoryEntry>> build() {
-    final limitAsync = ref.watch(scanHistoryLimitProvider);
-    final limit = limitAsync.value ?? 100;
+    final limit = ref.watch(scanHistoryLimitProvider);
     final dao = ref.watch(databaseProvider).restockDao;
     return dao.watchScanHistory(limit);
   }

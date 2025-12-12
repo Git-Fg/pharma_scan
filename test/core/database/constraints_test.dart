@@ -1,8 +1,11 @@
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pharma_scan/core/database/daos/restock_dao.dart';
 import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/domain/types/ids.dart';
+
+import '../../helpers/db_loader.dart';
 
 void main() {
   group('Database constraints', () {
@@ -33,7 +36,7 @@ void main() {
         await db.customStatement(
           'CREATE UNIQUE INDEX IF NOT EXISTS idx_scanned_boxes_unique ON scanned_boxes(cip_code, box_label)',
         );
-      } catch (e) {
+      } on SqliteException {
         // Index might already exist, ignore
       }
       dao = db.restockDao;

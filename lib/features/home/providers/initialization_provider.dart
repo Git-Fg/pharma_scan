@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:pharma_scan/core/providers/core_providers.dart';
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
 import 'package:pharma_scan/core/services/logger_service.dart';
+import 'package:pharma_scan/core/services/preferences_service.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'initialization_provider.g.dart';
@@ -38,7 +39,8 @@ class InitializationStateNotifier extends _$InitializationStateNotifier {
     try {
       final db = ref.read(databaseProvider);
       final hasData = await db.catalogDao.hasExistingData();
-      final version = await db.settingsDao.getBdpmVersion();
+      final prefs = ref.read(preferencesServiceProvider);
+      final version = prefs.getBdpmVersion();
       const currentVersion = DataInitializationService.dataVersion;
 
       if (hasData && version == currentVersion) {
@@ -91,8 +93,9 @@ Stream<InitializationStep> initializationStep(Ref ref) async* {
 
   try {
     final db = ref.read(databaseProvider);
+    final prefs = ref.read(preferencesServiceProvider);
     final hasData = await db.catalogDao.hasExistingData();
-    final version = await db.settingsDao.getBdpmVersion();
+    final version = prefs.getBdpmVersion();
     const currentVersion = DataInitializationService.dataVersion;
 
     if (hasData && version == currentVersion) {

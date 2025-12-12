@@ -14,7 +14,7 @@ part of 'app_router.dart';
 /// [CameraScreen]
 class ScannerRoute extends PageRouteInfo<void> {
   const ScannerRoute({List<PageRouteInfo>? children})
-    : super(ScannerRoute.name, initialChildren: children);
+      : super(ScannerRoute.name, initialChildren: children);
 
   static const String name = 'ScannerRoute';
 
@@ -30,7 +30,7 @@ class ScannerRoute extends PageRouteInfo<void> {
 /// [DatabaseScreen]
 class DatabaseRoute extends PageRouteInfo<void> {
   const DatabaseRoute({List<PageRouteInfo>? children})
-    : super(DatabaseRoute.name, initialChildren: children);
+      : super(DatabaseRoute.name, initialChildren: children);
 
   static const String name = 'DatabaseRoute';
 
@@ -46,7 +46,7 @@ class DatabaseRoute extends PageRouteInfo<void> {
 /// [ExplorerTabScreen]
 class ExplorerTabRoute extends PageRouteInfo<void> {
   const ExplorerTabRoute({List<PageRouteInfo>? children})
-    : super(ExplorerTabRoute.name, initialChildren: children);
+      : super(ExplorerTabRoute.name, initialChildren: children);
 
   static const String name = 'ExplorerTabRoute';
 
@@ -66,11 +66,11 @@ class GroupExplorerRoute extends PageRouteInfo<GroupExplorerRouteArgs> {
     Key? key,
     List<PageRouteInfo>? children,
   }) : super(
-         GroupExplorerRoute.name,
-         args: GroupExplorerRouteArgs(groupId: groupId, key: key),
-         rawPathParams: {'groupId': groupId},
-         initialChildren: children,
-       );
+          GroupExplorerRoute.name,
+          args: GroupExplorerRouteArgs(groupId: groupId, key: key),
+          rawPathParams: {'groupId': groupId},
+          initialChildren: children,
+        );
 
   static const String name = 'GroupExplorerRoute';
 
@@ -114,7 +114,7 @@ class GroupExplorerRouteArgs {
 /// [LogsScreenWrapper]
 class LogsRoute extends PageRouteInfo<void> {
   const LogsRoute({List<PageRouteInfo>? children})
-    : super(LogsRoute.name, initialChildren: children);
+      : super(LogsRoute.name, initialChildren: children);
 
   static const String name = 'LogsRoute';
 
@@ -130,7 +130,7 @@ class LogsRoute extends PageRouteInfo<void> {
 /// [MainScreen]
 class MainRoute extends PageRouteInfo<void> {
   const MainRoute({List<PageRouteInfo>? children})
-    : super(MainRoute.name, initialChildren: children);
+      : super(MainRoute.name, initialChildren: children);
 
   static const String name = 'MainRoute';
 
@@ -146,7 +146,7 @@ class MainRoute extends PageRouteInfo<void> {
 /// [RestockScreen]
 class RestockRoute extends PageRouteInfo<void> {
   const RestockRoute({List<PageRouteInfo>? children})
-    : super(RestockRoute.name, initialChildren: children);
+      : super(RestockRoute.name, initialChildren: children);
 
   static const String name = 'RestockRoute';
 
@@ -162,7 +162,7 @@ class RestockRoute extends PageRouteInfo<void> {
 /// [ScannerTabScreen]
 class ScannerTabRoute extends PageRouteInfo<void> {
   const ScannerTabRoute({List<PageRouteInfo>? children})
-    : super(ScannerTabRoute.name, initialChildren: children);
+      : super(ScannerTabRoute.name, initialChildren: children);
 
   static const String name = 'ScannerTabRoute';
 
@@ -178,7 +178,7 @@ class ScannerTabRoute extends PageRouteInfo<void> {
 /// [SettingsScreen]
 class SettingsRoute extends PageRouteInfo<void> {
   const SettingsRoute({List<PageRouteInfo>? children})
-    : super(SettingsRoute.name, initialChildren: children);
+      : super(SettingsRoute.name, initialChildren: children);
 
   static const String name = 'SettingsRoute';
 
