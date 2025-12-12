@@ -1,0 +1,502 @@
+[
+  {
+    "case_name": "Paracétamol (Standard)",
+    "cis": "68787715",
+    "label": "PARACETAMOL BIOGARAN 1 g, comprimé",
+    "expected": {
+      "cluster_id": "CLS_DOLIPRANE",
+      "substance": "PARACETAMOL",
+      "princeps": "DOLIPRANE"
+    }
+  },
+  {
+    "case_name": "Ibuprofène (Standard)",
+    "cis": "61000075",
+    "label": "IBUPROFENE BIOGARAN 400 mg, comprimé pelliculé",
+    "expected": {
+      "cluster_id": "CLS_ADVIL",
+      "substance": "IBUPROFENE",
+      "princeps": "ADVIL"
+    }
+  },
+  {
+    "case_name": "Aspirine (Nom commun)",
+    "cis": "65265765",
+    "label": "ASPIRINE UPSA 500 mg, comprimé effervescent",
+    "expected": {
+      "cluster_id": "CLS_ASPIRINE",
+      "substance": "ACETYLSALICYLIQUE",
+      "princeps": "ASPIRINE"
+    }
+  },
+  {
+    "case_name": "Spasfon (Générique vs Marque)",
+    "cis": "61861910",
+    "label": "PHLOROGLUCINOL BIOGARAN 80 mg, comprimé orodispersible",
+    "expected": {
+      "cluster_id": "CLS_SPASFON",
+      "substance": "PHLOROGLUCINOL",
+      "princeps": "SPASFON"
+    }
+  },
+  {
+    "case_name": "Imodium (Sel)",
+    "cis": "63029111",
+    "label": "LOPERAMIDE BIOGARAN 2 mg, gélule",
+    "expected": {
+      "cluster_id": "CLS_IMODIUM",
+      "substance": "LOPERAMIDE",
+      "princeps": "IMODIUM"
+    }
+  },
+  {
+    "case_name": "Clamoxyl (Antibio ref)",
+    "cis": "64672103",
+    "label": "AMOXICILLINE SANDOZ 1 g, comprimé dispersible",
+    "expected": {
+      "cluster_id": "CLS_CLAMOXYL",
+      "substance": "AMOXICILLINE",
+      "princeps": "CLAMOXYL"
+    }
+  },
+  {
+    "case_name": "Augmentin (Combo)",
+    "cis": "65247087",
+    "label": "AMOXICILLINE/ACIDE CLAVULANIQUE BIOGARAN 1 g/125 mg, poudre pour suspension buvable en sachet-dose (rapport amoxicilline/acide clavulanique : 8/1)",
+    "expected": {
+      "cluster_id": "CLS_AUGMENTIN",
+      "substance": "AMOXICILLINE",
+      "princeps": "AUGMENTIN"
+    }
+  },
+  {
+    "case_name": "Orelox (Prodrogue)",
+    "cis": "64586017",
+    "label": "CEFPODOXIME BIOGARAN 100 mg, comprimé pelliculé",
+    "expected": {
+      "cluster_id": "CLS_ORELOX",
+      "substance": "CEFPODOXIME",
+      "princeps": "ORELOX"
+    }
+  },
+  {
+    "case_name": "Pyostacine (Unique)",
+    "cis": "63728481",
+    "label": "PYOSTACINE 500 mg, comprimé pelliculé",
+    "expected": {
+      "cluster_id": "CLS_PYOSTACINE",
+      "substance": "PRISTINAMYCINE",
+      "princeps": "PYOSTACINE"
+    }
+  },
+  {
+    "case_name": "Bactrim (Double substance)",
+    "cis": "67891013",
+    "label": "COTRIMOXAZOLE TEVA 800 mg/160 mg, comprimé",
+    "expected": {
+      "cluster_id": "CLS_BACTRIM",
+      "substance": "SULFAMETHOXAZOLE",
+      "princeps": "BACTRIM"
+    }
+  },
+  {
+    "case_name": "Tahor (Statine)",
+    "cis": "69522513",
+    "label": "ATORVASTATINE BIOGARAN 10 mg, comprimé pelliculé",
+    "expected": {
+      "cluster_id": "CLS_TAHOR",
+      "substance": "ATORVASTATINE",
+      "princeps": "TAHOR"
+    }
+  },
+  {
+    "case_name": "Cardensiel (Sels différents)",
+    "cis": "67736575",
+    "label": "BISOPROLOL BIOGARAN 10 mg, comprimé pelliculé sécable",
+    "expected": {
+      "cluster_id": "CLS_CARDENSIEL",
+      "substance": "BISOPROLOL",
+      "princeps": "CARDENSIEL"
+    }
+  },
+  {
+    "case_name": "Coversyl (Sels complexes)",
+    "cis": "68159048",
+    "label": "PERINDOPRIL ARGININE BIOGARAN 5 mg, comprimé pelliculé sécable",
+    "expected": {
+      "cluster_id": "CLS_COVERSYL",
+      "substance": "PERINDOPRIL",
+      "princeps": "COVERSYL"
+    }
+  },
+  {
+    "case_name": "Amlor (Sels)",
+    "cis": "65728601",
+    "label": "AMLODIPINE BIOGARAN 5 mg, gélule",
+    "expected": {
+      "cluster_id": "CLS_AMLOR",
+      "substance": "AMLODIPINE",
+      "princeps": "AMLOR"
+    }
+  },
+  {
+    "case_name": "Lasilix (Diurétique)",
+    "cis": "61763619",
+    "label": "FUROSEMIDE TEVA 40 mg, comprimé sécable",
+    "expected": {
+      "cluster_id": "CLS_LASILIX",
+      "substance": "FUROSEMIDE",
+      "princeps": "LASILIX"
+    }
+  },
+  {
+    "case_name": "Kardegic (Distinct de Aspirine)",
+    "cis": "64755969",
+    "label": "KARDEGIC 75 mg, poudre pour solution buvable en sachet-dose",
+    "expected": {
+      "cluster_id": "CLS_KARDEGIC",
+      "substance": "ACETYLSALICYLIQUE",
+      "princeps": "KARDEGIC"
+    }
+  },
+  {
+    "case_name": "Seroplex (Proche de Seropram)",
+    "cis": "68770687",
+    "label": "ESCITALOPRAM BIOGARAN 10 mg, comprimé pelliculé sécable",
+    "expected": {
+      "cluster_id": "CLS_SEROPLEX",
+      "substance": "ESCITALOPRAM",
+      "princeps": "SEROPLEX"
+    }
+  },
+  {
+    "case_name": "Seropram (Proche de Seroplex)",
+    "cis": "68491591",
+    "label": "CITALOPRAM BIOGARAN 20 mg, comprimé pelliculé sécable",
+    "expected": {
+      "cluster_id": "CLS_SEROPRAM",
+      "substance": "CITALOPRAM",
+      "princeps": "SEROPRAM"
+    }
+  },
+  {
+    "case_name": "Xanax (Psychotrope)",
+    "cis": "61736700",
+    "label": "ALPRAZOLAM BIOGARAN 0,25 mg, comprimé sécable",
+    "expected": {
+      "cluster_id": "CLS_XANAX",
+      "substance": "ALPRAZOLAM",
+      "princeps": "XANAX"
+    }
+  },
+  {
+    "case_name": "Lexomil (Forme Baguette)",
+    "cis": "62270942",
+    "label": "BROMAZEPAM BIOGARAN 6 mg, comprimé quadrisécable",
+    "expected": {
+      "cluster_id": "CLS_LEXOMIL",
+      "substance": "BROMAZEPAM",
+      "princeps": "LEXOMIL"
+    }
+  },
+  {
+    "case_name": "Effexor (LP vs Standard)",
+    "cis": "65018658",
+    "label": "VENLAFAXINE BIOGARAN LP 75 mg, gélule à libération prolongée",
+    "expected": {
+      "cluster_id": "CLS_EFFEXOR",
+      "substance": "VENLAFAXINE",
+      "princeps": "EFFEXOR"
+    }
+  },
+  {
+    "case_name": "Deroxat",
+    "cis": "64854287",
+    "label": "PAROXETINE BIOGARAN 20 mg, comprimé pelliculé sécable",
+    "expected": {
+      "cluster_id": "CLS_DEROXAT",
+      "substance": "PAROXETINE",
+      "princeps": "DEROXAT"
+    }
+  },
+  {
+    "case_name": "Prozac",
+    "cis": "63517071",
+    "label": "FLUOXETINE BIOGARAN 20 mg, gélule",
+    "expected": {
+      "cluster_id": "CLS_PROZAC",
+      "substance": "FLUOXETINE",
+      "princeps": "PROZAC"
+    }
+  },
+  {
+    "case_name": "Inexium (Isomère)",
+    "cis": "69047251",
+    "label": "ESOMEPRAZOLE BIOGARAN 20 mg, gélule gastro-résistante",
+    "expected": {
+      "cluster_id": "CLS_INEXIUM",
+      "substance": "ESOMEPRAZOLE",
+      "princeps": "INEXIUM"
+    }
+  },
+  {
+    "case_name": "Mopral (Racémique)",
+    "cis": "67995040",
+    "label": "OMEPRAZOLE BIOGARAN 20 mg, gélule gastro-résistante",
+    "expected": {
+      "cluster_id": "CLS_MOPRAL",
+      "substance": "OMEPRAZOLE",
+      "princeps": "MOPRAL"
+    }
+  },
+  {
+    "case_name": "Diffu K (Sel Potassium)",
+    "cis": "63469484",
+    "label": "CHLORURE DE POTASSIUM PROAMP 0,10 g/ml, solution à diluer pour perfusion",
+    "expected": {
+      "cluster_id": "CLS_CHLORURE",
+      "substance": "POTASSIUM",
+      "princeps": "CHLORURE"
+    }
+  },
+  {
+    "case_name": "Levothyrox",
+    "cis": "68416845",
+    "label": "LEVOTHYROX 100 microgrammes, comprimé sécable",
+    "expected": {
+      "cluster_id": "CLS_LEVOTHYROX",
+      "substance": "LEVOTHYROXINE",
+      "princeps": "LEVOTHYROX"
+    }
+  },
+  {
+    "case_name": "CoDoliprane (Combo)",
+    "cis": "62351650",
+    "label": "CODOLIPRANE 500 mg/30 mg, comprimé effervescent sécable",
+    "expected": {
+      "cluster_id": "CLS_CODOLIPRANE",
+      "substance": "PARACETAMOL",
+      "princeps": "CODOLIPRANE"
+    }
+  },
+  {
+    "case_name": "Ixprim (Combo)",
+    "cis": "61137241",
+    "label": "IXPRIM 37,5 mg/325 mg, comprimé pelliculé",
+    "expected": {
+      "cluster_id": "CLS_IXPRIM",
+      "substance": "TRAMADOL",
+      "princeps": "IXPRIM"
+    }
+  },
+  {
+    "case_name": "Bipreterax",
+    "cis": "67727640",
+    "label": "PERINDOPRIL/INDAPAMIDE BIOGARAN 2 mg/0,625 mg, comprimé sécable",
+    "expected": {
+      "cluster_id": "CLS_BIPRETERAX",
+      "substance": "PERINDOPRIL",
+      "princeps": "BIPRETERAX"
+    }
+  },
+  {
+    "case_name": "Inegy (Combo)",
+    "cis": "66397549",
+    "label": "EZETIMIBE/SIMVASTATINE BIOGARAN 10 mg/20 mg, comprimé",
+    "expected": {
+      "cluster_id": "CLS_INEGY",
+      "substance": "EZETIMIBE",
+      "princeps": "INEGY"
+    }
+  },
+  {
+    "case_name": "Gaviscon (Nom commercial fort)",
+    "cis": "66116589",
+    "label": "GAVISCON, suspension buvable en sachet",
+    "expected": {
+      "cluster_id": "CLS_GAVISCON",
+      "substance": "ALGINATE",
+      "princeps": "GAVISCON"
+    }
+  },
+  {
+    "case_name": "Meteospasmyl (Combo)",
+    "cis": "60182237",
+    "label": "METEOSPASMYL 60 mg/300 mg, capsule molle",
+    "expected": {
+      "cluster_id": "CLS_METEOSPASMYL",
+      "substance": "ALVERINE",
+      "princeps": "METEOSPASMYL"
+    }
+  },
+  {
+    "case_name": "Voltarene (Oral)",
+    "cis": "67411717",
+    "label": "DICLOFENAC ARROW 50 mg, comprimé gastro-résistant",
+    "expected": {
+      "cluster_id": "CLS_VOLTARENE",
+      "substance": "DICLOFENAC",
+      "princeps": "VOLTARENE"
+    }
+  },
+  {
+    "case_name": "Solupred (Formes variées)",
+    "cis": "62597050",
+    "label": "PREDNISOLONE BIOGARAN 20 mg, comprimé effervescent sécable",
+    "expected": {
+      "cluster_id": "CLS_SOLUPRED",
+      "substance": "PREDNISOLONE",
+      "princeps": "SOLUPRED"
+    }
+  },
+  {
+    "case_name": "Celestene",
+    "cis": "63743330",
+    "label": "BETAMETHASONE BIOGARAN 2 mg, comprimé dispersible sécable",
+    "expected": {
+      "cluster_id": "CLS_CELESTENE",
+      "substance": "BETAMETHASONE",
+      "princeps": "CELESTENE"
+    }
+  },
+  {
+    "case_name": "Uvedose (Orphelin UI)",
+    "cis": "63489259",
+    "label": "UVEDOSE 100 000 UI, solution buvable en ampoule",
+    "expected": {
+      "cluster_id": "CLS_AMPOULE_EN_UVE",
+      "substance": "CHOLECALCIFEROL",
+      "princeps": "UVE"
+    }
+  },
+  {
+    "case_name": "Fumafer",
+    "cis": "68994621",
+    "label": "FERROSTRANE ENFANTS ET ADULTES 6,8 mg/mL, sirop",
+    "expected": {
+      "cluster_id": "CLS_ET_FERROSTRANE",
+      "substance": "FER",
+      "princeps": "FERROSTRANE"
+    }
+  },
+  {
+    "case_name": "Mag 2",
+    "cis": "64801797",
+    "label": "MAG 2 SANS SUCRE 122 mg, solution buvable en ampoule édulcoré à la saccharine sodique",
+    "expected": {
+      "cluster_id": "CLS_MAGNESIUM",
+      "substance": "MAGNESIUM",
+      "princeps": "MAGNESIUM"
+    }
+  },
+  {
+    "case_name": "Previscan",
+    "cis": "68133651",
+    "label": "PREVISCAN 20 mg, comprimé quadrisécable",
+    "expected": {
+      "cluster_id": "CLS_PREVISCAN",
+      "substance": "FLUINDIONE",
+      "princeps": "PREVISCAN"
+    }
+  },
+  {
+    "case_name": "Coumadine",
+    "cis": "63245753",
+    "label": "COUMADINE 5 mg, comprimé sécable",
+    "expected": {
+      "cluster_id": "CLS_COUMADINE",
+      "substance": "WARFARINE",
+      "princeps": "COUMADINE"
+    }
+  },
+  {
+    "case_name": "Depakine",
+    "cis": "60184188",
+    "label": "DEPAKINE 500 mg, comprimé gastro-résistant",
+    "expected": {
+      "cluster_id": "CLS_DEPAKINE",
+      "substance": "VALPROATE",
+      "princeps": "DEPAKINE"
+    }
+  },
+  {
+    "case_name": "Tegretol",
+    "cis": "67655493",
+    "label": "TEGRETOL L.P. 400 mg, comprimé pelliculé sécable à libération prolongée",
+    "expected": {
+      "cluster_id": "CLS_TEGRETOL",
+      "substance": "CARBAMAZEPINE",
+      "princeps": "TEGRETOL"
+    }
+  },
+  {
+    "case_name": "Zytiga",
+    "cis": "67365440",
+    "label": "ABIRATERONE SANDOZ 500 mg, comprimé pelliculé",
+    "expected": {
+      "cluster_id": "CLS_ZYTIGA",
+      "substance": "ABIRATERONE",
+      "princeps": "ZYTIGA"
+    }
+  },
+  {
+    "case_name": "Xtandi",
+    "cis": "64093355",
+    "label": "XTANDI 40 mg, comprimé pelliculé",
+    "expected": {
+      "cluster_id": "CLS_XTANDI",
+      "substance": "ENZALUTAMIDE",
+      "princeps": "XTANDI"
+    }
+  },
+  {
+    "case_name": "Revlimid",
+    "cis": "60245253",
+    "label": "REVLIMID 10 mg, gélule",
+    "expected": {
+      "cluster_id": "CLS_REVLIMID",
+      "substance": "LENALIDOMIDE",
+      "princeps": "REVLIMID"
+    }
+  },
+  {
+    "case_name": "Eliquis",
+    "cis": "61902218",
+    "label": "ELIQUIS 5 mg, comprimé pelliculé",
+    "expected": {
+      "cluster_id": "CLS_ELIQUIS",
+      "substance": "APIXABAN",
+      "princeps": "ELIQUIS"
+    }
+  },
+  {
+    "case_name": "Xarelto",
+    "cis": "62391627",
+    "label": "RIVAROXABAN BIOGARAN 20 mg, comprimé pelliculé",
+    "expected": {
+      "cluster_id": "CLS_XARELTO",
+      "substance": "RIVAROXABAN",
+      "princeps": "XARELTO"
+    }
+  },
+  {
+    "case_name": "Glivec",
+    "cis": "63485353",
+    "label": "GLIVEC 400 mg, comprimé pelliculé",
+    "expected": {
+      "cluster_id": "CLS_GLIVEC",
+      "substance": "IMATINIB",
+      "princeps": "GLIVEC"
+    }
+  },
+  {
+    "case_name": "Subutex",
+    "cis": "62767225",
+    "label": "BUPRENORPHINE BIOGARAN 8 mg, comprimé sublingual",
+    "expected": {
+      "cluster_id": "CLS_SUBLINGUAL_SUBUTEX",
+      "substance": "BUPRENORPHINE",
+      "princeps": "SUBUTEX"
+    }
+  }
+]

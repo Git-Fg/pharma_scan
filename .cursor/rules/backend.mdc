@@ -1,0 +1,5 @@
+---
+alwaysApply: true
+---
+
+Lorsque tu travailles sur le backend (typescript via bun), execute toujours "bun run preflight" à la fin des processus pour s'assurer que la db est bien régénérée, les tests passent et les tools sont utilisés. 

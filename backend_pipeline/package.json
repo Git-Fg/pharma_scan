@@ -4,9 +4,11 @@
   "private": true,
   "module": "src/index.ts",
   "scripts": {
-    "build:db": "bun run src/index.ts",
     "test": "bun test",
-    "tool": "bun run tool/export_preview.ts && bun run tool/audit_unified.ts && bun run tool/verify_clusters.ts"
+    "build:db": "bun run src/index.ts && sqlite3 data/reference.db \".schema\" > data/schema.sql",
+    "tool": "bun run tool/export_preview.ts && bun run tool/audit_data.ts",
+    "preflight": "bun test && bun run build:db && bun run tool",
+    "preflight:bp": "bun run build:db && bun run tool"
   },
   "devDependencies": {
     "@types/bun": "latest"
@@ -16,6 +18,7 @@
   },
   "dependencies": {
     "@urbanzoo/remove-accents": "^1.0.2",
+    "bun-sqlite-generate": "^0.0.2",
     "csv-parse": "^6.1.0",
     "iconv-lite": "^0.7.0",
     "zod": "^4.1.13"

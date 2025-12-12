@@ -22,6 +22,7 @@ Le parsing doit alimenter 4 niveaux logiques distincts :
     * *Définition :* Un dosage et une forme spécifique pour un Cluster donné.
     * *Source clé :* `CIS_GENER_bdpm.txt` (ID de groupe).
     * *Exemple :* Amoxicilline 500 mg Gélules.
+    * *Nouveaux champs* : `galenic_category` (ontologie haute-niveau, incl. `RADIOPHARMACEUTIQUE` pour les formes contenant “préparation radiopharmaceutique”), `dosage_value` (mg normalisé) + `dosage_unit`, `confidence_score` (base 0, +50 si `CIS_GENER`, +30 si princeps trouvé, +20 si dosage FT vs libellé concordent, -10 si routes incompatibles, -20 si groupe orphelin `S-*`).
 3. **CIS (Produit Commercial)**
     * *Définition :* La marque ou le générique spécifique d'un laboratoire.
     * *Source clé :* `CIS_bdpm.txt`.

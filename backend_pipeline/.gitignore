@@ -1,6 +1,11 @@
 # dependencies (bun install)
 node_modules
 
+# meta
+
+prompts
+analysis
+
 # output
 out
 dist

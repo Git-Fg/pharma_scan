@@ -1,3 +1,4 @@
+import { removeAccentsEnhanced } from "@urbanzoo/remove-accents";
 import { z } from "zod";
 
 // --- 1. Branded IDs (Gold Standard Type Safety) ---
@@ -144,6 +145,101 @@ export type DependencyMaps = {
   atc: Map<CisId, RawMitm[]>;
 };
 
+// --- 4. Galenic ontology & dosage structures ---
+export enum GalenicCategory {
+  ORAL_SOLID = "ORAL_SOLID",
+  ORAL_LIQUID = "ORAL_LIQUID",
+  INJECTABLE = "INJECTABLE",
+  RADIOPHARMACEUTIQUE = "RADIOPHARMACEUTIQUE",
+  DERMAL = "DERMAL",
+  OPHTHALMIC = "OPHTHALMIC",
+  RESPIRATORY = "RESPIRATORY",
+  NASAL = "NASAL",
+  RECTAL_VAGINAL = "RECTAL_VAGINAL",
+  TRANSDERMAL = "TRANSDERMAL",
+  OTHER = "OTHER"
+}
+
+const GALENIC_KEYWORDS: Array<{ key: GalenicCategory; tokens: string[] }> = [
+  {
+    key: GalenicCategory.ORAL_SOLID,
+    tokens: ["COMPRIME", "COMPRIMÉ", "GELULE", "GÉLULE", "CAPSULE", "PASTILLE", "LYOPHILISAT", "GRANULE", "POUDRE"]
+  },
+  {
+    key: GalenicCategory.ORAL_LIQUID,
+    tokens: ["SIROP", "SOL BUV", "SOLUTION BUVABLE", "GOUTTE", "GOUTTES", "SUSPENSION BUVABLE"]
+  },
+  {
+    key: GalenicCategory.INJECTABLE,
+    tokens: ["INJECTABLE", "PERFUSION", "SERINGUE", "IV", "IM", "SC", "INJECTION"]
+  },
+  {
+    key: GalenicCategory.RADIOPHARMACEUTIQUE,
+    tokens: ["PREPARATION RADIOPHARMACEUTIQUE", "PRÉPARATION RADIOPHARMACEUTIQUE"]
+  },
+  {
+    key: GalenicCategory.DERMAL,
+    tokens: ["CREME", "CRÈME", "POMMADE", "GEL DERMIQUE", "DERMIQUE", "TOPIQUE", "LOTION", "SHAMPOOING"]
+  },
+  {
+    key: GalenicCategory.OPHTHALMIC,
+    tokens: ["COLLYRE", "OPHTALMIQUE", "OPH"]
+  },
+  {
+    key: GalenicCategory.RESPIRATORY,
+    tokens: ["INHALATION", "INHAL", "AEROSOL", "SPRAY", "POUDRE INHAL", "DISPOSITIF INHALATION"]
+  },
+  {
+    key: GalenicCategory.NASAL,
+    tokens: ["NASAL", "SPRAY NASAL", "GOUTTES NASALES"]
+  },
+  {
+    key: GalenicCategory.RECTAL_VAGINAL,
+    tokens: ["SUPPOSITOIRE", "OVULE", "RECTAL", "VAGINAL"]
+  },
+  {
+    key: GalenicCategory.TRANSDERMAL,
+    tokens: ["TIMBRE", "PATCH", "TRANSDERMIQUE"]
+  }
+];
+
+export function mapGalenicCategory(rawForm: string): GalenicCategory {
+  const upper = rawForm.toUpperCase();
+  const accentFree = removeAccentsEnhanced(upper);
+
+  // Hard override: any explicit injectable hint wins over oral defaults
+  if (upper.includes("INJECT")) {
+    return GalenicCategory.INJECTABLE;
+  }
+
+  if (accentFree.includes("PREPARATION RADIOPHARMACEUTIQUE")) {
+    return GalenicCategory.RADIOPHARMACEUTIQUE;
+  }
+
+  for (const entry of GALENIC_KEYWORDS) {
+    if (entry.tokens.some((token) => upper.includes(token))) {
+      return entry.key;
+    }
+  }
+  return GalenicCategory.OTHER;
+}
+
+export type StructuredDosage = {
+  raw_value: number;
+  unit: string;
+  base_normalized_value: number;
+};
+
+export function normalizeDosageUnit(value: number, unit: string): number {
+  const upper = unit.toUpperCase();
+  if (upper === "G") return value * 1000;
+  if (upper === "MG") return value;
+  if (upper === "UG" || upper === "µG" || upper === "MCG") return value / 1000;
+  if (upper === "KG") return value * 1_000_000;
+  // Fallback: return as-is so we do not drop information
+  return value;
+}
+
 // --- 5. Normalized Domain Models (Database Rows) ---
 export enum GenericType {
   PRINCEPS = 0,
@@ -154,24 +250,163 @@ export enum GenericType {
   UNKNOWN = 99
 }
 
+// New interfaces matching Flutter app schema
+export interface Specialite {
+  cisCode: string;
+  nomSpecialite: string;
+  procedureType: string;
+  statutAdministratif?: string;
+  formePharmaceutique?: string;
+  voiesAdministration?: string;
+  etatCommercialisation?: string;
+  titulaireId?: number;
+  conditionsPrescription?: string;
+  dateAmm?: string;
+  atcCode?: string;
+  isSurveillance?: boolean;
+}
+
+export interface Medicament {
+  codeCip: string;
+  cisCode: string;
+  presentationLabel?: string;
+  commercialisationStatut?: string;
+  tauxRemboursement?: string;
+  prixPublic?: number;
+  agrementCollectivites?: string;
+}
+
+export interface MedicamentAvailability {
+  codeCip: string;
+  statut: string;
+  dateDebut?: string;
+  dateFin?: string;
+  lien?: string;
+}
+
+export interface PrincipeActif {
+  id?: number;
+  codeCip: string;
+  principe: string;
+  principeNormalized?: string;
+  dosage?: string;
+  dosageUnit?: string;
+}
+
+export interface GeneriqueGroup {
+  groupId: string;
+  libelle: string;
+  princepsLabel?: string;
+  moleculeLabel?: string;
+  rawLabel?: string;
+  parsingMethod?: string;
+}
+
+export interface GroupMember {
+  codeCip: string;
+  groupId: string;
+  type: number; // 0 princeps, 1 standard, 2 complémentarité, 4 substituable
+  sortOrder?: number; // Colonne 5 de CIS_GENER : ordre de tri (plus élevé = plus récent/primaire)
+}
+
+export interface MedicamentSummary {
+  cisCode: string;
+  nomCanonique: string;
+  isPrinceps: boolean;
+  groupId?: string; // nullable for medications without groups
+  memberType?: number; // raw BDPM generic type
+  principesActifsCommuns?: string | Uint8Array; // JSONB array of common active ingredients
+  princepsDeReference: string; // reference princeps name for group
+  formePharmaceutique?: string; // for filtering
+  voiesAdministration?: string; // semicolon routes
+  princepsBrandName: string;
+  procedureType?: string;
+  titulaireId?: number;
+  conditionsPrescription?: string;
+  dateAmm?: string;
+  isSurveillance?: boolean;
+  formattedDosage?: string;
+  atcCode?: string;
+  status?: string;
+  priceMin?: number;
+  priceMax?: number;
+  aggregatedConditions?: string;
+  ansmAlertUrl?: string;
+  isHospitalOnly?: boolean;
+  isDental?: boolean;
+  isList1?: boolean;
+  isList2?: boolean;
+  isNarcotic?: boolean;
+  isException?: boolean;
+  isRestricted?: boolean;
+  isOtc?: boolean;
+  representativeCip?: string;
+  clusterId?: string; // NEW - for clustering
+  rowid?: number; // For FTS content_rowid
+}
+
+export interface Laboratory {
+  id?: number;
+  name: string;
+}
+
+// Additional interfaces from Flutter app
+export interface RestockItem {
+  id?: number;
+  cisCode: string;
+  cipCode: string;
+  nomCanonique: string;
+  isPrinceps: boolean;
+  princepsDeReference: string;
+  formePharmaceutique?: string;
+  voiesAdministration?: string;
+  formattedDosage?: string;
+  representativeCip?: string;
+  expiryDate?: string;
+  stockCount: number;
+  location?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ScannedBox {
+  id?: number;
+  boxLabel: string;
+  cisCode?: string;
+  cipCode?: string;
+  scanTimestamp: string;
+}
+
+export interface AppSettings {
+  key: string;
+  value: Uint8Array;
+}
+
+// Legacy types for compatibility during transition
 export type Product = {
   cis: CisId;
   label: string;
-  is_princeps: boolean; // 0 or 1 in SQLite
+  is_princeps: boolean;
   generic_type: GenericType;
   group_id: GroupId | null;
   form: string;
   routes: string;
+  galenic_category?: GalenicCategory;
+  dosage_value?: number | null;
+  dosage_unit?: string | null;
   type_procedure: string;
   surveillance_renforcee: boolean;
   manufacturer_id: number;
   marketing_status: string;
-  date_amm: string | null; // ISO YYYY-MM-DD
-  regulatory_info: string; // JSON blob for safety flags (Narcotic, Hospital...)
-  composition: string; // JSON array of composition entries (element + substances)
-  composition_codes: string; // JSON array of substance codes (e.g., ["1234","5678"])
+  date_amm: string | null;
+  regulatory_info: string;
+  composition: string;
+  composition_codes: string;
   composition_display: string;
   drawer_label: string;
+  active_presentations_count?: number;
+  stopped_presentations_count?: number;
 };
 
 export type Presentation = {
@@ -186,11 +421,15 @@ export type Presentation = {
 };
 
 export type Cluster = {
-  id: string; // Deterministic Hash
-  label: string; // "Paracétamol"
-  princeps_label: string; // "Doliprane"
-  substance_code: string; // Normalized key
+  id: string;
+  label: string;
+  princeps_label: string;
+  substance_code: string;
   text_brand_label?: string | null;
+  dosage?: string | null;
+  princeps_brand?: string | null;
+  secondary_princeps_brands?: string;
+  has_shortage?: number;
 };
 
 export type GroupRow = {
@@ -204,6 +443,7 @@ export type GroupRow = {
   princeps_aliases: string;
   routes: string;
   safety_flags: string;
+  confidence_score?: number | null;
 };
 
 export type ProductGroupingUpdate = {
@@ -221,4 +461,8 @@ export type RegulatoryInfo = {
   dental: boolean;
 };
 
-export type NamingSource = "GOLDEN_PRINCEPS" | "TYPE_0_LINK" | "GENER_PARSING";
+export type NamingSource =
+  | "GOLDEN_PRINCEPS"
+  | "TYPE_0_LINK"
+  | "GENER_PARSING"
+  | "STANDALONE";

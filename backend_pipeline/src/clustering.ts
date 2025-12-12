@@ -1,581 +1,392 @@
-import {
-  cleanPrincepsCandidate,
-  cleanProductLabel,
-  generateClusterId,
-  normalizeString,
-  normalizeRoutes,
-  parseGroupLabel,
-  parseRegulatoryInfo,
-  splitGroupLabelFirst,
-  stripFormFromCisLabel
-} from "./logic";
-import type {
-  CisId,
-  Cluster,
-  DependencyMaps,
-  GroupRow,
-  ProductGroupingUpdate,
-  RawGroup
-} from "./types";
-import { GenericType, type NamingSource } from "./types";
+import { normalizePrincipleOptimal, generateGroupingKey, applyPharmacologicalMask } from "./sanitizer";
+import crypto from "crypto";
 
-export type ProductMetaEntry = {
-  label: string;
-  codes: string[];
-  signature: string;
-  bases: string[];
-  isPrinceps: boolean;
-  groupId: string | null;
-  genericType: GenericType;
-};
+export interface ClusteringInput {
+  groupId: string;
+  princepsCisCode: string | null;
+  princepsReferenceName: string;
+  princepsForm: string | null; // Forme pharmaceutique du princeps (pour masque galénique)
+  commonPrincipes: string; // "P1 + P2" or "P1, P2"
+  isPrincepsGroup: boolean; // Indique si le groupe contient un Type 0 (vrai princeps)
+}
 
-type GroupStats = {
-  total: number;
-  linkedViaCis: number;
-  rescuedViaText: number;
-  failed: number;
-};
+/**
+ * Trouve le préfixe commun (mot par mot) d'une liste de chaînes.
+ * Ex: ["CLAMOXYL 125", "CLAMOXYL 500"] -> "CLAMOXYL"
+ * Ex: ["DOLIPRANE 1000", "DOLIPRANE 500"] -> "DOLIPRANE"
+ * Ex: ["SPASFON", "SPASFON LYOC"] -> "SPASFON"
+ * 
+ * Cette fonction travaille mot par mot (plus sûr que caractère par caractère)
+ * pour éviter de couper un mot en deux et garantir un préfixe sémantiquement cohérent.
+ */
+export function findCommonWordPrefix(strings: string[]): string {
+  if (strings.length === 0) return "";
+  if (strings.length === 1) return strings[0];
 
-export type GroupNaming = {
-  canonical: string;
-  reference: string | null;
-  namingSource: NamingSource;
-  historicalPrincepsRaw: string | null;
-  genericLabelClean: string | null;
-  princepsAliases: string[];
-};
+  // 1. On découpe tout en mots (split sur espace)
+  const arrays = strings.map(s => s.trim().split(/\s+/));
+  
+  // 2. On prend le premier tableau comme référence
+  const firstArr = arrays[0];
+  const commonWords: string[] = [];
 
-type ClusteringContext = {
-  dependencyMaps: DependencyMaps;
-  groupsData: RawGroup[];
-  excludedCis: Set<CisId>;
-  productMeta: Map<CisId, ProductMetaEntry>;
-  cisNames: Map<CisId, string>;
-  cisDetails: Map<CisId, { label: string; form: string; route: string }>;
-  groupCompositionCanonical: Map<string, { tokens: string[]; substances: Array<{ name: string; dosage: string; nature: "FT" | "SA" | null }> }>;
-};
+  // 3. On itère mot par mot
+  for (let i = 0; i < firstArr.length; i++) {
+    const word = firstArr[i];
+    
+    // Vérifie si ce mot existe au même index dans TOUTES les autres chaînes
+    const isCommon = arrays.every(arr => 
+      arr.length > i && arr[i].toUpperCase() === word.toUpperCase()
+    );
 
-export type ClusteringResult = {
-  clusters: Cluster[];
-  groupRows: GroupRow[];
-  productGroupUpdates: ProductGroupingUpdate[];
-  cisToCluster: Map<CisId, string>;
-  missingGroupCis: Set<CisId>;
-  groupStats: GroupStats;
-  groupNaming: Map<string, GroupNaming>;
-  groupRoutes: Map<string, Set<string>>;
-};
-
-export class ClusteringEngine {
-  private readonly dependencyMaps;
-  private readonly groupsData;
-  private readonly excludedCis;
-  private readonly productMeta;
-  private readonly cisNames;
-  private readonly cisDetails;
-  private readonly groupCompositionCanonical;
-
-  constructor(context: ClusteringContext) {
-    this.dependencyMaps = context.dependencyMaps;
-    this.groupsData = context.groupsData;
-    this.excludedCis = context.excludedCis;
-    this.productMeta = context.productMeta;
-    this.cisNames = context.cisNames;
-    this.cisDetails = context.cisDetails;
-    this.groupCompositionCanonical = context.groupCompositionCanonical;
+    if (isCommon) {
+      commonWords.push(word);
+    } else {
+      break; // Dès qu'un mot diffère, on arrête (c'est un préfixe)
+    }
   }
 
-  run(): ClusteringResult {
-    console.log("Processing Groups & Clusters (Tiroir strategy)...");
+  return commonWords.join(" ");
+}
 
-    const groupNaming = this.buildGroupNaming();
-    const groupRoutes = new Map<string, Set<string>>();
-    const groupSafety = new Map<
-      string,
-      { list1: boolean; list2: boolean; narcotic: boolean; hospital: boolean; dental: boolean }
-    >();
-    const emptySafety = () => ({
-      list1: false,
-      list2: false,
-      narcotic: false,
-      hospital: false,
-      dental: false
-    });
-    for (const row of this.groupsData) {
-      const [groupId, , cis] = row;
-      if (this.excludedCis.has(cis)) continue;
-      const route = this.cisDetails.get(cis)?.route?.trim();
-      if (route) {
-        const tokens = normalizeRoutes(route);
-        if (!groupRoutes.has(groupId)) groupRoutes.set(groupId, new Set<string>());
-        for (const t of tokens) {
-          groupRoutes.get(groupId)!.add(t);
-        }
-      }
-      const conditions = this.dependencyMaps.conditions.get(cis) ?? [];
-      if (!groupSafety.has(groupId)) {
-        groupSafety.set(groupId, emptySafety());
-      }
-      const agg = groupSafety.get(groupId)!;
-      for (const cond of conditions) {
-        const parsed = parseRegulatoryInfo(cond);
-        agg.list1 = agg.list1 || parsed.list1;
-        agg.list2 = agg.list2 || parsed.list2;
-        agg.narcotic = agg.narcotic || parsed.narcotic;
-        agg.hospital = agg.hospital || parsed.hospital;
-        agg.dental = agg.dental || parsed.dental;
+/**
+ * Normalizes commonPrincipes for comparison using optimal normalization.
+ * Port of normalizeCommonPrincipes from grouping_algorithms.dart
+ */
+function normalizeCommonPrincipes(commonPrincipes: string): string {
+  if (!commonPrincipes) return "";
+
+  // Associations are delimited by "+", otherwise by comma.
+  const rawList = commonPrincipes.includes("+")
+    ? commonPrincipes.split("+")
+    : commonPrincipes.split(",");
+
+  // Normalize principles, deduplicate, then sort for stable comparison.
+  const normalizedSet = new Set<string>();
+  for (const p of rawList) {
+    const trimmed = p.trim();
+    if (trimmed) {
+      const normalized = normalizePrincipleOptimal(trimmed);
+      if (normalized) {
+        normalizedSet.add(normalized);
       }
     }
+  }
 
-    const groupStats: GroupStats = {
-      total: 0,
-      linkedViaCis: 0,
-      rescuedViaText: 0,
-      failed: 0
-    };
-    const missingGroupCis = new Set<CisId>();
-    const groupRows: GroupRow[] = [];
-    const productGroupUpdates: ProductGroupingUpdate[] = [];
-    const cisToCluster = new Map<CisId, string>();
+  const normalizedList = Array.from(normalizedSet).sort();
+  return normalizedList.join(", ").trim();
+}
 
-    const groupProducts = this.buildGroupProducts();
-    const clustersBySignature = new Map<string, Cluster>(); // signature -> cluster (primary key)
-    const clustersByNormalized = new Map<string, Cluster>(); // normalized name -> cluster (fallback)
-    const groupIdToClusterKey = new Map<string, string>(); // groupId -> signature or normalized
-    const aliasClusterMap = new Map<string, string>(); // normalized alias -> cluster id
-    const signatureToClusterId = new Map<string, string>(); // signature -> cluster id
-    const signatureMeta = new Map<
-      string,
-      { canonical: string; sourcePriority: number; productCount: number }
-    >(); // best canonical per signature
+/**
+ * Deterministic hash for cluster ID generation.
+ * Ensures consistent IDs across pipeline runs if data is stable.
+ */
+function generateClusterId(key: string): string {
+  return "CLS_" + crypto.createHash("md5").update(key).digest("hex").substring(0, 8).toUpperCase();
+}
 
-    for (const row of this.groupsData) {
-      const [groupId, rawLabel, cis, type] = row;
-      if (this.excludedCis.has(cis)) continue;
-      groupStats.total++;
+export interface ClusterMetadata {
+  clusterId: string;
+  substanceCode: string;
+  princepsLabel: string;
+  secondaryPrinceps: string[]; // Noms de princeps secondaires (co-marketing, rachats)
+}
 
-      const products = groupProducts.get(groupId) ?? [];
-      if (this.productMeta.has(cis)) {
-        groupStats.linkedViaCis++;
-      } else {
-        missingGroupCis.add(cis);
-        groupStats.rescuedViaText++;
+/**
+ * Port of groupByCommonPrincipes from grouping_algorithms.dart
+ * Implements the "Hybrid Clustering Strategy":
+ * 1. Hard Link (via Princeps CIS)
+ * 2. Soft Link (via Normalized Common Principles)
+ * 3. Suspicious Cluster Detection (prefix/substring checks)
+ * 
+ * Returns a map from groupId to cluster metadata (clusterId, substanceCode, princepsLabel)
+ */
+export function computeClusters(items: ClusteringInput[]): Map<string, ClusterMetadata> {
+  // Map<GroupId, ClusterMetadata>
+  const groupToCluster = new Map<string, ClusterMetadata>();
+
+  if (items.length === 0) return groupToCluster;
+
+  // ===== PHASE 0: BUILD CIS-TO-PRINCIPLE MAP (Hard Link) =====
+  // Map each princeps CIS code to a normalized principle name.
+  // If multiple principles map to one CIS, prefer the shortest/cleanest one.
+  const cisToPrincipleMap = new Map<string, string>();
+
+  for (const item of items) {
+    if (item.princepsCisCode && item.commonPrincipes) {
+      const normalized = normalizeCommonPrincipes(item.commonPrincipes);
+      if (normalized.length > 2) {
+        const cisCodeString = item.princepsCisCode;
+        const existing = cisToPrincipleMap.get(cisCodeString);
+        if (!existing) {
+          // First mapping for this CIS
+          cisToPrincipleMap.set(cisCodeString, normalized);
+        } else {
+          // Conflict resolution: prefer shorter/cleaner principle name
+          if (
+            normalized.length < existing.length ||
+            (normalized.length === existing.length && normalized < existing)
+          ) {
+            cisToPrincipleMap.set(cisCodeString, normalized);
+          }
+        }
       }
+    }
+  }
 
-      const naming = groupNaming.get(groupId);
-      const { molecule: parsedMolecule, reference: parsedReference } = parseGroupLabel(rawLabel);
-      let canonicalName =
-        naming?.canonical ||
-        cleanPrincepsCandidate(parsedReference || "") ||
-        cleanPrincepsCandidate(parsedMolecule) ||
-        rawLabel.toUpperCase();
-      // Clean canonical name to remove common suffixes that shouldn't be in cluster labels
-      canonicalName = cleanProductLabel(canonicalName) || canonicalName;
-      canonicalName = canonicalName.replace(/\s+(ML|LP|VELOTAB|CONSTA|PEDEA|MAINTENA|CONSTA\s+L\.P\.)$/i, "").trim() || canonicalName;
-      const reference = naming?.reference ?? parsedReference;
+  // ===== PHASE 1: GROUPING =====
+  const commonPrincipesCounts = new Map<string, number>();
+  const commonPrincipesToGroupIds = new Map<string, Set<string>>();
 
-      if (!canonicalName) {
-        groupStats.failed++;
+  for (const item of items) {
+    let groupingKey: string | null = null;
+    
+    // 1. Hard Link via Princeps CIS
+    if (item.princepsCisCode && cisToPrincipleMap.has(item.princepsCisCode)) {
+      groupingKey = cisToPrincipleMap.get(item.princepsCisCode)!;
+    }
+    // 2. Soft Link via Common Principles
+    else if (item.commonPrincipes) {
+      groupingKey = normalizeCommonPrincipes(item.commonPrincipes);
+    }
+
+    if (groupingKey && groupingKey.length > 2) {
+      commonPrincipesCounts.set(groupingKey, (commonPrincipesCounts.get(groupingKey) || 0) + 1);
+      if (!commonPrincipesToGroupIds.has(groupingKey)) {
+        commonPrincipesToGroupIds.set(groupingKey, new Set());
+      }
+      commonPrincipesToGroupIds.get(groupingKey)!.add(item.groupId);
+    }
+  }
+
+  const suspiciousPrincipes = new Set<string>();
+
+  for (const [key, groupIds] of commonPrincipesToGroupIds.entries()) {
+    if (groupIds.size > 1) {
+      const isSinglePrinciple = !key.includes(",");
+      if (isSinglePrinciple && key.length >= 4) {
         continue;
       }
 
-      const normalized = normalizeString(canonicalName) || canonicalName.toLowerCase();
-      const aliases = [
-        canonicalName,
-        ...(naming?.princepsAliases ?? []),
-        naming?.historicalPrincepsRaw ?? "",
-        naming?.reference ?? ""
-      ].filter(Boolean);
-      const normalizedAliases = Array.from(
-        new Set(
-          aliases
-            .map((a) => normalizeString(cleanProductLabel(a)) || normalizeString(a) || a.toLowerCase())
-            .filter(Boolean)
-        )
+      // Re-fetch items for this key to analyze names
+      const clusterItems = items.filter(item => {
+        let k;
+        if (item.princepsCisCode && cisToPrincipleMap.has(item.princepsCisCode)) {
+          k = cisToPrincipleMap.get(item.princepsCisCode)!;
+        } else if (item.commonPrincipes) {
+          k = normalizeCommonPrincipes(item.commonPrincipes);
+        }
+        return k === key;
+      });
+
+      const normalizedPrinceps = clusterItems.map(i =>
+        normalizePrincipleOptimal(i.princepsReferenceName)
       );
 
-      // Primary clustering key: composition signature
-      const composition = this.groupCompositionCanonical.get(groupId);
-      const signature = composition?.tokens.join("|") || "";
-      const hasSignature = signature.length > 0;
+      if (groupIds.size > 2) {
+        const uniquePrinceps = Array.from(new Set(normalizedPrinceps));
 
-      let clusterId: string | undefined;
-      let clusterKey: string;
-      const sourcePriority =
-        naming?.namingSource === "GOLDEN_PRINCEPS"
-          ? 2
-          : naming?.namingSource === "TYPE_0_LINK"
-            ? 1
-            : 0;
-      const productCountForGroup = products.length;
-
-      if (hasSignature) {
-        // Use signature as primary clustering key
-        clusterKey = signature;
-        
-        // Check if a cluster already exists for this signature
-        if (signatureToClusterId.has(signature)) {
-          clusterId = signatureToClusterId.get(signature)!;
-          const meta = signatureMeta.get(signature);
-          const better =
-            !meta ||
-            sourcePriority > meta.sourcePriority ||
-            (sourcePriority === meta.sourcePriority && productCountForGroup > meta.productCount);
-          if (better) {
-            const existingCluster = clustersBySignature.get(signature);
-            if (existingCluster) {
-              existingCluster.label = canonicalName;
-              existingCluster.princeps_label = canonicalName;
-              signatureMeta.set(signature, { canonical: canonicalName, sourcePriority, productCount: productCountForGroup });
+        let allShareCommonPrefix = false;
+        if (uniquePrinceps.length > 1) {
+          const first = uniquePrinceps[0];
+          let commonPrefixLength = 0;
+          if (first.length >= 4) {
+            for (let len = 4; len <= first.length; len++) {
+              const prefix = first.substring(0, len);
+              if (uniquePrinceps.every(name => name.length >= len && name.substring(0, len) === prefix)) {
+                commonPrefixLength = len;
+              } else {
+                break;
+              }
             }
           }
+          allShareCommonPrefix = commonPrefixLength >= 4;
         } else {
-          // Check alias map first (for split-brain resolution)
-          for (const a of normalizedAliases) {
-            const hit = aliasClusterMap.get(a);
-            if (hit) {
-              clusterId = hit;
-              signatureToClusterId.set(signature, clusterId);
-              break;
+          // If only 1 unique princeps name, effectively sharing prefix
+          allShareCommonPrefix = true;
+        }
+
+        if (uniquePrinceps.length > 3 && !allShareCommonPrefix) {
+          suspiciousPrincipes.add(key);
+        } else if (!allShareCommonPrefix) {
+          let hasVeryDifferentNames = false;
+          for (let i = 0; i < normalizedPrinceps.length; i++) {
+            for (let j = i + 1; j < normalizedPrinceps.length; j++) {
+              const name1 = normalizedPrinceps[i];
+              const name2 = normalizedPrinceps[j];
+
+              const minLen = Math.min(name1.length, name2.length);
+
+              if (minLen >= 4) {
+                const prefix1 = name1.substring(0, 4);
+                const prefix2 = name2.substring(0, 4);
+                if (
+                  prefix1 !== prefix2 &&
+                  !name1.includes(prefix2) &&
+                  !name2.includes(prefix1)
+                ) {
+                  hasVeryDifferentNames = true;
+                  break;
+                }
+              } else {
+                if (
+                  name1 !== name2 &&
+                  !name1.includes(name2) &&
+                  !name2.includes(name1)
+                ) {
+                  hasVeryDifferentNames = true;
+                  break;
+                }
+              }
             }
+            if (hasVeryDifferentNames) break;
+          }
+
+          if (hasVeryDifferentNames) {
+            suspiciousPrincipes.add(key);
+          }
+        }
+      }
+    }
+  }
+
+  // ===== PHASE 2: CONSTRUCTION =====
+  const groupedByPrincipes = new Map<string, ClusteringInput[]>();
+
+  for (const item of items) {
+    let groupingKey: string;
+    
+    // 1. Hard Link via Princeps CIS
+    if (item.princepsCisCode && cisToPrincipleMap.has(item.princepsCisCode)) {
+      groupingKey = cisToPrincipleMap.get(item.princepsCisCode)!;
+    }
+    // 2. Soft Link via Common Principles
+    else if (item.commonPrincipes) {
+      groupingKey = normalizeCommonPrincipes(item.commonPrincipes);
+    }
+    // 3. Fallback: Unique key
+    else {
+      groupingKey = `UNIQUE_${item.groupId}`;
+    }
+
+    // Mark as unique if suspicious or too short
+    if (groupingKey.length <= 2 || suspiciousPrincipes.has(groupingKey)) {
+      groupingKey = `UNIQUE_${item.groupId}`;
+    }
+
+    if (!groupedByPrincipes.has(groupingKey)) {
+      groupedByPrincipes.set(groupingKey, []);
+    }
+    groupedByPrincipes.get(groupingKey)!.push(item);
+  }
+
+  // ===== PHASE 3: Generate Cluster IDs and Metadata =====
+  for (const [key, clusterItems] of groupedByPrincipes.entries()) {
+    // Determine substance code (use key if not UNIQUE_)
+    let substanceCode = key.startsWith("UNIQUE_") ? "" : key;
+    
+    // If forced to UNIQUE_, try to extract substance from first item
+    if (!substanceCode && clusterItems.length > 0) {
+      substanceCode = normalizeCommonPrincipes(clusterItems[0].commonPrincipes);
+    }
+
+    // --- STRATÉGIE DE NOMMAGE HYBRIDE (VOTE + PREFIXE COMMUN) ---
+    // --- LOGIQUE MULTI-PRINCEPS (Primaires vs Secondaires) ---
+    
+    // 1. Compter les occurrences de chaque NOM de princeps (déjà cleané par le masque)
+    // On ne regarde QUE les groupes qui ont un vrai princeps (isPrincepsGroup)
+    const candidates = new Map<string, number>();
+    
+    for (const item of clusterItems) {
+      if (item.isPrincepsGroup && item.princepsReferenceName) {
+        // Application du masque galénique pour avoir le nom court "ADVIL"
+        let name = item.princepsReferenceName.trim();
+        if (name && name !== "Référence inconnue") {
+          if (item.princepsForm) {
+            name = applyPharmacologicalMask(name, item.princepsForm);
           }
           
-          if (!clusterId) {
-            const bestCanonical = canonicalName;
-            clusterId = generateClusterId(bestCanonical);
-            signatureToClusterId.set(signature, clusterId);
-            signatureMeta.set(signature, { canonical: bestCanonical, sourcePriority, productCount: productCountForGroup });
-          }
-          
-          // Create or update cluster by signature
-          if (!clustersBySignature.has(signature)) {
-            const bestCanonical = signatureMeta.get(signature)?.canonical ?? canonicalName;
-            clustersBySignature.set(signature, {
-              id: clusterId,
-              label: bestCanonical,
-              princeps_label: bestCanonical,
-              substance_code: normalized || "unknown",
-              text_brand_label:
-                naming?.genericLabelClean ?? reference ?? naming?.historicalPrincepsRaw ?? undefined
-            });
-          } else {
-            const existing = clustersBySignature.get(signature)!;
-            const meta = signatureMeta.get(signature);
-            if (meta && meta.canonical !== existing.princeps_label) {
-              existing.label = meta.canonical;
-              existing.princeps_label = meta.canonical;
-            }
-            if (!existing.text_brand_label && (reference || naming?.genericLabelClean)) {
-              existing.text_brand_label = reference ?? naming?.genericLabelClean ?? undefined;
-            }
-            clusterId = existing.id;
-            signatureToClusterId.set(signature, clusterId);
-          }
+          // Compter les occurrences (chaque groupe princeps = 1 vote)
+          candidates.set(name, (candidates.get(name) || 0) + 1);
         }
-      } else {
-        // Fallback to normalized name clustering (no composition signature available)
-        clusterKey = normalized;
+      }
+    }
+    
+    let finalLabel = "";
+    let secondaries: string[] = [];
+
+    if (candidates.size > 0) {
+      // Trier par fréquence décroissante
+      const sorted = Array.from(candidates.entries()).sort((a, b) => {
+        const freqCompare = b[1] - a[1];
+        if (freqCompare !== 0) return freqCompare;
+        // En cas d'égalité, le plus court gagne (souvent le plus générique/propre)
+        return a[0].length - b[0].length;
+      });
+      
+      // LE VAINQUEUR (Le plus fréquent)
+      const winnerName = sorted[0][0];
+      
+      // LES SECONDAIRES (Les autres)
+      secondaries = sorted.slice(1).map(e => e[0]);
+      
+      // RAFFINAGE DU TITRE (LCP sur le vainqueur uniquement)
+      // On récupère toutes les variations brutes qui ont mené à ce vainqueur
+      // Ex: "ADVIL 200", "ADVIL 400" -> ont tous donné "ADVIL" après masque
+      // Ici, comme on a déjà masqué, le winnerName EST le nom clean.
+      // Si on veut être ultra-précis, on pourrait refaire un LCP sur les noms originaux correspondant au winner.
+      // Mais avec le masque galénique, winnerName est déjà excellent ("ADVIL").
+      
+      finalLabel = winnerName;
+      
+    } else {
+      // Fallback Orphelin (Logique existante LCP ou Vote simple)
+      // Collecter les noms candidats (déjà nettoyés par le masque galénique)
+      const allCandidates: string[] = [];
+      
+      for (const item of clusterItems) {
+        const name = item.princepsReferenceName.trim();
+        if (name && name !== "Référence inconnue") {
+          // Application du masque galénique si disponible
+          let cleanedName = name;
+          if (item.princepsForm) {
+            cleanedName = applyPharmacologicalMask(name, item.princepsForm);
+          }
+          allCandidates.push(cleanedName);
+        }
+      }
+      
+      // Tentative : Préfixe Commun (LCP - Longest Common Prefix)
+      if (allCandidates.length > 1) {
+        const commonPrefix = findCommonWordPrefix(allCandidates);
         
-        // Reuse cluster id if any alias already mapped
-        for (const a of normalizedAliases) {
-          const hit = aliasClusterMap.get(a);
-          if (hit) {
-            clusterId = hit;
-            break;
-          }
+        // Validation : Le préfixe doit être significatif (au moins 3 lettres)
+        if (commonPrefix.length >= 3) {
+          finalLabel = commonPrefix;
         }
-        if (!clusterId) {
-          clusterId = generateClusterId(canonicalName);
-        }
-
-        if (!clustersByNormalized.has(normalized)) {
-          clustersByNormalized.set(normalized, {
-            id: clusterId,
-            label: canonicalName,
-            princeps_label: canonicalName,
-            substance_code: normalized || "unknown",
-            text_brand_label:
-              naming?.genericLabelClean ?? reference ?? naming?.historicalPrincepsRaw ?? undefined
-          });
-        } else {
-          const existing = clustersByNormalized.get(normalized)!;
-          if (!existing.text_brand_label && (reference || naming?.genericLabelClean)) {
-            existing.text_brand_label = reference ?? naming?.genericLabelClean ?? undefined;
-          }
-          clusterId = existing.id;
-        }
-      }
-
-      // Map all aliases to chosen cluster id
-      for (const a of normalizedAliases) {
-        if (!aliasClusterMap.has(a)) {
-          aliasClusterMap.set(a, clusterId);
-        }
-      }
-
-      groupIdToClusterKey.set(groupId, clusterKey);
-      const targetClusterId = clusterId;
-      groupRows.push({
-        id: groupId,
-        cluster_id: targetClusterId,
-        label: rawLabel,
-        canonical_name: canonicalName,
-        historical_princeps_raw: naming?.historicalPrincepsRaw ?? null,
-        generic_label_clean: naming?.genericLabelClean ?? null,
-        naming_source: naming?.namingSource ?? "GENER_PARSING",
-        princeps_aliases: JSON.stringify(naming?.princepsAliases ?? []),
-        safety_flags: JSON.stringify(groupSafety.get(groupId) ?? emptySafety()),
-        routes: JSON.stringify(Array.from(groupRoutes.get(groupId) ?? []))
-      });
-
-      const parsedType = Number.parseInt(type, 10);
-      const validTypes = [
-        GenericType.PRINCEPS,
-        GenericType.GENERIC,
-        GenericType.COMPLEMENTARY,
-        GenericType.SUBSTITUTABLE,
-        GenericType.AUTO_SUBSTITUTABLE
-      ];
-      const genericType =
-        Number.isFinite(parsedType) && validTypes.includes(parsedType as GenericType)
-          ? (parsedType as GenericType)
-          : GenericType.UNKNOWN;
-      const isPrinceps = genericType === GenericType.PRINCEPS;
-      if (this.productMeta.has(cis)) {
-        productGroupUpdates.push({
-          cis,
-          group_id: groupId,
-          is_princeps: isPrinceps,
-          generic_type: genericType
-        });
-      }
-    }
-
-    // Assign clustered products (grouped)
-    for (const [groupId, products] of groupProducts) {
-      const clusterKey = groupIdToClusterKey.get(groupId);
-      if (!clusterKey) continue;
-      
-      let cluster: Cluster | undefined;
-      const composition = this.groupCompositionCanonical.get(groupId);
-      const signature = composition?.tokens.join("|") || "";
-      
-      if (signature.length > 0) {
-        cluster = clustersBySignature.get(signature);
-      } else {
-        cluster = clustersByNormalized.get(clusterKey);
       }
       
-      if (!cluster) continue;
-
-      for (const product of products) {
-        cisToCluster.set(product.cis, cluster.id);
-        // Keep cluster.princeps_label stable (canonical); do not override with per-product labels to avoid split-brain.
+      // Fallback ultime
+      if (!finalLabel) {
+        finalLabel = substanceCode || "Non déterminé";
       }
-    }
-
-    // Handle standalone products (no group)
-    for (const [cis, meta] of this.productMeta) {
-      const genericInfo = this.dependencyMaps.generics.get(cis);
-      if (genericInfo) continue; // already assigned through group
-      const baseLabel = cleanProductLabel(meta.label) || meta.label;
-      const normalized = normalizeString(baseLabel) || baseLabel.toLowerCase();
-      // First, try to reuse any cluster already mapped via aliases (built from grouped princeps)
-      const aliasHit = aliasClusterMap.get(normalized);
-      if (aliasHit) {
-        cisToCluster.set(cis, aliasHit);
-        continue;
-      }
-
-      const existingCluster = clustersByNormalized.get(normalized);
-      const clusterId = existingCluster ? existingCluster.id : generateClusterId(baseLabel);
-      if (!existingCluster) {
-        clustersByNormalized.set(normalized, {
-          id: clusterId,
-          label: baseLabel,
-          princeps_label: baseLabel,
-          substance_code: normalized || "unknown"
-        });
-      }
-      cisToCluster.set(cis, clusterId);
-    }
-
-    // Merge clusters: signature-based clusters take precedence, then normalized-name clusters
-    const finalClusters = new Map<string, Cluster>();
-    
-    // First, add all signature-based clusters
-    for (const [signature, cluster] of clustersBySignature) {
-      finalClusters.set(cluster.id, cluster);
     }
     
-    // Then, add normalized-name clusters that don't conflict
-    for (const [normalized, cluster] of clustersByNormalized) {
-      if (!finalClusters.has(cluster.id)) {
-        finalClusters.set(cluster.id, cluster);
-      }
-    }
+    const princepsLabel = finalLabel;
 
-    return {
-      clusters: Array.from(finalClusters.values()),
-      groupRows,
-      productGroupUpdates,
-      cisToCluster,
-      missingGroupCis,
-      groupStats,
-      groupNaming,
-      groupRoutes
-    };
-  }
+    // Generate cluster ID from key
+    const clusterId = generateClusterId(key);
 
-  private buildGroupProducts(): Map<
-    string,
-    Array<{ cis: CisId; meta: ProductMetaEntry; genericType: GenericType }>
-  > {
-    const result = new Map<string, Array<{ cis: CisId; meta: ProductMetaEntry; genericType: GenericType }>>();
-    for (const [cis, meta] of this.productMeta) {
-      const genericInfo = this.dependencyMaps.generics.get(cis);
-      if (!genericInfo) continue;
-      const groupId = genericInfo.groupId;
-      const parsedType = Number.parseInt(genericInfo.type, 10);
-      const validTypes = [
-        GenericType.PRINCEPS,
-        GenericType.GENERIC,
-        GenericType.COMPLEMENTARY,
-        GenericType.SUBSTITUTABLE,
-        GenericType.AUTO_SUBSTITUTABLE
-      ];
-      const genericType =
-        Number.isFinite(parsedType) && validTypes.includes(parsedType as GenericType)
-          ? (parsedType as GenericType)
-          : meta.genericType ?? GenericType.UNKNOWN;
-      meta.groupId = groupId;
-      meta.genericType = genericType;
-      if (genericType === GenericType.PRINCEPS) {
-        meta.isPrinceps = true;
-      }
-      if (!result.has(groupId)) result.set(groupId, []);
-      result.get(groupId)!.push({ cis, meta, genericType });
-    }
-    return result;
-  }
-
-  private buildGroupNaming(): Map<string, GroupNaming> {
-    const grouped = new Map<string, RawGroup[]>();
-    const rawLabelByGroup = new Map<string, string>();
-
-    for (const row of this.groupsData) {
-      const [groupId, label, cis] = row;
-      if (this.excludedCis.has(cis)) continue;
-      if (!grouped.has(groupId)) {
-        grouped.set(groupId, []);
-        rawLabelByGroup.set(groupId, label);
-      }
-      grouped.get(groupId)!.push(row);
-    }
-
-    const result = new Map<string, GroupNaming>();
-
-    for (const [groupId, rows] of grouped) {
-      const rawLabel = rawLabelByGroup.get(groupId) ?? "";
-      const parsed = parseGroupLabel(rawLabel);
-      const firstSplit = splitGroupLabelFirst(rawLabel);
-      const genericLabelClean = firstSplit.left ? cleanPrincepsCandidate(firstSplit.left) : null;
-
-      const type0Rows = rows.filter((r) => Number.parseInt(r[3], 10) === GenericType.PRINCEPS);
-      const goldenRows = type0Rows.filter((r) => r[4] === "1");
-
-      const princepsAliases: string[] = [];
-      if (type0Rows.length > 0) {
-        for (const row of type0Rows) {
-          const cis = row[2];
-          const details = this.cisDetails.get(cis);
-          if (!details) continue;
-          const cleaned = stripFormFromCisLabel(details.label, details.form);
-          if (cleaned) princepsAliases.push(cleaned);
-        }
-      }
-
-      let canonical = "";
-      let namingSource: NamingSource = "GENER_PARSING";
-      let historicalPrincepsRaw: string | null = null;
-      let reference: string | null = parsed.reference || null;
-
-      const uniqueAliases = Array.from(new Set(princepsAliases));
-      const normalizedMolecule = normalizeString(parsed.molecule || "");
-      const scoredCandidates: Array<{
-        label: string;
-        score: number;
-        source: NamingSource;
-      }> = [];
-
-      for (const row of type0Rows) {
-        const cis = row[2];
-        const details = this.cisDetails.get(cis);
-        if (!details) continue;
-        const cleaned =
-          cleanProductLabel(stripFormFromCisLabel(details.label, details.form)) ||
-          cleanProductLabel(details.label) ||
-          details.label;
-        if (!cleaned) continue;
-
-        let score = 0;
-        score += 10; // Type 0 bonus
-        if (row[4] === "1") {
-          score += 20; // Golden princeps
-        }
-
-        const normalizedLabel = normalizeString(cleaned);
-        if (normalizedMolecule && normalizedLabel.startsWith(normalizedMolecule)) {
-          score -= 50; // Penalize auto-generics that mirror molecule name
-        }
-
-        scoredCandidates.push({
-          label: cleaned,
-          score,
-          source: row[4] === "1" ? "GOLDEN_PRINCEPS" : "TYPE_0_LINK"
-        });
-      }
-
-      if (!canonical && scoredCandidates.length > 0) {
-        scoredCandidates.sort((a, b) => {
-          if (b.score !== a.score) return b.score - a.score;
-          if (a.label.length !== b.label.length) return a.label.length - b.label.length;
-          return a.label.localeCompare(b.label);
-        });
-        const best = scoredCandidates[0];
-        canonical = best.label;
-        reference = best.label;
-        namingSource = best.source;
-      }
-
-      if (!canonical) {
-        const cleanedRef = reference ? cleanPrincepsCandidate(reference) : "";
-        canonical =
-          cleanedRef ||
-          cleanPrincepsCandidate(parsed.molecule) ||
-          rawLabel.trim().toUpperCase() ||
-          "UNKNOWN";
-        historicalPrincepsRaw = reference;
-        namingSource = "GENER_PARSING";
-      }
-
-      const finalAliases =
-        uniqueAliases.length > 0
-          ? uniqueAliases
-          : canonical
-              ? [canonical]
-              : [];
-
-      result.set(groupId, {
-        canonical,
-        reference,
-        namingSource,
-        historicalPrincepsRaw,
-        genericLabelClean,
-        princepsAliases: finalAliases
+    // Assign cluster metadata to all items in this group
+    for (const item of clusterItems) {
+      groupToCluster.set(item.groupId, {
+        clusterId,
+        substanceCode,
+        princepsLabel,
+        secondaryPrinceps: secondaries // Stockage des secondaires
       });
     }
-
-    return result;
   }
+
+  return groupToCluster;
 }

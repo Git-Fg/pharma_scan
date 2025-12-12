@@ -1,935 +1,1250 @@
-import fs from "node:fs";
+import fs from "fs";
+import path from "path";
 import { parse } from "csv-parse";
 import iconv from "iconv-lite";
-import { z } from "zod";
-import { DEFAULT_DB_PATH, ReferenceDatabase } from "./db";
+import { ReferenceDatabase } from "./db";
 import {
-  RawAvailabilitySchema,
-  RawCompositionSchema,
-  RawConditionsSchema,
-  RawGroupSchema,
-  RawMitmSchema,
-  RawPresentationSchema,
-  RawSpecialiteSchema,
-  RefComposition,
-  RefGenerique,
-  type DependencyMaps,
-  GenericType,
-  type CisId,
-  type GroupId,
-  type GenericInfo,
-  type Presentation,
-  type Product,
-  type RawAvailability,
-  type RawComposition,
-  type RawConditions,
-  type RawGroup,
-  type RawPresentation,
-  type RawSpecialite,
-  RawMitm
-} from "./types";
-import {
-  buildComposition,
-  computeCompositionSignature,
-  createManufacturerResolver,
-  detectComboMolecules,
-  formatCompositionDisplay,
-  isHomeopathic,
-  levenshteinDistance,
-  normalizeString,
-  parseDateToIso,
-  parsePriceToCents,
-  parseRegulatoryInfo,
-  resolveComposition,
-  resolveDrawerLabel
-} from "./logic";
-import { ClusteringEngine, type ClusteringResult, type ProductMetaEntry } from "./clustering";
+  parseCompositions,
+  parseGeneriques,
+  parsePrincipesActifs,
+} from "./parsing";
+import { computeClusters, type ClusteringInput, findCommonWordPrefix } from "./clustering";
+import { applyPharmacologicalMask, formatPrinciples, isPureGalenicDescription } from "./sanitizer";
+import type { Specialite, MedicamentAvailability, GeneriqueGroup, GroupMember, PrincipeActif, MedicamentSummary } from "./types";
 
-const BDPM_BASE_URL = "https://base-donnees-publique.medicaments.gouv.fr/download/file/";
-const DATA_DIR = "data";
+const DATA_DIR = process.env.DATA_DIR || "./data";
+const DB_PATH = process.env.DB_PATH || "./data/reference.db";
 
-const isBoironManufacturer = (name: string): boolean => {
-  const normalized = name?.toLowerCase().replace(/\s+/g, " ").trim();
-  if (!normalized) return false;
-  return normalized.includes("boiron");
+// File names matching BDPM conventions
+const FILES = {
+  CIS: "CIS_bdpm.txt",
+  CIS_CIP: "CIS_CIP_bdpm.txt",
+  CIS_COMPO: "CIS_COMPO_bdpm.txt",
+  CIS_GENER: "CIS_GENER_bdpm.txt",
 };
 
+async function main() {
+  console.log("🚀 Starting PharmaScan Backend Pipeline");
+  console.log(`📂 Data Directory: ${DATA_DIR}`);
+  console.log(`💾 Database Path: ${DB_PATH}`);
 
-const buildComboFallbackSignature = (
-  label: string,
-  baseTokens: string[]
-): { signature: string; tokens: string[] } => {
-  const codeTokens = Array.from(new Set(baseTokens.filter((t) => t.startsWith("C:"))));
-  if (codeTokens.length >= 2) {
-    return { signature: codeTokens.join("|"), tokens: codeTokens };
+  // Supprimer la base de données existante si elle existe (pour garantir une reconstruction complète)
+  // Cela évite les problèmes de schéma obsolète et garantit que les vues sont toujours à jour
+  if (fs.existsSync(DB_PATH)) {
+    console.log("🗑️  Removing existing database...");
+    try {
+      // Supprimer aussi les fichiers WAL et SHM si présents (doit être fait avant la DB principale)
+      const walPath = `${DB_PATH}-wal`;
+      const shmPath = `${DB_PATH}-shm`;
+      if (fs.existsSync(walPath)) {
+        fs.unlinkSync(walPath);
+        console.log("   Removed WAL file");
+      }
+      if (fs.existsSync(shmPath)) {
+        fs.unlinkSync(shmPath);
+        console.log("   Removed SHM file");
+      }
+      // Fermer toutes les connexions possibles avant suppression
+      fs.unlinkSync(DB_PATH);
+      console.log("✅ Existing database removed");
+    } catch (error: any) {
+      console.warn(`⚠️  Could not remove existing database: ${error.message}`);
+      console.warn("   Database might be locked. Continuing anyway...");
+    }
   }
-  if (codeTokens.length === 1) {
-    return { signature: codeTokens[0], tokens: codeTokens };
+
+  const db = new ReferenceDatabase(DB_PATH);
+  // initSchema is called in constructor
+  console.log("✅ Database initialized");
+
+  // --- 0. Truncate Tables ---
+  console.log("🗑️  Truncating staging tables...");
+  
+  // Disable triggers before truncating to avoid normalize_text issues
+  db.db.run("DROP TRIGGER IF EXISTS search_index_ai");
+  db.db.run("DROP TRIGGER IF EXISTS search_index_au");
+  db.db.run("DROP TRIGGER IF EXISTS search_index_ad");
+  
+  db.db.run("DELETE FROM group_members");
+  db.db.run("DELETE FROM generique_groups");
+  db.db.run("DELETE FROM principes_actifs");
+  db.db.run("DELETE FROM medicament_availability");
+  db.db.run("DELETE FROM medicaments");
+  db.db.run("DELETE FROM specialites");
+  db.db.run("DELETE FROM medicament_summary");
+  db.db.run("DELETE FROM search_index");
+  
+  console.log("✅ Tables truncated");
+
+  // --- 1. Load & Insert Specialites (CIS) ---
+  console.log("📦 Processing Specialites (CIS)...");
+  const specialitesPath = path.join(DATA_DIR, FILES.CIS);
+  if (fs.existsSync(specialitesPath)) {
+    const rows = await readBdpmFile(specialitesPath);
+
+    // 1a. Extract & Insert Laboratories (Titulaires)
+    const uniqueTitulaires = new Set<string>();
+    rows.forEach(r => {
+      const titulaire = r[10]?.trim();
+      if (titulaire) uniqueTitulaires.add(titulaire);
+    });
+
+    console.log(`🏭 Found ${uniqueTitulaires.size} laboratories`);
+
+    const labStmt = db['db'].prepare("INSERT OR IGNORE INTO laboratories (name) VALUES (?)");
+    // Using transaction for speed
+    db['db'].transaction(() => {
+      for (const t of uniqueTitulaires) labStmt.run(t);
+    })();
+
+    // 1b. Load Lab Map
+    const labRows = db.runQuery<{ id: number, name: string }>("SELECT id, name FROM laboratories");
+    const labMap = new Map<string, number>();
+    labRows.forEach(l => labMap.set(l.name, l.id));
+
+    // 1c. Insert Specialites
+    const specialites: Specialite[] = rows.map((row) => {
+      const titulaireName = row[10]?.trim();
+      return {
+        cisCode: row[0],
+        nomSpecialite: row[1],
+        formePharmaceutique: row[2],
+        voiesAdministration: row[3],
+        statutAdministratif: row[4],
+        procedureType: row[5],
+        etatCommercialisation: row[6],
+        dateAmm: row[7],
+        statutBdm: row[8],
+        numeroEuropeen: row[9],
+        titulaireId: labMap.get(titulaireName) || 0,
+        isSurveillance: row[11]?.trim().toUpperCase() === "OUI",
+      }
+    });
+    db.insertSpecialites(specialites);
+    console.log(`✅ Inserted ${specialites.length} specialites`);
+  } else {
+    console.warn(`⚠️ File not found: ${specialitesPath}`);
   }
 
-  const normalizedLabel = label?.replace(/\u00A0/g, " ") ?? "";
-  if (!normalizedLabel) return { signature: "", tokens: [] };
+  // --- 2. Load & Insert Availability/CIPs (CIS_CIP) ---
+  console.log("📦 Processing Availability (CIS_CIP)...");
+  const availabilityPath = path.join(DATA_DIR, FILES.CIS_CIP);
+  // Map CIS -> CIP13s for later stages
+  const cisToCip13 = new Map<string, string[]>();
+  const activeCips = new Set<string>();
 
-  const stripUnits = (text: string) =>
-    text
-      .replace(
-        /\b\d+(?:[.,]\d+)?\s*(?:MG|G|UG|µG|MCG|ML|UI|MUI|IU|%|MICROGRAMME(?:S)?|GRAMME(?:S)?|MILLIGRAMME(?:S)?|POUR\s*CENT)\b/gi,
-        " "
-      )
-      .replace(/\s+/g, " ")
-      .trim();
+  if (fs.existsSync(availabilityPath)) {
+    const rows = await readBdpmFile(availabilityPath);
+    const availabilities: MedicamentAvailability[] = rows.map((row) => {
+      const cis = row[0];
+      const cip7 = row[1];
+      const libelle = row[2];
+      const statut = row[3];
+      const etat = row[4];
+      const dateComm = row[5];
+      const cip13 = row[6];
+      // const codeCollectivite = row[7];
 
-  const parts = normalizedLabel
-    .split(/[+/]/)
-    .map(stripUnits)
-    .map((p) => p.replace(/\s+/g, " ").trim().toLowerCase())
-    .filter((p) => p && p.length >= 3);
+      if (cis && cip13) {
+        if (!cisToCip13.has(cis)) cisToCip13.set(cis, []);
+        cisToCip13.get(cis)!.push(cip13);
+        activeCips.add(cip13); // Assuming all in BDPM are "active" in terms of reference
+      }
 
-  const unique = Array.from(new Set(parts));
-  if (unique.length < 2) return { signature: "", tokens: [] };
+      return {
+        codeCip: cip13 || cip7, // Prefer 13
+        statut: statut, // Mapped correctly
+        dateDebut: undefined, // Not in CIS_CIP
+        dateFin: undefined, // Not in CIS_CIP
+        lien: undefined, // Not in CIS_CIP
+      };
+    });
 
-  const tokens = unique.map((token) => `COMBO:${token}`);
-  return { signature: tokens.join("|"), tokens };
-};
+    // Note: The `medicament_availability` table in `db.ts` expects { code_cip, statut, date_debut, date_fin, lien }.
+    // CIS_CIP_bdpm.txt provides CIS, CIP, Label, Statut, Etat, Date, CIP13.
+    // Ideally we should also populate `medicaments` table here using CIP info, but `db.ts` `insertMedicaments` expects `Medicament` interface.
+    // `Medicament` interface: { codeCip, cisCode, presentationLabel, commercialisationStatut... }
+    // Let's populate `medicaments` table as it is more critical for linking.
 
+    // Filter out orphaned medicaments (not in specialites)
+    const validCisRows = db.runQuery<{ cis_code: string }>("SELECT cis_code FROM specialites");
+    const validCisSet = new Set(validCisRows.map(s => s.cis_code));
 
-// --- Helper: Download ---
-async function download(filename: string): Promise<string> {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-  const url = `${BDPM_BASE_URL}${filename}`;
-  console.log(`⬇️ Downloading ${url}...`);
-  const response = await fetch(url);
-  if (!response.ok) throw new Error(`HTTP ${response.status} for ${url}`);
+    // Map to Medicament interface for `medicaments` table
+    const medicamentsInput = rows.map(row => ({
+      codeCip: row[6] || row[1], // CIP13 or CIP7
+      cisCode: row[0],
+      presentationLabel: row[2],
+      commercialisationStatut: row[4], // Etat commercialisation
+    }))
+      .filter(m => m.codeCip && m.cisCode && validCisSet.has(m.cisCode));
 
-  const path = `${DATA_DIR}/${filename}`;
-  await Bun.write(path, await response.arrayBuffer());
-  return path;
-}
+    db.insertMedicaments(medicamentsInput);
 
-// --- Helper: Stream Processor ---
-async function processStream<T>(
-  path: string,
-  schema: z.ZodType<T>,
-  onBatch: (batch: T[]) => void
-) {
-  const batchSize = 5000;
-  let batch: T[] = [];
-  const stream = fs
-    .createReadStream(path)
-    .pipe(iconv.decodeStream("win1252"))
-    .pipe(
-      parse({
-        delimiter: "\t",
-        relax_quotes: true,
-        from_line: 1,
-        skip_empty_lines: true,
-        relax_column_count: true
-      })
+    // Also insert availability if needed, but `medicaments` covers the basics. 
+    // We'll skip `insertMedicamentAvailability` unless we have specific availability data file (CIS_CIP_Dispo_Spec?).
+    // The previous error was about `statut` missing in `availabilities` mapping.
+    // `availabilities` in my previous code was trying to map to `MedicamentAvailability` but using `CIS_CIP` columns which don't perfectly match.
+    // I will comment out explicit availability insert for now as `medicaments` table is what triggered the "Availability" section intention.
+
+    console.log(`✅ Loaded ${medicamentsInput.length} medicament records (CIPs)`);
+  } else {
+    console.warn(`⚠️ File not found: ${availabilityPath}`);
+  }
+
+  // --- 3. Parse & Insert Compositions & Principes ---
+  console.log("🧪 Processing Compositions (CIS_COMPO)...");
+  const compoPath = path.join(DATA_DIR, FILES.CIS_COMPO);
+
+  // Flattened composition map for aggregation
+  let compositionMap = new Map<string, string>();
+
+  if (fs.existsSync(compoPath)) {
+    // 3.1 Flattened Compositions
+    compositionMap = await parseCompositions(streamBdpmFile(compoPath));
+    console.log(`✅ Parsed ${compositionMap.size} flattened compositions`);
+
+    // 3.2 Principes Actifs (Normalized)
+    // Re-read stream for second pass
+    const principes = await parsePrincipesActifs(streamBdpmFile(compoPath), cisToCip13);
+    db.insertPrincipesActifs(principes);
+    console.log(`✅ Inserted ${principes.length} principes actifs`);
+  } else {
+    console.warn(`⚠️ File not found: ${compoPath}`);
+  }
+
+  // --- 4. Parse & Insert Generiques ---
+  console.log("🧬 Processing Generiques (CIS_GENER)...");
+  const generPath = path.join(DATA_DIR, FILES.CIS_GENER);
+  let generiqueGroups: GeneriqueGroup[] = [];
+  let groupMembers: GroupMember[] = [];
+
+  if (fs.existsSync(generPath)) {
+    // Need specialites map for relational parsing (CIS -> Nom)
+    const specialitesMap = new Map<string, string>();
+    const allSpecs = db.runQuery<{ cis_code: string; nom_specialite: string }>("SELECT cis_code, nom_specialite FROM specialites");
+    for (const s of allSpecs) specialitesMap.set(s.cis_code, s.nom_specialite);
+
+    const result = await parseGeneriques(
+      streamBdpmFile(generPath),
+      cisToCip13,
+      activeCips,
+      compositionMap,
+      specialitesMap
     );
+    generiqueGroups = result.groups;
+    groupMembers = result.members;
 
-  for await (const record of stream) {
-    const result = schema.safeParse(record);
-    if (result.success) {
-      batch.push(result.data);
-      if (batch.length >= batchSize) {
-        onBatch(batch);
-        batch = [];
-      }
-    }
+    db.insertGeneriqueGroups(generiqueGroups);
+    db.insertGroupMembers(groupMembers);
+    console.log(`✅ Inserted ${generiqueGroups.length} groups and ${groupMembers.length} members`);
+  } else {
+    console.warn(`⚠️ File not found: ${generPath}`);
   }
 
-  if (batch.length > 0) onBatch(batch);
-}
+  // --- 4. Refine Group Metadata (TS + Relational Masking) ---
+  console.log("🔧 Refining group metadata with Relational Masking...");
+  
+  // 1. Récupérer les infos nécessaires : GroupID + Info du Princeps (Nom & Forme)
+  // TRI CRITIQUE : On trie par ordre décroissant de sort_order pour prioriser le princeps le plus récent/primaire
+  const groupsToRefine = db.runQuery<{
+    group_id: string;
+    original_libelle: string;
+    princeps_nom: string;
+    princeps_forme: string;
+  }>(`
+    SELECT 
+      gg.group_id,
+      gg.libelle as original_libelle,
+      s.nom_specialite as princeps_nom,
+      s.forme_pharmaceutique as princeps_forme
+    FROM generique_groups gg
+    JOIN (
+       SELECT group_id, code_cip 
+       FROM group_members 
+       WHERE type = 0 
+       ORDER BY sort_order DESC, code_cip
+    ) sorted_gm ON gg.group_id = sorted_gm.group_id
+    JOIN medicaments m ON sorted_gm.code_cip = m.code_cip
+    JOIN specialites s ON m.cis_code = s.cis_code
+    GROUP BY gg.group_id
+    -- SQLite prendra le premier du groupe (donc le max sort_order grâce à la sous-requête)
+  `);
 
-// --- Helper: Generic Map Loader ---
-type LoadMapOptions<T, K, V> = {
-  path: string;
-  schema: z.ZodType<T>;
-  targetMap: Map<K, V>;
-  keyFn: (row: T) => K | null | undefined;
-  accumulator: (current: V | undefined, row: T) => V;
-  label?: string;
-};
+  const updateStmt = db['db'].prepare(`
+    UPDATE generique_groups 
+    SET princeps_label = ? 
+    WHERE group_id = ?
+  `);
 
-async function loadMap<T, K, V>({
-  path,
-  schema,
-  targetMap,
-  keyFn,
-  accumulator,
-  label
-}: LoadMapOptions<T, K, V>) {
-  let total = 0;
-  let skipped = 0;
-
-  await processStream<T>(path, schema, (batch) => {
-    for (const row of batch) {
-      total += 1;
-      const key = keyFn(row);
-      if (key === null || key === undefined) {
-        skipped += 1;
-        continue;
-      }
-      const current = targetMap.get(key as K);
-      const next = accumulator(current, row);
-      targetMap.set(key as K, next);
+  db['db'].transaction(() => {
+    for (const row of groupsToRefine) {
+      // C'est ici que la magie opère : Dénomination - Forme = Nom Clean
+      const cleanLabel = applyPharmacologicalMask(row.princeps_nom, row.princeps_forme);
+      
+      updateStmt.run(cleanLabel, row.group_id);
     }
+  })();
+  
+  // Mise à jour du molecule_label (inchangée)
+  db.db.run(`
+    UPDATE generique_groups
+    SET molecule_label = COALESCE(
+      NULLIF(molecule_label, ''),
+      NULLIF(TRIM(libelle), '')
+    )
+  `);
+  
+  console.log(`✅ Refined names for ${groupsToRefine.length} groups using mask logic`);
+
+  // Créer une table unifiée pour stocker tous les noms nettoyés (princeps ET génériques) par CIS
+  // Cette table permet d'avoir les noms propres sans polluants pour l'audit et l'affichage
+  console.log("🧹 Creating clean medication names table...");
+  db.db.run(`
+    CREATE TABLE IF NOT EXISTS medicament_names_clean (
+      cis_code TEXT NOT NULL,
+      nom_clean TEXT NOT NULL,
+      PRIMARY KEY (cis_code, nom_clean)
+    )
+  `);
+  
+  // Récupérer tous les noms de médicaments (princeps ET génériques) et appliquer le masque
+  const allMedicationNames = db.runQuery<{
+    cis_code: string;
+    nom_specialite: string;
+    forme_pharmaceutique: string;
+  }>(`
+    SELECT DISTINCT
+      s.cis_code,
+      s.nom_specialite,
+      s.forme_pharmaceutique
+    FROM specialites s
+    WHERE s.nom_specialite IS NOT NULL
+      AND LENGTH(TRIM(s.nom_specialite)) > 0
+  `);
+
+  // Nettoyer et insérer tous les noms (princeps et génériques)
+  const insertCleanNameStmt = db['db'].prepare(`
+    INSERT OR REPLACE INTO medicament_names_clean (cis_code, nom_clean)
+    VALUES (?, ?)
+  `);
+
+  db['db'].transaction(() => {
+    for (const row of allMedicationNames) {
+      // Appliquer le masque galénique pour nettoyer le nom
+      const cleanName = applyPharmacologicalMask(row.nom_specialite, row.forme_pharmaceutique);
+      // Ne garder que les noms significatifs (>= 3 caractères et commencent par une majuscule)
+      if (cleanName.length >= 3 && cleanName[0] === cleanName[0].toUpperCase()) {
+        insertCleanNameStmt.run(row.cis_code, cleanName);
+      }
+    }
+  })();
+  
+  console.log(`✅ Created clean medication names for ${allMedicationNames.length} CIS entries`);
+
+  // Créer également la table group_princeps_clean pour compatibilité avec audit_data.ts
+  // (récupère les noms princeps nettoyés par groupe)
+  console.log("🧹 Creating group princeps clean table (for compatibility)...");
+  db.db.run(`
+    CREATE TABLE IF NOT EXISTS group_princeps_clean (
+      group_id TEXT NOT NULL,
+      princeps_name_clean TEXT NOT NULL,
+      PRIMARY KEY (group_id, princeps_name_clean)
+    )
+  `);
+  
+  // Remplir group_princeps_clean depuis medicament_names_clean
+  db.db.run(`
+    INSERT OR REPLACE INTO group_princeps_clean (group_id, princeps_name_clean)
+    SELECT DISTINCT
+      gm.group_id,
+      mnc.nom_clean
+    FROM group_members gm
+    JOIN medicaments m ON gm.code_cip = m.code_cip
+    JOIN medicament_names_clean mnc ON m.cis_code = mnc.cis_code
+    WHERE gm.type = 0 -- Seulement les princeps
+  `);
+  
+  console.log(`✅ Populated group_princeps_clean from medicament_names_clean`);
+
+  // Créer des vues SQL pour simplifier audit_data.ts (toute la logique dans la DB)
+  console.log("📊 Creating SQL views for audit reports...");
+  
+  // Vue 1: Clusters avec toutes les données formatées (JSON arrays au lieu de GROUP_CONCAT)
+  // Supprimer puis recréer pour que les modifications soient toujours appliquées
+  db.db.run(`DROP VIEW IF EXISTS v_clusters_audit`);
+  db.db.run(`
+    CREATE VIEW v_clusters_audit AS
+    SELECT 
+      ms.cluster_id,
+      cn.cluster_name as unified_name, -- Nom unifié (substance clean)
+      cn.cluster_princeps, -- Princeps primaire (pour référence)
+      cn.secondary_princeps, -- JSON Array des princeps secondaires
+      -- Retourner le JSON brut pour parsing dans le script TypeScript (plus fiable)
+      (SELECT principes_actifs_communs 
+       FROM medicament_summary ms2 
+       WHERE ms2.cluster_id = ms.cluster_id 
+         AND ms2.principes_actifs_communs IS NOT NULL
+         AND typeof(ms2.principes_actifs_communs) = 'text'
+         AND json_valid(ms2.principes_actifs_communs) = 1
+       LIMIT 1) as substance_label_json,
+      COUNT(*) as cis_count,
+      SUM(ms.is_princeps) as princeps_count,
+      -- Utiliser GROUP_CONCAT avec séparateur '|' (dédupliquer d'abord dans une sous-requête)
+      (SELECT GROUP_CONCAT(value, '|') 
+       FROM (SELECT DISTINCT ms2.formatted_dosage as value 
+             FROM medicament_summary ms2 
+             WHERE ms2.cluster_id = ms.cluster_id AND ms2.formatted_dosage IS NOT NULL)) as dosages_available,
+      (SELECT GROUP_CONCAT(value, '|') 
+       FROM (SELECT DISTINCT gpc2.princeps_name_clean as value 
+             FROM medicament_summary ms2
+             JOIN group_princeps_clean gpc2 ON ms2.group_id = gpc2.group_id
+             WHERE ms2.cluster_id = ms.cluster_id AND gpc2.princeps_name_clean IS NOT NULL)) as all_princeps_names,
+      (SELECT GROUP_CONCAT(value, '|') 
+       FROM (SELECT DISTINCT gpc2.princeps_name_clean as value 
+             FROM medicament_summary ms2
+             JOIN group_princeps_clean gpc2 ON ms2.group_id = gpc2.group_id
+             WHERE ms2.cluster_id = ms.cluster_id AND gpc2.princeps_name_clean IS NOT NULL)) as all_brand_names
+    FROM medicament_summary ms
+    LEFT JOIN cluster_names cn ON ms.cluster_id = cn.cluster_id
+    WHERE ms.cluster_id IS NOT NULL
+    GROUP BY ms.cluster_id
+  `);
+
+  // Vue 2: Groupes génériques avec données formatées
+  db.db.run(`DROP VIEW IF EXISTS v_groups_audit`);
+  db.db.run(`
+    CREATE VIEW v_groups_audit AS
+    SELECT 
+      gg.group_id,
+      gg.libelle as raw_label,
+      gg.princeps_label,
+      gg.molecule_label,
+      gg.parsing_method,
+      (
+        SELECT DISTINCT cluster_id
+        FROM medicament_summary ms_cluster
+        WHERE ms_cluster.group_id = gg.group_id
+        LIMIT 1
+      ) as cluster_id,
+      (SELECT COUNT(*) FROM (SELECT DISTINCT gm2.code_cip FROM group_members gm2 WHERE gm2.group_id = gg.group_id)) as member_count,
+      (SELECT COUNT(*) FROM (SELECT DISTINCT gm2.code_cip FROM group_members gm2 WHERE gm2.group_id = gg.group_id AND gm2.type = 0)) as princeps_count,
+      (SELECT COUNT(*) FROM (SELECT DISTINCT gm2.code_cip FROM group_members gm2 WHERE gm2.group_id = gg.group_id AND gm2.type > 0)) as generic_count,
+      (SELECT GROUP_CONCAT(value, '|') 
+       FROM (SELECT DISTINCT s2.forme_pharmaceutique as value 
+             FROM group_members gm2
+             JOIN medicaments m2 ON gm2.code_cip = m2.code_cip
+             JOIN specialites s2 ON m2.cis_code = s2.cis_code
+             WHERE gm2.group_id = gg.group_id AND s2.forme_pharmaceutique IS NOT NULL)) as forms_available,
+      (
+        SELECT principes_actifs_communs
+        FROM medicament_summary ms2
+        WHERE ms2.group_id = gg.group_id
+        LIMIT 1
+      ) as principes_actifs_communs
+    FROM generique_groups gg
+    LEFT JOIN group_members gm ON gg.group_id = gm.group_id
+    GROUP BY gg.group_id
+  `);
+
+  // Vue 3: Échantillons avec principes_actifs_communs déjà parsé en JSON
+  // Note: SQLite retourne déjà les JSON comme text, mais on peut utiliser json() pour validation
+  db.db.run(`DROP VIEW IF EXISTS v_samples_audit`);
+  db.db.run(`
+    CREATE VIEW v_samples_audit AS
+    SELECT 
+      ms.*,
+      -- Valider et parser principes_actifs_communs si c'est une string JSON valide
+      CASE 
+        WHEN ms.principes_actifs_communs IS NOT NULL 
+         AND json_valid(ms.principes_actifs_communs) = 1 
+        THEN ms.principes_actifs_communs
+        ELSE NULL
+      END as principes_actifs_communs_json
+    FROM medicament_summary ms
+  `);
+  
+  console.log(`✅ Created 3 SQL views for audit reports`);
+
+  // --- 5. Compute Clusters (TS) ---
+  console.log("🧮 Computing Clusters...");
+
+  // 5a. Calculate common principles for each group via SQL
+  const groupsWithCommonPrincipes = db.runQuery<{
+    group_id: string;
+    common_principes: string;
+    princeps_cis_code: string | null;
+    princeps_form: string | null;
+    has_type_0: number;
+  }>(`
+    WITH
+    group_cip_counts AS (
+      SELECT
+        gm.group_id,
+        COUNT(DISTINCT gm.code_cip) AS total_cips
+      FROM group_members gm
+      GROUP BY gm.group_id
+    ),
+    principle_counts_normalized AS (
+      SELECT
+        gm.group_id,
+        pa.principe_normalized,
+        COUNT(DISTINCT m.code_cip) AS cip_count
+      FROM principes_actifs pa
+      INNER JOIN medicaments m ON pa.code_cip = m.code_cip
+      INNER JOIN group_members gm ON m.code_cip = gm.code_cip
+      WHERE pa.principe_normalized IS NOT NULL AND pa.principe_normalized != ''
+      GROUP BY gm.group_id, pa.principe_normalized
+    ),
+    group_cips_with_principles AS (
+      SELECT
+        gm.group_id,
+        COUNT(DISTINCT m.code_cip) AS cips_with_principles
+      FROM principes_actifs pa
+      INNER JOIN medicaments m ON pa.code_cip = m.code_cip
+      INNER JOIN group_members gm ON m.code_cip = gm.code_cip
+      WHERE pa.principe_normalized IS NOT NULL AND pa.principe_normalized != ''
+      GROUP BY gm.group_id
+    ),
+    common_normalized_principles AS (
+      SELECT
+        pc.group_id,
+        GROUP_CONCAT(pc.principe_normalized, ', ') AS common_principes
+      FROM principle_counts_normalized pc
+      INNER JOIN group_cips_with_principles gcwp ON pc.group_id = gcwp.group_id
+      WHERE pc.cip_count = gcwp.cips_with_principles
+      GROUP BY pc.group_id
+    ),
+    princeps_cis AS (
+      SELECT
+        gm.group_id,
+        m.cis_code AS princeps_cis_code,
+        s.forme_pharmaceutique AS princeps_forme,
+        1 AS is_type_0
+      FROM group_members gm
+      INNER JOIN medicaments m ON gm.code_cip = m.code_cip
+      INNER JOIN specialites s ON m.cis_code = s.cis_code
+      WHERE gm.type = 0
+      GROUP BY gm.group_id
+      LIMIT 1
+    )
+    SELECT
+      gg.group_id,
+      COALESCE(cnp.common_principes, '') AS common_principes,
+      pc.princeps_cis_code,
+      pc.princeps_forme AS princeps_form,
+      COALESCE(pc.is_type_0, 0) AS has_type_0
+    FROM generique_groups gg
+    LEFT JOIN common_normalized_principles cnp ON gg.group_id = cnp.group_id
+    LEFT JOIN princeps_cis pc ON gg.group_id = pc.group_id
+  `);
+
+  // 5b. Build ClusteringInputs
+  const clusteringInputs: ClusteringInput[] = groupsWithCommonPrincipes.map(row => {
+    const group = generiqueGroups.find(g => g.groupId === row.group_id);
+    return {
+      groupId: row.group_id,
+      princepsCisCode: row.princeps_cis_code,
+      princepsReferenceName: group?.princepsLabel || "Référence inconnue",
+      princepsForm: row.princeps_form || null,
+      commonPrincipes: row.common_principes || group?.libelle || "",
+      isPrincepsGroup: row.has_type_0 === 1
+    };
   });
 
-  if (label) {
-    console.log(
-      `✅ Loaded ${label}: ${targetMap.size} keys (skipped ${skipped}/${total})`
-    );
-  }
+  // 5c. Compute clusters
+  const clusterMap = computeClusters(clusteringInputs);
+  console.log(`✅ Computed clusters for ${clusterMap.size} groups`);
 
-  return { total, skipped, keys: targetMap.size };
-}
+  // 5d. Update generique_groups with cluster_id (via groupId -> clusterId mapping)
+  // Note: cluster_id is stored in medicament_summary, not generique_groups
 
-// --- Helper: Load dependency maps in parallel ---
-export async function loadDependencies({
-  conditionsPath,
-  compositionsPath,
-  presentationsPath,
-  genericsPath,
-  availabilityPath,
-  mitmPath
-}: {
-  conditionsPath: string;
-  compositionsPath: string;
-  presentationsPath: string;
-  genericsPath: string;
-  availabilityPath: string;
-  mitmPath?: string;
-}): Promise<{
-  dependencyMaps: DependencyMaps;
-  shortageMap: Map<string, { statusCode: string; statusLabel: string; link: string | null }>;
-  groupsData: RawGroup[];
-}> {
-  const dependencyMaps: DependencyMaps = {
-    conditions: new Map(),
-    compositions: new Map(),
-    presentations: new Map(),
-    generics: new Map(),
-    atc: new Map()
-  };
+  // --- 5bis. Compute Canonical Group Composition (Majority Vote) ---
+  console.log("🗳️  Computing canonical group compositions (Majority Vote)...");
 
-  const shortageMap = new Map<string, { statusCode: string; statusLabel: string; link: string | null }>();
-  const groupsData: RawGroup[] = [];
+  // A. Récupérer les ingrédients bruts pour chaque CIS membre d'un groupe
+  const rawCompositions = db.runQuery<{
+    group_id: string;
+    cis_code: string;
+    principe: string;
+    dosage: string | null;
+    dosage_unit: string | null;
+  }>(`
+    SELECT 
+      gm.group_id,
+      m.cis_code,
+      pa.principe_normalized as principe,
+      pa.dosage,
+      pa.dosage_unit
+    FROM group_members gm
+    JOIN medicaments m ON gm.code_cip = m.code_cip
+    JOIN principes_actifs pa ON m.code_cip = pa.code_cip
+    WHERE gm.group_id IS NOT NULL 
+      AND pa.principe_normalized IS NOT NULL
+      AND pa.principe_normalized != ''
+  `);
 
-  await Promise.all([
-    loadMap<RawConditions, CisId, string[]>({
-      path: conditionsPath,
-      schema: RawConditionsSchema,
-      targetMap: dependencyMaps.conditions,
-      keyFn: (row) => row[0],
-      accumulator: (current, row) => {
-        const list = current ?? [];
-        list.push(row[1]);
-        return list;
-      },
-      label: "conditions"
-    }),
-    loadMap<RawComposition, CisId, RawComposition[]>({
-      path: compositionsPath,
-      schema: RawCompositionSchema,
-      targetMap: dependencyMaps.compositions,
-      keyFn: (row) => row[0],
-      accumulator: (current, row) => {
-        const list = current ?? [];
-        list.push(row);
-        return list;
-      },
-      label: "compositions"
-    }),
-    loadMap<RawPresentation, CisId, RawPresentation[]>({
-      path: presentationsPath,
-      schema: RawPresentationSchema,
-      targetMap: dependencyMaps.presentations,
-      keyFn: (row) => row[0],
-      accumulator: (current, row) => {
-        const list = current ?? [];
-        list.push(row);
-        return list;
-      },
-      label: "presentations"
-    }),
-    loadMap<RawGroup, CisId, GenericInfo>({
-      path: genericsPath,
-      schema: RawGroupSchema,
-      targetMap: dependencyMaps.generics,
-      keyFn: (row) => row[2],
-      accumulator: (_current, row) => {
-        groupsData.push(row);
-        const [groupId, label, , type, sort] = row;
-        return { groupId, label, type, sort };
-      },
-      label: "generics"
-    }),
-    loadMap<RawAvailability, string, { statusCode: string; statusLabel: string; link: string | null }>({
-      path: availabilityPath,
-      schema: RawAvailabilitySchema,
-      targetMap: shortageMap,
-      keyFn: (row) => {
-        const [cis, cip] = row;
-        if (cip && cip.length === 13) return cip;
-        if (cis) return cis;
-        return null;
-      },
-      accumulator: (_current, row) => {
-        const [, , statusCode, statusLabel, , , link] = row;
-        return {
-          statusCode: statusCode || "",
-          statusLabel: statusLabel || "",
-          link: link ?? null
-        };
-      },
-      label: "availability"
-    })
-  ]);
+  // B. Construire la Map de vote
+  // Structure : Map<GroupId, Map<SignatureString, Count>>
+  const groupVotes = new Map<string, Map<string, number>>();
+  
+  // Map temporaire pour stocker la composition structurée associée à une signature
+  // Map<SignatureString, StructuredComposition[]>
+  const signatureToData = new Map<string, Array<{ p: string; d: string | null }>>();
 
-  if (mitmPath) {
-    await loadMap({
-      path: mitmPath,
-      schema: RawMitmSchema,
-      targetMap: dependencyMaps.atc,
-      keyFn: (row: RawMitm) => row[0],
-      accumulator: (current: RawMitm[] | undefined, row: RawMitm) => {
-        const list = current ?? [];
-        list.push(row);
-        return list;
-      },
-      label: "mitm"
+  // Regroupement par CIS d'abord
+  const cisCompoBuffer = new Map<string, Array<{ p: string; d: string | null }>>();
+  
+  for (const row of rawCompositions) {
+    // Clé unique par CIS dans le scope du traitement
+    const key = `${row.group_id}|${row.cis_code}`;
+    if (!cisCompoBuffer.has(key)) {
+      cisCompoBuffer.set(key, []);
+    }
+    
+    const dosageStr = row.dosage && row.dosage_unit 
+      ? `${row.dosage} ${row.dosage_unit}`.trim()
+      : row.dosage || null;
+    
+    cisCompoBuffer.get(key)!.push({
+      p: row.principe,
+      d: dosageStr
     });
   }
 
-  return { dependencyMaps, shortageMap, groupsData };
-}
+  // C. Dépouillement du vote
+  for (const [key, ingredients] of cisCompoBuffer.entries()) {
+    const groupId = key.split('|')[0];
+    
+    // 1. Trier les ingrédients pour garantir l'unicité de la signature
+    // (A + B doit être égal à B + A)
+    ingredients.sort((a, b) => {
+      const nameCompare = a.p.localeCompare(b.p);
+      if (nameCompare !== 0) return nameCompare;
+      // Si même nom, trier par dosage
+      const dA = a.d || '';
+      const dB = b.d || '';
+      return dA.localeCompare(dB);
+    });
 
-export type ValidationIssue = {
-  kind: string;
-  groupId?: string;
-  cis?: string;
-  detail: string;
-};
-
-export function buildValidationIssues({
-  clustering,
-  dependencyMaps,
-  groupCompositionCanonical,
-  productStatusMap,
-  shortageMap,
-  cisDetails: _cisDetails
-}: {
-  clustering: ClusteringResult;
-  dependencyMaps: DependencyMaps;
-  groupCompositionCanonical: Map<string, { tokens: string[]; substances: Array<{ name: string; dosage: string; nature: "FT" | "SA" | null }> }>;
-  productStatusMap: Map<CisId, string>;
-  shortageMap: Map<string, { statusCode: string; statusLabel: string; link: string | null }>;
-  cisDetails: Map<CisId, { label: string; form: string; route: string }>;
-}): ValidationIssue[] {
-  const issues: ValidationIssue[] = [];
-  void _cisDetails;
-  const { groupNaming, groupRoutes, cisToCluster } = clustering;
-
-  for (const [groupId, routes] of groupRoutes) {
-    if (routes.size > 1) {
-      issues.push({
-        kind: "ROUTE_INCOMPATIBLE",
-        groupId,
-        detail: `Group has multiple routes: ${Array.from(routes).join(", ")}`
-      });
+    // 2. Créer la signature (JSON string)
+    const signature = JSON.stringify(ingredients);
+    
+    // 3. Sauvegarder la donnée réelle pour plus tard
+    if (!signatureToData.has(signature)) {
+      signatureToData.set(signature, ingredients);
     }
+
+    // 4. Voter
+    if (!groupVotes.has(groupId)) {
+      groupVotes.set(groupId, new Map());
+    }
+    const votes = groupVotes.get(groupId)!;
+    votes.set(signature, (votes.get(signature) || 0) + 1);
   }
 
-  for (const [cis, rows] of dependencyMaps.compositions) {
-    const actives = rows.filter((r) => r[6] === "SA" || r[6] === "FT");
-    if (actives.length === 1) {
-      const substance = normalizeString(actives[0][3]);
-      const genericInfo = dependencyMaps.generics.get(cis);
-      const groupId = genericInfo?.groupId;
-      const genericClean = groupId ? clustering.groupNaming.get(groupId)?.genericLabelClean : null;
-      if (genericClean && substance && !genericClean.toLowerCase().includes(substance)) {
-        issues.push({
-          kind: "MONO_COMPONENT_MISMATCH",
-          groupId: groupId ?? undefined,
-          cis,
-          detail: `Single substance ${substance} not found in generic label ${genericClean}`
+  // D. Élection des vainqueurs
+  // Map<GroupId, JSONStringForDB>
+  const groupCanonicalCompo = new Map<string, string>();
+
+  for (const [groupId, votes] of groupVotes.entries()) {
+    let bestSignature = "";
+    let maxVotes = -1;
+
+    for (const [sig, count] of votes.entries()) {
+      if (count > maxVotes) {
+        maxVotes = count;
+        bestSignature = sig;
+      }
+    }
+
+    if (bestSignature) {
+      // On récupère l'objet structuré
+      const winnerData = signatureToData.get(bestSignature);
+      if (winnerData) {
+        // On le transforme en format simple pour la DB (Liste de strings formatées)
+        const displayStrings = winnerData.map((i) => {
+          return i.d ? `${i.p} ${i.d}`.trim() : i.p;
         });
+        
+        groupCanonicalCompo.set(groupId, JSON.stringify(displayStrings));
       }
     }
   }
 
-  for (const [cis, atcRows] of dependencyMaps.atc) {
-    if (!atcRows?.length) continue;
-    const genericInfo = dependencyMaps.generics.get(cis);
-    if (!genericInfo) continue;
-    const naming = clustering.groupNaming.get(genericInfo.groupId);
-    if (!naming?.canonical) continue;
-    const atcLabel = atcRows[0][2];
-    if (!atcLabel) continue;
-    const distance = levenshteinDistance(naming.canonical.toLowerCase(), atcLabel.toLowerCase());
-    const threshold = Math.max(naming.canonical.length, atcLabel.length) * 0.6;
-    if (distance > threshold) {
-      issues.push({
-        kind: "ATC_NAME_DISTANCE",
-        groupId: genericInfo.groupId,
-        cis,
-        detail: `Canonical '${naming.canonical}' far from ATC '${atcLabel}' (d=${distance})`
+  console.log(`✅ Calculated canonical compositions for ${groupCanonicalCompo.size} groups`);
+
+  // --- 6. Aggregate (SQL) ---
+  console.log("📊 Aggregating MedicamentSummary...");
+
+  // Build cluster_id map: groupId -> clusterId
+  const groupIdToClusterId = new Map<string, string>();
+  for (const [groupId, meta] of clusterMap.entries()) {
+    groupIdToClusterId.set(groupId, meta.clusterId);
+  }
+
+  // Insert grouped medicaments (without cluster_id first, then update)
+  db.db.run(`
+    INSERT OR REPLACE INTO medicament_summary (
+      cis_code, nom_canonique, is_princeps, group_id, member_type,
+      principes_actifs_communs, princeps_de_reference, forme_pharmaceutique,
+      voies_administration, princeps_brand_name, procedure_type, titulaire_id,
+      conditions_prescription, date_amm, is_surveillance, formatted_dosage,
+      atc_code, status, price_min, price_max, aggregated_conditions,
+      ansm_alert_url, is_hospital, is_dental, is_list1, is_list2,
+      is_narcotic, is_exception, is_restricted, is_otc
+    )
+    SELECT
+      s.cis_code,
+      COALESCE(
+        (SELECT nom_clean FROM medicament_names_clean WHERE cis_code = s.cis_code LIMIT 1),
+        s.nom_specialite
+      ) AS nom_canonique,
+      CASE WHEN gm.type = 0 THEN 1 ELSE 0 END AS is_princeps,
+      gg.group_id,
+      gm.type AS member_type,
+      NULL AS principes_actifs_communs, -- Sera rempli par le vote majoritaire TS (étape 5bis)
+      COALESCE(gg.princeps_label, gg.libelle, s.nom_specialite, 'Inconnu') AS princeps_de_reference,
+      s.forme_pharmaceutique,
+      s.voies_administration,
+      COALESCE(gg.princeps_label, gg.libelle, s.nom_specialite, 'Inconnu') AS princeps_brand_name,
+      s.procedure_type,
+      s.titulaire_id,
+      s.conditions_prescription,
+      s.date_amm,
+      s.is_surveillance,
+      NULL AS formatted_dosage,
+      s.atc_code,
+      s.statut_administratif AS status,
+      (
+        SELECT MIN(m3.prix_public)
+        FROM medicaments m3
+        INNER JOIN group_members gm3 ON m3.code_cip = gm3.code_cip
+        WHERE gm3.group_id = gg.group_id
+      ) AS price_min,
+      (
+        SELECT MAX(m4.prix_public)
+        FROM medicaments m4
+        INNER JOIN group_members gm4 ON m4.code_cip = gm4.code_cip
+        WHERE gm4.group_id = gg.group_id
+      ) AS price_max,
+      '[]' AS aggregated_conditions,
+      NULL AS ansm_alert_url,
+      0 AS is_hospital,
+      0 AS is_dental,
+      0 AS is_list1,
+      0 AS is_list2,
+      0 AS is_narcotic,
+      0 AS is_exception,
+      0 AS is_restricted,
+      1 AS is_otc
+    FROM generique_groups gg
+    INNER JOIN group_members gm ON gg.group_id = gm.group_id
+    INNER JOIN medicaments m ON gm.code_cip = m.code_cip
+    INNER JOIN specialites s ON m.cis_code = s.cis_code
+  `);
+
+  // Insert standalone medicaments (without groups)
+  db.db.run(`
+    INSERT OR REPLACE INTO medicament_summary (
+      cis_code, nom_canonique, is_princeps, group_id, member_type,
+      principes_actifs_communs, princeps_de_reference, forme_pharmaceutique,
+      voies_administration, princeps_brand_name, procedure_type, titulaire_id,
+      conditions_prescription, date_amm, is_surveillance, formatted_dosage,
+      atc_code, status, price_min, price_max, aggregated_conditions,
+      ansm_alert_url, is_hospital, is_dental, is_list1, is_list2,
+      is_narcotic, is_exception, is_restricted, is_otc, representative_cip
+    )
+    SELECT
+      s.cis_code,
+      COALESCE(
+        (SELECT nom_clean FROM medicament_names_clean WHERE cis_code = s.cis_code LIMIT 1),
+        s.nom_specialite
+      ) AS nom_canonique,
+      1 AS is_princeps,
+      NULL AS group_id,
+      0 AS member_type,
+      (
+        SELECT json_group_array(
+          TRIM(
+            pa.principe_normalized || 
+            CASE WHEN pa.dosage IS NOT NULL THEN ' ' || pa.dosage ELSE '' END ||
+            CASE WHEN pa.dosage_unit IS NOT NULL THEN ' ' || pa.dosage_unit ELSE '' END
+          )
+        )
+        FROM principes_actifs pa
+        INNER JOIN medicaments m2 ON pa.code_cip = m2.code_cip
+        WHERE m2.cis_code = s.cis_code
+          AND pa.principe_normalized IS NOT NULL
+          AND pa.principe_normalized != ''
+        ORDER BY pa.principe_normalized
+      ) AS principes_actifs_communs,
+      s.nom_specialite AS princeps_de_reference,
+      s.forme_pharmaceutique,
+      s.voies_administration,
+      s.nom_specialite AS princeps_brand_name,
+      s.procedure_type,
+      s.titulaire_id,
+      s.conditions_prescription,
+      s.date_amm,
+      s.is_surveillance,
+      NULL AS formatted_dosage,
+      s.atc_code,
+      s.statut_administratif AS status,
+      (
+        SELECT MIN(m3.prix_public)
+        FROM medicaments m3
+        WHERE m3.cis_code = s.cis_code
+      ) AS price_min,
+      (
+        SELECT MAX(m4.prix_public)
+        FROM medicaments m4
+        WHERE m4.cis_code = s.cis_code
+      ) AS price_max,
+      '[]' AS aggregated_conditions,
+      NULL AS ansm_alert_url,
+      0 AS is_hospital,
+      0 AS is_dental,
+      0 AS is_list1,
+      0 AS is_list2,
+      0 AS is_narcotic,
+      0 AS is_exception,
+      0 AS is_restricted,
+      1 AS is_otc,
+      (
+        SELECT MIN(m5.code_cip)
+        FROM medicaments m5
+        WHERE m5.cis_code = s.cis_code
+      ) AS representative_cip
+    FROM specialites s
+    WHERE NOT EXISTS (
+      SELECT 1
+      FROM group_members gm
+      INNER JOIN medicaments m ON gm.code_cip = m.code_cip
+      WHERE m.cis_code = s.cis_code
+    )
+  `);
+
+  const summaryCount = db.runQuery<{ count: number }>("SELECT COUNT(*) AS count FROM medicament_summary")[0];
+  console.log(`✅ Inserted ${summaryCount.count} medicament summaries`);
+
+  // Inject canonical compositions into grouped medicaments (Majority Vote)
+  console.log("💉 Injecting canonical compositions into Summary...");
+  
+  const updateCompoStmt = db['db'].prepare(`
+    UPDATE medicament_summary 
+    SET principes_actifs_communs = ? 
+    WHERE group_id = ?
+  `);
+
+  db['db'].transaction(() => {
+    for (const [groupId, compoJson] of groupCanonicalCompo.entries()) {
+      updateCompoStmt.run(compoJson, groupId);
+    }
+  })();
+  
+  // Cas des médicaments sans groupe (Orphelins)
+  // On garde la logique SQL simple pour eux (car pas de "vote" possible, un seul CIS)
+  console.log("💉 Computing compositions for standalone CIS...");
+  db.db.run(`
+    UPDATE medicament_summary
+    SET principes_actifs_communs = (
+      SELECT json_group_array(
+        TRIM(
+          pa.principe_normalized || 
+          CASE WHEN pa.dosage IS NOT NULL THEN ' ' || pa.dosage ELSE '' END ||
+          CASE WHEN pa.dosage_unit IS NOT NULL THEN ' ' || pa.dosage_unit ELSE '' END
+        )
+      )
+      FROM principes_actifs pa
+      JOIN medicaments m ON pa.code_cip = m.code_cip
+      WHERE m.cis_code = medicament_summary.cis_code
+      AND pa.principe_normalized IS NOT NULL
+      AND pa.principe_normalized != ''
+      ORDER BY pa.principe_normalized
+    )
+    WHERE group_id IS NULL
+  `);
+
+  // Créer une table de mapping cluster_id -> cluster_name pour faciliter les requêtes
+  // Cette table stocke le nom du cluster calculé par LCP et le princeps clean
+  db.db.run(`
+    CREATE TABLE IF NOT EXISTS cluster_names (
+      cluster_id TEXT PRIMARY KEY NOT NULL,
+      cluster_name TEXT NOT NULL,
+      cluster_princeps TEXT,
+      substance_code TEXT,
+      secondary_princeps TEXT
+    )
+  `);
+  
+  // Ajouter les colonnes si elles n'existent pas (pour les bases existantes)
+  try {
+    db.db.run(`ALTER TABLE cluster_names ADD COLUMN cluster_princeps TEXT`);
+  } catch (e: any) {
+    if (!e.message?.includes('duplicate column')) {
+      throw e;
+    }
+  }
+  try {
+    db.db.run(`ALTER TABLE cluster_names ADD COLUMN secondary_princeps TEXT`);
+  } catch (e: any) {
+    if (!e.message?.includes('duplicate column')) {
+      throw e;
+    }
+  }
+  
+  // Remplir la table avec les noms de clusters calculés
+  const clusterNameMap = new Map<string, string>();
+  for (const [groupId, meta] of clusterMap.entries()) {
+    const clusterId = groupIdToClusterId.get(groupId);
+    if (clusterId && !clusterNameMap.has(clusterId)) {
+      clusterNameMap.set(clusterId, meta.princepsLabel);
+    }
+  }
+  
+  const insertClusterNameStmt = db['db'].prepare(`
+    INSERT OR REPLACE INTO cluster_names (cluster_id, cluster_name, substance_code, cluster_princeps, secondary_princeps)
+    VALUES (?, ?, ?, ?, ?)
+  `);
+  
+  db['db'].transaction(() => {
+    for (const [groupId, meta] of clusterMap.entries()) {
+      const clusterId = groupIdToClusterId.get(groupId);
+      if (clusterId) {
+        // Initialement, cluster_name = princepsLabel (sera remplacé par substance clean plus tard)
+        // substance_code = substanceCode (pour référence)
+        // cluster_princeps sera calculé plus tard via LCP
+        // secondary_princeps = tableau JSON des princeps secondaires
+        const secondariesJson = meta.secondaryPrinceps && meta.secondaryPrinceps.length > 0 
+            ? JSON.stringify(meta.secondaryPrinceps) 
+            : null;
+        insertClusterNameStmt.run(clusterId, meta.princepsLabel, meta.substanceCode, null, secondariesJson);
+      }
+    }
+  })();
+  
+  // Update cluster_id and cluster princeps name for grouped medicaments (post-insert)
+  // Le clusterMap contient le princepsLabel calculé avec LCP
+  for (const [groupId, meta] of clusterMap.entries()) {
+    const clusterId = groupIdToClusterId.get(groupId);
+    if (clusterId) {
+      db.db.run(`
+        UPDATE medicament_summary
+        SET cluster_id = ?, princeps_de_reference = ?
+        WHERE group_id = ?
+      `, [clusterId, meta.princepsLabel, groupId]);
+    }
+  }
+
+  // Calculer cluster_princeps via LCP des noms princeps PROPRES pour chaque cluster
+  // IMPORTANT : Cette étape doit être APRÈS l'assignation du cluster_id dans medicament_summary
+  // CRITIQUE : Utiliser les noms propres (après masque galénique) et pondérer par sort_order
+  console.log("🔍 Computing cluster_princeps via LCP (using clean names, weighted by sort_order)...");
+  
+  // Récupérer tous les noms princeps PROPRES par cluster avec leur sort_order
+  const princepsNamesQuery = db.runQuery<{
+    cluster_id: string;
+    princeps_name_clean: string;
+    sort_order: number;
+  }>(`
+    SELECT DISTINCT
+      ms.cluster_id,
+      COALESCE(gpc.princeps_name_clean, mnc.nom_clean, s.nom_specialite) as princeps_name_clean,
+      COALESCE(gm.sort_order, 0) as sort_order
+    FROM medicament_summary ms
+    JOIN group_members gm ON ms.group_id = gm.group_id
+    JOIN medicaments m ON gm.code_cip = m.code_cip
+    JOIN specialites s ON m.cis_code = s.cis_code
+    LEFT JOIN group_princeps_clean gpc ON ms.group_id = gpc.group_id AND gm.type = 0
+    LEFT JOIN medicament_names_clean mnc ON m.cis_code = mnc.cis_code
+    WHERE ms.cluster_id IS NOT NULL
+      AND ms.group_id IS NOT NULL
+      AND gm.type = 0 -- Seulement les princeps
+      AND COALESCE(gpc.princeps_name_clean, mnc.nom_clean, s.nom_specialite) IS NOT NULL
+      AND LENGTH(TRIM(COALESCE(gpc.princeps_name_clean, mnc.nom_clean, s.nom_specialite))) > 0
+    ORDER BY ms.cluster_id, sort_order DESC, princeps_name_clean
+  `);
+
+  // Grouper par cluster_id avec sort_order pour pondération
+  const clusterPrincepsMap = new Map<string, Array<{ name: string; sortOrder: number }>>();
+  for (const row of princepsNamesQuery) {
+    if (!clusterPrincepsMap.has(row.cluster_id)) {
+      clusterPrincepsMap.set(row.cluster_id, []);
+    }
+    const existing = clusterPrincepsMap.get(row.cluster_id)!;
+    // Éviter les doublons exacts (même nom + même sort_order)
+    const exists = existing.some(e => e.name === row.princeps_name_clean && e.sortOrder === row.sort_order);
+    if (!exists) {
+      existing.push({ name: row.princeps_name_clean, sortOrder: row.sort_order });
+    }
+  }
+
+  // Calculer le LCP pour chaque cluster avec vote pondéré + secondaires
+  const updateClusterPrincepsStmt = db['db'].prepare(`
+    UPDATE cluster_names 
+    SET cluster_princeps = ?, secondary_princeps = ?
+    WHERE cluster_id = ?
+  `);
+
+  db['db'].transaction(() => {
+    for (const [clusterId, princepsData] of clusterPrincepsMap.entries()) {
+      // Filtrer les formes galéniques pures et les descriptions invalides
+      const validPrincepsData = princepsData.filter(({ name }) => {
+        // Exclure les formes galéniques pures
+        if (isPureGalenicDescription(name)) return false;
+        // Exclure les descriptions qui commencent par une minuscule
+        if (name.length > 0 && name[0] === name[0].toLowerCase()) return false;
+        // Exclure les descriptions trop longues
+        if (name.length > 50) return false;
+        return true;
       });
-    }
-  }
 
-  const groupClusterMap = new Map<string, string>();
-  for (const row of clustering.groupRows) {
-    groupClusterMap.set(row.id, row.cluster_id);
-  }
-
-  const sortedGroups = Array.from(groupCompositionCanonical.entries()).sort(
-    ([a], [b]) => Number.parseInt(a, 10) - Number.parseInt(b, 10)
-  );
-  for (let i = 0; i < sortedGroups.length - 1; i++) {
-    const [groupId, signature] = sortedGroups[i];
-    const [nextId, nextSignature] = sortedGroups[i + 1];
-    const currentNum = Number.parseInt(groupId, 10);
-    const nextNum = Number.parseInt(nextId, 10);
-    if (!Number.isFinite(currentNum) || !Number.isFinite(nextNum)) continue;
-    if (Math.abs(currentNum - nextNum) > 1) continue;
-    if (
-      signature.tokens.length > 0 &&
-      nextSignature.tokens.length > 0 &&
-      signature.tokens.join("|") === nextSignature.tokens.join("|")
-    ) {
-      const clusterA = groupClusterMap.get(groupId);
-      const clusterB = groupClusterMap.get(nextId);
-      if (clusterA && clusterB && clusterA !== clusterB) {
-        issues.push({
-          kind: "GROUP_SPLIT",
-          groupId,
-          detail: `Adjacent groups ${groupId}/${nextId} share composition but different clusters`
-        });
-      }
-    }
-  }
-
-  for (const [cis, meta] of cisToCluster) {
-    const marketing = productStatusMap.get(cis) ?? "";
-    const shortage = shortageMap.get(cis);
-    if (marketing.toLowerCase().includes("non commercialisée") && shortage?.statusCode === "4") {
-      issues.push({
-        kind: "COMMERCIAL_STATUS_CONFLICT",
-        cis,
-        detail: "Marked non commercialised but availability shows remise (status 4)"
-      });
-    }
-  }
-
-  for (const [groupId, naming] of groupNaming) {
-    if (naming.namingSource === "GENER_PARSING" && !naming.historicalPrincepsRaw) {
-      issues.push({
-        kind: "NAMING_FALLBACK",
-        groupId,
-        detail: `Group ${groupId} uses parsing fallback for canonical '${naming.canonical}'`
-      });
-    }
-  }
-
-  return issues;
-}
-
-// --- Main Pipeline ---
-async function main() {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-  const dbPath = DEFAULT_DB_PATH;
-
-  // Clean previous DB to ensure schema refresh
-  fs.rmSync(dbPath, { force: true });
-  fs.rmSync(`${dbPath}-wal`, { force: true });
-  fs.rmSync(`${dbPath}-shm`, { force: true });
-  const db = new ReferenceDatabase(dbPath);
-  const excludedCis = new Set<CisId>();
-
-  // 1. Download Files
-  const cisPath = await download("CIS_bdpm.txt");
-  const cipPath = await download("CIS_CIP_bdpm.txt");
-  const groupsPath = await download("CIS_GENER_bdpm.txt");
-  const cpdPath = await download("CIS_CPD_bdpm.txt");
-  const dispoPath = await download("CIS_CIP_Dispo_Spec.txt");
-  const compoPath = await download("CIS_COMPO_bdpm.txt");
-  const mitmPath = await download("CIS_MITM.txt");
-
-  console.log("🚫 Pre-scanning Boiron products...");
-  await processStream<RawSpecialite>(cisPath, RawSpecialiteSchema, (batch) => {
-    for (const row of batch) {
-      const cis = row[0];
-      const holder = row[10];
-      if (isBoironManufacturer(holder)) {
-        excludedCis.add(cis);
-      }
-    }
-  });
-
-  console.log("🚫 Pre-scanning homeopathic products...");
-  await processStream<RawSpecialite>(cisPath, RawSpecialiteSchema, (batch) => {
-    for (const row of batch) {
-      const cis = row[0];
-      const label = row[1];
-      const holder = row[10];
-      if (isHomeopathic(label, "", holder)) {
-        excludedCis.add(cis);
-      }
-    }
-  });
-
-  console.log("⚡ Pre-loading dependency maps...");
-  const { dependencyMaps, shortageMap, groupsData } = await loadDependencies({
-    conditionsPath: cpdPath,
-    compositionsPath: compoPath,
-    presentationsPath: cipPath,
-    genericsPath: groupsPath,
-    availabilityPath: dispoPath,
-    mitmPath
-  });
-
-  const compoMap = new Map<CisId, RefComposition[]>();
-  const genericsMap = new Map<CisId, RefGenerique>();
-  const groupMasterMap = new Map<GroupId, { label: string }>();
-
-  await Promise.all([
-    Promise.resolve().then(() => {
-      for (const [cis, rows] of dependencyMaps.compositions) {
-        if (excludedCis.has(cis)) continue;
-        const mapped = rows.map(
-          ([
-            cisId,
-            elementLabel,
-            codeSubstance,
-            substanceName,
-            dosage,
-            reference,
-            nature,
-            linkId
-          ]) =>
-            ({
-              cis: cisId,
-              elementLabel,
-              codeSubstance,
-              substanceName,
-              dosage,
-              reference,
-              nature,
-              linkId
-            }) satisfies RefComposition
-        );
-        if (mapped.length > 0) {
-          compoMap.set(cis, mapped);
-        }
-      }
-    }),
-    Promise.resolve().then(() => {
-      for (const row of groupsData) {
-        const [groupId, label, cis, type] = row;
-        if (excludedCis.has(cis)) continue;
-        const parsedType = Number.parseInt(type, 10);
-        const numericType = Number.isFinite(parsedType) ? parsedType : GenericType.UNKNOWN;
-        genericsMap.set(cis, { groupId, label, cis, type: numericType });
-        if (numericType === GenericType.PRINCEPS && !groupMasterMap.has(groupId)) {
-          groupMasterMap.set(groupId, { label });
-        }
-      }
-    })
-  ]);
-
-  const groupCompositionCanonical = new Map<
-    string,
-    { tokens: string[]; substances: Array<{ name: string; dosage: string; nature: "FT" | "SA" | null }> }
-  >();
-
-  {
-    const builder = new Map<
-      string,
-      {
-        tokens: Set<string>;
-        substances: Map<string, { name: string; dosage: string; nature: "FT" | "SA" | null }>;
-      }
-    >();
-
-    for (const [cis, rows] of compoMap) {
-      const genericInfo = dependencyMaps.generics.get(cis);
-      if (!genericInfo) continue;
-      const groupId = genericInfo.groupId;
-      if (!builder.has(groupId)) {
-        builder.set(groupId, { tokens: new Set(), substances: new Map() });
-      }
-      const current = builder.get(groupId)!;
-
-      for (const row of rows) {
-        if (row.nature !== "FT" && row.nature !== "SA") continue;
-        const code = row.codeSubstance.trim();
-        const normalizedName = normalizeString(row.substanceName);
-        const key = code && code !== "0" ? `C:${code}` : normalizedName ? `N:${normalizedName}` : null;
-        if (!key) continue;
-
-        current.tokens.add(key);
-        const dosage = row.dosage?.trim() ?? "";
-        const existing = current.substances.get(key);
-        const shouldReplace =
-          !existing ||
-          (existing.nature === "SA" && row.nature === "FT") ||
-          (!existing.dosage && !!dosage);
-        if (shouldReplace) {
-          current.substances.set(key, {
-            name: row.substanceName.trim() || existing?.name || "",
-            dosage,
-            nature: row.nature
-          });
-        }
-      }
-    }
-
-    for (const [groupId, { tokens, substances }] of builder) {
-      groupCompositionCanonical.set(groupId, {
-        tokens: Array.from(tokens).sort((a, b) => a.localeCompare(b)),
-        substances: Array.from(substances.values())
-      });
-    }
-  }
-
-  const cisNames = new Map<CisId, string>();
-  const manufacturerResolver = createManufacturerResolver();
-  const products: Product[] = [];
-  const productStatusMap = new Map<CisId, string>();
-  // Metadata cache for clustering decisions
-  const productMeta = new Map<CisId, ProductMetaEntry>();
-  const cisDetails = new Map<CisId, { label: string; form: string; route: string }>();
-
-  // 2. Process Specialties (Products)
-  console.log("📦 Processing Products...");
-  await processStream<RawSpecialite>(cisPath, RawSpecialiteSchema, (batch) => {
-    const transformed: Product[] = [];
-    for (const row of batch) {
-      const cis = row[0];
-      const holder = row[10];
-      if (isBoironManufacturer(holder)) {
-        excludedCis.add(cis);
-        continue;
-      }
-
-      const conditions = dependencyMaps.conditions.get(cis) ?? [];
-      const compositionRows = dependencyMaps.compositions.get(cis) ?? [];
-      const genericInfo = dependencyMaps.generics.get(cis);
-      const groupCanonical = genericInfo ? groupCompositionCanonical.get(genericInfo.groupId) : undefined;
-      let compositionSignature = computeCompositionSignature(compoMap.get(cis));
-      const hasComboSignal =
-        compositionSignature.tokens.length <= 1 && detectComboMolecules(row[1]);
-      let effectiveSignature = hasComboSignal ? "" : compositionSignature.signature;
-
-      if (hasComboSignal) {
-        const comboFallback = buildComboFallbackSignature(row[1], compositionSignature.tokens);
-        if (comboFallback.signature) {
-          compositionSignature = {
-            signature: comboFallback.signature,
-            tokens: comboFallback.tokens,
-            bases: [],
-            nature: null
-          };
-          effectiveSignature = comboFallback.signature;
-        }
-      }
-
-      if (!effectiveSignature && groupCanonical && groupCanonical.tokens.length > 0) {
-        compositionSignature = {
-          signature: groupCanonical.tokens.join("|"),
-          tokens: groupCanonical.tokens,
-          bases: [],
-          nature: null
-        };
-        effectiveSignature = compositionSignature.signature;
-      }
-
-      if (!effectiveSignature) {
-        const atcRows = dependencyMaps.atc.get(cis);
-        const primaryAtc = atcRows?.[0]?.[1];
-        if (primaryAtc) {
-          effectiveSignature = `ATC:${primaryAtc}`;
-        }
-      }
-
-      const composition = buildComposition(compositionRows);
-      const compositionCodes =
-        composition.codes.length > 0
-          ? composition.codes
-          : groupCanonical
-            ? groupCanonical.tokens.filter((t) => t.startsWith("C:")).map((t) => t.slice(2))
-            : [];
-
-      let compositionResolved = resolveComposition(cis, row[1], compoMap);
-      if (compositionResolved.structured.length === 0 && groupCanonical?.substances.length) {
-        const structured = [
-          {
-            element: "composition",
-            substances: groupCanonical.substances.map((s) => ({
-              name: s.name || "Composition inconnue",
-              dosage: s.dosage ?? ""
-            }))
+      if (validPrincepsData.length > 0) {
+        // Extraire les noms propres uniquement pour le LCP
+        const validPrincepsNames = validPrincepsData.map(d => d.name);
+        
+        // Tentative 1 : LCP sur tous les noms propres
+        const commonPrefix = findCommonWordPrefix(validPrincepsNames);
+        
+        let clusterPrinceps: string;
+        let secondaryPrinceps: string[] = [];
+        
+        if (commonPrefix.length >= 3) {
+          // Le LCP a trouvé un préfixe significatif (ex: "CONTRAMAL LP" -> "CONTRAMAL")
+          clusterPrinceps = commonPrefix;
+          
+          // Si il n'y a qu'un seul princeps unique, pas de secondary_princeps
+          const uniquePrinceps = new Set(validPrincepsNames);
+          if (uniquePrinceps.size === 1) {
+            secondaryPrinceps = [];
+          } else {
+            // Pour les secondaires, on prend les premiers mots uniques qui ne sont pas le préfixe commun
+            const firstWords = new Set(validPrincepsData.map(({ name }) => {
+              const firstWord = name.trim().split(/\s+/)[0];
+              return firstWord || name;
+            }));
+            secondaryPrinceps = Array.from(firstWords).filter(w => w !== clusterPrinceps);
           }
-        ];
-        compositionResolved = {
-          display: formatCompositionDisplay(structured),
-          structured
-        };
+        } else {
+          // Le LCP a échoué (ex: "CONTRAMAL" vs "TOPALGIC")
+          // Utiliser la logique de vote PONDÉRÉ par sort_order sur le PREMIER MOT
+          // Les princeps avec sort_order élevé (plus récents) ont plus de poids
+          const firstWordVotes = new Map<string, number>();
+          
+          for (const { name, sortOrder } of validPrincepsData) {
+            const firstWord = name.trim().split(/\s+/)[0];
+            if (firstWord) {
+              // Poids = sort_order + 1 (pour éviter les poids négatifs ou nuls)
+              // Plus le sort_order est élevé, plus le vote compte
+              const weight = sortOrder + 1;
+              firstWordVotes.set(firstWord, (firstWordVotes.get(firstWord) || 0) + weight);
+            }
+          }
+          
+          // Trier par vote pondéré décroissant
+          const sortedWords = Array.from(firstWordVotes.entries()).sort((a, b) => {
+            const voteCompare = b[1] - a[1];
+            if (voteCompare !== 0) return voteCompare;
+            // En cas d'égalité parfaite, le plus court gagne (souvent le plus générique)
+            return a[0].length - b[0].length;
+          });
+          
+          // Le vainqueur est le premier mot avec le plus de votes pondérés
+          // Cela privilégie les princeps les plus récents (sort_order élevé)
+          clusterPrinceps = sortedWords.length > 0 ? sortedWords[0][0] : validPrincepsNames[0];
+          
+          // Les secondaires sont tous les autres premiers mots uniques (triés par vote décroissant)
+          secondaryPrinceps = sortedWords.slice(1).map(e => e[0]);
+        }
+        
+        // Convertir en JSON pour stockage
+        const secondariesJson = secondaryPrinceps.length > 0 
+            ? JSON.stringify(secondaryPrinceps) 
+            : null;
+        
+        updateClusterPrincepsStmt.run(clusterPrinceps, secondariesJson, clusterId);
       }
-      const drawerLabel = resolveDrawerLabel(cis, row[1], genericsMap, groupMasterMap);
-      const surveillance = row[11].trim().toLowerCase() === "oui";
-      const manufacturerId = manufacturerResolver.resolve(holder).id;
-      const parsedGeneric = genericInfo ? Number.parseInt(genericInfo.type, 10) : NaN;
-      const genericType =
-        Number.isFinite(parsedGeneric) &&
-        [
-          GenericType.PRINCEPS,
-          GenericType.GENERIC,
-          GenericType.COMPLEMENTARY,
-          GenericType.SUBSTITUTABLE,
-          GenericType.AUTO_SUBSTITUTABLE
-        ].includes(parsedGeneric as GenericType)
-          ? (parsedGeneric as GenericType)
-          : GenericType.UNKNOWN;
-      const isPrinceps = genericType === GenericType.PRINCEPS;
-      const marketingStatus = row[6];
+    }
+  })();
+  
+  console.log(`✅ Computed cluster_princeps for ${clusterPrincepsMap.size} clusters`);
 
-      cisNames.set(cis, row[1]);
-      cisDetails.set(cis, { label: row[1], form: row[2], route: row[3] });
-      productStatusMap.set(cis, marketingStatus);
-      productMeta.set(cis, {
-        label: row[1],
-        codes: compositionCodes,
-        signature: effectiveSignature,
-        bases: compositionSignature.bases,
-        isPrinceps,
-        groupId: null,
-        genericType
-      });
+  // --- 5ter. Compute Canonical CLUSTER Composition (Substance-Only Majority Vote) ---
+  // IMPORTANT : Cette étape doit être APRÈS l'assignation du cluster_id
+  // Stratégie : Vote uniquement sur les substances (sans dosages) pour créer des clusters conceptuels abstraits
+  console.log("🗳️  Harmonizing compositions at CLUSTER level (Substance Only)...");
 
-      transformed.push({
-        cis,
-        label: row[1],
-        form: row[2],
-        routes: row[3],
-        type_procedure: row[5],
-        surveillance_renforcee: surveillance,
-        marketing_status: marketingStatus,
-        manufacturer_id: manufacturerId,
-        is_princeps: isPrinceps,
-        generic_type: genericType,
-        group_id: null,
-        date_amm: parseDateToIso(row[7]),
-        regulatory_info: JSON.stringify(parseRegulatoryInfo(conditions.join(", "))),
-        composition: JSON.stringify(compositionResolved.structured),
-        composition_codes: JSON.stringify(compositionCodes),
-        composition_display: compositionResolved.display,
-        drawer_label: drawerLabel
-      });
+  // 1. Récupérer les substances normalisées brutes (sans dosages)
+  // On récupère : Pour chaque Cluster -> Pour chaque Groupe -> Les Substances qu'il contient
+  const clusterSubstancesQuery = db.runQuery<{
+    cluster_id: string;
+    group_id: string;
+    principe: string;
+  }>(`
+    SELECT DISTINCT
+      ms.cluster_id,
+      ms.group_id,
+      pa.principe_normalized as principe
+    FROM medicament_summary ms
+    JOIN group_members gm ON ms.group_id = gm.group_id
+    JOIN medicaments m ON gm.code_cip = m.code_cip
+    JOIN principes_actifs pa ON m.code_cip = pa.code_cip
+    WHERE ms.cluster_id IS NOT NULL 
+      AND ms.group_id IS NOT NULL
+      AND pa.principe_normalized IS NOT NULL
+  `);
+
+  // 2. Construire les signatures de composition par Groupe
+  // Map<ClusterID, Map<GroupID, List<Substances>>>
+  const clusterStructure = new Map<string, Map<string, string[]>>();
+
+  for (const row of clusterSubstancesQuery) {
+    if (!clusterStructure.has(row.cluster_id)) {
+      clusterStructure.set(row.cluster_id, new Map());
+    }
+    const groups = clusterStructure.get(row.cluster_id)!;
+    
+    if (!groups.has(row.group_id)) {
+      groups.set(row.group_id, []);
+    }
+    
+    // Formatage "Title Case" pour un affichage propre dans l'application
+    // "PARACETAMOL" devient "Paracétamol"
+    const prettyPrincipe = formatPrinciples(row.principe);
+    
+    groups.get(row.group_id)!.push(prettyPrincipe);
+  }
+
+  // 3. Voter : Un Groupe = Une Voix
+  // Map<ClusterID, CanonicalCompositionJSON>
+  const clusterCanonicalCompo = new Map<string, string>();
+
+  for (const [clusterId, groups] of clusterStructure.entries()) {
+    const voteCounts = new Map<string, number>();
+    
+    // Pour chaque groupe du cluster
+    for (const [groupId, substances] of groups.entries()) {
+      // On trie pour que ["Amox", "Acide"] soit égal à ["Acide", "Amox"]
+      substances.sort((a, b) => a.localeCompare(b));
+      
+      // Dédupliquer les substances (au cas où un groupe aurait plusieurs CIS avec la même substance)
+      const uniqueSubstances = Array.from(new Set(substances));
+      
+      // Signature unique de la substance (sans dosage !)
+      const signature = JSON.stringify(uniqueSubstances);
+      
+      voteCounts.set(signature, (voteCounts.get(signature) || 0) + 1);
     }
 
-    products.push(...transformed);
-    if (products.length % 1000 === 0) {
-      console.log(`📊 Processed ${products.length} products...`);
+    // Dépouillement
+    let winningSignature = "";
+    let maxVotes = -1;
+
+    for (const [sig, count] of voteCounts.entries()) {
+      if (count > maxVotes) {
+        maxVotes = count;
+        winningSignature = sig;
+      }
+      // En cas d'égalité (ex: 1 groupe "Paracétamol" vs 1 groupe "Paracétamol + Codeine" mal classé)
+      // On privilégie la liste la plus courte (principe de parcimonie / rasoir d'Ockham)
+      else if (count === maxVotes) {
+        if (sig.length < winningSignature.length) winningSignature = sig;
+      }
     }
-  });
 
-  const manufacturers = manufacturerResolver.toRows();
-  if (manufacturers.length > 0) {
-    db.insertManufacturers(manufacturers);
-  }
-  if (products.length > 0) {
-    console.log(`💾 Inserting ${products.length} products...`);
-    db.insertProducts(products);
-  } else {
-    console.log("⚠️ No products to insert!");
-  }
-
-  // Propagate composition signatures within the same BDPM generic group:
-  // if a group has a unique non-empty signature, reuse it for members lacking rows.
-  const groupSignatureMap = new Map<string, Set<string>>();
-  const groupSignatureUnion = new Map<string, Set<string>>();
-  for (const [cis, meta] of productMeta) {
-    const genericInfo = dependencyMaps.generics.get(cis);
-    if (!genericInfo) continue;
-    if (!meta.signature) continue;
-    if (!groupSignatureMap.has(genericInfo.groupId)) {
-      groupSignatureMap.set(genericInfo.groupId, new Set<string>());
-    }
-    groupSignatureMap.get(genericInfo.groupId)!.add(meta.signature);
-
-    if (!groupSignatureUnion.has(genericInfo.groupId)) {
-      groupSignatureUnion.set(genericInfo.groupId, new Set<string>());
-    }
-    const tokens = meta.signature.split("|").filter(Boolean);
-    for (const t of tokens) {
-      groupSignatureUnion.get(genericInfo.groupId)!.add(t);
-    }
-  }
-
-  for (const [cis, meta] of productMeta) {
-    if (meta.signature) continue;
-    const genericInfo = dependencyMaps.generics.get(cis);
-    if (!genericInfo) continue;
-    const signatures = groupSignatureMap.get(genericInfo.groupId);
-    if (!signatures || signatures.size !== 1) continue;
-    const inferred = signatures.values().next().value;
-    meta.signature = inferred;
-  }
-
-  // Normalize group signatures: if a group has any signature tokens, align all members to the union
-  for (const [cis, meta] of productMeta) {
-    const genericInfo = dependencyMaps.generics.get(cis);
-    if (!genericInfo) continue;
-    const tokens = groupSignatureUnion.get(genericInfo.groupId);
-    if (!tokens || tokens.size === 0) continue;
-    const unified = Array.from(tokens).sort((a, b) => a.localeCompare(b)).join("|");
-    meta.signature = unified;
-  }
-
-  // Normalize brand-level signatures: if the exact label appears with differing signatures, merge tokens
-  const labelSignatureUnion = new Map<string, Set<string>>();
-  for (const [cis, meta] of productMeta) {
-    const label = cisNames.get(cis);
-    if (!label || !meta.signature) continue;
-    const key = normalizeString(label) || label.trim();
-    if (!labelSignatureUnion.has(key)) {
-      labelSignatureUnion.set(key, new Set<string>());
-    }
-    const tokens = meta.signature.split("|").filter(Boolean);
-    for (const t of tokens) {
-      labelSignatureUnion.get(key)!.add(t);
-    }
-  }
-  for (const [cis, meta] of productMeta) {
-    const label = cisNames.get(cis);
-    if (!label) continue;
-    const key = normalizeString(label) || label.trim();
-    const tokens = labelSignatureUnion.get(key);
-    if (!tokens || tokens.size === 0) continue;
-    const unified = Array.from(tokens).sort((a, b) => a.localeCompare(b)).join("|");
-    meta.signature = unified;
-  }
-
-  const clusteringEngine = new ClusteringEngine({
-    dependencyMaps,
-    groupsData,
-    excludedCis,
-    productMeta,
-    cisNames,
-    cisDetails,
-    groupCompositionCanonical
-  });
-
-  const clusteringResult = clusteringEngine.run();
-  const { clusters, groupRows, productGroupUpdates, missingGroupCis, groupStats, groupNaming, groupRoutes } =
-    clusteringResult;
-
-  db.insertClusters(clusters);
-  db.insertGroups(groupRows);
-  db.updateProductGrouping(productGroupUpdates);
-
-  if (missingGroupCis.size > 0) {
-    console.warn(
-      `⚠️ Rescued ${missingGroupCis.size} groups with missing CIS via label parsing (total: ${groupStats.total}, linked via CIS: ${groupStats.linkedViaCis}, rescued via text: ${groupStats.rescuedViaText}, failed: ${groupStats.failed})`
-    );
-  }
-
-  const validationIssues = buildValidationIssues({
-    clustering: clusteringResult,
-    dependencyMaps,
-    groupCompositionCanonical,
-    productStatusMap,
-    shortageMap,
-    cisDetails
-  });
-  if (validationIssues.length > 0) {
-    console.warn(`⚠️ Validation issues detected: ${validationIssues.length}`);
-  }
-
-  // 4. Process Presentations (CIPs) from pre-materialized map
-  console.log("🏷️ Processing Presentations...");
-  const presentationRows: Presentation[] = [];
-  for (const [cis, rows] of dependencyMaps.presentations) {
-    if (!cisNames.has(cis) || excludedCis.has(cis)) continue;
-    for (const row of rows) {
-      const shortage = shortageMap.get(row[6]) || shortageMap.get(row[0]);
-      const cisMarketingStatus = productStatusMap.get(row[0]);
-      const rawMarketStatus = (row[4] || "").trim();
-      const isNonCommercial = !!cisMarketingStatus && cisMarketingStatus.toLowerCase().includes("non commercialisée");
-      const isRemise = shortage?.statusCode === "4";
-      const marketStatus = isRemise
-        ? shortage?.statusLabel || rawMarketStatus || cisMarketingStatus || null
-        : isNonCommercial
-          ? cisMarketingStatus
-          : rawMarketStatus || cisMarketingStatus || null;
-      const availabilityStatus = shortage
-        ? [shortage.statusCode, shortage.statusLabel].filter(Boolean).join(":")
-        : null;
-      presentationRows.push({
-        cis: row[0],
-        cip13: row[6],
-        reimbursement_rate: row[8],
-        price_cents: parsePriceToCents(row[9]),
-        market_status: marketStatus,
-        availability_status: availabilityStatus,
-        ansm_link: shortage?.link ?? null,
-        date_commercialisation: parseDateToIso(row[5])
-      });
+    if (winningSignature) {
+      clusterCanonicalCompo.set(clusterId, winningSignature);
     }
   }
 
-  if (presentationRows.length > 0) {
-    db.insertPresentations(presentationRows);
-  }
+  console.log(`✅ Calculated substance-only compositions for ${clusterCanonicalCompo.size} clusters`);
 
-  // 5. Finalize
-  console.log("🔍 Building Search Index...");
+  // 4. Injection Finale (Mise à jour de la colonne display)
+  // ATTENTION : On écrase ce qui a été mis à l'étape 5bis pour les groupes membres d'un cluster.
+  // C'est voulu : dans l'Explorer, on veut voir "PARACETAMOL", pas "PARACETAMOL 500 MG".
+  
+  console.log("💉 Injecting CLUSTER compositions (Substances Only) into Summary...");
+  
+  const updateClusterCompoStmt = db['db'].prepare(`
+    UPDATE medicament_summary 
+    SET principes_actifs_communs = ? 
+    WHERE cluster_id = ?
+  `);
+
+  db['db'].transaction(() => {
+    for (const [clusterId, compoJson] of clusterCanonicalCompo.entries()) {
+      updateClusterCompoStmt.run(compoJson, clusterId);
+    }
+  })();
+
+  // 5. Mettre à jour cluster_names avec les substances harmonisées (cluster_name)
+  // Le cluster_name devient la substance clean (ex: "Paracétamol"), cluster_princeps reste le princeps (ex: "DOLIPRANE")
+  console.log("📝 Updating cluster_names with harmonized substances...");
+  
+  const updateClusterNameStmt = db['db'].prepare(`
+    UPDATE cluster_names 
+    SET cluster_name = ? 
+    WHERE cluster_id = ?
+  `);
+
+  let updatedCount = 0;
+  db['db'].transaction(() => {
+    for (const [clusterId, compoJson] of clusterCanonicalCompo.entries()) {
+      try {
+        // Parser le JSON array et convertir en chaîne lisible pour cluster_name
+        // Ex: ["Pregabaline"] -> "Pregabaline"
+        // Ex: ["Ethinylestradiol","Levonorgestrel"] -> "Ethinylestradiol, Levonorgestrel"
+        const substances = JSON.parse(compoJson);
+        if (Array.isArray(substances) && substances.length > 0) {
+          const substanceLabel = substances.join(", ");
+          const result = updateClusterNameStmt.run(substanceLabel, clusterId);
+          if (result.changes > 0) {
+            updatedCount++;
+          }
+        }
+      } catch (e) {
+        // Si le parsing échoue, ignorer silencieusement
+        console.warn(`⚠️  Failed to parse composition for cluster ${clusterId}:`, e);
+      }
+    }
+  })();
+  
+  console.log(`✅ Updated ${updatedCount} cluster_names with harmonized substances (cluster_name)`);
+
+  // --- 7. Index (FTS5) ---
+  console.log("📇 Populating search index...");
   db.populateSearchIndex();
-  db.optimize();
-  db.close();
+  console.log("✅ Search index populated");
 
-  console.log(`✅ Pipeline Complete: ${dbPath} generated`);
+  console.log("✨ Pipeline Completed Successfully!");
 }
 
-if (import.meta.main) {
-  main().catch((err) => {
-    console.error(err);
-    process.exitCode = 1;
+// --- Helpers ---
+
+async function readBdpmFile(filePath: string): Promise<string[][]> {
+  const content = await fs.promises.readFile(filePath);
+  const decoded = iconv.decode(content, "latin1"); // ISO-8859-1
+  return new Promise((resolve, reject) => {
+    parse(decoded, { delimiter: "\t", relax_quotes: true }, (err, records) => {
+      if (err) reject(err);
+      else resolve(records);
+    });
   });
 }
 
-function extractFormHints(label: string): string {
-  const upper = label.toUpperCase();
-  const hints = [
-    "CREME",
-    "COLLYRE",
-    "OPHTALMIQUE",
-    "INJECTABLE",
-    "PERFUSION",
-    "POMMADE",
-    "SOLUTION BUVABLE",
-    "SIROP",
-    "SUSPENSION",
-    "COMPRIME",
-    "CAPSULE",
-    "GELULE",
-    "SPRAY",
-    "PULVERISATION",
-    "NEBULISATION",
-    "PATCH",
-    "INHALATION",
-    "NASAL",
-    "BUCCAL",
-    "SUBLINGUAL",
-    "CUTANEE",
-    "TOPIQUE"
-  ];
-  const hits = new Set<string>();
-  for (const h of hints) {
-    if (upper.includes(h)) hits.add(h);
+// Stream version for generators
+async function* streamBdpmFile(filePath: string): AsyncIterable<string[]> {
+  const stream = fs.createReadStream(filePath)
+    .pipe(iconv.decodeStream("latin1"))
+    .pipe(parse({ delimiter: "\t", relax_quotes: true }));
+
+  for await (const row of stream) {
+    yield row;
   }
-  return Array.from(hits).join(" ");
 }
+
+main().catch((err) => {
+  console.error("❌ Pipeline Failed:", err);
+  process.exit(1);
+});

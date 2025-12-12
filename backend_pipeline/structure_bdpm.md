@@ -1,188 +1,220 @@
-**1. 📁 CIS_bdpm.txt (Fichier Maître Produit)**
+# Structure des Fichiers BDPM (Base de Données Publique des Médicaments)
 
-Fichier central : existence du médicament.
+Ce document décrit la structure technique des fichiers bruts fournis par l'ANSM.
 
-| # | Nom | Description réelle | Action ETL / Importance |
-| :--- | :--- | :--- | :--- |
-| **1** | Code CIS | Identifiant unique (8 chiffres). | **Critique**. PK `products.cis`. |
-| **2** | Dénomination | Libellé complet. | **Haute**. Fallback affichage + FTS. |
-| **3** | Forme pharma | Forme galénique. | **Moyenne**. Distinguer cp/sirop. |
-| **4** | Voies admin | Voie d’administration. | **Join**. Propagation `routes` au niveau groupe (union des voies CIS). |
-| **5** | Statut AMM | État de l’autorisation. | **Moyenne**. Filtrer retirés. |
-| **6** | Type procédure | Type d’AMM. | **Nulle**. |
-| **7** | État commercial | Statut commercialisation. | **Haute**. Éviter produits morts. |
-| **8** | Date AMM | Date d’autorisation. | **Faible**. |
-| **9** | Statut BDM | Ex: « Warning disponibilité ». | **Display**. Icône alerte. |
-| **10** | Numéro Europe | Numéro EU. | **Nulle**. |
-| **11** | Titulaire | Laboratoire. | **Moyenne**. Tri/filtre secondaire. |
-| **12** | Surveillance | Oui/Non. | **Safety**. Triangle noir ⚠️. |
+## ⚠️ Spécifications Techniques Globales
 
-Exemples (données `data/CIS_bdpm.txt`) :
+Pour tout développeur souhaitant parser ces données, ces contraintes sont critiques :
 
-- `61266250` — `A 313 200 000 UI POUR CENT, pommade` — `pommade` — `cutanée` — `Autorisation active` — `Procédure nationale` — `Commercialisée` — `12/03/1998` — `PHARMA DEVELOPPEMENT` — `Non`
-- `61876780` — `ABACAVIR ARROW 300 mg, comprimé pelliculé sécable` — `comprimé pelliculé sécable` — `orale` — `Autorisation active` — `Procédure décentralisée` — `Commercialisée` — `22/10/2019` — `ARROW GENERIQUES` — `Non`
-- `68257528` — `ABACAVIR/LAMIVUDINE ACCORD 600 mg/300 mg, comprimé pelliculé` — `orale` — `Autorisation active` — `Procédure nationale` — `Non commercialisée` — `16/03/2017` — `Warning disponibilité` — `ACCORD HEALTHCARE FRANCE` — `Non`
-- `62401060` — `ABACAVIR VIATRIS 300 mg, comprimé pelliculé sécable` — `comprimé pelliculé sécable` — `orale` — `Autorisation active` — `Procédure décentralisée` — `Commercialisée` — `21/02/2018` — `VIATRIS SANTE` — `Non`
-- `63431640` — `ABACAVIR/LAMIVUDINE BIOGARAN 600 mg/300 mg, comprimé pelliculé` — `orale` — `Autorisation active` — `Procédure nationale` — `Commercialisée` — `14/02/2017` — `BIOGARAN` — `Non`
-- `68257528` — même CIS avec `Statut BDM` renseigné (« Warning disponibilité ») pour illustrer l’icône alerte.
+* **Encodage** : `Windows-1252` (CP1252). **Attention**, ce n'est pas de l'UTF-8. Une lecture directe en UTF-8 corrompra les caractères accentués.
+* **Format** : TSV (Tab Separated Values). Le séparateur est la tabulation `\t`.
+* **En-têtes** : Les fichiers ne contiennent **aucune ligne d'en-tête**. Les données commencent dès la ligne 1.
+* **Intégrité** : Certains fichiers peuvent contenir des lignes vides inattendues qu'il faut filtrer.
 
 ---
 
-**2. 📁 CIS_CIP_bdpm.txt (Codes barres & Prix)**
+## **1. 📁 CIS_bdpm.txt (Fichier Maître Produit)**
 
-13 colonnes (prix détaillés).
+**Source** : `https://base-donnees-publique.medicaments.gouv.fr/download/file/CIS_bdpm.txt`
+**Contenu** : Fichier central définissant l'existence et l'identité du médicament.
 
-| # | Nom | Description réelle | Action ETL |
-| :--- | :--- | :--- | :--- |
-| **1-6** | Identique analyse précédente | | **Join/Filter** |
-| **7** | CIP13 | Datamatrix. | **PK** `presentations`. |
-| **8** | Agrément | Collectivités oui/non. | **Ignore**. |
-| **9** | Taux Remb | Ex: "65%". | **Display**. |
-| **10** | Prix TTC | Ex: "25,45" (médicament seul). | **Display** (virgule→point). |
-| **11** | Prix Global | Ex: "26,47" (médicament + honoraire). | **Display** patient (prioritaire). |
-| **12** | Honoraire | Ex: "1,02". | **Calcul** (col10 + col12 = col11). |
-| **13** | Texte Remb. | Conditions spécifiques ALD… | **Display (détail)**. |
+### 🛠️ Notes de Parsing
 
-Exemples (données `data/CIS_CIP_bdpm.txt`) :
+* **Col 4 (Voies admin)** : Contient potentiellement plusieurs valeurs séparées par des points-virgules (ex: `orale;rectale`). Il faut `split` cette chaîne.
+* **Col 11 (Titulaire)** : Contient souvent des espaces parasites en début de chaîne (ex: `_SANOFI`). Un `TrimLeft` est nécessaire.
 
-- `60002283` | `4949729` | `plaquette(s)...30 comprimé(s)` | `Présentation active` | `Déclaration de commercialisation` | `16/03/2011` | `3400949497294` | `oui` | `100%` | `24,34` | `25,36` | `1,02` | (vide)
-- `60003620` | `3696350` | `20 récipient(s) unidose(s)...` | `Présentation active` | `Déclaration de commercialisation` | `30/11/2006` | `3400936963504` | `oui` | `65%` | `12,81` | `13,83` | `1,02` | `Ce médicament peut être pris en charge...`
-- `60007437` | `4944413` | `plaquette(s) aluminium de 28 comprimé(s)` | `Présentation active` | `Déclaration de commercialisation` | `08/05/2012` | `3400949444137` | `oui` | `65%` | `3,69` | `4,71` | `1,02` | (vide)
-- `60004505` | `5507419` | `1 flacon(s)...` | `Déclaration d'arrêt de commercialisation` | `31/12/2023` | `3400955074199` | `non` | (taux vide) | (prix vides)
-- `60004932` | `3011679` | `plaquette...60 comprimé(s)` | `Présentation active` | `Déclaration de commercialisation` | `21/11/2022` | `3400930116791` | `oui` | `15 %` | `8,92` | `9,94` | `1,02` | (vide)
-- `60007437` | `4944494` | `plaquette(s) aluminium de 90 comprimé(s)` | `Présentation active` | `Déclaration de commercialisation` | `08/05/2012` | `3400949444946` | `oui` | `65%` | `11,41` | `14,17` | `2,76` | (vide)
-- `60005856` | `3551025` | `plaquette(s) ... 30 comprimé(s)` | `Présentation active` | `Déclaration de commercialisation` | `25/03/2004` | `3400935510259` | `oui` | `15%` | `7,82` | `8,84` | `1,02` | (vide)
-- `60008724` | `3016859` | `plaquette(s) ... 30 capsule(s)` | `Présentation active` | `Déclaration de commercialisation` | `25/08/2021` | `3400930168592` | `oui` | `30 %` | `8,82` | `9,84` | `1,02` | (vide)
-- `60009573` | `3016729` | `plaquettes PVC-Aluminium de 16 comprimés` | `Présentation active` | `Déclaration d'arrêt de commercialisation` | `04/10/2024` | `3400930167298` | `non` | `65 %` | `1,72` | `2,74` | `1,02` | (vide) — illustre agrément « non » avec prix présents.
-- `60007960` | `3637755` | `tube PEBD 15 ml` | `Présentation active` | `Déclaration de commercialisation` | `04/04/2005` | `3400936377554` | `non` | (taux vide) | (prix vides) — agrément « non » + prix manquants.
+| # | Nom | Description réelle |
+| :--- | :--- | :--- |
+| **1** | Code CIS | Identifiant unique (8 chiffres). Clé primaire. |
+| **2** | Dénomination | Libellé complet du médicament. |
+| **3** | Forme pharma | Forme galénique (comprimé, sirop...). |
+| **4** | Voies admin | Voie d’administration (séparées par `;`). |
+| **5** | Statut AMM | État de l’autorisation (Active, Abrogée...). |
+| **6** | Type procédure | Type d’AMM (Nationale, Décentralisée...). |
+| **7** | État commercial | Statut commercialisation (Commercialisée, Non...). |
+| **8** | Date AMM | Date d’autorisation (DD/MM/YYYY). |
+| **9** | Statut BDM | Ex: « Warning disponibilité ». |
+| **10** | Numéro Europe | Numéro EU. |
+| **11** | Titulaire | Laboratoire détendeur de l'AMM. |
+| **12** | Surveillance | Oui/Non (Triangle noir ⚠️). |
 
----
+Astuce : 
+*La colonne 3 (forme pharma) permet à tout les coups, lorsqu'utilisé en tant que masque, de clean-up la colonne 2 pour devenir "nom dosage" uniquement sans la formulation. Par exemple, si la colonne 3 est "solution injectable", alors rechercher l'occurence de "solution injectable" puis la supprimer ainsi que tout ce qui suit est efficace.*
 
-**3. 📁 CIS_GENER_bdpm.txt (Groupes / Tiroirs)**
-
-| # | Nom | Description réelle | Action ETL |
-| :--- | :--- | :--- | :--- |
-| **1** | ID Groupe | Identifiant tiroir. | **Group By**. |
-| **2** | Libellé | DCI + dosage + princeps. | **Display** + fallback naming (`historical_princeps_raw`, `generic_label_clean`). |
-| **3** | CIS | Lien produit. | **Join**. |
-| **4** | Type | 0=Princeps, 1=Générique, 2=Complémentaire, 4=Substituable. | **Logic**. 0 = chef visuel; 1/2/4 rangés sous le 0. |
-| **5** | Ordre historique |incrémenté à chaque valeur, la valeur 1 est canonique |
-
-Exemples (données `data/CIS_GENER_bdpm.txt`) :
-
-- `1` | `CIMETIDINE 200 mg - TAGAMET 200 mg, comprimé pelliculé` | `65383183` | `0`
-- `1` | `CIMETIDINE 200 mg - TAGAMET 200 mg, comprimé pelliculé` | `67535309` | `1`
-- `4` | `CIMETIDINE 800 mg - TAGAMET 800 mg, comprimé pelliculé sécable` | `60089516` | `0`
-- `4` | `CIMETIDINE 800 mg - TAGAMET 800 mg, comprimé pelliculé sécable` | `60756034` | `1`
-- `7` | `RANITIDINE... 150 mg - AZANTAC 150 mg...` | `65109314` | `0`
-- `7` | `RANITIDINE... 150 mg - AZANTAC 150 mg...` | `66024386` | `0`
-- `4` | `CIMETIDINE 800 mg - TAGAMET 800 mg, comprimé pelliculé sécable` | `62844636` | `2` (complémentaire)
-- `7` | `RANITIDINE...` | `66024386` | `2` (autre type non-princeps)
-
-Notes ETL :
-
-- `TYPE 0` prioritaire pour le nom canonique : `CIS_bdpm` princeps nettoyé (form/dosage retirés) → `canonical_name` + `princeps_aliases`.
-- Fallback parsing texte : partie droite du dernier “ - ” nettoyée → `historical_princeps_raw` + `naming_source=GENER_PARSING`; partie gauche du premier “ - ” → `generic_label_clean`.
-- Agrégation groupe : `routes` = union des voies CIS du groupe, `safety_flags` = OR des badges CPD.
+**Exemples :**
+* `61266250` — `A 313 200 000 UI POUR CENT, pommade` — `pommade` — `cutanée` — `Autorisation active` — `Procédure nationale` — `Commercialisée` — `12/03/1998` — `PHARMA DEVELOPPEMENT` — `Non`
+* `61876780` — `ABACAVIR ARROW 300 mg, comprimé pelliculé sécable` — `comprimé pelliculé sécable` — `orale` — `Autorisation active` — `Procédure décentralisée` — `Commercialisée` — `22/10/2019` — `ARROW GENERIQUES` — `Non`
+* `68257528` — `ABACAVIR/LAMIVUDINE ACCORD 600 mg/300 mg, comprimé pelliculé` — `orale` — `Autorisation active` — `Procédure nationale` — `Non commercialisée` — `16/03/2017` — `Warning disponibilité` — `ACCORD HEALTHCARE FRANCE` — `Non`
+* `62401060` — `ABACAVIR VIATRIS 300 mg, comprimé pelliculé sécable` — `comprimé pelliculé sécable` — `orale` — `Autorisation active` — `Procédure décentralisée` — `Commercialisée` — `21/02/2018` — `VIATRIS SANTE` — `Non`
+* `63431640` — `ABACAVIR/LAMIVUDINE BIOGARAN 600 mg/300 mg, comprimé pelliculé` — `orale` — `Autorisation active` — `Procédure nationale` — `Commercialisée` — `14/02/2017` — `BIOGARAN` — `Non`
 
 ---
 
-**4. 📁 CIS_CPD_bdpm.txt (Conditions Prescription)**
+## **2. 📁 CIS_CIP_bdpm.txt (Codes barres & Prix)**
 
-Relation one-to-many.
+**Source** : `https://base-donnees-publique.medicaments.gouv.fr/download/file/CIS_CIP_bdpm.txt`
+**Contenu** : Informations de conditionnement, prix et remboursement.
 
-| # | Nom | Description réelle | Action ETL |
-| :--- | :--- | :--- | :--- |
-| **1** | CIS | Clé produit. | **Join**. |
-| **2** | Condition | Texte libre (liste I/II, stupéfiant, hospitalier, dentaire). | **Scan & Tag** (badges rouge/vert/bleu/hôpital/dentaire) + agrégation `safety_flags` par groupe. |
+### 🛠️ Notes de Parsing (Critique : Prix)
 
-Exemples (données `data/CIS_CPD_bdpm.txt`) :
+* **Format Numérique** : Les colonnes Prix (10, 11, 12) utilisent la virgule `,` à la fois comme séparateur de milliers ET comme séparateur décimal.
+  * Exemple brut : `"1,234,56"` (pour 1234,56 €).
+  * **Algorithme requis** : Il faut supprimer toutes les virgules sauf la dernière, puis remplacer la dernière virgule par un point avant de parser en float.
 
-- `63852237` | `réservé à l'usage professionnel DENTAIRE`
-- `65319857` | `réservé à l'usage professionnel DENTAIRE`
-- `60004505` | `réservé à l'usage HOSPITALIER`
-- `60030699` | `réservé à l'usage HOSPITALIER`
-- `60080232` | `réservé à l'usage HOSPITALIER`
-- (Chercher aussi des lignes contenant « STUPEFIANT » ou « LISTE I/II » pour couvrir les badges stup/listes)
+| # | Nom | Description réelle |
+| :--- | :--- | :--- |
+| **1** | Code CIS | Identifiant produit (Lien CIS_bdpm). |
+| **2** | CIP7 | Code à 7 chiffres (ancien format). |
+| **3** | Libellé Présentation | Description du conditionnement (ex: boite de 30). |
+| **4** | Statut Admin | État administratif de la présentation. |
+| **5** | État Commercial | État commercial de la présentation. |
+| **6** | Date Déclaration | Date de commercialisation. |
+| **7** | CIP13 | Code Datamatrix (13 chiffres). Clé unique présentation. |
+| **8** | Agrément | Agréé aux collectivités (oui/non). |
+| **9** | Taux Remb | Taux de remboursement sécu (ex: "65%"). |
+| **10** | Prix TTC | Prix du médicament (format complexe, voir note). |
+| **11** | Prix Global | Prix TTC + Honoraires de dispensation (ce que paie le patient). |
+| **12** | Honoraire | Montant de l'honoraire pharmacien. |
+| **13** | Texte Remb. | Conditions spécifiques de remboursement (ALD, etc.). |
 
----
-
-**5. 📁 CIS_COMPO_bdpm.txt (Composition)**
-
-Join-first : désignation (col 2) + lien (col 8) pour SA/FT.
-
-| # | Nom | Description réelle | Action ETL |
-| :--- | :--- | :--- | :--- |
-| **1** | CIS | | **Join**. |
-| **2** | Désignation élément | Ex: « comprimé jour/nuit ». | **Group** multi-formes. |
-| **3** | Code Substance | ID molécule. | **Critique**. |
-| **4** | Dénomination | Nom substance. | **Display**. |
-| **5** | Dosage | Valeur dosage. | **Display**. |
-| **6** | Réf Dosage | Unité/portée. | **Contexte**. |
-| **7** | Nature | SA vs FT. | **Logic** (FT > SA). |
-| **8** | Lien | Lie SA/FT. | **Dedup**. |
-
-Exemples (données `data/CIS_COMPO_bdpm.txt`) :
-
-- `60002283` | `comprimé` | `42215` | `ANASTROZOLE` | `1,00 mg` | `un comprimé` | `SA` | `1`
-- `60003620` | `suspension` | `04179` | `DIPROPIONATE DE BECLOMETASONE` | `800 microgrammes` | `2 ml de suspension` | `SA` | `1`
-- `60004277` | `gélule` | `03902` | `FENOFIBRATE` | `100,00 mg` | `une gélule` | `SA` | `1`
-- `60004487` | `comprimé` | `86571` | `CHLORHYDRATE DE TRAMADOL` | `200 mg` | `un comprimé` | `SA` | `1`
-- `60004932` | `comprimé` | `04442` | `METFORMINE` | `780 mg` | `un comprimé` | `FT` | `1`
-- `60004932` | `comprimé` | `24321` | `CHLORHYDRATE DE METFORMINE` | `1000 mg` | `un comprimé` | `SA` | `1`
-- `60004932` | `comprimé` | `40035` | `VILDAGLIPTINE` | `50 mg` | `un comprimé` | `SA` | `2`
+**Exemples :**
+* `60002283` | `4949729` | `plaquette(s)...30 comprimé(s)` | `Présentation active` | `Déclaration de commercialisation` | `16/03/2011` | `3400949497294` | `oui` | `100%` | `24,34` | `25,36` | `1,02` | (vide)
+* `60003620` | `3696350` | `20 récipient(s) unidose(s)...` | `Présentation active` | `Déclaration de commercialisation` | `30/11/2006` | `3400936963504` | `oui` | `65%` | `12,81` | `13,83` | `1,02` | `Ce médicament peut être pris en charge...`
+* `60007437` | `4944413` | `plaquette(s) aluminium de 28 comprimé(s)` | `Présentation active` | `Déclaration de commercialisation` | `08/05/2012` | `3400949444137` | `oui` | `65%` | `3,69` | `4,71` | `1,02` | (vide)
+* `60004505` | `5507419` | `1 flacon(s)...` | `Déclaration d'arrêt de commercialisation` | `31/12/2023` | `3400955074199` | `non` | (taux vide) | (prix vides)
+* `60004932` | `3011679` | `plaquette...60 comprimé(s)` | `Présentation active` | `Déclaration de commercialisation` | `21/11/2022` | `3400930116791` | `oui` | `15 %` | `8,92` | `9,94` | `1,02` | (vide)
 
 ---
 
-**6. 📁 CIS_CIP_Dispo_Spec.txt (Ruptures / Tensions)**
+## **3. 📁 CIS_GENER_bdpm.txt (Groupes Génériques)**
 
-Colonnes réelles corrigées.
+**Source** : `https://base-donnees-publique.medicaments.gouv.fr/download/file/CIS_GENER_bdpm.txt`
+**Contenu** : Regroupement des médicaments par groupe thérapeutique.
 
-| # | Nom | Description réelle | Action ETL |
-| :--- | :--- | :--- | :--- |
-| **1** | CIS | Code produit. | **Join**. |
-| **2** | CIP13 | Présentation (souvent vide = tout le CIS). | **Logic**. |
-| **3** | Code Statut | 1=Rupture, 2=Tension, 3=Arrêt, 4=Remise dispo. | **Logic** (stocké en `availability_status` préfixe code). |
-| **4** | Libellé Statut | Ex: « Tension d’approvisionnement ». | **Display** (suffixe `availability_status`). |
-| **5** | Date Début | Début problème. | **Display**. |
-| **6** | Date Fin Prev | Retour prévu. | **Display**. |
-| **8** | Lien ANSM | URL PDF officiel. | **Link**. |
+### 🛠️ Notes de Parsing
 
-Exemples (données `data/CIS_CIP_Dispo_Spec.txt`) :
+* **Types de génériques (Col 4)** :
+  * `0` : Princeps (Médicament de référence).
+  * `1` : Générique.
+  * `2` : Génériques par complémentarité posologique.
+  * `3` : Générique substitutable.
+* **Redondance** : L'ID Groupe est présent en colonne 1 et souvent répété en colonne 5.
 
-- `69622218` | (CIP vide) | `2` | `Tension d'approvisionnement` | `04/12/2025` | `08/12/2025` | (lien ANSM présent)
-- `69497711` | (CIP vide) | `2` | `Tension d'approvisionnement` | `20/10/2025` | `05/12/2025` | (lien ANSM présent)
-- `68106558` | (CIP vide) | `2` | `Tension d'approvisionnement` | `04/12/2025` | `04/12/2025` | (lien ANSM présent)
-- `60685046` | (CIP vide) | `2` | `Tension d'approvisionnement` | `04/12/2025` | `04/12/2025` | (lien ANSM présent)
-- `64305057` | (CIP vide) | `2` | `Tension d'approvisionnement` | `04/12/2025` | `04/12/2025` | (lien ANSM présent)
-- `67947540` | (CIP vide) | `4` | `Remise à disposition` | `01/12/2025` | `04/12/2025` | `01/12/2025` | (lien ANSM présent)
-- `64550843` | (CIP vide) | `4` | `Remise à disposition` | `02/04/2025` | `02/04/2025` | `02/04/2025` | (lien ANSM présent)
-- `62119207` | (CIP vide) | `1` | `Rupture de stock` | `25/11/2025` | `02/12/2025` | (lien ANSM présent)
-- `60998977` | (CIP vide) | `3` | `Arrêt de commercialisation` | `30/09/2025` | `07/11/2025` | (lien ANSM présent)
-- `64590923` | `3400955090250` | `2` | `Tension d'approvisionnement` | `08/11/2023` | `04/12/2025` | (lien ANSM présent) — exemple avec CIP13 rempli.
+| # | Nom | Description réelle |
+| :--- | :--- | :--- |
+| **1** | ID Groupe | Identifiant du groupe générique. |
+| **2** | Libellé Groupe | Nom du groupe (DCI + dosage + princeps). |
+| **3** | CIS | Code produit (lien vers CIS_bdpm). |
+| **4** | Type | Type de relation (0, 1, 2, 3). |
+| **5** | Ordre historique | Ordre de tri. |
+
+**Exemples :**
+* `1` | `CIMETIDINE 200 mg - TAGAMET 200 mg, comprimé pelliculé` | `65383183` | `0`
+* `1` | `CIMETIDINE 200 mg - TAGAMET 200 mg, comprimé pelliculé` | `67535309` | `1`
+* `4` | `CIMETIDINE 800 mg - TAGAMET 800 mg, comprimé pelliculé sécable` | `60089516` | `0`
+* `4` | `CIMETIDINE 800 mg - TAGAMET 800 mg, comprimé pelliculé sécable` | `60756034` | `1`
+* `7` | `RANITIDINE... 150 mg - AZANTAC 150 mg...` | `65109314` | `0`
+* `4` | `CIMETIDINE 800 mg - TAGAMET 800 mg, comprimé pelliculé sécable` | `62844636` | `2`
+* `7` | `RANITIDINE...` | `66024386` | `2`
 
 ---
 
-**7. 📁 CIS_MITM.txt (Classification Thérapeutique)**
+## **4. 📁 CIS_CPD_bdpm.txt (Conditions Prescription)**
 
-| # | Nom | Description réelle | Importance |
-| :--- | :--- | :--- | :--- |
-| **1** | CIS | Code produit. | **Critique** (join). |
-| **2** | Code ATC | Ex: J01AA02. | **Haute**. Catégorie (icônes/filtre). |
-| **3** | Libellé ATC | Nom classe. | **Faible**. |
-| **4** | Lien Page | URL info gouv. | **Faible**. |
+**Source** : `https://base-donnees-publique.medicaments.gouv.fr/download/file/CIS_CPD_bdpm.txt`
+**Contenu** : Restrictions de délivrance (Hospitalier, Stupéfiant, etc.).
 
-Exemples (données `data/CIS_MITM.txt`) :
+### 🛠️ Notes de Parsing
 
-- `68053454` | `A02BA01` | `CIMETIDINE ARROW 200 mg, comprimé effervescent` | `https://base-donnees-publique.medicaments.gouv.fr/extrait.php?specid=68053454`
-- `69606819` | `A02BC01` | `MOPRAL 10 mg, gélule gastro-résistante` | `https://base-donnees-publique.medicaments.gouv.fr/extrait.php?specid=69606819`
-- `67450136` | `A02BC01` | `OMEPRAZOLE BIOGARAN 10 mg, gélule gastro-résistante` | `https://base-donnees-publique.medicaments.gouv.fr/extrait.php?specid=67450136`
-- `69380042` | `J02AC04` | `NOXAFIL 100 mg, comprimé gastro-résistant` | `https://base-donnees-publique.medicaments.gouv.fr/extrait.php?specid=69380042`
-- `65731654` | `J02AC03` | `VORICONAZOLE TEVA 200 mg, comprimé pelliculé` | `https://base-donnees-publique.medicaments.gouv.fr/extrait.php?specid=65731654`
-- `66136969` | `J02AC03` | `VORICONAZOLE STRAGEN 200 mg, poudre pour solution pour perfusion` | `https://base-donnees-publique.medicaments.gouv.fr/extrait.php?specid=66136969`
-- `68368941` | `A04AA01` | `ONDANSETRON ZENTIVA 8 mg, comprimé pelliculé` | `https://base-donnees-publique.medicaments.gouv.fr/extrait.php?specid=68368941`
-- `67029888` | `A04AA01` | `SETOFILM 8 mg, film orodispersible` | `https://base-donnees-publique.medicaments.gouv.fr/extrait.php?specid=67029888`
-- `65991171` | `A04AA01` | `ZOPHREN 2 mg/ml, solution injectable en ampoule (IV)` | `https://base-donnees-publique.medicaments.gouv.fr/extrait.php?specid=65991171`
-- `67592694` | `A04AA02` | `KYTRIL 1 mg, comprimé pelliculé` | `https://base-donnees-publique.medicaments.gouv.fr/extrait.php?specid=67592694`
-- `69335481` | `A02BC01` | `OMEPRAZOLE ARROW LAB 20 mg, gélule gastro-résistante` | `https://base-donnees-publique.medicaments.gouv.fr/extrait.php?specid=69335481`
-- `4000+` lignes montrent variété ATC : antiacides (A), antiémétiques (A04), antifongiques (J02), etc. (voir données brutes pour autres classes).
+* **Lignes vides** : Ce fichier contient fréquemment des lignes vides ou mal formées entre les données valides. Il est impératif de vérifier la longueur de la ligne ou le nombre de champs avant de parser.
+
+| # | Nom | Description réelle |
+| :--- | :--- | :--- |
+| **1** | CIS | Clé produit. |
+| **2** | Condition | Texte libre (liste I/II, stupéfiant, hospitalier, dentaire). |
+
+**Exemples :**
+* `63852237` | `réservé à l'usage professionnel DENTAIRE`
+* `65319857` | `réservé à l'usage professionnel DENTAIRE`
+* `60004505` | `réservé à l'usage HOSPITALIER`
+* `60030699` | `réservé à l'usage HOSPITALIER`
+* `60080232` | `réservé à l'usage HOSPITALIER`
+
+---
+
+## **5. 📁 CIS_COMPO_bdpm.txt (Composition)**
+
+**Source** : `https://base-donnees-publique.medicaments.gouv.fr/download/file/CIS_COMPO_bdpm.txt`
+**Contenu** : Composition qualitative et quantitative (Substances Actives et fractions thérapeutiques).
+
+### 🛠️ Notes de Parsing
+
+* **Relation One-to-Many** : Un même CIS apparaît sur plusieurs lignes, une fois pour chaque substance le composant.
+* **Nature (Col 7)** :
+  * `SA` : Substance Active.
+  * `FT` : Fraction Thérapeutique.
+
+| # | Nom | Description réelle |
+| :--- | :--- | :--- |
+| **1** | CIS | Identifiant produit. |
+| **2** | Désignation élément | Partie du produit (ex: « comprimé », « gélule »). |
+| **3** | Code Substance | ID unique de la molécule. |
+| **4** | Dénomination | Nom de la substance. |
+| **5** | Dosage | Valeur quantitative (ex: "100 mg"). |
+| **6** | Réf Dosage | Unité de prise (ex: "un comprimé"). |
+| **7** | Nature | SA (Substance Active) ou FT. |
+| **8** | Lien | Numéro de lien SA/FT. |
+
+**Exemples :**
+* `60002283` | `comprimé` | `42215` | `ANASTROZOLE` | `1,00 mg` | `un comprimé` | `SA` | `1`
+* `60003620` | `suspension` | `04179` | `DIPROPIONATE DE BECLOMETASONE` | `800 microgrammes` | `2 ml de suspension` | `SA` | `1`
+* `60004277` | `gélule` | `03902` | `FENOFIBRATE` | `100,00 mg` | `une gélule` | `SA` | `1`
+* `60004487` | `comprimé` | `86571` | `CHLORHYDRATE DE TRAMADOL` | `200 mg` | `un comprimé` | `SA` | `1`
+* `60004932` | `comprimé` | `04442` | `METFORMINE` | `780 mg` | `un comprimé` | `FT` | `1`
+* `60004932` | `comprimé` | `24321` | `CHLORHYDRATE DE METFORMINE` | `1000 mg` | `un comprimé` | `SA` | `1`
+
+---
+
+## **6. 📁 CIS_CIP_Dispo_Spec.txt (Ruptures / Tensions)**
+
+**Source** : `https://base-donnees-publique.medicaments.gouv.fr/download/file/CIS_CIP_Dispo_Spec.txt`
+**Contenu** : Informations sur la disponibilité des stocks.
+
+| # | Nom | Description réelle |
+| :--- | :--- | :--- |
+| **1** | CIS | Code produit. |
+| **2** | CIP13 | Présentation concernée (souvent vide = concerne tout le CIS). |
+| **3** | Code Statut | 1=Rupture, 2=Tension, 3=Arrêt, 4=Remise dispo. |
+| **4** | Libellé Statut | Ex: « Tension d’approvisionnement ». |
+| **5** | Date Début | Date de début du problème. |
+| **6** | Date Fin Prev | Date de retour prévue. |
+| **7** | Date Retour | Date réelle de remise à disposition (si applicable). |
+| **8** | Lien ANSM | URL vers le PDF officiel d'information. |
+
+**Exemples :**
+* `69622218` | (CIP vide) | `2` | `Tension d'approvisionnement` | `04/12/2025` | `08/12/2025` | | (lien ANSM)
+* `69497711` | (CIP vide) | `2` | `Tension d'approvisionnement` | `20/10/2025` | `05/12/2025` | | (lien ANSM)
+* `67947540` | (CIP vide) | `4` | `Remise à disposition` | `01/12/2025` | `04/12/2025` | `01/12/2025` | (lien ANSM)
+* `62119207` | (CIP vide) | `1` | `Rupture de stock` | `25/11/2025` | `02/12/2025` | | (lien ANSM)
+* `64590923` | `3400955090250` | `2` | `Tension d'approvisionnement` | `08/11/2023` | `04/12/2025` | | (lien ANSM)
+
+---
+
+## **7. 📁 CIS_MITM.txt (Classification Thérapeutique)**
+
+**Source** : `https://base-donnees-publique.medicaments.gouv.fr/download/file/CIS_MITM.txt`
+**Contenu** : Lien vers la classification ATC (Anatomique, Thérapeutique et Chimique).
+
+| # | Nom | Description réelle |
+| :--- | :--- | :--- |
+| **1** | CIS | Code produit. |
+| **2** | Code ATC | Code de classification (ex: J01AA02). |
+| **3** | Libellé ATC | Libellé de la classe. |
+| **4** | Lien Page | URL vers la fiche info gouv. |
+
+**Exemples :**
+* `68053454` | `A02BA01` | `CIMETIDINE ARROW 200 mg, comprimé effervescent` | `https://base-...`
+* `69606819` | `A02BC01` | `MOPRAL 10 mg, gélule gastro-résistante` | `https://base-...`
+* `69380042` | `J02AC04` | `NOXAFIL 100 mg, comprimé gastro-résistant` | `https://base-...`
+* `65731654` | `J02AC03` | `VORICONAZOLE TEVA 200 mg, comprimé pelliculé` | `https://base-...`
+* `68368941` | `A04AA01` | `ONDANSETRON ZENTIVA 8 mg, comprimé pelliculé` | `https://base-...`
