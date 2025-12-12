@@ -708,9 +708,7 @@ class SettingsScreen extends HookConsumerWidget {
           if (isResetting.value)
             Positioned.fill(
               child: ColoredBox(
-                color: ShadTheme.of(
-                  context,
-                ).colorScheme.background.withValues(alpha: 0.8),
+                color: context.shadColors.background.withValues(alpha: 0.8),
                 child: Center(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,

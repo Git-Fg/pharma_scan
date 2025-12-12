@@ -2,7 +2,6 @@ import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pharma_scan/core/database/database.dart';
-import 'package:pharma_scan/core/database/queries.drift.dart';
 import 'package:pharma_scan/core/domain/types/semantic_types.dart';
 import 'package:pharma_scan/core/logic/sanitizer.dart';
 
@@ -17,153 +16,129 @@ void main() {
         NativeDatabase.memory(setup: configureAppSQLite),
       );
 
-      await db
-          .into(db.specialites)
-          .insert(
-            SpecialitesCompanion.insert(
-              cisCode: '1',
-              nomSpecialite: 'Doliprane 500',
-              procedureType: 'AMM',
-            ),
-          );
-      await db
-          .into(db.specialites)
-          .insert(
-            SpecialitesCompanion.insert(
-              cisCode: '2',
-              nomSpecialite: 'Doli 1000',
-              procedureType: 'AMM',
-            ),
-          );
-      await db
-          .into(db.specialites)
-          .insert(
-            SpecialitesCompanion.insert(
-              cisCode: '3',
-              nomSpecialite: 'Paracetamol + Codeine',
-              procedureType: 'AMM',
-            ),
-          );
+      // Note: This test only needs medicament_summary and search_index.
+      // Base tables (specialites, medicaments) are not needed for FTS5 search tests.
 
-      await db
-          .into(db.medicaments)
-          .insert(
-            MedicamentsCompanion.insert(
-              codeCip: '111',
-              cisCode: '1',
-            ),
-          );
-      await db
-          .into(db.medicaments)
-          .insert(
-            MedicamentsCompanion.insert(
-              codeCip: '222',
-              cisCode: '2',
-            ),
-          );
-      await db
-          .into(db.medicaments)
-          .insert(
-            MedicamentsCompanion.insert(
-              codeCip: '333',
-              cisCode: '3',
-            ),
-          );
+      // Insert medicament_summary using raw SQL to avoid dependency on generated types
+      await db.customInsert(
+        '''
+            INSERT INTO medicament_summary (
+              cis_code, nom_canonique, princeps_de_reference, is_princeps,
+              group_id, member_type, principes_actifs_communs, formatted_dosage,
+              is_hospital, is_dental, is_list1, is_list2, is_narcotic,
+              is_exception, is_restricted, is_otc, princeps_brand_name
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''',
+        variables: [
+          Variable.withString('1'),
+          Variable.withString('Doliprane 500'),
+          Variable.withString('Doliprane 500'),
+          Variable.withBool(true),
+          Variable.withString(''),
+          Variable.withInt(0),
+          Variable.withString('[]'),
+          Variable.withString(''),
+          Variable.withBool(false),
+          Variable.withBool(false),
+          Variable.withBool(false),
+          Variable.withBool(false),
+          Variable.withBool(false),
+          Variable.withBool(false),
+          Variable.withBool(false),
+          Variable.withBool(true),
+          Variable.withString('Doliprane'),
+        ],
+        updates: {db.medicamentSummary},
+      );
+      await db.customInsert(
+        '''
+            INSERT INTO medicament_summary (
+              cis_code, nom_canonique, princeps_de_reference, is_princeps,
+              group_id, member_type, principes_actifs_communs, formatted_dosage,
+              is_hospital, is_dental, is_list1, is_list2, is_narcotic,
+              is_exception, is_restricted, is_otc, princeps_brand_name
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''',
+        variables: [
+          Variable.withString('2'),
+          Variable.withString('Doli 1000'),
+          Variable.withString('Doli 1000'),
+          Variable.withBool(true),
+          Variable.withString(''),
+          Variable.withInt(0),
+          Variable.withString('[]'),
+          Variable.withString(''),
+          Variable.withBool(false),
+          Variable.withBool(false),
+          Variable.withBool(false),
+          Variable.withBool(false),
+          Variable.withBool(false),
+          Variable.withBool(false),
+          Variable.withBool(false),
+          Variable.withBool(true),
+          Variable.withString('Doli'),
+        ],
+        updates: {db.medicamentSummary},
+      );
+      await db.customInsert(
+        '''
+            INSERT INTO medicament_summary (
+              cis_code, nom_canonique, princeps_de_reference, is_princeps,
+              group_id, member_type, principes_actifs_communs, formatted_dosage,
+              is_hospital, is_dental, is_list1, is_list2, is_narcotic,
+              is_exception, is_restricted, is_otc, princeps_brand_name
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''',
+        variables: [
+          Variable.withString('3'),
+          Variable.withString('Paracetamol + Codeine'),
+          Variable.withString('Paracetamol + Codeine'),
+          Variable.withBool(true),
+          Variable.withString(''),
+          Variable.withInt(0),
+          Variable.withString('[]'),
+          Variable.withString(''),
+          Variable.withBool(false),
+          Variable.withBool(false),
+          Variable.withBool(false),
+          Variable.withBool(false),
+          Variable.withBool(false),
+          Variable.withBool(false),
+          Variable.withBool(false),
+          Variable.withBool(true),
+          Variable.withString('Paracetamol'),
+        ],
+        updates: {db.medicamentSummary},
+      );
 
-      await db
-          .into(db.medicamentSummary)
-          .insert(
-            MedicamentSummaryCompanion.insert(
-              cisCode: '1',
-              nomCanonique: 'Doliprane 500',
-              isPrinceps: true,
-              groupId: const Value<String?>(null),
-              memberType: const Value(0),
-              principesActifsCommuns: const [],
-              princepsDeReference: 'Doliprane 500',
-              princepsBrandName: 'Doliprane',
-              isHospitalOnly: const Value(false),
-              isDental: const Value(false),
-              isList1: const Value(false),
-              isList2: const Value(false),
-              isNarcotic: const Value(false),
-              isException: const Value(false),
-              isRestricted: const Value(false),
-              isOtc: const Value(true),
-            ),
-          );
-      await db
-          .into(db.medicamentSummary)
-          .insert(
-            MedicamentSummaryCompanion.insert(
-              cisCode: '2',
-              nomCanonique: 'Doli 1000',
-              isPrinceps: true,
-              groupId: const Value<String?>(null),
-              memberType: const Value(0),
-              principesActifsCommuns: const [],
-              princepsDeReference: 'Doli 1000',
-              princepsBrandName: 'Doli',
-              isHospitalOnly: const Value(false),
-              isDental: const Value(false),
-              isList1: const Value(false),
-              isList2: const Value(false),
-              isNarcotic: const Value(false),
-              isException: const Value(false),
-              isRestricted: const Value(false),
-              isOtc: const Value(true),
-            ),
-          );
-      await db
-          .into(db.medicamentSummary)
-          .insert(
-            MedicamentSummaryCompanion.insert(
-              cisCode: '3',
-              nomCanonique: 'Paracetamol + Codeine',
-              isPrinceps: true,
-              groupId: const Value<String?>(null),
-              memberType: const Value(0),
-              principesActifsCommuns: const [],
-              princepsDeReference: 'Paracetamol + Codeine',
-              princepsBrandName: 'Paracetamol',
-              isHospitalOnly: const Value(false),
-              isDental: const Value(false),
-              isList1: const Value(false),
-              isList2: const Value(false),
-              isNarcotic: const Value(false),
-              isException: const Value(false),
-              isRestricted: const Value(false),
-              isOtc: const Value(true),
-            ),
-          );
-
-      await db
-          .into(db.searchIndex)
-          .insert(
-            SearchIndexCompanion.insert(
-              cisCode: '1',
-              moleculeName: normalizeForSearch('Doliprane 500 Dolipprane'),
-              brandName: normalizeForSearch('Doliprane Dolipprane'),
-            ),
-          );
-      await db
-          .into(db.searchIndex)
-          .insert(
-            SearchIndexCompanion.insert(
-              cisCode: '2',
-              moleculeName: normalizeForSearch('Doli 1000'),
-              brandName: normalizeForSearch('Doli'),
-            ),
-          );
-      await db
-          .into(db.searchIndex)
-          .insert(
-            SearchIndexCompanion.insert(
-              cisCode: '3',
-              moleculeName: normalizeForSearch('Paracetamol Codeine'),
-              brandName: normalizeForSearch('Paracetamol'),
-            ),
-          );
+      // Insert search_index using raw SQL (FTS5 virtual table)
+      await db.customInsert(
+        'INSERT INTO search_index (cis_code, molecule_name, brand_name) VALUES (?, ?, ?)',
+        variables: [
+          Variable.withString('1'),
+          Variable.withString(normalizeForSearch('Doliprane 500 Dolipprane')),
+          Variable.withString(normalizeForSearch('Doliprane Dolipprane')),
+        ],
+        updates: {db.searchIndex},
+      );
+      await db.customInsert(
+        'INSERT INTO search_index (cis_code, molecule_name, brand_name) VALUES (?, ?, ?)',
+        variables: [
+          Variable.withString('2'),
+          Variable.withString(normalizeForSearch('Doli 1000')),
+          Variable.withString(normalizeForSearch('Doli')),
+        ],
+        updates: {db.searchIndex},
+      );
+      await db.customInsert(
+        'INSERT INTO search_index (cis_code, molecule_name, brand_name) VALUES (?, ?, ?)',
+        variables: [
+          Variable.withString('3'),
+          Variable.withString(normalizeForSearch('Paracetamol Codeine')),
+          Variable.withString(normalizeForSearch('Paracetamol')),
+        ],
+        updates: {db.searchIndex},
+      );
     });
 
     tearDown(() async {
@@ -176,7 +151,7 @@ void main() {
       );
 
       expect(results, isNotEmpty);
-      expect(results.first.summary.cisCode, '1');
+      expect(results.first.data.cisCode, '1');
     });
 
     test('trigram search tolerates typos', () async {
@@ -185,7 +160,7 @@ void main() {
       );
 
       expect(
-        results.any((row) => row.summary.cisCode == '1'),
+        results.any((entity) => entity.data.cisCode == '1'),
         isTrue,
       );
     });
@@ -198,7 +173,7 @@ void main() {
         );
 
         expect(
-          results.any((row) => row.summary.cisCode == '2'),
+          results.any((entity) => entity.data.cisCode == '2'),
           isTrue,
         );
       },

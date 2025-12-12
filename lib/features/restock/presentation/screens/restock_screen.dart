@@ -113,7 +113,7 @@ class RestockScreen extends HookConsumerWidget {
           style: context.shadTextTheme.h4,
         ),
         elevation: 0,
-        backgroundColor: context.shadColors.background,
+        backgroundColor: context.background,
         foregroundColor: context.shadColors.foreground,
         actions: [
           ShadTooltip(

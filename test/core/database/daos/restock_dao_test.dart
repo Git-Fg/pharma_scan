@@ -2,7 +2,6 @@ import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pharma_scan/core/database/database.dart';
-import 'package:pharma_scan/core/database/tables/scanned_boxes.drift.dart';
 import 'package:pharma_scan/core/domain/types/ids.dart';
 
 void main() {
@@ -10,7 +9,9 @@ void main() {
     late AppDatabase db;
 
     setUp(() {
-      db = AppDatabase.forTesting(NativeDatabase.memory());
+      db = AppDatabase.forTesting(
+        NativeDatabase.memory(setup: configureAppSQLite),
+      );
     });
 
     tearDown(() async {
@@ -24,12 +25,12 @@ void main() {
       await dao.addToRestock(cip);
       var rows = await db.select(db.restockItems).get();
       expect(rows, hasLength(1));
-      expect(rows.first.quantity, 1);
+      expect(rows.first.stockCount, 1);
 
       await dao.addToRestock(cip);
       rows = await db.select(db.restockItems).get();
       expect(rows, hasLength(1));
-      expect(rows.first.quantity, 2);
+      expect(rows.first.stockCount, 2);
     });
 
     test('updateQuantity decrements and deletes at zero', () async {
@@ -51,7 +52,7 @@ void main() {
       await dao.updateQuantity(cip, -1, allowZero: true); // should reach 0
 
       final rows = await db.select(db.restockItems).get();
-      expect(rows.single.quantity, 0);
+      expect(rows.single.stockCount, 0);
     });
 
     test(
@@ -75,14 +76,21 @@ void main() {
       await dao.addToRestock(cip);
       var row = await (db.select(
         db.restockItems,
-      )..where((tbl) => tbl.cip.equals(cip.toString()))).getSingle();
-      expect(row.isChecked, isFalse);
+      )..where((tbl) => tbl.cipCode.equals(cip.toString()))).getSingle();
+      // Check if item is checked via notes field (JSON)
+      final notes = row.notes;
+      final isChecked = notes != null && notes.contains('"checked":true');
+      expect(isChecked, isFalse);
 
       await dao.toggleCheck(cip);
       row = await (db.select(
         db.restockItems,
-      )..where((tbl) => tbl.cip.equals(cip.toString()))).getSingle();
-      expect(row.isChecked, isTrue);
+      )..where((tbl) => tbl.cipCode.equals(cip.toString()))).getSingle();
+      // Check if item is checked via notes field (JSON)
+      final notesAfter = row.notes;
+      final isCheckedAfter =
+          notesAfter != null && notesAfter.contains('"checked":true');
+      expect(isCheckedAfter, isTrue);
     });
 
     test('clearChecked removes only checked rows', () async {
@@ -98,7 +106,7 @@ void main() {
 
       final rows = await db.select(db.restockItems).get();
       expect(rows, hasLength(1));
-      expect(rows.first.cip, cip2.toString());
+      expect(rows.first.cipCode, cip2.toString());
     });
 
     test('addUniqueBox inserts once and blocks duplicate serials', () async {
@@ -115,11 +123,12 @@ void main() {
 
       final scannedRows = await db.select(db.scannedBoxes).get();
       expect(scannedRows, hasLength(1));
-      expect(scannedRows.first.serialNumber, 'SER-A');
+      // box_label format: ${cip}_$serial${batchNumber != null ? '_$batchNumber' : ''}
+      expect(scannedRows.first.boxLabel, '${cip}_SER-A_LOT-1');
 
       final restockRows = await db.select(db.restockItems).get();
       expect(restockRows, hasLength(1));
-      expect(restockRows.first.quantity, 1);
+      expect(restockRows.first.stockCount, 1);
 
       final second = await dao.addUniqueBox(
         cip: cip,
@@ -129,7 +138,7 @@ void main() {
       expect(second, ScanOutcome.duplicate);
 
       final restockAfterDup = await db.select(db.restockItems).get();
-      expect(restockAfterDup.single.quantity, 1);
+      expect(restockAfterDup.single.stockCount, 1);
     });
 
     test('addUniqueBox falls back to counter when serial is missing', () async {
@@ -144,7 +153,7 @@ void main() {
       expect(outcome, ScanOutcome.added);
 
       final restockRows = await db.select(db.restockItems).get();
-      expect(restockRows.single.quantity, 1);
+      expect(restockRows.single.stockCount, 1);
 
       final scannedRows = await db.select(db.scannedBoxes).get();
       expect(scannedRows, isEmpty);
@@ -204,7 +213,7 @@ void main() {
       );
 
       final rows = await db.select(db.restockItems).get();
-      expect(rows.single.quantity, 7);
+      expect(rows.single.stockCount, 7);
     });
 
     test('forceUpdateQuantity accepts zero without deleting', () async {
@@ -218,72 +227,91 @@ void main() {
       );
 
       final rows = await db.select(db.restockItems).get();
-      expect(rows.single.quantity, 0);
+      expect(rows.single.stockCount, 0);
     });
 
     test('watchRestockItems maps form from summary', () async {
       final dao = db.restockDao;
       final cip = Cip13.validated('3400934056781');
 
-      await db
-          .into(db.specialites)
-          .insert(
-            SpecialitesCompanion.insert(
-              cisCode: 'CIS_X',
-              nomSpecialite: 'X',
-              procedureType: 'proc',
-              statutAdministratif: const Value('actif'),
-              formePharmaceutique: const Value('Comprimé'),
-              voiesAdministration: const Value('orale'),
-              etatCommercialisation: const Value('ok'),
-              titulaireId: const Value(1),
-              conditionsPrescription: const Value(''),
-              dateAmm: const Value(null),
-              atcCode: const Value(null),
-              isSurveillance: const Value(false),
-            ),
-          );
-      await db
-          .into(db.medicaments)
-          .insert(
-            MedicamentsCompanion.insert(
-              codeCip: cip.toString(),
-              cisCode: 'CIS_X',
-              presentationLabel: const Value(''),
-              commercialisationStatut: const Value(''),
-              tauxRemboursement: const Value(null),
-              prixPublic: const Value(null),
-              agrementCollectivites: const Value(null),
-            ),
-          );
-      await db
-          .into(db.medicamentSummary)
-          .insert(
-            MedicamentSummaryCompanion.insert(
-              cisCode: 'CIS_X',
-              nomCanonique: 'Label',
-              isPrinceps: true,
-              groupId: const Value('G'),
-              memberType: const Value(0),
-              principesActifsCommuns: const [],
-              princepsDeReference: 'Princeps',
-              formePharmaceutique: const Value('Comprimé'),
-              voiesAdministration: const Value('Orale'),
-              princepsBrandName: 'Brand',
-              procedureType: const Value('proc'),
-              titulaireId: const Value(1),
-              conditionsPrescription: const Value(null),
-              dateAmm: const Value(null),
-              isSurveillance: const Value(false),
-              isDental: const Value(false),
-              isList1: const Value(false),
-              isList2: const Value(false),
-              isNarcotic: const Value(false),
-              isException: const Value(false),
-              isRestricted: const Value(false),
-              isOtc: const Value(true),
-            ),
-          );
+      // Insert laboratory first (for FK constraint)
+      await db.customInsert(
+        'INSERT OR IGNORE INTO laboratories (id, name) VALUES (?, ?)',
+        variables: [
+          Variable.withInt(1),
+          Variable.withString('Test Lab'),
+        ],
+        updates: {db.laboratories},
+      );
+
+      // Insert specialite using raw SQL
+      await db.customInsert(
+        'INSERT INTO specialites (cis_code, nom_specialite, procedure_type, forme_pharmaceutique, voies_administration, titulaire_id, etat_commercialisation, statut_administratif, conditions_prescription, is_surveillance) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        variables: [
+          Variable.withString('CIS_X'),
+          Variable.withString('X'),
+          Variable.withString('proc'),
+          Variable.withString('Comprimé'),
+          Variable.withString('orale'),
+          Variable.withInt(1),
+          Variable.withString('ok'),
+          Variable.withString('actif'),
+          Variable.withString(''),
+          Variable.withBool(false),
+        ],
+        updates: {db.specialites},
+      );
+
+      // Insert medicament using raw SQL
+      await db.customInsert(
+        'INSERT INTO medicaments (code_cip, cis_code, presentation_label, commercialisation_statut, taux_remboursement, prix_public, agrement_collectivites) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        variables: [
+          Variable.withString(cip.toString()),
+          Variable.withString('CIS_X'),
+          Variable.withString(''),
+          Variable.withString(''),
+          Variable.withString(''),
+          Variable.withReal(0),
+          Variable.withString(''),
+        ],
+        updates: {db.medicaments},
+      );
+
+      // Insert medicament_summary using raw SQL
+      await db.customInsert(
+        '''
+        INSERT INTO medicament_summary (
+          cis_code, nom_canonique, princeps_de_reference, is_princeps,
+          group_id, member_type, principes_actifs_communs, forme_pharmaceutique,
+          voies_administration, princeps_brand_name, procedure_type, titulaire_id,
+          is_surveillance, is_dental, is_list1, is_list2, is_narcotic, is_exception,
+          is_restricted, is_otc
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''',
+        variables: [
+          Variable.withString('CIS_X'),
+          Variable.withString('Label'),
+          Variable.withString('Princeps'),
+          Variable.withBool(true),
+          Variable.withString('G'),
+          Variable.withInt(0),
+          Variable.withString('[]'),
+          Variable.withString('Comprimé'),
+          Variable.withString('Orale'),
+          Variable.withString('Brand'),
+          Variable.withString('proc'),
+          Variable.withInt(1),
+          Variable.withBool(false),
+          Variable.withBool(false),
+          Variable.withBool(false),
+          Variable.withBool(false),
+          Variable.withBool(false),
+          Variable.withBool(false),
+          Variable.withBool(false),
+          Variable.withBool(true),
+        ],
+        updates: {db.medicamentSummary},
+      );
       await dao.addToRestock(cip);
 
       final items = await dao.watchRestockItems().first;
@@ -294,37 +322,48 @@ void main() {
       final dao = db.restockDao;
       final cip = Cip13.validated('3400934056782');
 
-      await db
-          .into(db.specialites)
-          .insert(
-            SpecialitesCompanion.insert(
-              cisCode: 'CIS_Y',
-              nomSpecialite: 'Y',
-              procedureType: 'proc',
-              statutAdministratif: const Value('actif'),
-              formePharmaceutique: const Value('Sirop'),
-              voiesAdministration: const Value('orale'),
-              etatCommercialisation: const Value('ok'),
-              titulaireId: const Value(1),
-              conditionsPrescription: const Value(''),
-              dateAmm: const Value(null),
-              atcCode: const Value(null),
-              isSurveillance: const Value(false),
-            ),
-          );
-      await db
-          .into(db.medicaments)
-          .insert(
-            MedicamentsCompanion.insert(
-              codeCip: cip.toString(),
-              cisCode: 'CIS_Y',
-              presentationLabel: const Value(''),
-              commercialisationStatut: const Value(''),
-              tauxRemboursement: const Value(null),
-              prixPublic: const Value(null),
-              agrementCollectivites: const Value(null),
-            ),
-          );
+      // Insert laboratory first (for FK constraint)
+      await db.customInsert(
+        'INSERT OR IGNORE INTO laboratories (id, name) VALUES (?, ?)',
+        variables: [
+          Variable.withInt(1),
+          Variable.withString('Test Lab'),
+        ],
+        updates: {db.laboratories},
+      );
+
+      // Insert specialite using raw SQL
+      await db.customInsert(
+        'INSERT INTO specialites (cis_code, nom_specialite, procedure_type, forme_pharmaceutique, voies_administration, titulaire_id, etat_commercialisation, statut_administratif, conditions_prescription, is_surveillance) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        variables: [
+          Variable.withString('CIS_Y'),
+          Variable.withString('Y'),
+          Variable.withString('proc'),
+          Variable.withString('Sirop'),
+          Variable.withString('orale'),
+          Variable.withInt(1),
+          Variable.withString('ok'),
+          Variable.withString('actif'),
+          Variable.withString(''),
+          Variable.withBool(false),
+        ],
+        updates: {db.specialites},
+      );
+
+      // Insert medicament using raw SQL
+      await db.customInsert(
+        'INSERT INTO medicaments (code_cip, cis_code, presentation_label, commercialisation_statut, taux_remboursement, prix_public, agrement_collectivites) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        variables: [
+          Variable.withString(cip.toString()),
+          Variable.withString('CIS_Y'),
+          Variable.withString(''),
+          Variable.withString(''),
+          Variable.withString(''),
+          Variable.withReal(0),
+          Variable.withString(''),
+        ],
+        updates: {db.medicaments},
+      );
       await dao.addToRestock(cip);
 
       final items = await dao.watchRestockItems().first;
@@ -347,19 +386,21 @@ void main() {
         expiryDate: DateTime.utc(2026),
       );
 
-      await (db.update(
-        db.scannedBoxes,
-      )..where((t) => t.cip.equals(cip1.toString()))).write(
-        ScannedBoxesCompanion(
-          scannedAt: Value(DateTime.utc(2024)),
-        ),
+      await db.customUpdate(
+        'UPDATE scanned_boxes SET scan_timestamp = ? WHERE cip_code = ?',
+        variables: [
+          Variable.withString(DateTime.utc(2024).toIso8601String()),
+          Variable.withString(cip1.toString()),
+        ],
+        updates: {db.scannedBoxes},
       );
-      await (db.update(
-        db.scannedBoxes,
-      )..where((t) => t.cip.equals(cip2.toString()))).write(
-        ScannedBoxesCompanion(
-          scannedAt: Value(DateTime.utc(2025)),
-        ),
+      await db.customUpdate(
+        'UPDATE scanned_boxes SET scan_timestamp = ? WHERE cip_code = ?',
+        variables: [
+          Variable.withString(DateTime.utc(2025).toIso8601String()),
+          Variable.withString(cip2.toString()),
+        ],
+        updates: {db.scannedBoxes},
       );
 
       final history = await dao.watchScanHistory(10).first;

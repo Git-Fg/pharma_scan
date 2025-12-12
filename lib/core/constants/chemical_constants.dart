@@ -1,6 +1,5 @@
 
-/// Centralized chemical constants for salt prefixes, suffixes, and mineral tokens
-/// used across sanitizer and ingestion logic.
+/// Centralized chemical constants for salt prefixes, suffixes, and mineral tokens.
 class ChemicalConstants {
   ChemicalConstants._();
 

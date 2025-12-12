@@ -2,22 +2,11 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "watch:schema",
+      "label": "sync:backend",
       "type": "shell",
-      "detail": "Synchronise le schéma SQL du backend vers le dossier Flutter en cas de changement",
-      "command": "mkdir -p lib/database lib/core/database && while true; do rsync -a backend_pipeline/data/schema.sql lib/database/schema.drift && rsync -a backend_pipeline/data/schema.sql lib/core/database/schema.drift; sleep 2; done",
-      "isBackground": true,
-      "problemMatcher": {
-        "owner": "custom",
-        "pattern": {
-          "regexp": "^$"
-        },
-        "background": {
-          "activeOnStart": true,
-          "beginsPattern": "^.*$",
-          "endsPattern": "^.*$"
-        }
-      },
+      "detail": "Synchronize schema and golden DB from backend pipeline",
+      "command": "cp backend_pipeline/data/schema.sql lib/core/database/dbschema.drift && mkdir -p test/assets && cp backend_pipeline/data/reference.db test/assets/golden.db",
+      "problemMatcher": [],
       "presentation": {
         "reveal": "silent",
         "panel": "shared",
@@ -42,19 +31,6 @@
         "reveal": "always",
         "panel": "dedicated",
         "group": "build"
-      }
-    },
-    {
-      "label": "watch:all",
-      "detail": "Lance la synchro SQL et le build_runner en parallèle",
-      "dependsOn": [
-        "watch:schema",
-        "build_runner watch"
-      ],
-      "problemMatcher": [],
-      "group": {
-        "kind": "build",
-        "isDefault": true
       }
     }
   ]

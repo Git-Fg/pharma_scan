@@ -1,5 +1,5 @@
 import 'package:auto_route/auto_route.dart';
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 extension ShadThemeContext on BuildContext {
@@ -21,6 +21,7 @@ extension ShadShortcuts on BuildContext {
   Color get primary => colors.primary;
   Color get secondary => colors.secondary;
   Color get destructive => colors.destructive;
+  // ShadColorScheme uses 'background' (not deprecated for Shadcn)
   Color get background => colors.background;
   Color get muted => colors.muted;
   Color get border => colors.border;

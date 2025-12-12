@@ -75,3 +75,4 @@ backend_pipeline/.venv/
 backend_pipeline/__pycache__/  
 backend_pipeline/uv.lock
 backend_pipeline/data
+test/assets/golden.db

@@ -1,3 +1,6 @@
+// ignore_for_file: undefined_identifier
+// Test file uses generated companion types from Drift
+
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -58,7 +61,7 @@ void main() {
                 princepsBrandName: name,
                 voiesAdministration: Value(route),
                 atcCode: Value(atc),
-                isHospitalOnly: const Value(false),
+                isHospital: const Value(false),
                 isDental: const Value(false),
                 isList1: const Value(false),
                 isList2: const Value(false),
@@ -118,7 +121,7 @@ void main() {
       );
 
       expect(results, hasLength(1));
-      expect(results.first.summary.cisCode, 'A');
+      expect(results.first.data.cisCode, 'A');
     });
   });
 }

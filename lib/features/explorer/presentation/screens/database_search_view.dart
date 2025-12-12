@@ -9,6 +9,7 @@ import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/status_view.dart';
+import 'package:pharma_scan/features/explorer/domain/models/generic_group_entity.dart';
 import 'package:pharma_scan/features/explorer/presentation/providers/generic_groups_provider.dart';
 import 'package:pharma_scan/features/explorer/presentation/providers/grouped_content_provider.dart';
 import 'package:pharma_scan/features/explorer/presentation/providers/search_provider.dart';
@@ -71,11 +72,11 @@ class DatabaseSearchView extends HookConsumerWidget {
       skipLoadingOnReload: true,
       data: (value) => value,
       loading: () => (
-        groupedItems: List<Object>.empty(),
+        groupedItems: <GenericGroupEntity>[],
         letterIndex: <String, int>{},
       ),
       error: (error, stackTrace) => (
-        groupedItems: List<Object>.empty(),
+        groupedItems: <GenericGroupEntity>[],
         letterIndex: <String, int>{},
       ),
     );
@@ -99,14 +100,14 @@ class DatabaseSearchView extends HookConsumerWidget {
     return _KeepAliveWrapper(
       child: Scaffold(
         resizeToAvoidBottomInset: true,
-        backgroundColor: context.shadColors.background,
+        backgroundColor: context.background,
         appBar: AppBar(
           title: Text(
             Strings.explorer,
             style: context.shadTextTheme.h4,
           ),
           elevation: 0,
-          backgroundColor: context.shadColors.background,
+          backgroundColor: context.background,
           foregroundColor: context.shadColors.foreground,
         ),
         body: Column(
@@ -124,7 +125,8 @@ class DatabaseSearchView extends HookConsumerWidget {
             Expanded(
               child: ExplorerContentList(
                 groups: groups,
-                groupedItems: groupedData.groupedItems,
+                groupedItems:
+                    groupedData.groupedItems,
                 searchResults: searchResults,
                 hasSearchText: hasSearchText,
                 isSearching: isSearching,

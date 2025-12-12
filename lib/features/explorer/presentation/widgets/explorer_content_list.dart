@@ -6,14 +6,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:gap/gap.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:pharma_scan/core/logic/sanitizer.dart';
 import 'package:pharma_scan/core/router/app_router.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/status_view.dart';
 import 'package:pharma_scan/features/explorer/domain/entities/medicament_entity.dart';
-import 'package:pharma_scan/features/explorer/domain/logic/grouping_algorithms.dart';
 import 'package:pharma_scan/features/explorer/domain/models/generic_group_entity.dart';
 import 'package:pharma_scan/features/explorer/domain/models/search_result_item_model.dart';
 import 'package:pharma_scan/features/explorer/presentation/providers/generic_groups_provider.dart';
@@ -40,7 +38,7 @@ class ExplorerContentList extends ConsumerWidget {
   });
 
   final AsyncValue<GenericGroupsState> groups;
-  final List<Object> groupedItems;
+  final List<GenericGroupEntity> groupedItems;
   final AsyncValue<List<SearchResultItem>> searchResults;
   final bool hasSearchText;
   final bool isSearching;
@@ -101,7 +99,17 @@ class ExplorerContentList extends ConsumerWidget {
   /// Formats principles string for display by capitalizing the first letter.
   /// Example: "PARACETAMOL" -> "Paracetamol", "PARACETAMOL, CODEINE" -> "Paracetamol, Codeine"
   String _formatPrinciples(String principles) {
-    return formatPrinciples(principles);
+    if (principles.isEmpty) return principles;
+    return principles
+        .split(',')
+        .map((p) {
+          final trimmed = p.trim();
+          if (trimmed.isEmpty) return trimmed;
+          return trimmed[0].toUpperCase() +
+              (trimmed.length > 1 ? trimmed.substring(1).toLowerCase() : '');
+        })
+        .where((p) => p.isNotEmpty)
+        .join(', ');
   }
 
   Widget _buildGenericGroupTile(
@@ -266,48 +274,8 @@ class ExplorerContentList extends ConsumerWidget {
     );
   }
 
-  Widget _buildGroupedListItem(BuildContext context, Object item) {
-    if (item is GenericGroupEntity) {
-      return _buildGenericGroupTile(context, item);
-    }
-    if (item is GroupCluster) {
-      final princepsName = item.sortKey.isNotEmpty
-          ? item.sortKey
-          : (item.displayName.isNotEmpty
-                ? item.displayName
-                : Strings.notDetermined);
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: AppDimens.spacing2xs),
-        child: MoleculeGroupTile(
-          moleculeName: item.displayName,
-          princepsName: princepsName,
-          groups: item.groups,
-          itemBuilder: _buildGenericGroupTile,
-        ),
-      );
-    }
-    if (item is List<GenericGroupEntity> && item.isNotEmpty) {
-      final firstItem = item.first;
-      final moleculeName = firstItem.commonPrincipes.isNotEmpty
-          ? _formatPrinciples(firstItem.commonPrincipes)
-          : (firstItem.princepsReferenceName.isNotEmpty
-                ? firstItem.princepsReferenceName
-                : Strings.notDetermined);
-      final princepsName = firstItem.princepsReferenceName.isNotEmpty
-          ? firstItem.princepsReferenceName
-          : moleculeName;
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: AppDimens.spacing2xs),
-        child: MoleculeGroupTile(
-          moleculeName: moleculeName,
-          princepsName: princepsName,
-          groups: item,
-          itemBuilder: _buildGenericGroupTile,
-        ),
-      );
-    }
-
-    return const SizedBox.shrink();
+  Widget _buildGroupedListItem(BuildContext context, GenericGroupEntity item) {
+    return _buildGenericGroupTile(context, item);
   }
 
   Widget _buildSkeletonList(BuildContext context) {
@@ -503,9 +471,8 @@ class ExplorerContentList extends ConsumerWidget {
     String representativeCip,
   ) {
     final heroTag = 'standalone-$representativeCip';
-    final sanitizedPrinciples = summary.data.principesActifsCommuns
-        .map(normalizePrincipleOptimal)
-        .toList();
+    // Principles are already normalized from the database
+    final sanitizedPrinciples = summary.data.principesActifsCommuns;
 
     Future<void> copyToClipboard(String text, String label) async {
       await Clipboard.setData(ClipboardData(text: text));
@@ -647,26 +614,17 @@ class ExplorerContentList extends ConsumerWidget {
     );
   }
 
-  List<_ExplorerListItem> _buildSuspensionItems(List<Object> items) {
+  List<_ExplorerListItem> _buildSuspensionItems(
+    List<GenericGroupEntity> items,
+  ) {
     return items
         .map(
           (item) => _ExplorerListItem(
             payload: item,
-            tag: _tagForItem(item),
+            tag: item.getSuspensionTag(),
           ),
         )
         .toList();
-  }
-
-  String _tagForItem(Object item) {
-    if (item is GenericGroupEntity) return item.getSuspensionTag();
-    if (item is GroupCluster && item.groups.isNotEmpty) {
-      return item.groups.first.getSuspensionTag();
-    }
-    if (item is List<GenericGroupEntity> && item.isNotEmpty) {
-      return item.first.getSuspensionTag();
-    }
-    return '#';
   }
 
   IndexBarOptions _buildIndexBarOptions(BuildContext context) {
@@ -740,7 +698,7 @@ class _SkeletonBlock extends StatelessWidget {
 class _ExplorerListItem extends ISuspensionBean {
   _ExplorerListItem({required this.payload, required this.tag});
 
-  final Object payload;
+  final GenericGroupEntity payload;
   final String tag;
 
   @override

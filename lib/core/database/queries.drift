@@ -1,4 +1,5 @@
 import 'database.dart';
+import 'dbschema.drift';
 import 'views.drift';
 
 -- Queries for MedicamentSummary table
@@ -36,14 +37,8 @@ LEFT JOIN medicament_summary ms ON ms.cis_code = m.cis_code
 ORDER BY sb.scan_timestamp DESC
 LIMIT :limit;
 
-CREATE VIRTUAL TABLE search_index USING fts5(
-  cis_code UNINDEXED,
-  molecule_name,
-  brand_name,
-  tokenize='trigram'
-);
-
 -- Helpers to manage the search index directly from SQL
+-- Note: search_index table is defined in dbschema.drift
 deleteSearchIndex: DELETE FROM search_index;
 
 insertSearchIndexFromSummary:

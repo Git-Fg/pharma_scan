@@ -159,6 +159,28 @@ Technical guardrails for state, modeling, and error handling live in `.cursor/ru
 - **Parser Strategy:** Use PetitParser for structured grammars (tokenized inputs, nested rules). Hand-written scanners are acceptable only for tiny, single-pass cases with measured perf gains (e.g., current GS1 AI loop); document the rationale when choosing manual parsing.
 - **BDPM Ingestion IO:** All TSV inputs are read via `createBdpmRowStream(path)` using `Windows1252Decoder(allowInvalid: true)` piped into `CsvToListConverter(fieldDelimiter: '\t', shouldParseNumbers: false, eol: '\n')`. Parsers consume `Stream<List<dynamic>>` rows directly—no manual `split('\t')` or custom processors.
 
+## Data Layer Architecture
+
+### The "Thin Client" Pattern
+
+PharmaScan operates as a **Thin Client** regarding pharmaceutical data. It does **not** perform ETL (Extract, Transform, Load), parsing, or complex aggregation on the device.
+
+1. **Source of Truth:** The `backend_pipeline/` (TypeScript) parses ANSM files and generates a SQLite artifact (`reference.db`).
+2. **Schema Definition:** The database schema is defined in the backend (`backend_pipeline/src/db.ts`).
+3. **Synchronization:** The mobile app downloads the pre-computed `reference.db`.
+
+### Schema Management (`dbschema.drift`)
+
+The file `lib/core/database/dbschema.drift` is a **read-only mirror** of the backend schema.
+
+- **⚠️ DO NOT EDIT MANUALLY:** Changes to core tables (`medicament_summary`, `generique_groups`, etc.) must be made in the backend first.
+- **Sync Process:**
+  1. Run `bun run build:db` in `backend_pipeline`.
+  2. Run the VS Code task `sync:backend`.
+  3. Drift generates the Dart code matching the new schema.
+
+This ensures the mobile app never drifts (pun intended) from the backend structure.
+
 #### Zero-Cost Abstraction Strategy
 
 **Core Principle:** Use Dart 3 Extension Types to create type-safe abstractions with zero runtime overhead.

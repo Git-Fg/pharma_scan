@@ -1,9 +1,9 @@
-import 'package:pharma_scan/core/database/utils/view_type_converters.dart';
 import 'package:pharma_scan/core/database/views.drift.dart'
     show ViewGroupDetail;
 import 'package:pharma_scan/core/logic/sanitizer.dart';
 
 /// Extension type wrapping [ViewGroupDetail] to decouple UI from Drift rows.
+/// ViewGroupDetail already has the correct types (bool, int, double?), so we can use them directly.
 extension type GroupDetailEntity(ViewGroupDetail _data)
     implements ViewGroupDetail {
   GroupDetailEntity.fromData(ViewGroupDetail data) : this(data);
@@ -13,33 +13,33 @@ extension type GroupDetailEntity(ViewGroupDetail _data)
   bool get isNotMarketed =>
       status?.toLowerCase().contains('non commercialis') ?? false;
 
-  // Type converters pour les propriétés qui sont String? dans la vue mais bool/int/double dans l'usage
-  bool get isPrinceps => ViewTypeConverters.toBool(_data.isPrinceps);
+  // ViewGroupDetail already has correct types, so we can use them directly
+  bool get isPrinceps => _data.isPrinceps;
 
-  bool get isSurveillance => ViewTypeConverters.toBool(_data.isSurveillance);
+  bool get isSurveillance => _data.isSurveillance;
 
-  bool get isHospitalOnly => ViewTypeConverters.toBool(_data.isHospitalOnly);
+  bool get isHospitalOnly => _data.isHospitalOnly;
 
-  bool get isDental => ViewTypeConverters.toBool(_data.isDental);
+  bool get isDental => _data.isDental;
 
-  bool get isList1 => ViewTypeConverters.toBool(_data.isList1);
+  bool get isList1 => _data.isList1;
 
-  bool get isList2 => ViewTypeConverters.toBool(_data.isList2);
+  bool get isList2 => _data.isList2;
 
-  bool get isNarcotic => ViewTypeConverters.toBool(_data.isNarcotic);
+  bool get isNarcotic => _data.isNarcotic;
 
-  bool get isException => ViewTypeConverters.toBool(_data.isException);
+  bool get isException => _data.isException;
 
-  bool get isRestricted => ViewTypeConverters.toBool(_data.isRestricted);
+  bool get isRestricted => _data.isRestricted;
 
-  bool get isOtc => ViewTypeConverters.toBool(_data.isOtc);
+  bool get isOtc => _data.isOtc;
 
-  int get memberType => ViewTypeConverters.toIntOrDefault(_data.memberType, 0);
+  int get memberType => _data.memberType;
 
-  double? get prixPublic => ViewTypeConverters.toDouble(_data.prixPublic);
+  double? get prixPublic => _data.prixPublic;
 
   // Getters pour les propriétés nullable avec valeurs par défaut
-  String get codeCip => _data.codeCip ?? '';
+  String get codeCip => _data.codeCip;
 
   String get parsedTitulaire {
     final summary = _data.summaryTitulaire;
@@ -55,5 +55,5 @@ extension type GroupDetailEntity(ViewGroupDetail _data)
   String? get asmrNiveau => _data.asmrNiveau;
   String? get asmrDate => _data.asmrDate;
   String? get urlNotice => _data.urlNotice;
-  bool get hasSafetyAlert => ViewTypeConverters.toBool(_data.hasSafetyAlert);
+  bool get hasSafetyAlert => _data.hasSafetyAlert ?? false;
 }

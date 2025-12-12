@@ -13,6 +13,47 @@ flutter test
 
 **Auto-Fix Discipline:** If analyzer surfaces fixable warnings, run `dart fix --apply` (up to 3x) before manual review.
 
+## SQL-First Testing for Data-Driven Tests
+
+**Core Principle:** In an external DB-driven architecture, tests should use **raw SQL inserts/updates** (`customInsert`/`customUpdate`) instead of generated companion types. This matches production (backend ETL pipeline) and avoids `build_runner` dependency.
+
+**✅ PREFERRED (SQL-First):**
+
+```dart
+// Insert medicament_summary using raw SQL
+await database.customInsert(
+  '''
+  INSERT INTO medicament_summary (
+    cis_code, nom_canonique, princeps_de_reference, is_princeps, is_otc
+  ) VALUES (?, ?, ?, ?, ?)
+  ''',
+  variables: [
+    Variable.withString('12345678'),
+    Variable.withString('Doliprane 500'),
+    Variable.withString('Doliprane 500'),
+    Variable.withBool(true),
+    Variable.withBool(true),
+  ],
+  updates: {database.medicamentSummary},
+);
+```
+
+**❌ AVOID (Companion Types - Only for Legacy Tests):**
+
+```dart
+// Requires build_runner and generated types
+await database.into(database.medicamentSummary).insert(
+  MedicamentSummaryCompanion.insert(cisCode: '12345678', ...),
+);
+```
+
+**Guidelines:**
+- Use `customInsert`/`customUpdate` for all new tests involving `medicament_summary` or FTS5 tables
+- For nullable TEXT fields, use empty string `''` (SQLite treats as NULL)
+- Always include `updates: {database.tableName}` parameter
+- Use `normalizeForSearch()` for FTS5 index values
+- See `docs/TESTING.md` for complete patterns and examples
+
 ## Mocking Strategy
 
 **Library:** `mocktail` exclusively (FORBIDDEN: `mockito`)

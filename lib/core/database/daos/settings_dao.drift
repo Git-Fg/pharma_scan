@@ -1,3 +1,0 @@
--- SettingsDao queries
--- La table app_settings est définie dans le schéma SQL distant
--- Toutes les requêtes sont gérées via customSelect/customUpdate dans le DAO Dart

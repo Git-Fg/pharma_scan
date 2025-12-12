@@ -1,10 +1,10 @@
 import 'package:diacritic/diacritic.dart';
+import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/domain/types/semantic_types.dart';
-
-import '../../test_utils.dart';
+import 'package:pharma_scan/core/logic/sanitizer.dart';
 
 void main() {
   group('Search engine with FTS5 molecule/brand columns', () {
@@ -17,97 +17,172 @@ void main() {
         ),
       );
 
-      // Minimal ingestion: inject clean molecule/brand plus links.
-      await db.databaseDao.insertBatchData(
-        batchData: IngestionBatch(
-          laboratories: [
-            buildLaboratoryCompanion(id: 1, name: 'SANOFI'),
-            buildLaboratoryCompanion(id: 2, name: 'MYLAN'),
-            buildLaboratoryCompanion(id: 3, name: 'HEARTLAB'),
-          ],
-          specialites: [
-            buildSpecialiteCompanion(
-              cisCode: 'P1',
-              nomSpecialite: 'DOLIPRANE',
-              procedureType: 'Autorisation',
-              formePharmaceutique: 'comprime',
-              titulaireId: 1,
-            ),
-            buildSpecialiteCompanion(
-              cisCode: 'G1',
-              nomSpecialite: 'PARACETAMOL MYLAN',
-              procedureType: 'Autorisation',
-              formePharmaceutique: 'comprime',
-              titulaireId: 2,
-            ),
-            buildSpecialiteCompanion(
-              cisCode: 'H1',
-              nomSpecialite: 'CŒURCALM',
-              procedureType: 'Autorisation',
-              formePharmaceutique: 'comprime',
-              titulaireId: 3,
-            ),
-            buildSpecialiteCompanion(
-              cisCode: 'T1',
-              nomSpecialite: 'L-THYROXINE',
-              procedureType: 'Autorisation',
-              formePharmaceutique: 'comprime',
-              titulaireId: 2,
-            ),
-          ],
-          medicaments: [
-            buildMedicamentCompanion(codeCip: 'P1_CIP', cisCode: 'P1'),
-            buildMedicamentCompanion(codeCip: 'G1_CIP', cisCode: 'G1'),
-            buildMedicamentCompanion(codeCip: 'H1_CIP', cisCode: 'H1'),
-            buildMedicamentCompanion(codeCip: 'T1_CIP', cisCode: 'T1'),
-          ],
-          principes: [
-            buildPrincipeCompanion(codeCip: 'P1_CIP', principe: 'PARACETAMOL'),
-            buildPrincipeCompanion(codeCip: 'G1_CIP', principe: 'PARACETAMOL'),
-            buildPrincipeCompanion(codeCip: 'H1_CIP', principe: 'CARDIOTONE'),
-            buildPrincipeCompanion(codeCip: 'T1_CIP', principe: 'L THYROXINE'),
-          ],
-          generiqueGroups: [
-            buildGeneriqueGroupCompanion(
-              groupId: 'GRP1',
-              libelle: 'PARACETAMOL',
-              princepsLabel: 'DOLIPRANE',
-              moleculeLabel: 'PARACETAMOL',
-              rawLabel: 'PARACETAMOL - DOLIPRANE',
-              parsingMethod: 'relational',
-            ),
-            buildGeneriqueGroupCompanion(
-              groupId: 'GRP2',
-              libelle: 'CŒURCALM',
-              princepsLabel: 'CŒURCALM',
-              moleculeLabel: 'CARDIOTONE',
-              rawLabel: 'CŒURCALM - CARDIOTONE',
-              parsingMethod: 'relational',
-            ),
-          ],
-          groupMembers: [
-            buildGroupMemberCompanion(
-              codeCip: 'P1_CIP',
-              groupId: 'GRP1',
-              type: 0,
-            ),
-            buildGroupMemberCompanion(
-              codeCip: 'G1_CIP',
-              groupId: 'GRP1',
-              type: 1,
-            ),
-            buildGroupMemberCompanion(
-              codeCip: 'H1_CIP',
-              groupId: 'GRP2',
-              type: 0,
-            ),
-          ],
-        ),
+      // Insert medicament_summary directly using SQL-first approach
+      // P1 - DOLIPRANE (Princeps)
+      await db.customInsert(
+        '''
+        INSERT INTO medicament_summary (
+          cis_code, nom_canonique, princeps_de_reference, is_princeps,
+          group_id, member_type, principes_actifs_communs, formatted_dosage,
+          is_hospital, is_dental, is_list1, is_list2, is_narcotic,
+          is_exception, is_restricted, is_otc, princeps_brand_name
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''',
+        variables: [
+          Variable.withString('P1'),
+          Variable.withString('DOLIPRANE'),
+          Variable.withString('DOLIPRANE'),
+          Variable.withBool(true),
+          Variable.withString('GRP1'),
+          Variable.withInt(0),
+          Variable.withString('["PARACETAMOL"]'),
+          Variable.withString(''),
+          Variable.withBool(false),
+          Variable.withBool(false),
+          Variable.withBool(false),
+          Variable.withBool(false),
+          Variable.withBool(false),
+          Variable.withBool(false),
+          Variable.withBool(false),
+          Variable.withBool(true),
+          Variable.withString('DOLIPRANE'),
+        ],
+        updates: {db.medicamentSummary},
       );
 
-      await setPrincipeNormalizedForAllPrinciples(db);
-      await db.databaseDao.populateSummaryTable();
-      await db.databaseDao.populateFts5Index();
+      // G1 - PARACETAMOL MYLAN (Generic)
+      await db.customInsert(
+        '''
+        INSERT INTO medicament_summary (
+          cis_code, nom_canonique, princeps_de_reference, is_princeps,
+          group_id, member_type, principes_actifs_communs, formatted_dosage,
+          is_hospital, is_dental, is_list1, is_list2, is_narcotic,
+          is_exception, is_restricted, is_otc, princeps_brand_name
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''',
+        variables: [
+          Variable.withString('G1'),
+          Variable.withString('PARACETAMOL MYLAN'),
+          Variable.withString('DOLIPRANE'),
+          Variable.withBool(false),
+          Variable.withString('GRP1'),
+          Variable.withInt(1),
+          Variable.withString('["PARACETAMOL"]'),
+          Variable.withString(''),
+          Variable.withBool(false),
+          Variable.withBool(false),
+          Variable.withBool(false),
+          Variable.withBool(false),
+          Variable.withBool(false),
+          Variable.withBool(false),
+          Variable.withBool(false),
+          Variable.withBool(true),
+          Variable.withString('DOLIPRANE'),
+        ],
+        updates: {db.medicamentSummary},
+      );
+
+      // H1 - CŒURCALM (Princeps)
+      await db.customInsert(
+        '''
+        INSERT INTO medicament_summary (
+          cis_code, nom_canonique, princeps_de_reference, is_princeps,
+          group_id, member_type, principes_actifs_communs, formatted_dosage,
+          is_hospital, is_dental, is_list1, is_list2, is_narcotic,
+          is_exception, is_restricted, is_otc, princeps_brand_name
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''',
+        variables: [
+          Variable.withString('H1'),
+          Variable.withString('CŒURCALM'),
+          Variable.withString('CŒURCALM'),
+          Variable.withBool(true),
+          Variable.withString('GRP2'),
+          Variable.withInt(0),
+          Variable.withString('["CARDIOTONE"]'),
+          Variable.withString(''),
+          Variable.withBool(false),
+          Variable.withBool(false),
+          Variable.withBool(false),
+          Variable.withBool(false),
+          Variable.withBool(false),
+          Variable.withBool(false),
+          Variable.withBool(false),
+          Variable.withBool(true),
+          Variable.withString('CŒURCALM'),
+        ],
+        updates: {db.medicamentSummary},
+      );
+
+      // T1 - L-THYROXINE (Standalone)
+      await db.customInsert(
+        '''
+        INSERT INTO medicament_summary (
+          cis_code, nom_canonique, princeps_de_reference, is_princeps,
+          group_id, member_type, principes_actifs_communs, formatted_dosage,
+          is_hospital, is_dental, is_list1, is_list2, is_narcotic,
+          is_exception, is_restricted, is_otc, princeps_brand_name
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''',
+        variables: [
+          Variable.withString('T1'),
+          Variable.withString('L-THYROXINE'),
+          Variable.withString('L-THYROXINE'),
+          Variable.withBool(true),
+          Variable.withString(''),
+          Variable.withInt(0),
+          Variable.withString('["L THYROXINE"]'),
+          Variable.withString(''),
+          Variable.withBool(false),
+          Variable.withBool(false),
+          Variable.withBool(false),
+          Variable.withBool(false),
+          Variable.withBool(false),
+          Variable.withBool(false),
+          Variable.withBool(false),
+          Variable.withBool(true),
+          Variable.withString('L-THYROXINE'),
+        ],
+        updates: {db.medicamentSummary},
+      );
+
+      // Populate FTS5 search_index
+      await db.customInsert(
+        'INSERT INTO search_index (cis_code, molecule_name, brand_name) VALUES (?, ?, ?)',
+        variables: [
+          Variable.withString('P1'),
+          Variable.withString(normalizeForSearch('DOLIPRANE PARACETAMOL')),
+          Variable.withString(normalizeForSearch('DOLIPRANE')),
+        ],
+        updates: {db.searchIndex},
+      );
+      await db.customInsert(
+        'INSERT INTO search_index (cis_code, molecule_name, brand_name) VALUES (?, ?, ?)',
+        variables: [
+          Variable.withString('G1'),
+          Variable.withString(normalizeForSearch('PARACETAMOL MYLAN')),
+          Variable.withString(normalizeForSearch('DOLIPRANE')),
+        ],
+        updates: {db.searchIndex},
+      );
+      await db.customInsert(
+        'INSERT INTO search_index (cis_code, molecule_name, brand_name) VALUES (?, ?, ?)',
+        variables: [
+          Variable.withString('H1'),
+          Variable.withString(normalizeForSearch('CŒURCALM CARDIOTONE')),
+          Variable.withString(normalizeForSearch('CŒURCALM')),
+        ],
+        updates: {db.searchIndex},
+      );
+      await db.customInsert(
+        'INSERT INTO search_index (cis_code, molecule_name, brand_name) VALUES (?, ?, ?)',
+        variables: [
+          Variable.withString('T1'),
+          Variable.withString(normalizeForSearch('L-THYROXINE')),
+          Variable.withString(normalizeForSearch('L-THYROXINE')),
+        ],
+        updates: {db.searchIndex},
+      );
     });
 
     tearDown(() async {
@@ -121,7 +196,8 @@ void main() {
       expect(results, isNotEmpty);
       expect(
         results.any(
-          (row) => row.summary.princepsBrandName.toUpperCase() == 'DOLIPRANE',
+          (entity) =>
+              entity.data.princepsBrandName.toUpperCase() == 'DOLIPRANE',
         ),
         isTrue,
       );
@@ -134,10 +210,20 @@ void main() {
           NormalizedQuery('paracetamol'),
         );
         expect(results.length, greaterThanOrEqualTo(2));
+        // Verify that results include medications with PARACETAMOL in molecule_name
+        // Note: P1 (DOLIPRANE) has "paracetamol" in molecule_name but not in nomCanonique
+        // G1 (PARACETAMOL MYLAN) has it in both
         expect(
-          results.every(
-            (row) =>
-                row.summary.nomCanonique.toUpperCase().contains('PARACETAMOL'),
+          results.any(
+            (entity) =>
+                entity.data.nomCanonique.toUpperCase().contains('PARACETAMOL'),
+          ),
+          isTrue,
+        );
+        // Verify G1 is found
+        expect(
+          results.any(
+            (entity) => entity.data.cisCode == 'G1',
           ),
           isTrue,
         );
@@ -154,8 +240,8 @@ void main() {
         expect(
           results
               .map(
-                (row) =>
-                    removeDiacritics(row.summary.nomCanonique).toUpperCase(),
+                (entity) =>
+                    removeDiacritics(entity.data.nomCanonique).toUpperCase(),
               )
               .any((name) => name.contains('COEURCALM')),
           isTrue,
@@ -173,7 +259,7 @@ void main() {
         expect(
           results
               .map(
-                (row) => row.summary.nomCanonique.toUpperCase().replaceAll(
+                (entity) => entity.data.nomCanonique.toUpperCase().replaceAll(
                   RegExp('[^A-Z0-9]'),
                   '',
                 ),
@@ -184,62 +270,70 @@ void main() {
       },
     );
 
-    test('search handles ligatures - oeuf finds œuf (unicode61 tokenizer)', () async {
-      // Add test data with ligature
-      await db.databaseDao.insertBatchData(
-        batchData: IngestionBatch(
-          laboratories: [
-            buildLaboratoryCompanion(id: 10, name: 'LIGATURELAB'),
+    test(
+      'search handles ligatures - oeuf finds œuf (unicode61 tokenizer)',
+      () async {
+        // Insert medicament_summary with ligature using SQL
+        await db.customInsert(
+          '''
+          INSERT INTO medicament_summary (
+            cis_code, nom_canonique, princeps_de_reference, is_princeps,
+            group_id, member_type, principes_actifs_communs, formatted_dosage,
+            is_hospital, is_dental, is_list1, is_list2, is_narcotic,
+            is_exception, is_restricted, is_otc, princeps_brand_name,
+            voies_administration
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ''',
+          variables: [
+            Variable.withString('L1'),
+            Variable.withString('ŒUFPROTECT'),
+            Variable.withString('ŒUFPROTECT'),
+            Variable.withBool(true),
+            Variable.withString(''),
+            Variable.withInt(0),
+            Variable.withString('["ŒUF EXTRACT"]'),
+            Variable.withString(''),
+            Variable.withBool(false),
+            Variable.withBool(false),
+            Variable.withBool(false),
+            Variable.withBool(false),
+            Variable.withBool(false),
+            Variable.withBool(false),
+            Variable.withBool(false),
+            Variable.withBool(true),
+            Variable.withString('ŒUFPROTECT'),
+            Variable.withString('orale'),
           ],
-          specialites: [
-            buildSpecialiteCompanion(
-              cisCode: 'L1',
-              nomSpecialite: 'ŒUFPROTECT',
-              procedureType: 'Autorisation',
-              formePharmaceutique: 'comprime',
-              titulaireId: 10,
-            ),
-          ],
-          medicaments: [
-            buildMedicamentCompanion(
-              codeCip: '9999999999999',
-              cisCode: 'L1',
-              presentationLabel: 'Œuf-based protection',
-            ),
-          ],
-          principesActifs: [
-            buildPrincipeActifCompanion(
-              codeCip: '9999999999999',
-              designationSubstance: 'ŒUF EXTRACT',
-              dosageSubstance: '100mg',
-            ),
-          ],
-          medicamentSummary: [
-            buildMedicamentSummaryCompanion(
-              cisCode: 'L1',
-              nomCanonique: 'ŒUFPROTECT',
-              princepsDeReference: 'ŒUFPROTECT',
-              princepsBrandName: 'ŒUFPROTECT',
-              isPrinceps: true,
-              principesActifsCommuns: '["ŒUF EXTRACT"]',
-              voiesAdministration: 'orale',
-            ),
-          ],
-        ),
-      );
+          updates: {db.medicamentSummary},
+        );
 
-      // Test searching with "oeuf" should find "ŒUFPROTECT"
-      final results = await db.catalogDao.searchMedicaments(
-        NormalizedQuery.fromString('oeuf'),
-      );
+        // Insert into FTS5 search_index
+        await db.customInsert(
+          'INSERT INTO search_index (cis_code, molecule_name, brand_name) VALUES (?, ?, ?)',
+          variables: [
+            Variable.withString('L1'),
+            Variable.withString(normalizeForSearch('ŒUFPROTECT ŒUF EXTRACT')),
+            Variable.withString(normalizeForSearch('ŒUFPROTECT')),
+          ],
+          updates: {db.searchIndex},
+        );
 
-      expect(results, isNotEmpty);
-      expect(
-        results.any((row) => row.summary.nomCanonique.contains('ŒUFPROTECT')),
-        isTrue,
-        reason: 'Searching "oeuf" should find "ŒUFPROTECT" with unicode61 tokenizer',
-      );
-    });
+        // Test searching with "oeuf" should find "ŒUFPROTECT"
+        final results = await db.catalogDao.searchMedicaments(
+          NormalizedQuery.fromString('oeuf'),
+        );
+
+        expect(results, isNotEmpty);
+        expect(
+          results.any(
+            (entity) => entity.data.nomCanonique.contains('ŒUFPROTECT'),
+          ),
+          isTrue,
+          reason:
+              'Searching "oeuf" should find "ŒUFPROTECT" with unicode61 tokenizer',
+        );
+      },
+    );
 
     test('search is case insensitive - doliprane finds DOLIPRANE', () async {
       final results = await db.catalogDao.searchMedicaments(
@@ -249,7 +343,8 @@ void main() {
       expect(results, isNotEmpty);
       expect(
         results.any(
-          (row) => row.summary.princepsBrandName.toUpperCase() == 'DOLIPRANE',
+          (entity) =>
+              entity.data.princepsBrandName.toUpperCase() == 'DOLIPRANE',
         ),
         isTrue,
         reason: 'Case insensitive search should work',

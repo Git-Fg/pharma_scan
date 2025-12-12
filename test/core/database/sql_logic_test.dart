@@ -1,177 +1,63 @@
-import 'dart:convert';
+// Test file for external DB-driven architecture - uses dynamic types for backend-provided data
 
 import 'package:drift/drift.dart' hide isNotNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pharma_scan/core/database/database.dart';
 
-import '../../fixtures/seed_builder.dart' show SeedBuilder;
-import '../../test_utils.dart' show setPrincipeNormalizedForAllPrinciples;
-
-/// Lightweight facade over [SeedBuilder] for SQL view verification.
-/// Allows defining virtual rows directly for view_aggregated_grouped tests.
-class SqlScenarioBuilder {
-  SqlScenarioBuilder();
-
-  final Map<String, int> _labIds = {};
-  final Map<String, String> _groupLabels = {};
-  final List<SpecialitesCompanion> _specialites = [];
-  final List<MedicamentsCompanion> _medicaments = [];
-  final List<PrincipesActifsCompanion> _principes = [];
-  final List<GeneriqueGroupsCompanion> _generiqueGroups = [];
-  final List<GroupMembersCompanion> _groupMembers = [];
-  String? _currentGroupId;
-
-  SqlScenarioBuilder inGroup(String groupId, {required String label}) {
-    _groupLabels[groupId] = label;
-    final exists = _generiqueGroups.any(
-      (group) => group.groupId.value == groupId,
-    );
-    if (!exists) {
-      _generiqueGroups.add(
-        GeneriqueGroupsCompanion(
-          groupId: Value(groupId),
-          libelle: Value(label),
-          rawLabel: Value(label),
-          parsingMethod: const Value('relational'),
-        ),
-      );
-    }
-    _currentGroupId = groupId;
-    // Allow fluent test builder chaining.
-    // ignore: avoid_returning_this
-    return this;
-  }
-
-  SqlScenarioBuilder addMember({
-    required String cis,
-    required String cip,
-    required String name,
-    required int type,
-    String? groupId,
-    String? groupLabel,
-    String principle = 'ACTIVE_PRINCIPLE',
-    String? dosage,
-    String? dosageUnit,
-    String? conditions,
-    String? forme,
-    String? voiesAdministration,
-    String? procedureType,
-    String? titulaire,
-    bool isSurveillance = false,
-    String? statutAdministratif,
-  }) {
-    final effectiveGroupId = groupId ?? _currentGroupId;
-    if (effectiveGroupId == null) {
-      throw StateError('Call inGroup() before adding grouped members.');
-    }
-    if (groupLabel != null) {
-      inGroup(effectiveGroupId, label: groupLabel);
-    }
-    final labName = titulaire ?? 'LAB_$cis';
-    final labId = _labIds.putIfAbsent(labName, () => _labIds.length + 1);
-
-    _specialites.add(
-      SpecialitesCompanion(
-        cisCode: Value(cis),
-        nomSpecialite: Value(name),
-        procedureType: Value(procedureType ?? 'Autorisation'),
-        formePharmaceutique: Value(forme),
-        voiesAdministration: Value(voiesAdministration),
-        titulaireId: Value(labId),
-        conditionsPrescription: Value(conditions),
-        isSurveillance: Value(isSurveillance),
-        statutAdministratif: Value(statutAdministratif),
-      ),
-    );
-
-    _medicaments.add(
-      MedicamentsCompanion(
-        codeCip: Value(cip),
-        cisCode: Value(cis),
-      ),
-    );
-
-    _principes.add(
-      PrincipesActifsCompanion(
-        codeCip: Value(cip),
-        principe: Value(principle),
-        dosage: Value(dosage),
-        dosageUnit: Value(
-          dosage == null ? null : (dosageUnit ?? 'mg'),
-        ),
-      ),
-    );
-
-    _groupMembers.add(
-      GroupMembersCompanion(
-        codeCip: Value(cip),
-        groupId: Value(effectiveGroupId),
-        type: Value(type),
-      ),
-    );
-
-    // Allow fluent test builder chaining.
-    // ignore: avoid_returning_this
-    return this;
-  }
-
-  IngestionBatch build() {
-    return IngestionBatch(
-      specialites: _specialites,
-      medicaments: _medicaments,
-      principes: _principes,
-      generiqueGroups: _generiqueGroups,
-      groupMembers: _groupMembers,
-      laboratories: _labIds.entries
-          .map(
-            (entry) => LaboratoriesCompanion(
-              id: Value(entry.value),
-              name: Value(entry.key),
-            ),
-          )
-          .toList(),
-    );
-  }
-
-  Future<void> insertInto(AppDatabase database) async {
-    await database.databaseDao.insertBatchData(batchData: build());
-  }
-}
-
-Future<List<Map<String, Object?>>> _selectGroupRows(
-  AppDatabase database,
-  String groupId,
-) async {
-  final rows = await database
-      .customSelect(
-        '''
-SELECT *
-FROM view_aggregated_grouped
-WHERE group_id = ?
-ORDER BY is_princeps DESC, cis_code ASC
-''',
-        variables: [Variable.withString(groupId)],
-      )
-      .get();
-
-  return rows.map((row) => row.data).toList(growable: false);
-}
-
-List<String> _decodeJsonArray(Object? value) {
-  if (value is String && value.isNotEmpty) {
-    final decoded = jsonDecode(value);
-    if (decoded is List) {
-      return decoded.whereType<String>().toList();
-    }
-  }
-  return const [];
+/// Simplified test helper for medicament_summary.
+/// In production, medicament_summary is pre-populated by the backend pipeline.
+/// These tests verify that the mobile app can read and query it correctly.
+Future<void> _insertSummaryRow(
+  AppDatabase database, {
+  required String cisCode,
+  required String nomCanonique,
+  required String princepsDeReference,
+  required bool isPrinceps,
+  String? groupId,
+  String principesActifsCommuns = '[]',
+  String? formattedDosage,
+  int isHospital = 0,
+  int isNarcotic = 0,
+  int isList1 = 0,
+  int isOtc = 1,
+  String? aggregatedConditions,
+}) async {
+  // Use customInsert to avoid dependency on generated companion types
+  // For nullable values, use empty string (SQLite will treat as NULL for TEXT columns when appropriate)
+  await database.customInsert(
+    '''
+    INSERT INTO medicament_summary (
+      cis_code, nom_canonique, princeps_de_reference, is_princeps,
+      group_id, member_type, principes_actifs_communs, formatted_dosage,
+      is_hospital, is_narcotic, is_list1, is_otc, aggregated_conditions,
+      princeps_brand_name
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ''',
+    variables: [
+      Variable.withString(cisCode),
+      Variable.withString(nomCanonique),
+      Variable.withString(princepsDeReference),
+      Variable.withBool(isPrinceps),
+      Variable.withString(groupId ?? ''),
+      Variable.withInt(0),
+      Variable.withString(principesActifsCommuns),
+      Variable.withString(formattedDosage ?? ''),
+      Variable.withBool(isHospital == 1),
+      Variable.withBool(isNarcotic == 1),
+      Variable.withBool(isList1 == 1),
+      Variable.withBool(isOtc == 1),
+      Variable.withString(aggregatedConditions ?? ''),
+      Variable.withString(princepsDeReference),
+    ],
+    updates: {database.medicamentSummary},
+  );
 }
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  group('SQL Logic - view_aggregated_grouped', () {
+  group('medicament_summary - Data Reading & Querying', () {
     late AppDatabase database;
 
     setUp(() async {
@@ -184,169 +70,113 @@ void main() {
       await database.close();
     });
 
-    test(
-      'Scenario A - group libelle becomes nomCanonique for princeps and generics',
-      () async {
-        final builder = SqlScenarioBuilder()
-          ..inGroup('GRP_STD', label: 'PARACETAMOL 500 mg')
-          ..addMember(
-            cis: 'CIS_P',
-            cip: 'CIP_P',
-            name: 'Doliprane 500 mg',
-            type: 0,
-            principle: 'PARACETAMOL',
-            dosage: '500',
-          )
-          ..addMember(
-            cis: 'CIS_G1',
-            cip: 'CIP_G1',
-            name: 'Efferalgan',
-            type: 1,
-            principle: 'PARACETAMOL',
-            dosage: '500',
-          )
-          ..addMember(
-            cis: 'CIS_G2',
-            cip: 'CIP_G2',
-            name: 'Dafalgan',
-            type: 1,
-            principle: 'PARACETAMOL',
-            dosage: '500',
-          );
+    test('can read grouped medications from medicament_summary', () async {
+      // GIVEN: medicament_summary populated by backend (simulated in test)
+      await _insertSummaryRow(
+        database,
+        cisCode: 'CIS_P',
+        nomCanonique: 'PARACETAMOL 500 mg',
+        princepsDeReference: 'PARACETAMOL 500 mg',
+        isPrinceps: true,
+        groupId: 'GRP_STD',
+        principesActifsCommuns: '["PARACETAMOL"]',
+        formattedDosage: '500 mg',
+      );
+      await _insertSummaryRow(
+        database,
+        cisCode: 'CIS_G1',
+        nomCanonique: 'PARACETAMOL 500 mg',
+        princepsDeReference: 'PARACETAMOL 500 mg',
+        isPrinceps: false,
+        groupId: 'GRP_STD',
+        principesActifsCommuns: '["PARACETAMOL"]',
+        formattedDosage: '500 mg',
+      );
 
-        await builder.insertInto(database);
-        await setPrincipeNormalizedForAllPrinciples(database);
+      // WHEN: Query by group_id
+      final summaries = await (database.select(
+        database.medicamentSummary,
+      )..where((tbl) => tbl.groupId.equals('GRP_STD'))).get();
 
-        final rows = await _selectGroupRows(database, 'GRP_STD');
+      // THEN: Can read grouped medications
+      expect(summaries, hasLength(2));
+      expect(
+        summaries.map((s) => s.nomCanonique),
+        everyElement(equals('PARACETAMOL 500 mg')),
+      );
+      expect(summaries.any((s) => s.isPrinceps), isTrue);
+      expect(summaries.any((s) => !s.isPrinceps), isTrue);
+    });
 
-        expect(rows, hasLength(3));
-        expect(
-          rows.map((row) => row['nom_canonique']),
-          everyElement(equals('PARACETAMOL 500 mg')),
-        );
+    test('can read regulatory flags from medicament_summary', () async {
+      // GIVEN: medicament_summary with regulatory flags (set by backend)
+      await _insertSummaryRow(
+        database,
+        cisCode: 'CIS_HOSP',
+        nomCanonique: 'Hospital Only',
+        princepsDeReference: 'Hospital Only',
+        isPrinceps: true,
+        isHospital: 1,
+        isOtc: 0,
+      );
+      await _insertSummaryRow(
+        database,
+        cisCode: 'CIS_NARC',
+        nomCanonique: 'Stupefiant',
+        princepsDeReference: 'Stupefiant',
+        isPrinceps: true,
+        isNarcotic: 1,
+        isList1: 0, // ignore: avoid_redundant_argument_values
+      );
+      await _insertSummaryRow(
+        database,
+        cisCode: 'CIS_LIST1',
+        nomCanonique: 'Liste I',
+        princepsDeReference: 'Liste I',
+        isPrinceps: true,
+        isList1: 1,
+      );
 
-        final princepsRow = rows.firstWhere(
-          (row) => (row['is_princeps']! as int) == 1,
-        );
-        final commonPrinciples = _decodeJsonArray(
-          princepsRow['principes_actifs_communs'],
-        );
+      // WHEN: Query individual medications
+      final hospital = await (database.select(
+        database.medicamentSummary,
+      )..where((tbl) => tbl.cisCode.equals('CIS_HOSP'))).getSingle();
+      final narcotic = await (database.select(
+        database.medicamentSummary,
+      )..where((tbl) => tbl.cisCode.equals('CIS_NARC'))).getSingle();
+      final list1 = await (database.select(
+        database.medicamentSummary,
+      )..where((tbl) => tbl.cisCode.equals('CIS_LIST1'))).getSingle();
 
-        expect(princepsRow['formatted_dosage'], '500 mg');
-        expect(commonPrinciples, contains('PARACETAMOL'));
-      },
-    );
+      // THEN: Flags are correctly readable
+      expect(hospital.isHospital, isTrue);
+      expect(hospital.isOtc, isFalse);
+      expect(narcotic.isNarcotic, isTrue);
+      expect(narcotic.isList1, isFalse);
+      expect(list1.isList1, isTrue);
+      expect(list1.isNarcotic, isFalse);
+    });
 
-    test(
-      'Scenario B - generics without dosage fall back to princeps dosage',
-      () async {
-        final builder = SqlScenarioBuilder()
-          ..inGroup('GRP_DOSAGE', label: 'AMOXICILLIN 1000 mg')
-          ..addMember(
-            cis: 'CIS_PRIN',
-            cip: 'CIP_PRIN',
-            name: 'Amoxicilline Princeps',
-            type: 0,
-            principle: 'AMOXICILLIN',
-            dosage: '1000',
-            dosageUnit: 'mg',
-          )
-          ..addMember(
-            cis: 'CIS_GEN',
-            cip: 'CIP_GEN',
-            name: 'Amoxicilline Generic',
-            type: 1,
-            principle: 'AMOXICILLIN',
-          );
+    test('can read aggregated conditions from medicament_summary', () async {
+      // GIVEN: medicament_summary with aggregated conditions (computed by backend)
+      await _insertSummaryRow(
+        database,
+        cisCode: 'CIS_TEST',
+        nomCanonique: 'Test Medication',
+        princepsDeReference: 'Test Medication',
+        isPrinceps: true,
+        aggregatedConditions: '["Condition 1", "Condition 2"]',
+      );
 
-        await builder.insertInto(database);
-        await setPrincipeNormalizedForAllPrinciples(database);
+      // WHEN: Read the summary
+      final summary = await (database.select(
+        database.medicamentSummary,
+      )..where((tbl) => tbl.cisCode.equals('CIS_TEST'))).getSingle();
 
-        final rows = await _selectGroupRows(database, 'GRP_DOSAGE');
-        final princepsRow = rows.firstWhere(
-          (row) => (row['is_princeps']! as int) == 1,
-        );
-        final genericRow = rows.firstWhere(
-          (row) => (row['is_princeps']! as int) == 0,
-        );
-
-        final princepsDosage = princepsRow['formatted_dosage'] as String?;
-        final inheritedDosage =
-            (genericRow['formatted_dosage'] as String?) ?? princepsDosage;
-
-        expect(princepsDosage, isNotNull);
-        expect(inheritedDosage, princepsDosage);
-      },
-    );
-
-    test(
-      'Scenario C - regulatory flags and aggregated conditions computed from strings',
-      () async {
-        final builder = SqlScenarioBuilder()
-          ..inGroup('GRP_FLAGS', label: 'FLAG GROUP')
-          ..addMember(
-            cis: 'CIS_HOSP',
-            cip: 'CIP_HOSP',
-            name: 'Hospital Only',
-            type: 0,
-            principle: 'MORPHINE',
-            dosage: '10',
-            conditions: "Réservé à l'usage hospitalier",
-          )
-          ..addMember(
-            cis: 'CIS_NARC',
-            cip: 'CIP_NARC',
-            name: 'Stupefiant',
-            type: 1,
-            principle: 'MORPHINE',
-            dosage: '10',
-            conditions: 'STUPEFIANT',
-          )
-          ..addMember(
-            cis: 'CIS_LIST1',
-            cip: 'CIP_LIST1',
-            name: 'Liste I',
-            type: 1,
-            principle: 'MORPHINE',
-            dosage: '10',
-            conditions: 'Liste I',
-          );
-
-        await builder.insertInto(database);
-        await setPrincipeNormalizedForAllPrinciples(database);
-
-        final rows = await _selectGroupRows(database, 'GRP_FLAGS');
-        expect(rows, hasLength(3));
-
-        final hospital = rows.firstWhere(
-          (row) => row['cis_code'] == 'CIS_HOSP',
-        );
-        final narcotic = rows.firstWhere(
-          (row) => row['cis_code'] == 'CIS_NARC',
-        );
-        final list1 = rows.firstWhere((row) => row['cis_code'] == 'CIS_LIST1');
-
-        expect(hospital['is_hospital'], 1);
-        expect(hospital['is_otc'], 0);
-
-        expect(narcotic['is_narcotic'], 1);
-        expect(narcotic['is_list1'], 0);
-
-        expect(list1['is_list1'], 1);
-        expect(list1['is_narcotic'], 0);
-
-        final aggregatedConditions = _decodeJsonArray(
-          hospital['aggregated_conditions'],
-        );
-        expect(
-          aggregatedConditions.toSet(),
-          containsAll({
-            "Réservé à l'usage hospitalier",
-            'STUPEFIANT',
-            'Liste I',
-          }),
-        );
-      },
-    );
+      // THEN: Aggregated conditions are readable
+      expect(summary.aggregatedConditions, isNotNull);
+      expect(summary.aggregatedConditions, contains('Condition 1'));
+      expect(summary.aggregatedConditions, contains('Condition 2'));
+    });
   });
 }

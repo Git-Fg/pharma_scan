@@ -83,7 +83,7 @@ void main() {
     ProviderContainer createContainer() {
       final container = ProviderContainer(
         overrides: [
-          appDatabaseProvider.overrideWithValue(mockDb),
+          databaseProvider.overrideWithValue(mockDb),
           sortingPreferenceProvider.overrideWith(
             (ref) => Stream.value(SortingPreference.princeps),
           ),

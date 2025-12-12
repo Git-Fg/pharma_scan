@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:meta/meta.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:pharma_scan/core/config/database_config.dart';
@@ -88,7 +89,7 @@ class DataInitializationService {
 
   Future<String?> _resolveDownloadUrl() async {
     // Build URL to the asset in latest GitHub release
-    final baseUrl =
+    const baseUrl =
         'https://github.com/${DatabaseConfig.repoOwner}/'
         '${DatabaseConfig.repoName}/releases/latest/download/'
         '${DatabaseConfig.compressedDbFilename}';

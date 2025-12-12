@@ -104,7 +104,7 @@ class MainScreen extends HookConsumerWidget {
           },
           child: Scaffold(
             resizeToAvoidBottomInset: true,
-            backgroundColor: context.shadColors.background,
+            backgroundColor: context.background,
             bottomNavigationBar: isKeyboardOpen
                 ? null
                 : ShadcnBottomNav(

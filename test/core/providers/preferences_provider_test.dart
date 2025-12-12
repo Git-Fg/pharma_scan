@@ -20,7 +20,7 @@ void main() {
 
       container = ProviderContainer(
         overrides: [
-          appDatabaseProvider.overrideWithValue(database),
+          databaseProvider.overrideWithValue(database),
         ],
       );
     });

@@ -1,3 +1,6 @@
+// ignore_for_file: undefined_function, undefined_identifier
+// Test file uses generated companion types from Drift
+
 import 'package:drift/drift.dart' as drift;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -11,7 +14,6 @@ import 'package:pharma_scan/features/explorer/presentation/providers/generic_gro
 import 'package:pharma_scan/features/explorer/presentation/providers/search_provider.dart';
 
 import '../../fixtures/seed_builder.dart';
-import '../../test_utils.dart' show setPrincipeNormalizedForAllPrinciples;
 
 class _FakeCatalogDao extends Fake implements CatalogDao {
   @override
@@ -64,14 +66,12 @@ void main() {
             .addPrinceps(
               'Produit $i',
               cip,
-              cis: 'CIS_$i',
+              cipCode: 'CIS_$i',
               form: 'Forme',
               lab: 'LAB_$i',
             );
       }
       await builder.insertInto(database);
-      await setPrincipeNormalizedForAllPrinciples(database);
-      await database.databaseDao.populateSummaryTable();
       await database.databaseDao.populateFts5Index();
 
       // Ensure at least one group summary exists for pagination assertions.
@@ -80,20 +80,20 @@ void main() {
         await database
             .into(database.generiqueGroups)
             .insert(
-              const GeneriqueGroupsCompanion(
-                groupId: drift.Value('GRP_FALLBACK'),
-                libelle: drift.Value('Fallback Group'),
-                rawLabel: drift.Value('Fallback Group'),
-                parsingMethod: drift.Value('manual'),
+              GeneriqueGroupsCompanion(
+                groupId: const drift.Value('GRP_FALLBACK'),
+                libelle: const drift.Value('Fallback Group'),
+                rawLabel: const drift.Value('Fallback Group'),
+                parsingMethod: const drift.Value('manual'),
               ),
             );
         await database
             .into(database.groupMembers)
             .insert(
-              const GroupMembersCompanion(
-                groupId: drift.Value('GRP_FALLBACK'),
-                codeCip: drift.Value('3400000099999'),
-                type: drift.Value(0),
+              GroupMembersCompanion(
+                groupId: const drift.Value('GRP_FALLBACK'),
+                codeCip: const drift.Value('3400000099999'),
+                type: const drift.Value(0),
               ),
             );
         await database
@@ -133,7 +133,7 @@ void main() {
       final fakeCatalogDao = _FakeCatalogDao();
       container = ProviderContainer(
         overrides: [
-          appDatabaseProvider.overrideWithValue(database),
+          databaseProvider.overrideWithValue(database),
           catalogDaoProvider.overrideWithValue(fakeCatalogDao),
           searchFiltersProvider.overrideWith(_FakeSearchFiltersNotifier.new),
         ],

@@ -2,10 +2,10 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:pharma_scan/core/database/models/medicament_summary_data.dart';
-import 'package:pharma_scan/core/database/queries.drift.dart';
+import 'package:pharma_scan/core/database/views.drift.dart'
+    show ViewSearchResult;
 import 'package:pharma_scan/core/domain/types/ids.dart';
 import 'package:pharma_scan/core/domain/types/semantic_types.dart';
-import 'package:pharma_scan/core/logic/sanitizer.dart';
 import 'package:pharma_scan/core/providers/core_providers.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/features/explorer/domain/entities/medicament_entity.dart';
@@ -47,7 +47,7 @@ Stream<List<SearchResultItem>> searchResults(Ref ref, String rawQuery) {
   });
 }
 
-SearchResultItem? _mapSearchRowToItem(SearchResultsResult row) {
+SearchResultItem? _mapSearchRowToItem(ViewSearchResult row) {
   switch (row.type) {
     case 'cluster':
       final groups = _parseGroups(row.groupsJson);
@@ -84,78 +84,21 @@ SearchResultItem? _mapSearchRowToItem(SearchResultsResult row) {
     case 'standalone':
       if (row.cisCode == null) return null;
       final principlesList = _decodePrinciples(row.principesActifsCommuns);
-      // Convertir les valeurs de SearchResultsResult (qui sont des String?)
-      // vers les types attendus par MedicamentSummaryData
-      final isPrincepsStr = row.isPrinceps;
-      final isPrinceps =
-          isPrincepsStr != null &&
-          (isPrincepsStr == '1' || isPrincepsStr.toLowerCase() == 'true');
-
-      final memberTypeStr = row.memberType;
-      final memberType = memberTypeStr != null
-          ? int.tryParse(memberTypeStr) ?? 0
-          : 0;
-
-      final titulaireIdStr = row.titulaireId;
-      final titulaireId = titulaireIdStr != null
-          ? int.tryParse(titulaireIdStr)
-          : null;
-
-      final isSurveillanceStr = row.isSurveillance;
-      final isSurveillance =
-          isSurveillanceStr != null &&
-          (isSurveillanceStr == '1' ||
-              isSurveillanceStr.toLowerCase() == 'true');
-
-      final priceMinStr = row.priceMin;
-      final priceMin = priceMinStr != null
-          ? double.tryParse(priceMinStr)
-          : null;
-
-      final priceMaxStr = row.priceMax;
-      final priceMax = priceMaxStr != null
-          ? double.tryParse(priceMaxStr)
-          : null;
-
-      final isHospitalStr = row.isHospital;
-      final isHospital =
-          isHospitalStr != null &&
-          (isHospitalStr == '1' || isHospitalStr.toLowerCase() == 'true');
-
-      final isDentalStr = row.isDental;
-      final isDental =
-          isDentalStr != null &&
-          (isDentalStr == '1' || isDentalStr.toLowerCase() == 'true');
-
-      final isList1Str = row.isList1;
-      final isList1 =
-          isList1Str != null &&
-          (isList1Str == '1' || isList1Str.toLowerCase() == 'true');
-
-      final isList2Str = row.isList2;
-      final isList2 =
-          isList2Str != null &&
-          (isList2Str == '1' || isList2Str.toLowerCase() == 'true');
-
-      final isNarcoticStr = row.isNarcotic;
-      final isNarcotic =
-          isNarcoticStr != null &&
-          (isNarcoticStr == '1' || isNarcoticStr.toLowerCase() == 'true');
-
-      final isExceptionStr = row.isException;
-      final isException =
-          isExceptionStr != null &&
-          (isExceptionStr == '1' || isExceptionStr.toLowerCase() == 'true');
-
-      final isRestrictedStr = row.isRestricted;
-      final isRestricted =
-          isRestrictedStr != null &&
-          (isRestrictedStr == '1' || isRestrictedStr.toLowerCase() == 'true');
-
-      final isOtcStr = row.isOtc;
-      final isOtc =
-          isOtcStr != null &&
-          (isOtcStr == '1' || isOtcStr.toLowerCase() == 'true');
+      // ViewSearchResult already has the correct types (bool?, int?, double?)
+      final isPrinceps = row.isPrinceps ?? false;
+      final memberType = row.memberType ?? 0;
+      final titulaireId = row.titulaireId;
+      final isSurveillance = row.isSurveillance ?? false;
+      final priceMin = row.priceMin;
+      final priceMax = row.priceMax;
+      final isHospital = row.isHospital ?? false;
+      final isDental = row.isDental ?? false;
+      final isList1 = row.isList1 ?? false;
+      final isList2 = row.isList2 ?? false;
+      final isNarcotic = row.isNarcotic ?? false;
+      final isException = row.isException ?? false;
+      final isRestricted = row.isRestricted ?? false;
+      final isOtc = row.isOtc ?? false;
 
       final summary = MedicamentSummaryData(
         cisCode: row.cisCode!,
@@ -195,12 +138,12 @@ SearchResultItem? _mapSearchRowToItem(SearchResultsResult row) {
         labName: row.labName,
       );
 
+      // Principles are already normalized from the database
       final commonPrinciples = principlesList
-          .map(normalizePrincipleOptimal)
-          .where((p) => p.isNotEmpty)
+          .where((p) => p.trim().isNotEmpty)
           .join(', ');
       final representativeCip = Cip13.validated(
-        row.representativeCip ?? row.cisCode!,
+        row.representativeCip ?? row.cisCode ?? '',
       );
 
       return StandaloneResult(
@@ -252,7 +195,8 @@ String _nonEmpty(String? value, {required String fallback}) {
   return trimmed.isEmpty ? fallback : trimmed;
 }
 
-List<String> _decodePrinciples(String raw) {
+List<String> _decodePrinciples(String? raw) {
+  if (raw == null || raw.isEmpty) return const [];
   if (raw.isEmpty) return const [];
   try {
     final decoded = jsonDecode(raw);

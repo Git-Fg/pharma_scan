@@ -172,7 +172,7 @@ class _Reticle extends HookWidget {
               width: iconContainerSize,
               height: iconContainerSize,
               decoration: BoxDecoration(
-                color: context.shadColors.background.withValues(alpha: 0.18),
+                color: context.background.withValues(alpha: 0.18),
                 shape: BoxShape.circle,
                 border: Border.all(
                   color: targetColor.withValues(alpha: 0.4),

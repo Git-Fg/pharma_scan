@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:auto_route/auto_route.dart';
-import 'package:azlistview/azlistview.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -9,7 +8,6 @@ import 'package:pharma_scan/core/domain/types/ids.dart';
 import 'package:pharma_scan/core/router/app_router.dart';
 import 'package:pharma_scan/core/router/app_routes.dart';
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
-import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/features/explorer/domain/models/database_stats.dart';
 import 'package:pharma_scan/features/explorer/domain/models/generic_group_entity.dart';
 import 'package:pharma_scan/features/explorer/domain/models/search_result_item_model.dart';
@@ -18,6 +16,8 @@ import 'package:pharma_scan/features/explorer/presentation/providers/generic_gro
 import 'package:pharma_scan/features/explorer/presentation/providers/search_provider.dart';
 import 'package:pharma_scan/features/home/providers/initialization_provider.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
+
+import '../../robots/explorer_robot.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -80,19 +80,15 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final searchField = find.bySemanticsLabel(Strings.searchLabel);
-    expect(searchField, findsOneWidget);
+    final robot = ExplorerRobot(tester);
+    robot.expectSearchFieldVisible();
 
-    await tester.tap(searchField);
-    await tester.pump();
+    await robot.tapSearchField();
 
     view.viewInsets = const FakeViewPadding(bottom: 320);
     await tester.pumpAndSettle();
 
-    final screenHeight = view.physicalSize.height / view.devicePixelRatio;
-    final fieldRect = tester.getRect(searchField);
-
-    expect(fieldRect.bottom, lessThanOrEqualTo(screenHeight));
+    robot.expectSearchFieldWithinBounds();
     expect(tester.takeException(), isNull);
 
     // Clean up: ensure all timers are cancelled before test ends
@@ -158,16 +154,12 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.byType(IndexBar), findsOneWidget);
+      final robot = ExplorerRobot(tester);
+      robot.expectIndexBarVisible();
 
-      await tester.enterText(
-        find.bySemanticsLabel(Strings.searchLabel),
-        'paracetamol',
-      );
-      await tester.pump(const Duration(milliseconds: 400));
-      await tester.pumpAndSettle();
+      await robot.enterSearch('paracetamol');
 
-      expect(find.byType(IndexBar), findsNothing);
+      robot.expectIndexBarHidden();
     },
   );
 
@@ -229,17 +221,13 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.byType(IndexBar), findsOneWidget);
-      expect(find.text('Mystic Molecule'), findsNothing);
+      final robot = ExplorerRobot(tester);
+      robot.expectIndexBarVisible();
+      robot.expectTextNotInResults('Mystic Molecule');
 
-      await tester.tap(
-        find.descendant(of: find.byType(IndexBar), matching: find.text('M')),
-      );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 200));
-      await tester.pumpAndSettle(const Duration(milliseconds: 400));
+      await robot.tapIndexLetter('M');
 
-      expect(find.text('Mystic Molecule'), findsOneWidget);
+      robot.expectTextInResults('Mystic Molecule');
     },
   );
 }

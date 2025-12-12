@@ -1,4 +1,4 @@
-import 'package:drift/drift.dart' show Value;
+import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pharma_scan/core/database/database.dart';
@@ -24,58 +24,89 @@ void main() {
     double? price,
     String? availability,
   }) async {
-    await db
-        .into(db.specialites)
-        .insert(
-          SpecialitesCompanion.insert(
-            cisCode: '123456',
-            nomSpecialite: 'Test Specialite',
-            procedureType: 'Procédure',
-            formePharmaceutique: const Value('Comprimé'),
-            etatCommercialisation: const Value('Commercialisée'),
-          ),
-        );
+    // Insert laboratory first (for titulaire_id FK)
+    await db.customInsert(
+      'INSERT OR IGNORE INTO laboratories (id, name) VALUES (?, ?)',
+      variables: [
+        Variable.withInt(1),
+        Variable.withString('Test Lab'),
+      ],
+      updates: {db.laboratories},
+    );
 
-    await db
-        .into(db.medicaments)
-        .insert(
-          MedicamentsCompanion.insert(
-            codeCip: '3400000000012',
-            cisCode: '123456',
-            presentationLabel: const Value('Boîte de 30 gélules'),
-            commercialisationStatut: const Value('Commercialisée'),
-            tauxRemboursement: const Value('65%'),
-            prixPublic: Value(price),
-            agrementCollectivites: Value(agrement),
-          ),
-        );
+    // Insert specialites using raw SQL
+    await db.customInsert(
+      'INSERT INTO specialites (cis_code, nom_specialite, procedure_type, forme_pharmaceutique, etat_commercialisation, titulaire_id) VALUES (?, ?, ?, ?, ?, ?)',
+      variables: [
+        Variable.withString('123456'),
+        Variable.withString('Test Specialite'),
+        Variable.withString('Procédure'),
+        Variable.withString('Comprimé'),
+        Variable.withString('Commercialisée'),
+        Variable.withInt(1),
+      ],
+      updates: {db.specialites},
+    );
 
-    await db
-        .into(db.medicamentSummary)
-        .insert(
-          MedicamentSummaryCompanion.insert(
-            cisCode: '123456',
-            nomCanonique: 'Test Médicament',
-            isPrinceps: false,
-            principesActifsCommuns: const ['Test'],
-            princepsDeReference: 'Test Princeps',
-            formePharmaceutique: const Value('Comprimé'),
-            princepsBrandName: 'Test Brand',
-            procedureType: const Value('Procédure'),
-            titulaireId: const Value<int?>(null),
-          ),
-        );
+    // Insert medicaments using raw SQL
+    await db.customInsert(
+      'INSERT INTO medicaments (code_cip, cis_code, presentation_label, commercialisation_statut, taux_remboursement, prix_public, agrement_collectivites) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      variables: [
+        Variable.withString('3400000000012'),
+        Variable.withString('123456'),
+        Variable.withString('Boîte de 30 gélules'),
+        Variable.withString('Commercialisée'),
+        Variable.withString('65%'),
+        Variable.withReal(price ?? 0.0),
+        Variable.withString(agrement ?? ''),
+      ],
+      updates: {db.medicaments},
+    );
+
+    // Insert medicament_summary using raw SQL
+    await db.customInsert(
+      '''
+      INSERT INTO medicament_summary (
+        cis_code, nom_canonique, is_princeps, principes_actifs_communs,
+        princeps_de_reference, forme_pharmaceutique, princeps_brand_name,
+        procedure_type, titulaire_id, is_hospital, is_dental, is_list1,
+        is_list2, is_narcotic, is_exception, is_restricted, is_otc, member_type
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ''',
+      variables: [
+        Variable.withString('123456'),
+        Variable.withString('Test Médicament'),
+        Variable.withBool(false),
+        Variable.withString('["Test"]'),
+        Variable.withString('Test Princeps'),
+        Variable.withString('Comprimé'),
+        Variable.withString('Test Brand'),
+        Variable.withString('Procédure'),
+        Variable.withInt(1),
+        Variable.withBool(false),
+        Variable.withBool(false),
+        Variable.withBool(false),
+        Variable.withBool(false),
+        Variable.withBool(false),
+        Variable.withBool(false),
+        Variable.withBool(false),
+        Variable.withBool(true),
+        Variable.withInt(0),
+      ],
+      updates: {db.medicamentSummary},
+    );
 
     if (availability != null) {
-      await db
-          .into(db.medicamentAvailability)
-          .insert(
-            MedicamentAvailabilityCompanion.insert(
-              codeCip: '3400000000012',
-              statut: availability,
-              dateDebut: Value(DateTime.utc(2025)),
-            ),
-          );
+      // Insert medicament_availability using raw SQL
+      await db.customInsert(
+        'INSERT INTO medicament_availability (code_cip, statut, date_debut) VALUES (?, ?, ?)',
+        variables: [
+          Variable.withString('3400000000012'),
+          Variable.withString(availability),
+          Variable.withString('2025-01-01'),
+        ],
+        updates: {db.medicamentAvailability},
+      );
     }
   }
 

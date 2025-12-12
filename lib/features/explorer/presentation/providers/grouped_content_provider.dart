@@ -1,4 +1,3 @@
-import 'package:pharma_scan/features/explorer/domain/logic/grouping_algorithms.dart';
 import 'package:pharma_scan/features/explorer/domain/models/generic_group_entity.dart';
 import 'package:pharma_scan/features/explorer/presentation/providers/generic_groups_provider.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -32,23 +31,33 @@ const _sidebarLetters = [
   'Z',
 ];
 
-({List<Object> groupedItems, Map<String, int> letterIndex})
-_processGroupingInBackground(List<GenericGroupEntity> items) {
-  if (items.isEmpty) {
-    return (
-      groupedItems: List<Object>.empty(),
-      letterIndex: <String, int>{},
-    );
+/// Builds a letter index for the sidebar navigation.
+Map<String, int> _buildLetterIndex(
+  List<GenericGroupEntity> items,
+  List<String> allowedLetters,
+) {
+  final allowedSet = allowedLetters.toSet();
+  final letterIndex = <String, int>{};
+
+  for (final (index, item) in items.indexed) {
+    final candidate = item.princepsReferenceName.isNotEmpty
+        ? item.princepsReferenceName
+        : item.commonPrincipes;
+
+    final normalized = candidate.trim().toUpperCase();
+    if (normalized.isEmpty) continue;
+
+    final letter = RegExp('^[0-9]').hasMatch(normalized) ? '#' : normalized[0];
+    if (!allowedSet.contains(letter)) continue;
+
+    letterIndex.putIfAbsent(letter, () => index);
   }
 
-  final groupedItems = groupByCommonPrincipes(items);
-  final letterIndex = buildLetterIndex(groupedItems, _sidebarLetters);
-
-  return (groupedItems: groupedItems, letterIndex: letterIndex);
+  return letterIndex;
 }
 
 @Riverpod(keepAlive: true)
-Future<({List<Object> groupedItems, Map<String, int> letterIndex})>
+Future<({List<GenericGroupEntity> groupedItems, Map<String, int> letterIndex})>
 groupedExplorerContent(
   Ref ref,
 ) async {
@@ -56,11 +65,13 @@ groupedExplorerContent(
 
   if (groups.items.isEmpty) {
     return (
-      groupedItems: List<Object>.empty(),
+      groupedItems: List<GenericGroupEntity>.empty(),
       letterIndex: <String, int>{},
     );
   }
 
-  // Run synchronously to keep behavior predictable and avoid isolate overhead.
-  return _processGroupingInBackground(groups.items);
+  // Groups are already provided by the DB, no client-side clustering needed
+  final letterIndex = _buildLetterIndex(groups.items, _sidebarLetters);
+
+  return (groupedItems: groups.items, letterIndex: letterIndex);
 }

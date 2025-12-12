@@ -34,7 +34,6 @@ dependencies:
   characters: ^1.4.0
   collection: ^1.19.1
   crypto: ^3.0.6
-  csv: ^6.0.0
   dart_either: ^2.0.0
   dart_mappable: ^4.6.1
   decimal: ^3.2.4
@@ -101,6 +100,7 @@ flutter:
   # To add assets to your application, add an assets section, like this:
   assets:
     - assets/test_images/
+    - test/assets/golden.db
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

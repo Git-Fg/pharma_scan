@@ -43,22 +43,40 @@ class RestockDao extends DatabaseAccessor<AppDatabase> with $RestockDaoMixin {
 
     if (medicamentInfo == null) {
       // Si le médicament n'existe pas dans la DB, créer un item minimal
-      await customUpdate(
-        '''
-        INSERT INTO restock_items (
-          cip_code, cis_code, nom_canonique, is_princeps, stock_count, created_at, updated_at
-        ) VALUES (?, ?, ?, 0, 1, datetime('now'), datetime('now'))
-        ON CONFLICT(cip_code) DO UPDATE SET 
-          stock_count = stock_count + 1,
-          updated_at = datetime('now')
-        ''',
-        variables: [
-          Variable<String>(cipString),
-          const Variable<String>(''),
-          const Variable<String>(Strings.unknown),
-        ],
-        updates: {},
-      );
+      // Check if item already exists
+      final existing = await customSelect(
+        'SELECT stock_count FROM restock_items WHERE cip_code = ? LIMIT 1',
+        variables: [Variable<String>(cipString)],
+        readsFrom: {},
+      ).getSingleOrNull();
+
+      if (existing != null) {
+        // Update existing item
+        final currentCount = existing.readNullable<int>('stock_count') ?? 0;
+        await customUpdate(
+          "UPDATE restock_items SET stock_count = ?, updated_at = datetime('now') WHERE cip_code = ?",
+          variables: [
+            Variable<int>(currentCount + 1),
+            Variable<String>(cipString),
+          ],
+          updates: {},
+        );
+      } else {
+        // Insert new item
+        await customUpdate(
+          '''
+          INSERT INTO restock_items (
+            cip_code, cis_code, nom_canonique, is_princeps, stock_count, created_at, updated_at
+          ) VALUES (?, ?, ?, 0, 1, datetime('now'), datetime('now'))
+          ''',
+          variables: [
+            Variable<String>(cipString),
+            const Variable<String>(''),
+            const Variable<String>(Strings.unknown),
+          ],
+          updates: {},
+        );
+      }
       return;
     }
 
@@ -83,30 +101,53 @@ class RestockDao extends DatabaseAccessor<AppDatabase> with $RestockDaoMixin {
       'representative_cip',
     );
 
-    await customUpdate(
-      '''
-      INSERT INTO restock_items (
-        cip_code, cis_code, nom_canonique, is_princeps, princeps_de_reference,
-        forme_pharmaceutique, voies_administration, formatted_dosage,
-        representative_cip, stock_count, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, datetime('now'), datetime('now'))
-      ON CONFLICT(cip_code) DO UPDATE SET 
-        stock_count = stock_count + 1,
-        updated_at = datetime('now')
-      ''',
-      variables: [
-        Variable<String>(cipString),
-        Variable<String>(cisCode),
-        Variable<String>(nomCanonique),
-        Variable<int>(isPrinceps ? 1 : 0),
-        Variable<String>(princepsDeReference),
-        Variable<String>(formePharmaceutique),
-        Variable<String>(voiesAdministration),
-        Variable<String>(formattedDosage),
-        Variable<String>(representativeCip),
-      ],
-      updates: {},
-    );
+    // Check if item already exists
+    final existing = await customSelect(
+      'SELECT stock_count FROM restock_items WHERE cip_code = ? LIMIT 1',
+      variables: [Variable<String>(cipString)],
+      readsFrom: {},
+    ).getSingleOrNull();
+
+    if (existing != null) {
+      // Update existing item
+      final currentCount = existing.readNullable<int>('stock_count') ?? 0;
+      await customUpdate(
+        '''
+        UPDATE restock_items SET 
+          stock_count = ?,
+          updated_at = datetime('now')
+        WHERE cip_code = ?
+        ''',
+        variables: [
+          Variable<int>(currentCount + 1),
+          Variable<String>(cipString),
+        ],
+        updates: {},
+      );
+    } else {
+      // Insert new item
+      await customUpdate(
+        '''
+        INSERT INTO restock_items (
+          cip_code, cis_code, nom_canonique, is_princeps, princeps_de_reference,
+          forme_pharmaceutique, voies_administration, formatted_dosage,
+          representative_cip, stock_count, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, datetime('now'), datetime('now'))
+        ''',
+        variables: [
+          Variable<String>(cipString),
+          Variable<String>(cisCode),
+          Variable<String>(nomCanonique),
+          Variable<int>(isPrinceps ? 1 : 0),
+          Variable<String>(princepsDeReference),
+          Variable<String>(formePharmaceutique),
+          Variable<String>(voiesAdministration),
+          Variable<String>(formattedDosage),
+          Variable<String>(representativeCip),
+        ],
+        updates: {},
+      );
+    }
   }
 
   /// Met à jour la quantité d'un item.

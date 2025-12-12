@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:drift/drift.dart';
 import 'package:pharma_scan/core/database/daos/catalog_dao.dart';
 import 'package:pharma_scan/core/database/daos/database_dao.dart';
@@ -38,8 +40,23 @@ class AppDatabase extends $AppDatabase {
   MigrationStrategy get migration {
     return MigrationStrategy(
       onCreate: (Migrator m) async {
-        // Toutes les tables sont déjà créées par le schéma SQL inclus depuis GitHub
-        // Rien à faire ici car la DB est pré-remplie/téléchargée
+        // Pour les tests avec base de données en mémoire, créer toutes les tables
+        // depuis le schéma défini dans les fichiers .drift
+        // Exclure sqlite_sequence car c'est une table système gérée automatiquement par SQLite
+        for (final table in allTables) {
+          if (table.actualTableName != 'sqlite_sequence') {
+            await m.createTable(table);
+          }
+        }
+
+        // Créer les vues depuis views.drift pour les tests
+        await _createViews(m);
+
+        // Créer la table virtuelle FTS5 search_index pour les tests
+        await _createFts5Table();
+
+        // Créer les index uniques nécessaires pour les tests
+        await _createUniqueIndexes();
       },
       beforeOpen: (details) async {
         // Activation des clés étrangères indispensable pour SQLite
@@ -66,6 +83,73 @@ class AppDatabase extends $AppDatabase {
       throw Exception(
         "Erreur d'intégrité de la base de données: Le schéma ne correspond pas au fichier téléchargé. $e",
       );
+    }
+  }
+
+  /// Crée les vues SQL depuis views.drift (pour les tests uniquement).
+  /// En production, les vues sont déjà créées dans la base téléchargée.
+  Future<void> _createViews(Migrator m) async {
+    try {
+      // Lire le fichier views.drift depuis le système de fichiers
+      // Le chemin est relatif à lib/core/database/
+      final viewsFile = File('lib/core/database/views.drift');
+      if (!await viewsFile.exists()) {
+        // En production ou si le fichier n'est pas accessible, ignorer
+        return;
+      }
+
+      final content = await viewsFile.readAsString();
+
+      // Extraire chaque CREATE VIEW statement (de "CREATE VIEW" jusqu'au ";")
+      final viewPattern = RegExp(
+        r'CREATE VIEW\s+\w+\s+AS\s+.*?;',
+        dotAll: true,
+        caseSensitive: false,
+      );
+
+      final matches = viewPattern.allMatches(content);
+      for (final match in matches) {
+        final viewSql = match.group(0)!;
+        // Exécuter la création de la vue
+        await customStatement(viewSql);
+      }
+    } catch (e) {
+      // En cas d'erreur (fichier non accessible en production), ignorer silencieusement
+      // Les vues seront déjà créées dans la base téléchargée
+    }
+  }
+
+  /// Crée la table virtuelle FTS5 search_index (pour les tests uniquement).
+  /// En production, la table est déjà créée dans la base téléchargée.
+  Future<void> _createFts5Table() async {
+    try {
+      await customStatement(
+        '''
+        CREATE VIRTUAL TABLE IF NOT EXISTS search_index USING fts5(
+          cis_code UNINDEXED,
+          molecule_name,
+          brand_name,
+          tokenize='trigram'
+        )
+        ''',
+      );
+    } catch (e) {
+      // En cas d'erreur, ignorer silencieusement
+      // La table sera déjà créée dans la base téléchargée
+    }
+  }
+
+  /// Crée les index uniques nécessaires pour les tests.
+  /// En production, ces index sont déjà créés dans la base téléchargée.
+  Future<void> _createUniqueIndexes() async {
+    try {
+      // Unique constraint for scanned_boxes duplicate detection
+      await customStatement(
+        'CREATE UNIQUE INDEX IF NOT EXISTS idx_scanned_boxes_unique ON scanned_boxes(cip_code, box_label)',
+      );
+    } catch (e) {
+      // En cas d'erreur, ignorer silencieusement
+      // Les index seront déjà créés dans la base téléchargée
     }
   }
 }

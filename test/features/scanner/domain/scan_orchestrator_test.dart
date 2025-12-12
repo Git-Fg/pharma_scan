@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:pharma_scan/core/database/database.dart';
+import 'package:pharma_scan/core/database/models/medicament_summary_data.dart';
 import 'package:pharma_scan/core/domain/types/ids.dart';
 import 'package:pharma_scan/core/models/scan_result.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
@@ -22,7 +23,6 @@ MedicamentEntity _buildEntity(String cis) {
       nomCanonique: 'Produit $cis',
       isPrinceps: true,
       memberType: 0,
-      principesActifsCommuns: const [],
       princepsDeReference: 'Produit $cis',
       formePharmaceutique: 'Comprimé',
       voiesAdministration: 'Orale',

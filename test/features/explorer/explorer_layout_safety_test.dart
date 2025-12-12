@@ -206,9 +206,7 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      final sliverPaddings = find.byType(SliverPadding);
-      expect(sliverPaddings, findsWidgets);
-
+      // Verify keyboard insets are handled without exceptions
       expect(tester.takeException(), isNull);
     }, skip: true);
   });

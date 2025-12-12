@@ -1,5 +1,7 @@
+// Test file uses generated data types from Drift
+
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pharma_scan/core/database/database.dart';
+import 'package:pharma_scan/core/database/models/medicament_summary_data.dart';
 import 'package:pharma_scan/core/domain/types/ids.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/product_badges.dart';
 import 'package:pharma_scan/features/explorer/domain/entities/medicament_entity.dart';
@@ -10,7 +12,7 @@ import '../../../helpers/pump_app.dart';
 void main() {
   MedicamentEntity buildSummary() {
     return MedicamentEntity.fromData(
-      const MedicamentSummaryData(
+      MedicamentSummaryData(
         cisCode: '123456',
         nomCanonique: 'Test Médicament',
         isPrinceps: false,

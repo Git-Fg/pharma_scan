@@ -26,7 +26,7 @@ void main() {
 
       container = ProviderContainer(
         overrides: [
-          appDatabaseProvider.overrideWithValue(mockDb),
+          databaseProvider.overrideWithValue(mockDb),
           dataInitializationServiceProvider.overrideWithValue(mockInitService),
         ],
       );

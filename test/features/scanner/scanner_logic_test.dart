@@ -6,15 +6,13 @@ import 'package:mocktail/mocktail.dart';
 import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/providers/core_providers.dart';
 import 'package:pharma_scan/core/providers/preferences_provider.dart';
-import 'package:pharma_scan/core/services/data_initialization_service.dart';
 import 'package:pharma_scan/features/scanner/presentation/providers/scanner_provider.dart';
 
 import '../../fixtures/seed_builder.dart';
 import '../../test_utils.dart'
     show
         generateGs1String,
-        generateSimpleGs1String,
-        setPrincipeNormalizedForAllPrinciples;
+        generateSimpleGs1String;
 
 class MockBarcode extends Mock implements Barcode {
   @override
@@ -59,28 +57,25 @@ void main() {
           .inGroup('GROUP_A', productA)
           .addPrinceps(
             productA,
-            cipA,
-            cis: cisA,
+            cisA,
+            cipCode: cipA,
             form: 'Comprimé',
             lab: 'LAB_A',
           )
           .inGroup('GROUP_B', productB)
           .addPrinceps(
             productB,
-            cipB,
-            cis: cisB,
+            cisB,
+            cipCode: cipB,
             form: 'Comprimé',
             lab: 'LAB_B',
           )
           .insertInto(database);
 
-      await setPrincipeNormalizedForAllPrinciples(database);
-      final dataInit = DataInitializationService(database: database);
-      await dataInit.runSummaryAggregationForTesting();
-
+      
       container = ProviderContainer(
         overrides: [
-          appDatabaseProvider.overrideWithValue(database),
+          databaseProvider.overrideWithValue(database),
           catalogDaoProvider.overrideWithValue(database.catalogDao),
           hapticSettingsProvider.overrideWith(
             (ref) => Stream<bool>.value(true),

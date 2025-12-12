@@ -1,27 +1,24 @@
-import 'dart:io' show File;
+// integration_test/restock_interaction_test.dart
 
-import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/domain/types/ids.dart';
 import 'package:pharma_scan/core/providers/core_providers.dart';
 import 'package:pharma_scan/features/restock/domain/entities/restock_item_entity.dart';
 import 'package:pharma_scan/features/restock/presentation/providers/restock_provider.dart';
 
-import '../test/fixtures/seed_builder.dart';
 import '../test/mocks.dart';
+import 'helpers/golden_db_helper.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   group('Restock interactions - delete with undo', () {
     test('delete then restore via notifier', () async {
-      final db = AppDatabase.forTesting(
-        NativeDatabase.memory(setup: configureAppSQLite),
-      );
+      // Load golden database instead of manual seeding
+      final db = await loadGoldenDatabase();
 
       final mockDataInit = MockDataInitializationService();
       when(
@@ -29,35 +26,26 @@ void main() {
           forceRefresh: any(named: 'forceRefresh'),
         ),
       ).thenAnswer((_) async {});
-      when(
-        () => mockDataInit.applyUpdate(any<Map<String, File>>()),
-      ).thenAnswer((_) async {
-        return null;
-      });
 
       final container = ProviderContainer(
         overrides: [
-          appDatabaseProvider.overrideWithValue(db),
+          databaseProvider.overrideWithValue(db),
           dataInitializationServiceProvider.overrideWithValue(mockDataInit),
         ],
       );
       addTearDown(container.dispose);
+      addTearDown(db.close);
 
-      await SeedBuilder()
-          .inGroup('GRP_PARA', 'Paracetamol Group')
-          .addPrinceps(
-            'Paracetamol Princeps',
-            '3400000000001',
-            cis: 'CIS_PARA_1',
-            dosage: '500',
-            form: 'Comprimé',
-          )
-          .insertInto(db);
-      await db.databaseDao.populateSummaryTable();
-      await db.databaseDao.populateFts5Index();
+      // Get a real medication from the golden database
+      final summaries = await (db.select(db.medicamentSummary)..limit(1)).get();
+      expect(summaries, isNotEmpty, reason: 'Golden DB should have data');
+
+      final testMed = summaries.first;
+      final cip = testMed.representativeCip != null
+          ? Cip13.validated(testMed.representativeCip!)
+          : Cip13.validated('3400930000001'); // Fallback if no CIP
 
       final restockDao = db.restockDao;
-      final cip = Cip13.validated('3400000000001');
       await restockDao.addToRestock(cip);
 
       var rows = await db.select(db.restockItems).get();
@@ -66,12 +54,12 @@ void main() {
       final notifier = container.read(restockProvider.notifier);
       final entity = RestockItemEntity(
         cip: cip,
-        label: 'Paracetamol Princeps',
-        princepsLabel: 'Paracetamol Princeps',
-        form: 'Comprimé',
+        label: testMed.nomCanonique,
+        princepsLabel: testMed.princepsDeReference,
+        form: testMed.formePharmaceutique ?? '',
         quantity: 1,
         isChecked: false,
-        isPrinceps: true,
+        isPrinceps: testMed.isPrinceps,
       );
 
       await notifier.deleteItem(entity);
@@ -81,7 +69,7 @@ void main() {
       await notifier.restoreItem(entity);
       rows = await db.select(db.restockItems).get();
       expect(rows, hasLength(1));
-      expect(rows.single.quantity, 1);
+      expect(rows.single.stockCount, 1);
     });
   });
 }

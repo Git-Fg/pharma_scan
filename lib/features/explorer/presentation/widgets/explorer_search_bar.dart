@@ -52,7 +52,7 @@ class ExplorerSearchBar extends HookConsumerWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: context.shadColors.background,
+        color: context.background,
         border: Border(
           top: BorderSide(color: context.shadColors.border),
         ),

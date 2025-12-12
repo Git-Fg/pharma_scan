@@ -9,10 +9,15 @@ import 'package:pharma_scan/features/explorer/domain/entities/group_detail_entit
 extension GroupDetailPresentation on GroupDetailEntity {
   /// Display name for the medication (princeps or generic)
   String get displayName {
-    if (isPrinceps && princepsDeReference != null) {
-      return extractPrincepsLabel(princepsDeReference!);
+    if (isPrinceps) {
+      // Use princepsBrandName from DB if available, otherwise fallback to princepsDeReference
+      final brandName = princepsBrandName.trim();
+      if (brandName.isNotEmpty) {
+        return brandName;
+      }
+      return princepsDeReference.trim();
     }
-    final nom = nomCanonique ?? '';
+    final nom = nomCanonique;
     final parts = nom.split(' - ');
     return parts.first.trim();
   }
@@ -88,9 +93,11 @@ extension GroupDetailListExtensions on List<GroupDetailEntity> {
 
     final princepsRef = first.princepsDeReference;
     final nomCanon = first.nomCanonique;
-    final title = (princepsRef != null && princepsRef.isNotEmpty)
-        ? extractPrincepsLabel(princepsRef)
-        : (nomCanon ?? '');
+    // Use princepsBrandName from DB if available, otherwise fallback to princepsDeReference
+    final brandName = first.princepsBrandName.trim();
+    final title = (brandName.isNotEmpty)
+        ? brandName
+        : (princepsRef.isNotEmpty ? princepsRef : nomCanon);
 
     // Parse principesActifsCommuns from JSON string
     final principesJson = first.principesActifsCommuns;

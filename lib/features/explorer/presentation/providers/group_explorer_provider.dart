@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:pharma_scan/core/logic/sanitizer.dart';
 import 'package:pharma_scan/core/providers/core_providers.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/features/explorer/domain/entities/group_detail_entity.dart';
@@ -18,12 +17,9 @@ Future<GroupExplorerState> groupExplorer(
   final catalogDao = ref.watch(catalogDaoProvider);
 
   final membersStream = catalogDao.watchGroupDetails(groupId);
-  final membersRaw = await _firstNonEmpty(membersStream);
-  final members = membersRaw.map(GroupDetailEntity.fromData).toList();
+  final members = await _firstNonEmpty(membersStream);
 
-  final relatedMembers = (await catalogDao.fetchRelatedPrinceps(
-    groupId,
-  )).map(GroupDetailEntity.fromData).toList();
+  final relatedMembers = await catalogDao.fetchRelatedPrinceps(groupId);
 
   if (members.isEmpty) {
     return const GroupExplorerState(
@@ -84,19 +80,20 @@ Future<List<T>> _firstNonEmpty<T>(Stream<List<T>> stream) async {
 }
 
 String _buildPrincepsDisplayTitle(GroupDetailEntity princeps) {
-  final brand = princeps.princepsBrandName?.trim();
-  if (brand != null && brand.isNotEmpty) {
-    return extractPrincepsLabel(brand);
+  // Use princepsBrandName from DB if available
+  final brand = princeps.princepsBrandName.trim();
+  if (brand.isNotEmpty) {
+    return brand;
   }
 
-  final nomSpecialite = princeps.nomSpecialite?.trim();
-  if (nomSpecialite != null && nomSpecialite.isNotEmpty) {
-    return extractPrincepsLabel(nomSpecialite);
+  final nomSpecialite = princeps.nomSpecialite.trim();
+  if (nomSpecialite.isNotEmpty) {
+    return nomSpecialite;
   }
 
   final princepsRef = princeps.princepsDeReference;
-  if (princepsRef != null && princepsRef.isNotEmpty) {
-    return extractPrincepsLabel(princepsRef);
+  if (princepsRef.isNotEmpty) {
+    return princepsRef;
   }
 
   return '';

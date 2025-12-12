@@ -10,9 +10,7 @@ typedef GroupDetailsList = List<GroupDetailEntity>;
 @riverpod
 Stream<GroupDetailsList> groupDetailViewModel(Ref ref, String groupId) {
   final catalogDao = ref.watch(catalogDaoProvider);
-  return catalogDao
-      .watchGroupDetails(groupId)
-      .map((rows) => rows.map(GroupDetailEntity.fromData).toList());
+  return catalogDao.watchGroupDetails(groupId);
 }
 
 @riverpod
@@ -21,6 +19,5 @@ Future<GroupDetailsList> relatedPrinceps(
   String groupId,
 ) async {
   final catalogDao = ref.watch(catalogDaoProvider);
-  final rows = await catalogDao.fetchRelatedPrinceps(groupId);
-  return rows.map(GroupDetailEntity.fromData).toList();
+  return catalogDao.fetchRelatedPrinceps(groupId);
 }

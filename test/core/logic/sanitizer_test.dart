@@ -115,7 +115,7 @@ void main() {
           equals('ibuprofene lysine'),
         );
         expect(
-          normalizeForSearch("PHOSPHATE DE CODÉINE HÉMIHYDRATÉ"),
+          normalizeForSearch('PHOSPHATE DE CODÉINE HÉMIHYDRATÉ'),
           equals('phosphate de codeine hemihydrate'),
         );
       });
@@ -136,36 +136,6 @@ void main() {
         expect(normalizeForSearch('amoxicylline'), equals('amoxicylline'));
         expect(normalizeForSearch('amoxicilline'), equals('amoxicilline'));
       });
-    });
-  });
-
-  group('normalizeForSearchIndex - Chemical Name Normalization', () {
-    // Note: normalizeForSearchIndex is the more complex normalization
-    // used during indexing to clean up chemical names
-
-    test('basic functionality', () {
-      expect(
-        normalizeForSearchIndex('PARACETAMOL'),
-        equals('PARACETAMOL'),
-      );
-    });
-
-    test('removes ACIDE prefix', () {
-      expect(
-        normalizeForSearchIndex('ACIDE ACETYLSALICYLIQUE'),
-        equals('ACETYLSALICYLIQUE'),
-      );
-    });
-
-    test('handles stereo-isomers', () {
-      expect(
-        normalizeForSearchIndex('( R ) - AMLODIPINE'),
-        equals('AMLODIPINE'),
-      );
-      expect(
-        normalizeForSearchIndex('( S ) - OMEPRAZOLE'),
-        equals('OMEPRAZOLE'),
-      );
     });
   });
 }

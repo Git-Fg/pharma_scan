@@ -45,7 +45,6 @@ class TestScenarios {
           dosage: '500 mg',
           form: 'Comprimé',
           lab: 'SANOFI AVENTIS FRANCE',
-          isPrinceps: true,
         )
         .addGeneric(
           'Paracétamol Biogaran 500mg',
@@ -87,8 +86,6 @@ class TestScenarios {
           dosage: '200 mg',
           form: 'Gélule',
           lab: 'PFIZER',
-          isNarcotic: false,
-          isOtc: true,
         )
         .addGeneric(
           'Ibuprofène Mylan 200mg',
@@ -106,7 +103,6 @@ class TestScenarios {
           dosage: '400 mg',
           form: 'Comprimé',
           lab: 'PFIZER',
-          isNarcotic: false,
           isOtc: false,
         )
         .insertInto(db);
@@ -125,7 +121,7 @@ class TestScenarios {
           lab: 'GLAXOSMITHKLINE',
           isOtc: false,
           isRestricted: true,
-          conditionsPrescription: 'Médicament réservé à l\'usage professionnel',
+          conditionsPrescription: "Médicament réservé à l'usage professionnel",
           atcCode: 'J01CR02',
         )
         .addGeneric(
@@ -157,19 +153,16 @@ class TestScenarios {
           cisCode: 'CIS_VITAMIN_C',
           nomCanonique: 'Vitamine C 500mg',
           princepsDeReference: 'Vitamine C',
-          isPrinceps: true,
           cipCode: '3400937777777',
           formattedDosage: '500 mg',
           formePharmaceutique: 'Comprimé à croquer',
           labName: 'MERCK',
-          isOtc: true,
           principesActifsCommuns: jsonEncode(['Acide ascorbique']),
         )
         .addMedication(
           cisCode: 'CIS_OMEPRAZOLE',
           nomCanonique: 'Mopral 20mg',
           princepsDeReference: 'Mopral',
-          isPrinceps: true,
           cipCode: '3400938888888',
           formattedDosage: '20 mg',
           formePharmaceutique: 'Gélule gastro-résistante',

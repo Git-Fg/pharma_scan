@@ -61,7 +61,6 @@ void main() {
 
       service = DataInitializationService(
         database: database,
-        cacheDirectory: testDataDir,
         fileDownloadService: mockDownloadService,
       );
     });
@@ -76,54 +75,8 @@ void main() {
       }
     });
 
-    test('applyUpdate() fails when required files are missing', () async {
-      final testFile = File(p.join(testDataDir, 'test.txt'));
-      await testFile.writeAsString('test content');
-
-      final tempFiles = {'specialites': testFile};
-
-      await expectLater(
-        () => service.applyUpdate(tempFiles),
-        throwsA(isA<Exception>()),
-      );
-    });
-
-    test('applyUpdate() copies files with minimal fixtures', () async {
-      final fakeDownloader = FakeDownloadService(Directory(testDataDir));
-      final tmpService = DataInitializationService(
-        database: database,
-        cacheDirectory: testDataDir,
-        fileDownloadService: fakeDownloader,
-      );
-
-      final sampleLines = <String, String>{
-        'specialites':
-            '12345678\tDenom\tForme\tVoie\tStatut\tProc\tEtat\t01/01/2024\tSTAT\tNUM\tTitulaire\tOui',
-        'medicaments':
-            '12345678\t00000\tLib\tStatut\tEtat\t01/01/2024\t3400000000001\tOui\t65%\t12,50',
-        'compositions': '12345678\tElem\t123456\tDenom\t500 mg\tREF\tFT\t1',
-        'generiques': 'GRP1\tLibelle\t12345678\t0',
-        'conditions': '12345678\tCondition',
-        'availability': '12345678\t3400000000001\t1\tDisponible',
-        'mitm': '12345678\tATC',
-      };
-
-      final tempFiles = <String, File>{};
-      for (final entry in DataSources.files.entries) {
-        final filename = entry.value.split('/').last;
-        final file = File(p.join(testDataDir, filename));
-        await file.writeAsString(sampleLines[entry.key] ?? 'placeholder');
-        tempFiles[entry.key] = file;
-      }
-
-      await tmpService.applyUpdate(tempFiles);
-
-      for (final entry in tempFiles.entries) {
-        final filename = entry.value.path.split(Platform.pathSeparator).last;
-        final cached = File(p.join(testDataDir, filename));
-        expect(cached.existsSync(), isTrue);
-      }
-    });
+    // Note: applyUpdate() method was removed as part of the external DB-driven architecture
+    // The service now only downloads and decompresses pre-aggregated databases
 
     test(
       'initializeDatabase emits ready when data already matches current version',
@@ -132,34 +85,53 @@ void main() {
           DataInitializationService.dataVersion,
         );
 
-        await database
-            .into(database.medicamentSummary)
-            .insert(
-              const MedicamentSummaryCompanion(
-                cisCode: drift.Value('00000001'),
-                nomCanonique: drift.Value('Test product'),
-                isPrinceps: drift.Value(true),
-                groupId: drift.Value(null),
-                memberType: drift.Value(0),
-                principesActifsCommuns: drift.Value(<String>['x']),
-                princepsDeReference: drift.Value('Test product'),
-                formePharmaceutique: drift.Value(null),
-                voiesAdministration: drift.Value(null),
-                princepsBrandName: drift.Value('Test product'),
-                procedureType: drift.Value('AMM'),
-                titulaireId: drift.Value(null),
-                conditionsPrescription: drift.Value(null),
-                dateAmm: drift.Value(null),
-                formattedDosage: drift.Value(null),
-                atcCode: drift.Value(null),
-                status: drift.Value(null),
-                priceMin: drift.Value(null),
-                priceMax: drift.Value(null),
-                aggregatedConditions: drift.Value(null),
-                ansmAlertUrl: drift.Value(null),
-                representativeCip: drift.Value(null),
-              ),
-            );
+        // Insert medicament_summary using raw SQL
+        await database.customInsert(
+          '''
+          INSERT INTO medicament_summary (
+            cis_code, nom_canonique, is_princeps, group_id, member_type,
+            principes_actifs_communs, princeps_de_reference, forme_pharmaceutique,
+            voies_administration, princeps_brand_name, procedure_type, titulaire_id,
+            conditions_prescription, date_amm, formatted_dosage, atc_code, status,
+            price_min, price_max, aggregated_conditions, ansm_alert_url,
+            representative_cip, is_hospital, is_dental, is_list1, is_list2,
+            is_narcotic, is_exception, is_restricted, is_otc
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ''',
+          variables: [
+            Variable.withString('00000001'),
+            Variable.withString('Test product'),
+            Variable.withBool(true),
+            Variable.withString(''),
+            Variable.withInt(0),
+            Variable.withString('["x"]'),
+            Variable.withString('Test product'),
+            Variable.withString(''),
+            Variable.withString(''),
+            Variable.withString('Test product'),
+            Variable.withString('AMM'),
+            Variable.withInt(0),
+            Variable.withString(''),
+            Variable.withString(''),
+            Variable.withString(''),
+            Variable.withString(''),
+            Variable.withString(''),
+            Variable.withReal(0.0),
+            Variable.withReal(0.0),
+            Variable.withString('[]'),
+            Variable.withString(''),
+            Variable.withString(''),
+            Variable.withBool(false),
+            Variable.withBool(false),
+            Variable.withBool(false),
+            Variable.withBool(false),
+            Variable.withBool(false),
+            Variable.withBool(false),
+            Variable.withBool(false),
+            Variable.withBool(true),
+          ],
+          updates: {database.medicamentSummary},
+        );
 
         final readyFuture = service.onStepChanged.firstWhere(
           (step) => step == InitializationStep.ready,

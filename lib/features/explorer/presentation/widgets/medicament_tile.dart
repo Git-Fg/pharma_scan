@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
-import 'package:pharma_scan/core/logic/sanitizer.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
@@ -291,11 +290,13 @@ class MedicamentTile extends StatelessWidget {
   }
 
   String? _buildSubtitle(String? form, String? principles) {
-    final sanitizedPrinciples = principles
-        ?.split(' + ')
-        .map((principle) => normalizePrincipleOptimal(principle.trim()));
+    // Principles are already normalized from the database
     final normalizedPrinciples =
-        sanitizedPrinciples?.where((value) => value.isNotEmpty).join(' + ') ??
+        principles
+            ?.split(' + ')
+            .map((p) => p.trim())
+            .where((p) => p.isNotEmpty)
+            .join(' + ') ??
         '';
 
     final segments = <String>[

@@ -2,7 +2,6 @@ import 'package:diacritic/diacritic.dart';
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 import 'package:pharma_scan/core/domain/types/ids.dart';
-import 'package:pharma_scan/core/logic/sanitizer.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/formatters.dart';
@@ -72,9 +71,18 @@ class ScannerResultCard extends StatelessWidget {
 
     final commercializationStatus = boxStatus ?? summary.data.status;
 
+    // Use princepsBrandName from DB if available
     final displayTitle = isGenericWithPrinceps
-        ? extractPrincepsLabel(summary.data.princepsDeReference)
-        : getDisplayTitle(summary);
+        ? (summary.data.princepsBrandName.isNotEmpty
+              ? summary.data.princepsBrandName
+              : summary.data.princepsDeReference)
+        : (summary.data.isPrinceps
+              ? (summary.data.princepsBrandName.isNotEmpty
+                    ? summary.data.princepsBrandName
+                    : summary.data.princepsDeReference)
+              : (summary.groupId != null
+                    ? summary.data.nomCanonique.split(' - ').first.trim()
+                    : summary.data.nomCanonique));
 
     final metadataLines = List<String>.from(subtitle);
     final descriptionLine = metadataLines.isNotEmpty

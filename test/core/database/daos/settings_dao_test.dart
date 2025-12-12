@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pharma_scan/core/database/database.dart';
-import 'package:pharma_scan/core/database/tables/settings.drift.dart';
+import 'package:pharma_scan/core/database/models/app_setting.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -24,7 +24,6 @@ void main() {
     test('getSettings() creates default settings if none exist', () async {
       final settings = await database.settingsDao.getSettings();
 
-      expect(settings.id, equals(1));
       expect(settings.hapticFeedbackEnabled, isTrue);
       expect(settings.preferredSorting, equals('princeps'));
     });
@@ -34,7 +33,6 @@ void main() {
 
       final settings = await database.settingsDao.getSettings();
 
-      expect(settings.id, equals(1));
       expect(settings.hapticFeedbackEnabled, isTrue);
     });
 
@@ -42,7 +40,6 @@ void main() {
       final stream = database.settingsDao.watchSettings().asBroadcastStream();
       final settings = await stream.first;
 
-      expect(settings.id, equals(1));
       expect(settings.hapticFeedbackEnabled, isTrue);
     });
 
