@@ -1,10 +1,13 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:signals_flutter/signals_flutter.dart';
+import 'package:pharma_scan/core/hooks/use_scanner_logic.dart';
 import 'package:pharma_scan/core/router/app_router.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
+import 'package:pharma_scan/core/models/scan_models.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/product_badges.dart';
 import 'package:pharma_scan/features/scanner/presentation/providers/scanner_provider.dart';
 import 'package:pharma_scan/features/scanner/presentation/widgets/scanner_result_card.dart';
@@ -16,44 +19,43 @@ import 'package:shadcn_ui/shadcn_ui.dart';
 /// - Responsive margins (8px for small screens, 12px otherwise)
 /// - Dismissible swipe-to-remove functionality
 /// - Bubble entrance animations
-class ScannerBubbles extends ConsumerWidget {
+class ScannerBubbles extends HookConsumerWidget {
   const ScannerBubbles({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Consumer(
-      builder: (context, ref, child) {
-        final scannerAsync = ref.watch(scannerProvider);
-        final scannerState = scannerAsync.value;
+    final logic = useScannerLogic(ref);
 
-        if (scannerState == null || scannerState.bubbles.isEmpty) {
-          return const SizedBox.shrink();
-        }
+    return Watch((_) {
+      final scannerBubbles = logic.bubbles.value as List<ScanResult>;
+      final mode = logic.mode.value as ScannerMode;
 
-        return LayoutBuilder(
-          builder: (context, constraints) {
-            final horizontalMargin = constraints.maxWidth < 600 ? 8.0 : 12.0;
+      if (scannerBubbles.isEmpty) return const SizedBox.shrink();
 
-            return Padding(
-              padding: EdgeInsets.symmetric(horizontal: horizontalMargin),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  for (var i = 0; i < scannerState.bubbles.length; i++)
-                    _buildBubbleItem(
-                      context,
-                      ref,
-                      scannerState.bubbles[i],
-                      scannerState.mode,
-                      i,
-                    ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          final horizontalMargin = constraints.maxWidth < 600 ? 8.0 : 12.0;
+
+          return Padding(
+            padding: EdgeInsets.symmetric(horizontal: horizontalMargin),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (var i = 0; i < scannerBubbles.length; i++)
+                  _buildBubbleItem(
+                    context,
+                    ref,
+                    scannerBubbles[i],
+                    mode,
+                    i,
+                    logic,
+                  ),
+              ],
+            ),
+          );
+        },
+      );
+    });
   }
 
   Widget _buildBubbleItem(
@@ -62,6 +64,7 @@ class ScannerBubbles extends ConsumerWidget {
     ScanBubble bubble,
     ScannerMode mode,
     int index,
+    ScannerLogic? logic,
   ) {
     final isPrimary = index == 0;
 
@@ -72,14 +75,13 @@ class ScannerBubbles extends ConsumerWidget {
       ),
       child: Dismissible(
         key: ValueKey(bubble.cip.toString()),
-        onDismissed: (_) => ref
-            .read(scannerProvider.notifier)
-            .removeBubble(bubble.cip.toString()),
+        onDismissed: (_) => logic?.removeBubble(bubble.cip.toString()),
         child: _buildBubbleContent(
           context,
           ref,
           bubble,
           mode,
+          logic,
         ),
       ),
     );
@@ -90,10 +92,10 @@ class ScannerBubbles extends ConsumerWidget {
     WidgetRef ref,
     ScanBubble bubble,
     ScannerMode mode,
+    ScannerLogic? logic,
   ) {
     final summary = bubble.summary;
-    final isGenericWithPrinceps =
-        !summary.data.isPrinceps &&
+    final isGenericWithPrinceps = !summary.data.isPrinceps &&
         summary.groupId != null &&
         summary.data.princepsDeReference.isNotEmpty &&
         summary.data.princepsDeReference != 'Inconnu';
@@ -142,22 +144,18 @@ class ScannerBubbles extends ConsumerWidget {
 
     return ScannerResultCard(
       key: ValueKey(
-        '${cipString}_${summary.data.isPrinceps
-            ? 'princeps'
-            : summary.groupId != null
-            ? 'generic'
-            : 'standalone'}',
+        '${cipString}_${summary.data.isPrinceps ? 'princeps' : summary.groupId != null ? 'generic' : 'standalone'}',
       ),
       summary: summary,
       cip: bubble.cip,
       badges: badges,
       subtitle: compactSubtitle,
       mode: mode,
-      onClose: () => ref.read(scannerProvider.notifier).removeBubble(cipString),
+      onClose: () => logic?.removeBubble(cipString),
       onExplore: summary.groupId != null
           ? () => AutoRouter.of(context).push(
-              GroupExplorerRoute(groupId: summary.groupId!.toString()),
-            )
+                GroupExplorerRoute(groupId: summary.groupId!.toString()),
+              )
           : null,
       price: bubble.price,
       refundRate: bubble.refundRate,

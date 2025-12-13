@@ -390,24 +390,32 @@ Technical guardrails for error handling live in `.cursor/rules/`.
 
 **Type Safety:** Always use generated `*Route` classes. Never use raw strings.
 
-**Dependency Injection (2025 Standard):**
+**Context-Free Navigation (2025 Standard):**
 
-For business logic in Notifiers or Controllers, use `ref.router` (from `core/router/router_extensions.dart`) to avoid passing `BuildContext` and keep navigation testable.
+Navigation is decoupled from `BuildContext` by injecting the router via `routerProvider`. This treats navigation as a **Side Effect Service**, allowing Notifiers to navigate without receiving `BuildContext`.
+
+**Architecture:**
+- `appRouterProvider`: Creates the singleton `AppRouter` instance (used in `main.dart`)
+- `routerProvider`: Exposes `Raw<StackRouter>` for navigation from logic layers
+- `ref.router`: Convenience extension for `ref.read(routerProvider)`
 
 ```dart
-// In a Notifier/Controller
+// In a Notifier (Pure Logic - No BuildContext needed!)
 @riverpod
-class MyNotifier extends _$MyNotifier {
+class AuthNotifier extends _$AuthNotifier {
   @override
-  void build() {}
+  AsyncValue<User?> build() => const AsyncData(null);
 
-  void performAction() {
-    ref.router.push(const DetailRoute());
+  void logout() {
+    state = const AsyncData(null);
+    // Navigation without Context!
+    ref.router.replace(const LoginRoute());
   }
 }
 ```
 
 For simple widget callbacks, `context.router` remains acceptable and convenient.
+
 
 **Tab Navigation Patterns:**
 

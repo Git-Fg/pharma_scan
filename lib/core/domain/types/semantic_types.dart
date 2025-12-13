@@ -35,4 +35,19 @@ extension type NormalizedQuery(String _value) implements String {
     ).toLowerCase().replaceAll(RegExp(r'\s+'), ' ').trim();
     return normalized as NormalizedQuery;
   }
+
+  /// Converts the normalized query into an FTS5-compatible MATCH string.
+  ///
+  /// Strategy:
+  /// - Split on spaces (already normalized by the extension type)
+  /// - Quote each non-empty term
+  /// - Join with ` AND ` so all terms must match
+  ///
+  /// Returns empty string for empty input.
+  String toFtsQuery() {
+    final s = _value.trim();
+    if (s.isEmpty) return '';
+    final parts = s.split(' ').where((t) => t.isNotEmpty).map((t) => '"$t"');
+    return parts.join(' AND ');
+  }
 }

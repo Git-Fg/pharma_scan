@@ -5,7 +5,7 @@ import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/domain/types/ids.dart';
 import 'package:pharma_scan/core/domain/types/semantic_types.dart';
 import 'package:pharma_scan/core/logic/sanitizer.dart';
-import 'package:pharma_scan/core/models/scan_result.dart';
+import 'package:pharma_scan/core/models/scan_models.dart';
 import 'package:pharma_scan/core/services/logger_service.dart';
 import 'package:pharma_scan/core/database/views.drift.dart';
 import 'package:pharma_scan/features/explorer/domain/entities/group_detail_entity.dart';
@@ -29,17 +29,7 @@ import 'package:pharma_scan/core/database/queries.drift.dart';
 /// - Split into individual terms
 /// - Wrap each term in quotes for exact substring matching
 /// - Join terms with AND for all-term matching
-String _buildFtsQuery(String raw) {
-  final normalized = normalizeForSearch(raw);
-  if (normalized.isEmpty) return '';
-  final terms = normalized.split(' ').where((t) => t.isNotEmpty).toList();
-  if (terms.isEmpty) return '';
-
-  // For trigram, we just quote each term and join with AND
-  // The trigram tokenizer will find fuzzy matches automatically
-  final parts = terms.map((term) => '"$term"').toList();
-  return parts.join(' AND ');
-}
+// FTS formatting is handled by `NormalizedQuery.toFtsQuery()`.
 
 /// DAO pour les opérations sur le catalogue de médicaments.
 ///
@@ -81,18 +71,16 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> {
     }
 
     // The result already contains all the data mapped directly
-    return ScanResult(
+    return (
       summary: MedicamentEntity.fromData(result.ms, labName: result.labName),
       cip: codeCip,
-      metadata: (
-        price: result.prixPublic,
-        refundRate: result.tauxRemboursement,
-        boxStatus: result.commercialisationStatut,
-        availabilityStatus: result.availabilityStatut,
-        isHospitalOnly: result.ms.isHospital,
-        libellePresentation: result.presentationLabel,
-        expDate: expDate,
-      ),
+      price: result.prixPublic,
+      refundRate: result.tauxRemboursement,
+      boxStatus: result.commercialisationStatut,
+      availabilityStatus: result.availabilityStatut,
+      isHospitalOnly: result.ms.isHospital,
+      libellePresentation: result.presentationLabel,
+      expDate: expDate,
     );
   }
 
@@ -104,7 +92,7 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> {
     NormalizedQuery query, {
     SearchFilters? filters,
   }) async {
-    final sanitizedQuery = _buildFtsQuery(query.toString());
+    final sanitizedQuery = query.toFtsQuery();
     if (sanitizedQuery.isEmpty) {
       LoggerService.db('Empty search query, returning empty results');
       return <MedicamentEntity>[];
@@ -137,7 +125,7 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> {
     NormalizedQuery query, {
     SearchFilters? filters,
   }) {
-    final sanitizedQuery = _buildFtsQuery(query.toString());
+    final sanitizedQuery = query.toFtsQuery();
     if (sanitizedQuery.isEmpty) {
       LoggerService.db('Empty search query, emitting empty stream');
       return Stream<List<MedicamentEntity>>.value(const <MedicamentEntity>[]);
@@ -167,40 +155,14 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> {
   // ============================================================================
   // SQL-First Mapping Examples: Using the ** operator for automatic mapping
   // ============================================================================
-
-  /// Example of SQL-First mapping using the searchProducts query with ** operator
-  /// This demonstrates how Drift automatically maps all columns from joined tables
-  /// to strongly-typed result classes (SearchProductsResult)
-  Future<List<SearchProductsResult>> searchProducts(
-    String query,
-  ) async {
-    LoggerService.db('Searching products with query: $query');
-
-    // Use the generated query with automatic mapping via ** operator
-    // This returns a strongly-typed SearchProductsResult with all columns mapped
-    final results = await attachedDatabase.queriesDrift
-        .searchProducts(query: '%$query%') // LIKE query with wildcards
-        .get();
-
-    return results;
-  }
-
-  /// Reactive version of searchProducts using the watchSearchProducts query
-  Stream<List<WatchSearchProductsResult>> watchSearchProducts(
-    String query,
-  ) {
-    LoggerService.db('Watching products for query: $query');
-
-    // Use the watch variant for reactive updates
-    return attachedDatabase.queriesDrift
-        .watchSearchProducts(query: '%$query%') // LIKE query with wildcards
-        .watch();
-  }
+  // NOTE: Older helper methods that relied on LIKE-based `searchProducts`
+  // and `watchSearchProducts` were removed in favor of `searchMedicaments`
+  // which performs normalized FTS5 searches and supports filters.
 
   /// Returns clustered search results for UI display
   /// Uses view_search_results to provide cluster, group, and standalone results
   Stream<List<ViewSearchResult>> watchSearchResults(NormalizedQuery query) {
-    final sanitizedQuery = _buildFtsQuery(query.toString());
+    final sanitizedQuery = query.toFtsQuery();
     if (sanitizedQuery.isEmpty) {
       LoggerService.db('Empty search query, emitting empty stream');
       return Stream<List<ViewSearchResult>>.value(const []);
@@ -216,12 +178,8 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> {
         .watch()
         .map((rows) {
       // Apply client-side filtering since FTS5 on views can be complex
-      final normalizedSearchTerms = query
-          .toString()
-          .toLowerCase()
-          .split(' ')
-          .where((term) => term.isNotEmpty)
-          .toList();
+      final normalizedSearchTerms =
+          query.split(' ').where((term) => term.isNotEmpty).toList();
 
       if (normalizedSearchTerms.isEmpty) return <ViewSearchResult>[];
 
@@ -496,7 +454,8 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> {
 
   /// Get detailed product information using the ** operator for automatic mapping
   /// Returns a strongly-typed result class with all columns from joined tables
-  Future<GetProductDetailsByCipResult?> getProductDetailsByCip(String cipCode) async {
+  Future<GetProductDetailsByCipResult?> getProductDetailsByCip(
+      String cipCode) async {
     LoggerService.db('Fetching detailed product info for CIP: $cipCode');
 
     // Use the generated query with automatic mapping via ** operator
@@ -508,7 +467,8 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> {
   }
 
   /// Get all products by laboratory with automatic mapping
-  Future<List<GetProductsByLaboratoryResult>> getProductsByLaboratory(int labId) async {
+  Future<List<GetProductsByLaboratoryResult>> getProductsByLaboratory(
+      int labId) async {
     LoggerService.db('Fetching products for laboratory ID: $labId');
 
     // Use the generated query with automatic mapping via ** operator
@@ -520,7 +480,8 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> {
   }
 
   /// Get product availability information using the ** operator for automatic mapping
-  Future<GetProductAvailabilityResult?> getProductAvailability(String cipCode) async {
+  Future<GetProductAvailabilityResult?> getProductAvailability(
+      String cipCode) async {
     LoggerService.db('Fetching availability info for CIP: $cipCode');
 
     // Use the generated query with automatic mapping via ** operator

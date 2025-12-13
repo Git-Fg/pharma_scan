@@ -5,10 +5,12 @@
   "module": "src/index.ts",
   "scripts": {
     "test": "bun test",
-    "build:db": "bun run src/index.ts && echo \"DROP TABLE IF EXISTS app_settings; DROP TABLE IF EXISTS restock_items; DROP TABLE IF EXISTS scanned_boxes; DROP INDEX IF EXISTS idx_restock_items_cis_code; DROP INDEX IF EXISTS idx_restock_items_expiry_date; DROP INDEX IF EXISTS idx_scanned_boxes_scan_timestamp; DROP INDEX IF EXISTS idx_scanned_boxes_unique;\" | sqlite3 data/reference.db && sqlite3 data/reference.db \".schema\" > data/reference_schema.drift",
+    "build": "bun run src/index.ts",
+    "export-schema": "bun run tool/export_schema.ts",
+    "generate": "bun run build && bun run export-schema",
     "tool": "bun run tool/export_preview.ts && bun run tool/audit_data.ts",
-    "preflight": "bun test && bun run build:db && bun run tool",
-    "preflight:bp": "bun run build:db && bun run tool",
+    "preflight": "bun test && bun run generate && bun run tool",
+    "preflight:bp": "bun run generate && bun run tool",
     "sync": "bun run tool/sync.ts",
     "update-db": "bun run tool/release.ts",
     "update-db-force": "bun run tool/release.ts --force"

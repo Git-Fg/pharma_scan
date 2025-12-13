@@ -1,7 +1,8 @@
 import 'package:pharma_scan/core/database/daos/catalog_dao.dart';
+import 'package:pharma_scan/core/database/restock_views.drift.dart';
 import 'package:pharma_scan/core/database/daos/restock_dao.dart';
 import 'package:pharma_scan/core/domain/types/ids.dart';
-import 'package:pharma_scan/core/models/scan_result.dart';
+import 'package:pharma_scan/core/models/scan_models.dart';
 import 'package:pharma_scan/core/utils/gs1_parser.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/features/restock/domain/entities/restock_item_entity.dart';
@@ -202,14 +203,15 @@ class ScanOrchestrator {
     }
 
     final quantity = await _restockDao.getRestockQuantity(cip13) ?? 1;
-    final restockItem = RestockItemEntity(
-      cip: cip13,
-      label: catalogResult.summary.data.nomCanonique,
-      princepsLabel: catalogResult.summary.data.princepsDeReference,
-      quantity: quantity,
-      isChecked: false,
-      isPrinceps: catalogResult.summary.data.isPrinceps,
-      form: catalogResult.summary.formePharmaceutique,
+    final restockItem = RestockItemEntity.fromData(
+      ViewRestockItem(
+        cipCode: cip13.toString(),
+        stockCount: quantity,
+        nomCanonique: catalogResult.summary.data.nomCanonique,
+        princepsDeReference: catalogResult.summary.data.princepsDeReference,
+        isPrinceps: catalogResult.summary.data.isPrinceps,
+        formePharmaceutique: catalogResult.summary.formePharmaceutique,
+      ),
     );
 
     return RestockAdded(

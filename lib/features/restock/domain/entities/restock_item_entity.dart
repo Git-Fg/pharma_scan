@@ -1,31 +1,30 @@
-import 'package:dart_mappable/dart_mappable.dart';
+import 'package:pharma_scan/core/database/restock_views.drift.dart';
 import 'package:pharma_scan/core/domain/types/ids.dart';
+import 'package:pharma_scan/core/utils/strings.dart';
 
-part 'restock_item_entity.mapper.dart';
+/// Extension type wrapping [ViewRestockItem] for zero-cost abstraction.
+extension type RestockItemEntity(ViewRestockItem _data) {
+  // Factory expecting the exact Drift row type
+  factory RestockItemEntity.fromData(ViewRestockItem data) =>
+      RestockItemEntity(data);
 
-@MappableClass()
-class RestockItemEntity with RestockItemEntityMappable {
-  const RestockItemEntity({
-    required this.cip,
-    required this.label,
-    required this.quantity,
-    required this.isChecked,
-    required this.isPrinceps,
-    this.form,
-    this.princepsLabel,
-  });
+  // Directly validated getters
+  Cip13 get cip => Cip13.validated(_data.cipCode);
 
-  final Cip13 cip;
-  final String label;
-  final String? princepsLabel;
-  final String? form;
-  final int quantity;
-  final bool isChecked;
-  final bool isPrinceps;
+  // Logic mapped from DAO
+  String get label => _data.nomCanonique ?? Strings.unknown;
+
+  int get quantity => _data.stockCount;
+
+  bool get isChecked => _data.notes?.contains('"checked":true') ?? false;
+
+  // Handle nullable boolean from Drift view
+  bool get isPrinceps => _data.isPrinceps ?? false;
+
+  String? get form => _data.formePharmaceutique;
+
+  String? get princepsLabel => _data.princepsDeReference;
 
   /// Sorting key used by higher layers when applying smart sorting.
-  ///
-  /// Repository/provider can decide whether to interpret this as
-  /// princeps-based or product-based sorting depending on user preference.
   String get sortingKey => (princepsLabel ?? label).trim();
 }
