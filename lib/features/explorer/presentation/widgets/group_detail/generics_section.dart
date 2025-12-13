@@ -46,13 +46,13 @@ class GenericsSection extends HookWidget {
                 Icon(
                   LucideIcons.copy,
                   size: AppDimens.iconSm,
-                  color: context.shadColors.mutedForeground,
+                  color: context.colors.mutedForeground,
                 ),
                 const Gap(AppDimens.spacingXs),
                 Expanded(
                   child: Text(
                     Strings.generics,
-                    style: context.shadTextTheme.h4,
+                    style: context.typo.h4,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -61,7 +61,7 @@ class GenericsSection extends HookWidget {
                 ShadBadge(
                   child: Text(
                     '${filteredGenerics.length}',
-                    style: context.shadTextTheme.small,
+                    style: context.typo.small,
                   ),
                 ),
               ],
@@ -81,7 +81,7 @@ class GenericsSection extends HookWidget {
                     leading: Icon(
                       LucideIcons.search,
                       size: AppDimens.iconSm,
-                      color: context.shadColors.mutedForeground,
+                      color: context.colors.mutedForeground,
                     ),
                     trailing: filterController.text.isNotEmpty
                         ? ShadButton.ghost(

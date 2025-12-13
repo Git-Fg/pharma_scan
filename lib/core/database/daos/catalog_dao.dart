@@ -13,6 +13,7 @@ import 'package:pharma_scan/features/explorer/domain/entities/medicament_entity.
 import 'package:pharma_scan/features/explorer/domain/models/database_stats.dart';
 import 'package:pharma_scan/features/explorer/domain/models/generic_group_entity.dart';
 import 'package:pharma_scan/features/explorer/domain/models/search_filters_model.dart';
+import 'package:pharma_scan/core/database/queries.drift.dart';
 
 /// Builds an FTS5 query string for trigram tokenizer.
 ///
@@ -44,6 +45,12 @@ String _buildFtsQuery(String raw) {
 ///
 /// Les tables BDPM sont définies dans le schéma SQL et accessibles via
 /// les requêtes générées (queries.drift) ou customSelect/customUpdate.
+///
+/// Modern Drift Best Practices (v2.18+) - SQL-First Mapping:
+/// Les requêtes dans queries.drift utilisent l'opérateur ** pour le mappage automatique,
+/// ce qui élimine le code de mappage manuel et fournit une sécurité de type stricte.
+/// Exemple: m.** mappe automatiquement toutes les colonnes de la table 'medicaments'
+/// vers une classe générée automatiquement (SearchProductsResult, etc.).
 @DriftAccessor()
 class CatalogDao extends DatabaseAccessor<AppDatabase> {
   CatalogDao(super.attachedDatabase);
@@ -155,6 +162,39 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> {
             return MedicamentEntity.fromData(row.ms, labName: row.labName);
           }).toList(),
         );
+  }
+
+  // ============================================================================
+  // SQL-First Mapping Examples: Using the ** operator for automatic mapping
+  // ============================================================================
+
+  /// Example of SQL-First mapping using the searchProducts query with ** operator
+  /// This demonstrates how Drift automatically maps all columns from joined tables
+  /// to strongly-typed result classes (SearchProductsResult)
+  Future<List<SearchProductsResult>> searchProducts(
+    String query,
+  ) async {
+    LoggerService.db('Searching products with query: $query');
+
+    // Use the generated query with automatic mapping via ** operator
+    // This returns a strongly-typed SearchProductsResult with all columns mapped
+    final results = await attachedDatabase.queriesDrift
+        .searchProducts(query: '%$query%') // LIKE query with wildcards
+        .get();
+
+    return results;
+  }
+
+  /// Reactive version of searchProducts using the watchSearchProducts query
+  Stream<List<WatchSearchProductsResult>> watchSearchProducts(
+    String query,
+  ) {
+    LoggerService.db('Watching products for query: $query');
+
+    // Use the watch variant for reactive updates
+    return attachedDatabase.queriesDrift
+        .watchSearchProducts(query: '%$query%') // LIKE query with wildcards
+        .watch();
   }
 
   /// Returns clustered search results for UI display
@@ -448,5 +488,46 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> {
     }
     final sorted = routes.toList()..sort((a, b) => a.compareTo(b));
     return sorted;
+  }
+
+  // ============================================================================
+  // Additional SQL-First Mapping Examples
+  // ============================================================================
+
+  /// Get detailed product information using the ** operator for automatic mapping
+  /// Returns a strongly-typed result class with all columns from joined tables
+  Future<GetProductDetailsByCipResult?> getProductDetailsByCip(String cipCode) async {
+    LoggerService.db('Fetching detailed product info for CIP: $cipCode');
+
+    // Use the generated query with automatic mapping via ** operator
+    final result = await attachedDatabase.queriesDrift
+        .getProductDetailsByCip(cipCode: cipCode)
+        .getSingleOrNull();
+
+    return result;
+  }
+
+  /// Get all products by laboratory with automatic mapping
+  Future<List<GetProductsByLaboratoryResult>> getProductsByLaboratory(int labId) async {
+    LoggerService.db('Fetching products for laboratory ID: $labId');
+
+    // Use the generated query with automatic mapping via ** operator
+    final results = await attachedDatabase.queriesDrift
+        .getProductsByLaboratory(labId: labId)
+        .get();
+
+    return results;
+  }
+
+  /// Get product availability information using the ** operator for automatic mapping
+  Future<GetProductAvailabilityResult?> getProductAvailability(String cipCode) async {
+    LoggerService.db('Fetching availability info for CIP: $cipCode');
+
+    // Use the generated query with automatic mapping via ** operator
+    final result = await attachedDatabase.queriesDrift
+        .getProductAvailability(cipCode: cipCode)
+        .getSingleOrNull();
+
+    return result;
   }
 }

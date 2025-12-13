@@ -33,7 +33,7 @@ You operate with **radical autonomy**: you own the stack, you run the tests, and
 - For component usage, consult `docs/components_reference.md`.
 - For architecture, consult `docs/ARCHITECTURE.md`.
 - **Database Schema:** For complete database schema reference (tables, views, indexes), consult the `database_schema.md` artifact generated in the current session.
-- **Data Ingestion & Grouping Logic:** The primary source of truth for data processing is now in `backend_pipeline/` (TypeScript/Bun). The mobile app's `lib/core/services/ingestion/` is deprecated and should only be used for emergency offline bootstrapping.
+- **Data Ingestion & Grouping Logic:** The primary source of truth for data processing is now in `backend_pipeline/` (TypeScript/Bun). The mobile app operates as a thin client that downloads pre-processed data from the backend - the legacy Dart parsers in `lib/core/services/ingestion/` have been removed.
 - **Backend Pipeline:** For ETL logic, clustering algorithms, and data transformation rules, consult `backend_pipeline/README.md` and source files in `backend_pipeline/src/`.
 </context_library>
 

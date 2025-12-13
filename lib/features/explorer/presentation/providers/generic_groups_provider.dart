@@ -1,5 +1,6 @@
 import 'package:dart_mappable/dart_mappable.dart';
 import 'package:pharma_scan/core/providers/core_providers.dart';
+import 'package:pharma_scan/core/mixins/safe_async_notifier_mixin.dart';
 import 'package:pharma_scan/features/explorer/domain/models/generic_group_entity.dart';
 import 'package:pharma_scan/features/explorer/domain/models/search_filters_model.dart';
 import 'package:pharma_scan/features/explorer/presentation/providers/search_provider.dart';
@@ -18,30 +19,59 @@ class GenericGroupsState with GenericGroupsStateMappable {
 }
 
 @Riverpod(keepAlive: true)
-class GenericGroupsNotifier extends _$GenericGroupsNotifier {
+class GenericGroupsNotifier extends _$GenericGroupsNotifier with SafeAsyncNotifierMixin {
   @override
   Future<GenericGroupsState> build() async {
     final filters = ref.watch(searchFiltersProvider);
     ref.watch(lastSyncEpochProvider);
-    return _fetchAllGroups(filters);
+
+    return await _fetchAllGroups(filters);
   }
 
   Future<GenericGroupsState> _fetchAllGroups(SearchFilters filters) async {
-    final catalogDao = ref.read(catalogDaoProvider);
+    final result = await safeExecute(
+      () async {
+        if (!isMounted(context: 'GenericGroupsNotifier._fetchAllGroups')) {
+          return GenericGroupsState(items: []);
+        }
 
-    final routeKeywords = filters.voieAdministration != null
-        ? [filters.voieAdministration!]
-        : null;
+        final catalogDao = ref.read(catalogDaoProvider);
 
-    final atcClassCode = filters.atcClass?.code;
+        final routeKeywords = filters.voieAdministration != null
+            ? [filters.voieAdministration!]
+            : null;
 
-    final groups = await catalogDao.getGenericGroupSummaries(
-      routeKeywords: routeKeywords,
-      atcClass: atcClassCode,
-      limit: 10000,
+        final atcClassCode = filters.atcClass?.code;
+
+        final groups = await catalogDao.getGenericGroupSummaries(
+          routeKeywords: routeKeywords,
+          atcClass: atcClassCode,
+          limit: 10000,
+        );
+
+        if (!isMounted()) {
+          return GenericGroupsState(items: []);
+        }
+
+        // Ensure downstream listeners receive a fresh list instance on each fetch.
+        return GenericGroupsState(items: List<GenericGroupEntity>.of(groups));
+      },
+      operationName: 'GenericGroupsNotifier._fetchAllGroups',
     );
 
-    // Ensure downstream listeners receive a fresh list instance on each fetch.
-    return GenericGroupsState(items: List<GenericGroupEntity>.of(groups));
+    if (!isMounted()) {
+      return const GenericGroupsState(items: []);
+    }
+
+    if (result.hasError) {
+      logError(
+        '[GenericGroupsNotifier] Failed to fetch generic groups',
+        result.error!,
+        result.stackTrace ?? StackTrace.current,
+      );
+      return const GenericGroupsState(items: []);
+    }
+
+    return result.value ?? const GenericGroupsState(items: []);
   }
 }

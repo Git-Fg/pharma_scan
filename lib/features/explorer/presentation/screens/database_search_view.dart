@@ -94,7 +94,7 @@ class DatabaseSearchView extends HookConsumerWidget {
     useAppHeader(
       title: Text(
         Strings.explorer,
-        style: context.shadTextTheme.h4,
+        style: context.typo.h4,
       ),
     );
 
@@ -106,8 +106,8 @@ class DatabaseSearchView extends HookConsumerWidget {
             child: LinearProgressIndicator(
               value: 1,
               minHeight: 2,
-              backgroundColor: context.shadColors.border,
-              color: context.shadColors.primary,
+              backgroundColor: context.colors.border,
+              color: context.colors.primary,
             ),
           ),
         Expanded(

@@ -9,6 +9,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart' hide ScanWindowOverlay;
 import 'package:pharma_scan/core/hooks/use_app_header.dart';
+import 'package:pharma_scan/core/hooks/use_scanner_side_effects.dart';
 import 'package:pharma_scan/core/presentation/hooks/use_scanner_input.dart';
 import 'package:pharma_scan/core/router/app_router.dart';
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
@@ -66,62 +67,11 @@ class CameraScreen extends HookConsumerWidget {
       [tabsRouter],
     );
 
-    useEffect(
-      () {
-        final scannerNotifier = ref.read(scannerProvider.notifier);
-        final feedback = ref.read(hapticServiceProvider);
-        final subscription = scannerNotifier.sideEffects.listen((effect) async {
-          if (!context.mounted) return;
-          switch (effect) {
-            case ScannerToast(:final message):
-              ShadToaster.of(context).show(
-                ShadToast(
-                  title: Text(message),
-                ),
-              );
-            case ScannerHaptic(:final type):
-              switch (type) {
-                case ScannerHapticType.analysisSuccess:
-                  await feedback.analysisSuccess();
-                case ScannerHapticType.restockSuccess:
-                  await feedback.restockSuccess();
-                case ScannerHapticType.warning:
-                  await feedback.warning();
-                case ScannerHapticType.error:
-                  await feedback.error();
-                case ScannerHapticType.duplicate:
-                  await feedback.duplicate();
-                case ScannerHapticType.unknown:
-                  await feedback.unknown();
-              }
-            case ScannerDuplicateDetected(:final duplicate):
-              final event = duplicate;
-              unawaited(
-                showShadSheet<void>(
-                  context: context,
-                  side: ShadSheetSide.bottom,
-                  builder: (dialogContext) => _DuplicateQuantitySheet(
-                    event: event,
-                    onCancel: () => Navigator.of(dialogContext).pop(),
-                    onConfirm: (newQty) async {
-                      await scannerNotifier.updateQuantityFromDuplicate(
-                        event.cip,
-                        newQty,
-                      );
-                      if (dialogContext.mounted) {
-                        Navigator.of(dialogContext).pop();
-                      }
-                    },
-                  ),
-                ),
-              );
-          }
-        });
+    // Scanner side effects handling (extracted to dedicated hook)
+    useScannerSideEffects(context: context, ref: ref);
 
-        return subscription.cancel;
-      },
-      [context, ref],
-    );
+    // Future optimization: Initialize hybrid ScannerLogic with Signals
+    // final scannerLogic = useScannerLogic(ref);
 
     useAsyncFeedback<ScannerState>(ref, scannerProvider);
 
@@ -245,13 +195,13 @@ class CameraScreen extends HookConsumerWidget {
                   Icon(
                     LucideIcons.scan,
                     size: 80,
-                    color: context.shadColors.muted,
+                    color: context.colors.muted,
                   ),
                   const Gap(20),
                   Text(
                     Strings.readyToScan,
-                    style: context.shadTextTheme.h4.copyWith(
-                      color: context.shadColors.mutedForeground,
+                    style: context.typo.h4.copyWith(
+                      color: context.colors.mutedForeground,
                     ),
                   ),
                 ],
@@ -438,7 +388,7 @@ class _DuplicateQuantitySheet extends HookWidget {
         children: [
           Icon(
             LucideIcons.copy,
-            color: context.shadColors.destructive,
+            color: context.colors.destructive,
             size: 20,
           ),
           const Gap(12),
@@ -453,7 +403,7 @@ class _DuplicateQuantitySheet extends HookWidget {
         children: [
           Text(
             event.productName,
-            style: context.shadTextTheme.small.copyWith(
+            style: context.typo.small.copyWith(
               fontWeight: FontWeight.w700,
             ),
             maxLines: 2,
@@ -464,8 +414,8 @@ class _DuplicateQuantitySheet extends HookWidget {
           const Gap(16),
           Text(
             Strings.duplicateAdjustQuantity,
-            style: context.shadTextTheme.small.copyWith(
-              color: context.shadColors.mutedForeground,
+            style: context.typo.small.copyWith(
+              color: context.colors.mutedForeground,
             ),
           ),
         ],
@@ -500,7 +450,7 @@ class _DuplicateQuantitySheet extends HookWidget {
                 focusNode: scannerInput.focusNode,
                 keyboardType: TextInputType.number,
                 textAlign: TextAlign.center,
-                style: context.shadTextTheme.large.copyWith(
+                style: context.typo.large.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -620,7 +570,7 @@ class _ManualCipSheet extends HookConsumerWidget {
                       children: [
                         Text(
                           Strings.manualEntryFieldLabel,
-                          style: context.shadTextTheme.small.copyWith(
+                          style: context.typo.small.copyWith(
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -648,7 +598,7 @@ class _ManualCipSheet extends HookConsumerWidget {
                         const Gap(16),
                         Text(
                           Strings.searchStartsAutomatically,
-                          style: context.shadTextTheme.small,
+                          style: context.typo.small,
                         ),
                       ],
                     ),

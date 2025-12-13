@@ -1,7 +1,8 @@
 ---
-description: Flutter Hooks patterns for ephemeral UI state management
 alwaysApply: false
+description: Flutter Hooks patterns for ephemeral UI state management
 ---
+
 # Flutter Hooks (2025)
 
 ## Core Principles

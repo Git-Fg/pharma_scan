@@ -66,7 +66,7 @@ class GroupExplorerView extends HookConsumerWidget {
               type: MaterialType.transparency,
               child: Text(
                 state.title,
-                style: context.shadTextTheme.h4,
+                style: context.typo.h4,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -129,7 +129,7 @@ class GroupExplorerView extends HookConsumerWidget {
                   ),
                   child: Text(
                     Strings.relatedGroups,
-                    style: context.shadTextTheme.h4,
+                    style: context.typo.h4,
                   ),
                 ),
               ),

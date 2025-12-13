@@ -5,7 +5,19 @@
 			"label": "sync:backend",
 			"type": "shell",
 			"detail": "Synchronize schema and golden DB from backend pipeline",
-			"command": "cd backend_pipeline && bun run tool/sync.ts",
+			"command": "cd backend_pipeline && bun run tool/sync.ts && cp data/reference.db ../assets/test/reference.db",
+			"problemMatcher": [],
+			"presentation": {
+				"reveal": "silent",
+				"panel": "shared",
+				"close": true
+			}
+		},
+		{
+			"label": "sync:test-db",
+			"type": "shell",
+			"detail": "Copy latest reference DB to test assets",
+			"command": "cp backend_pipeline/data/reference.db assets/test/reference.db",
 			"problemMatcher": [],
 			"presentation": {
 				"reveal": "silent",
@@ -46,16 +58,35 @@
 			"isBackground": false
 		},
 		{
-			"label": "build_runner build",
+			"label": "test:e2e",
 			"type": "shell",
-			"command": "dart",
-			"args": [
-				"run",
-				"build_runner",
-				"build",
-				"--delete-conflicting-outputs"
-			],
-			"isBackground": false
+			"command": "patrol test",
+			"group": "test",
+			"presentation": {
+				"echo": true,
+				"reveal": "always",
+				"focus": false,
+				"panel": "shared"
+			}
+		},
+		{
+			"label": "test:e2e:file",
+			"type": "shell",
+			"command": "patrol test --target ${input:testFile}",
+			"group": "test",
+			"presentation": {
+				"echo": true,
+				"reveal": "always",
+				"focus": false,
+				"panel": "shared"
+			}
+		}
+	],
+	"inputs": [
+		{
+			"id": "testFile",
+			"type": "promptString",
+			"description": "Enter test file path"
 		}
 	]
 }

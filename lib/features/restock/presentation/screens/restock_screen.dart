@@ -105,7 +105,7 @@ class RestockScreen extends HookConsumerWidget {
     useAppHeader(
       title: Text(
         Strings.restockTitle,
-        style: context.shadTextTheme.h4,
+        style: context.typo.h4,
       ),
       actions: [
         ShadTooltip(
@@ -141,7 +141,7 @@ class RestockScreen extends HookConsumerWidget {
                     ),
                     child: Text(
                       letter,
-                      style: context.shadTextTheme.small.copyWith(
+                      style: context.typo.small.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
                     ),

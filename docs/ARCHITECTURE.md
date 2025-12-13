@@ -261,6 +261,49 @@ Data-layer standards are defined in `.cursor/rules/`.
 
 ## Database Structure
 
+### Separated Database Architecture
+
+The application uses a separated database architecture to clearly distinguish between shared clinical data and user-specific data:
+
+#### Database Files
+
+- **`reference.db`**: Contains clinical data (medicaments, specialites, etc.)
+  - Downloaded from the backend
+  - Updated regularly
+  - Read-only in the application (via SQLite attachment)
+
+- **`user.db`**: Contains user-specific data (settings, restocking, scans)
+  - Stored locally on the device
+  - Modifiable by the application
+  - Persists during `reference.db` updates
+
+#### "Attached" SQLite Pattern
+
+The application uses the SQLite "attached" pattern to combine the two databases:
+
+- `user.db` is opened as the main database (writable)
+- `reference.db` is attached as a read-only database
+- Queries can access both databases transparently
+
+#### Schema Files
+
+- **`reference_schema.drift`**: Defines clinical tables from the backend
+- **`user_schema.drift`**: Defines application-specific user tables
+- **`views.drift`**: Defines views combining data from both schemas
+
+#### Advantages
+
+1. **User Data Persistence**: User data is preserved during clinical database updates
+2. **Separation of Concerns**: Clinical and user data are properly separated
+3. **Efficient Updates**: Only the clinical database needs updating
+4. **Transparent Access**: Dart code can access both data types uniformly
+
+#### Technical Considerations
+
+- Reference database tables must be referenced with `reference_db.table_name` alias in some queries
+- WAL journaling is enabled for both databases
+- Foreign key constraints ensure data integrity
+
 ### Complete Schema Reference
 
 **CRITICAL:** For complete database schema documentation (all tables, views, indexes, FTS5 configuration), consult `database_schema.md` (generated artifact).

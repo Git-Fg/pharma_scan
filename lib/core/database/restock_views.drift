@@ -1,3 +1,7 @@
+import 'database.dart';
+import 'reference_schema.drift';
+import 'user_schema.drift';
+
 -- View for restock items with all UI-ready fields, joining restock_items with medicament_summary and specialites
 CREATE VIEW view_restock_items AS
 SELECT

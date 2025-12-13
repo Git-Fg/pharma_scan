@@ -8,6 +8,7 @@ import 'package:pharma_scan/core/presentation/hooks/use_debounced_controller.dar
 import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
+import 'package:pharma_scan/core/utils/test_tags.dart';
 import 'package:pharma_scan/features/explorer/domain/models/explorer_enums.dart';
 import 'package:pharma_scan/features/explorer/domain/models/search_filters_model.dart';
 import 'package:pharma_scan/features/explorer/presentation/providers/search_provider.dart';
@@ -50,9 +51,9 @@ class ExplorerSearchBar extends HookConsumerWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: context.shadColors.background,
+        color: context.colors.background,
         border: Border(
-          top: BorderSide(color: context.shadColors.border),
+          top: BorderSide(color: context.colors.border),
         ),
       ),
       padding: const EdgeInsets.fromLTRB(
@@ -104,6 +105,7 @@ class ExplorerSearchBar extends HookConsumerWidget {
           minHeight: AppDimens.inputFieldHeight,
         ),
         child: ShadInput(
+          key: const Key(TestTags.searchField),
           focusNode: focusNode,
           controller: search.controller,
           placeholder: const Text(Strings.searchPlaceholder),
@@ -111,7 +113,7 @@ class ExplorerSearchBar extends HookConsumerWidget {
           leading: Icon(
             LucideIcons.search,
             size: AppDimens.iconSm,
-            color: context.shadColors.mutedForeground,
+            color: context.colors.mutedForeground,
           ),
           trailing: isFetching
               ? Semantics(
@@ -183,7 +185,7 @@ class ExplorerSearchBar extends HookConsumerWidget {
                   child: ShadBadge(
                     child: Text(
                       '$filterCount',
-                      style: context.shadTextTheme.small,
+                      style: context.typo.small,
                     ),
                   ),
                 ),

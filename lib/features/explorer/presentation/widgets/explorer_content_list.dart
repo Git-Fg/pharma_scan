@@ -141,7 +141,7 @@ class ExplorerContentList extends ConsumerWidget {
               ),
               decoration: BoxDecoration(
                 border: Border(
-                  bottom: BorderSide(color: context.shadColors.border),
+                  bottom: BorderSide(color: context.colors.border),
                 ),
               ),
               child: Row(
@@ -152,13 +152,13 @@ class ExplorerContentList extends ConsumerWidget {
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
                       border: Border.all(
-                        color: context.shadColors.border,
+                        color: context.colors.border,
                       ),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
                       Strings.generics.substring(0, 1),
-                      style: context.shadTextTheme.small,
+                      style: context.typo.small,
                     ),
                   ),
                   const Gap(AppDimens.spacingSm),
@@ -172,7 +172,7 @@ class ExplorerContentList extends ConsumerWidget {
                           principles,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: context.shadTextTheme.p.copyWith(
+                          style: context.typo.p.copyWith(
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -181,8 +181,8 @@ class ExplorerContentList extends ConsumerWidget {
                           brand,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: context.shadTextTheme.small.copyWith(
-                            color: context.shadColors.mutedForeground,
+                          style: context.typo.small.copyWith(
+                            color: context.colors.mutedForeground,
                           ),
                         ),
                       ],
@@ -258,16 +258,16 @@ class ExplorerContentList extends ConsumerWidget {
       height: 32,
       padding: const EdgeInsets.symmetric(horizontal: AppDimens.spacingMd),
       decoration: BoxDecoration(
-        color: context.shadColors.muted,
+        color: context.colors.muted,
         border: Border(
-          bottom: BorderSide(color: context.shadColors.border),
+          bottom: BorderSide(color: context.colors.border),
         ),
       ),
       alignment: Alignment.centerLeft,
       child: Text(
         label,
-        style: context.shadTextTheme.small.copyWith(
-          color: context.shadColors.mutedForeground,
+        style: context.typo.small.copyWith(
+          color: context.colors.mutedForeground,
           fontWeight: FontWeight.w600,
         ),
       ),
@@ -279,7 +279,7 @@ class ExplorerContentList extends ConsumerWidget {
   }
 
   Widget _buildSkeletonList(BuildContext context) {
-    final placeholderColor = context.shadColors.muted.withValues(
+    final placeholderColor = context.colors.muted.withValues(
       alpha: 0.3,
     );
     return ListView.separated(
@@ -601,7 +601,7 @@ class ExplorerContentList extends ConsumerWidget {
               ShadBadge.outline(
                 child: Text(
                   Strings.uniqueMedicationNoGroup,
-                  style: context.shadTextTheme.small,
+                  style: context.typo.small,
                   overflow: TextOverflow.ellipsis,
                   maxLines: 2,
                 ),
@@ -659,14 +659,14 @@ class ExplorerContentList extends ConsumerWidget {
       height: 64,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: context.shadColors.card,
+        color: context.colors.card,
         borderRadius: context.shadTheme.radius,
-        border: Border.all(color: context.shadColors.border),
+        border: Border.all(color: context.colors.border),
       ),
       child: Text(
         tag,
-        style: context.shadTextTheme.h4.copyWith(
-          color: context.shadColors.foreground,
+        style: context.typo.h4.copyWith(
+          color: context.colors.foreground,
           fontWeight: FontWeight.w700,
         ),
       ),

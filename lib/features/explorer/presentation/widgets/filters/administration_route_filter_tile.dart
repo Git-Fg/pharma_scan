@@ -68,11 +68,11 @@ Widget _buildTile({
   String? subtitle,
   Widget? trailing,
 }) {
-  final textStyle = context.shadTextTheme.small.copyWith(
+  final textStyle = context.typo.small.copyWith(
     fontWeight: FontWeight.w600,
   );
-  final subtitleStyle = context.shadTextTheme.small.copyWith(
-    color: context.shadColors.mutedForeground,
+  final subtitleStyle = context.typo.small.copyWith(
+    color: context.colors.mutedForeground,
   );
   final displayText = subtitle == null ? title : '$title · $subtitle';
 
@@ -83,7 +83,7 @@ Widget _buildTile({
     ),
     decoration: BoxDecoration(
       border: Border(
-        bottom: BorderSide(color: context.shadColors.border),
+        bottom: BorderSide(color: context.colors.border),
       ),
     ),
     child: Row(
@@ -139,7 +139,7 @@ class _SelectTileWithSearch extends HookWidget {
         children: [
           Text(
             title,
-            style: context.shadTextTheme.p.copyWith(
+            style: context.typo.p.copyWith(
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -172,8 +172,8 @@ class _SelectTileWithSearch extends HookWidget {
               selectedText,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: context.shadTextTheme.small.copyWith(
-                color: context.shadColors.mutedForeground,
+              style: context.typo.small.copyWith(
+                color: context.colors.mutedForeground,
               ),
             ),
             onChanged: (value) {

@@ -25,7 +25,10 @@ void useAppHeader({
 
   // Re-apply config on build and when dependencies change.
   useEffect(() {
-    container.read(appBarStateProvider.notifier).setConfig(config);
+    // Defer provider modification to avoid modifying during widget tree build
+    Future(() {
+      container.read(appBarStateProvider.notifier).setConfig(config);
+    });
     return null;
   }, [title, actions, showBackButton, isVisible]);
 }

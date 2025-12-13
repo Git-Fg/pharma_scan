@@ -46,7 +46,7 @@ class SettingsScreen extends HookConsumerWidget {
         syncDate != null ? DateTime.now().difference(syncDate).inDays : null;
     final (Color indicatorColor, String indicatorLabel) = switch (ageDays) {
       null => (
-          context.shadColors.destructive,
+          context.colors.destructive,
           Strings.dataUnknown,
         ),
       >= 31 => (
@@ -54,7 +54,7 @@ class SettingsScreen extends HookConsumerWidget {
           Strings.dataStaleWarning,
         ),
       _ => (
-          context.shadColors.primary,
+          context.colors.primary,
           syncDate != null
               ? '${Strings.dataFresh} ${_formatDate(syncDate)}'
               : Strings.dataFresh,
@@ -233,7 +233,7 @@ class SettingsScreen extends HookConsumerWidget {
     useAppHeader(
       title: Text(
         Strings.settings,
-        style: context.shadTextTheme.h4,
+        style: context.typo.h4,
       ),
       showBackButton: true,
       actions: [
@@ -250,7 +250,7 @@ class SettingsScreen extends HookConsumerWidget {
                   color: indicatorColor,
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: context.shadColors.border,
+                    color: context.colors.border,
                   ),
                 ),
               ),
@@ -607,7 +607,7 @@ class SettingsScreen extends HookConsumerWidget {
                                           isCheckingUpdates.value
                                               ? Strings.pleaseWaitSync
                                               : Strings.checkUpdatesTitle,
-                                          style: context.shadTextTheme.small,
+                                          style: context.typo.small,
                                           overflow: TextOverflow.ellipsis,
                                         ),
                                       ),
@@ -643,7 +643,7 @@ class SettingsScreen extends HookConsumerWidget {
                                       Flexible(
                                         child: Text(
                                           Strings.forceResetDescription,
-                                          style: context.shadTextTheme.small,
+                                          style: context.typo.small,
                                           overflow: TextOverflow.ellipsis,
                                         ),
                                       ),
@@ -679,7 +679,7 @@ class SettingsScreen extends HookConsumerWidget {
                                   const Gap(4),
                                   Text(
                                     Strings.openDetailedViewForSupport,
-                                    style: context.shadTextTheme.small,
+                                    style: context.typo.small,
                                   ),
                                 ],
                               ),
@@ -760,7 +760,7 @@ class SettingsScreen extends HookConsumerWidget {
         if (isResetting.value)
           Positioned.fill(
             child: ColoredBox(
-              color: context.shadColors.background.withValues(alpha: 0.8),
+              color: context.colors.background.withValues(alpha: 0.8),
               child: Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -770,10 +770,10 @@ class SettingsScreen extends HookConsumerWidget {
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(999),
                         child: LinearProgressIndicator(
-                          backgroundColor: context.shadColors.mutedForeground
+                          backgroundColor: context.colors.mutedForeground
                               .withValues(alpha: 0.2),
                           valueColor: AlwaysStoppedAnimation<Color>(
-                            context.shadColors.primary,
+                            context.colors.primary,
                           ),
                         ),
                       ),
@@ -781,7 +781,7 @@ class SettingsScreen extends HookConsumerWidget {
                     const Gap(AppDimens.spacingMd),
                     Text(
                       Strings.resetting,
-                      style: context.shadTextTheme.p,
+                      style: context.typo.p,
                     ),
                   ],
                 ),
@@ -803,7 +803,7 @@ class _SyncProgressDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.shadColors;
+    final colors = context.colors;
     return ShadSheet(
       title: const Text(Strings.checkUpdates),
       description: const Text(Strings.pleaseWaitSync),
@@ -881,7 +881,7 @@ class _AppInfoItem extends StatelessWidget {
         Flexible(
           child: Text(
             label,
-            style: context.shadTextTheme.muted,
+            style: context.typo.muted,
             overflow: TextOverflow.ellipsis,
           ),
         ),
@@ -889,7 +889,7 @@ class _AppInfoItem extends StatelessWidget {
         Flexible(
           child: Text(
             value,
-            style: context.shadTextTheme.small,
+            style: context.typo.small,
             textAlign: TextAlign.end,
             overflow: TextOverflow.ellipsis,
           ),

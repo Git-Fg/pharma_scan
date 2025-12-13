@@ -1,6 +1,9 @@
 ---
 alwaysApply: true
+description: 
+globs: **/*
 ---
+
 # Component Abstraction Policy (The "No-Wrapper" Rule)
 
 **Source of truth:** The no-wrapper mandate is defined in `.cursor/rules/simplicity.mdc`. This file provides UI-specific guidance and examples for Shadcn usage.
@@ -149,4 +152,3 @@ await showShadDialog<bool>(
 - **UI Logic:** Requires length-preserving normalization to map styling ranges (highlights) back to the original text.
 
 **Rule:** If you are implementing `HighlightText` or similar widgets, write a local `_normalizePreservingLength` helper (e.g., `removeDiacritics(text).toLowerCase()`) inside the widget file. Never import `sanitizer.dart` for index calculations.
-

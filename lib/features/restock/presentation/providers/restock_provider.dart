@@ -1,39 +1,85 @@
 import 'package:pharma_scan/core/providers/core_providers.dart';
 import 'package:pharma_scan/core/providers/preferences_provider.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
+import 'package:pharma_scan/core/mixins/safe_async_notifier_mixin.dart';
 import 'package:pharma_scan/features/restock/domain/entities/restock_item_entity.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'restock_provider.g.dart';
 
 @riverpod
-class RestockNotifier extends _$RestockNotifier {
+class RestockNotifier extends _$RestockNotifier with SafeAsyncNotifierMixin {
   @override
   Stream<List<RestockItemEntity>> build() {
     return ref.read(restockDaoProvider).watchRestockItems();
   }
 
   Future<void> increment(RestockItemEntity item) async {
-    final db = ref.read(databaseProvider());
-    await db.restockDao.updateQuantity(item.cip, 1);
+    final result = await safeExecute(
+      () async {
+        final db = ref.read(databaseProvider());
+        await db.restockDao.updateQuantity(item.cip, 1);
+      },
+      operationName: 'RestockNotifier.increment',
+    );
+
+    if (!isMounted()) return;
+
+    if (result.hasError) {
+      logError(
+        '[RestockNotifier] Failed to increment item ${item.cip}',
+        result.error!,
+        result.stackTrace ?? StackTrace.current,
+      );
+    }
   }
 
   Future<void> decrement(RestockItemEntity item) async {
-    final db = ref.read(databaseProvider());
-    if (item.quantity == 0) {
-      await deleteItem(item);
-      return;
-    }
-    await db.restockDao.updateQuantity(
-      item.cip,
-      -1,
-      allowZero: true,
+    final result = await safeExecute(
+      () async {
+        final db = ref.read(databaseProvider());
+        if (item.quantity == 0) {
+          await deleteItem(item);
+          return;
+        }
+        await db.restockDao.updateQuantity(
+          item.cip,
+          -1,
+          allowZero: true,
+        );
+      },
+      operationName: 'RestockNotifier.decrement',
     );
+
+    if (!isMounted()) return;
+
+    if (result.hasError) {
+      logError(
+        '[RestockNotifier] Failed to decrement item ${item.cip}',
+        result.error!,
+        result.stackTrace ?? StackTrace.current,
+      );
+    }
   }
 
   Future<void> addBulk(RestockItemEntity item, int amount) async {
-    final db = ref.read(databaseProvider());
-    await db.restockDao.updateQuantity(item.cip, amount);
+    final result = await safeExecute(
+      () async {
+        final db = ref.read(databaseProvider());
+        await db.restockDao.updateQuantity(item.cip, amount);
+      },
+      operationName: 'RestockNotifier.addBulk',
+    );
+
+    if (!isMounted()) return;
+
+    if (result.hasError) {
+      logError(
+        '[RestockNotifier] Failed to add bulk amount $amount to item ${item.cip}',
+        result.error!,
+        result.stackTrace ?? StackTrace.current,
+      );
+    }
   }
 
   Future<void> setQuantity(
@@ -41,39 +87,130 @@ class RestockNotifier extends _$RestockNotifier {
     int quantity,
   ) async {
     if (quantity < 0) return;
-    final db = ref.read(databaseProvider());
-    await db.restockDao.forceUpdateQuantity(
-      cip: item.cip,
-      newQuantity: quantity,
+
+    final result = await safeExecute(
+      () async {
+        final db = ref.read(databaseProvider());
+        await db.restockDao.forceUpdateQuantity(
+          cip: item.cip,
+          newQuantity: quantity,
+        );
+      },
+      operationName: 'RestockNotifier.setQuantity',
     );
+
+    if (!isMounted()) return;
+
+    if (result.hasError) {
+      logError(
+        '[RestockNotifier] Failed to set quantity $quantity for item ${item.cip}',
+        result.error!,
+        result.stackTrace ?? StackTrace.current,
+      );
+    }
   }
 
   Future<void> toggleChecked(RestockItemEntity item) async {
-    final db = ref.read(databaseProvider());
-    await db.restockDao.toggleCheck(item.cip);
+    final result = await safeExecute(
+      () async {
+        final db = ref.read(databaseProvider());
+        await db.restockDao.toggleCheck(item.cip);
+      },
+      operationName: 'RestockNotifier.toggleChecked',
+    );
+
+    if (!isMounted()) return;
+
+    if (result.hasError) {
+      logError(
+        '[RestockNotifier] Failed to toggle checked status for item ${item.cip}',
+        result.error!,
+        result.stackTrace ?? StackTrace.current,
+      );
+    }
   }
 
   Future<void> deleteItem(RestockItemEntity item) async {
-    final db = ref.read(databaseProvider());
-    await db.restockDao.deleteRestockItemFully(item.cip);
+    final result = await safeExecute(
+      () async {
+        final db = ref.read(databaseProvider());
+        await db.restockDao.deleteRestockItemFully(item.cip);
+      },
+      operationName: 'RestockNotifier.deleteItem',
+    );
+
+    if (!isMounted()) return;
+
+    if (result.hasError) {
+      logError(
+        '[RestockNotifier] Failed to delete item ${item.cip}',
+        result.error!,
+        result.stackTrace ?? StackTrace.current,
+      );
+    }
   }
 
   Future<void> restoreItem(RestockItemEntity item) async {
-    final db = ref.read(databaseProvider());
-    await db.restockDao.forceUpdateQuantity(
-      cip: item.cip,
-      newQuantity: item.quantity,
+    final result = await safeExecute(
+      () async {
+        final db = ref.read(databaseProvider());
+        await db.restockDao.forceUpdateQuantity(
+          cip: item.cip,
+          newQuantity: item.quantity,
+        );
+      },
+      operationName: 'RestockNotifier.restoreItem',
     );
+
+    if (!isMounted()) return;
+
+    if (result.hasError) {
+      logError(
+        '[RestockNotifier] Failed to restore item ${item.cip}',
+        result.error!,
+        result.stackTrace ?? StackTrace.current,
+      );
+    }
   }
 
   Future<void> clearChecked() async {
-    final db = ref.read(databaseProvider());
-    await db.restockDao.clearChecked();
+    final result = await safeExecute(
+      () async {
+        final db = ref.read(databaseProvider());
+        await db.restockDao.clearChecked();
+      },
+      operationName: 'RestockNotifier.clearChecked',
+    );
+
+    if (!isMounted()) return;
+
+    if (result.hasError) {
+      logError(
+        '[RestockNotifier] Failed to clear checked items',
+        result.error!,
+        result.stackTrace ?? StackTrace.current,
+      );
+    }
   }
 
   Future<void> clearAll() async {
-    final db = ref.read(databaseProvider());
-    await db.restockDao.clearAll();
+    final result = await safeExecute(
+      () async {
+        final db = ref.read(databaseProvider());
+        await db.restockDao.clearAll();
+      },
+      operationName: 'RestockNotifier.clearAll',
+    );
+
+    if (!isMounted()) return;
+
+    if (result.hasError) {
+      logError(
+        '[RestockNotifier] Failed to clear all items',
+        result.error!,
+        result.stackTrace ?? StackTrace.current,
+      );
+    }
   }
 }
 

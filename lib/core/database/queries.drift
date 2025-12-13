@@ -3,11 +3,8 @@ import 'reference_schema.drift';
 import 'user_schema.drift';
 import 'views.drift';
 
--- Queries for MedicamentSummary table
-getMedicamentSummaryByCis: SELECT * FROM medicament_summary WHERE cis_code = ?;
-getAllMedicamentSummaries: SELECT * FROM medicament_summary ORDER BY nom_canonique;
-getMedicamentSummariesByGroup: SELECT * FROM medicament_summary WHERE group_id = ? ORDER BY is_princeps DESC, nom_canonique;
-getDistinctPrincipesActifsCommuns: SELECT DISTINCT principes_actifs_communs FROM medicament_summary WHERE principes_actifs_communs != '' ORDER BY principes_actifs_communs;
+-- Queries for MedicamentSummary table - using traditional SELECT * (for compatibility)
+-- New modern approach uses ** operator for automatic mapping, see examples below
 
 -- FTS search with optional filters for route and ATC class.
 -- UPDATE: Utilisation de ms.** pour mapper automatiquement vers MedicamentSummaryData
@@ -190,6 +187,34 @@ WHERE vgd.group_id != :targetGroupId
   )
 ORDER BY vgd.princeps_de_reference ASC;
 
+-- SQL-First Mapping Example: Join medicaments with specialites using ** operator
+-- This demonstrates the automatic mapping feature where m.** maps all columns from medicaments
+-- and s.** maps all columns from specialites, creating strongly-typed result classes
+searchProducts:
+SELECT
+    m.**,              -- Auto-maps all columns from 'medicaments' table
+    s.**,               -- Auto-maps all columns from 'specialites' table (except overlapping keys)
+    l.name AS specialite_titulaire   -- Add specific joined column for laboratory name
+FROM medicaments m
+INNER JOIN specialites s ON m.cis_code = s.cis_code
+LEFT JOIN laboratories l ON l.id = s.titulaire_id
+WHERE m.presentation_label LIKE :query OR s.nom_specialite LIKE :query
+ORDER BY s.nom_specialite
+LIMIT 50;
+
+-- Watch variant of searchProducts for reactive updates
+watchSearchProducts:
+SELECT
+    m.**,              -- Auto-maps all columns from 'medicaments' table
+    s.**,               -- Auto-maps all columns from 'specialites' table (except overlapping keys)
+    l.name AS specialite_titulaire   -- Add specific joined column for laboratory name
+FROM medicaments m
+INNER JOIN specialites s ON m.cis_code = s.cis_code
+LEFT JOIN laboratories l ON l.id = s.titulaire_id
+WHERE m.presentation_label LIKE :query OR s.nom_specialite LIKE :query
+ORDER BY s.nom_specialite
+LIMIT 50;
+
 -- Batch update for princeps and molecule labels using SQL (no Dart loops).
 refineGroupMetadata:
 UPDATE generique_groups
@@ -218,3 +243,46 @@ SET
       ''
     )
   );
+
+-- Additional SQL-First Mapping Examples
+
+-- Get detailed product information by CIP code with all joined data automatically mapped
+getProductDetailsByCip:
+SELECT
+    m.**,         -- All medicament columns
+    s.**,         -- All specialite columns
+    l.name AS laboratory_name,  -- Laboratory name
+    ms.nom_canonique AS summary_nom_canonique,
+    ms.princeps_de_reference AS summary_princeps_ref,
+    ms.principes_actifs_communs AS summary_principes
+FROM medicaments m
+INNER JOIN specialites s ON m.cis_code = s.cis_code
+INNER JOIN medicament_summary ms ON m.cis_code = ms.cis_code
+LEFT JOIN laboratories l ON l.id = s.titulaire_id
+WHERE m.code_cip = :cipCode;
+
+-- Get all products by laboratory with automatic mapping of all related data
+getProductsByLaboratory:
+SELECT
+    m.**,         -- All medicament columns
+    s.**,         -- All specialite columns
+    ms.**         -- All medicament_summary columns
+FROM medicaments m
+INNER JOIN specialites s ON m.cis_code = s.cis_code
+INNER JOIN medicament_summary ms ON m.cis_code = ms.cis_code
+WHERE s.titulaire_id = :labId
+ORDER BY s.nom_specialite;
+
+-- Get availability information for products with automatic mapping
+getProductAvailability:
+SELECT
+    m.**,         -- All medicament columns
+    s.nom_specialite,
+    ma.statut AS availability_status,
+    ma.date_debut,
+    ma.date_fin,
+    ma.lien
+FROM medicaments m
+INNER JOIN specialites s ON m.cis_code = s.cis_code
+LEFT JOIN medicament_availability ma ON ma.code_cip = m.code_cip
+WHERE m.code_cip = :cipCode;

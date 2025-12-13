@@ -11,6 +11,9 @@ import 'package:test_api/src/backend/invoker.dart';
 
 // START: GENERATED TEST IMPORTS
 import 'critical_flow_e2e_test.dart' as critical_flow_e2e_test;
+import 'db_injection_test.dart' as db_injection_test;
+import 'minimal_test.dart' as minimal_test;
+import 'navigation_test.dart' as navigation_test;
 import 'simple_e2e_test.dart' as simple_e2e_test;
 // END: GENERATED TEST IMPORTS
 
@@ -72,6 +75,9 @@ Future<void> main() async {
 
   // START: GENERATED TEST GROUPS
   group('critical_flow_e2e_test', critical_flow_e2e_test.main);
+  group('db_injection_test', db_injection_test.main);
+  group('minimal_test', minimal_test.main);
+  group('navigation_test', navigation_test.main);
   group('simple_e2e_test', simple_e2e_test.main);
   // END: GENERATED TEST GROUPS
 

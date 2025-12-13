@@ -61,7 +61,7 @@ class ScrollToTopFab extends HookWidget {
                     child: ShadBadge(
                       child: Text(
                         '$badgeCount',
-                        style: context.shadTextTheme.small,
+                        style: context.typo.small,
                       ),
                     ),
                   ),

@@ -1,7 +1,8 @@
 ---
-description: Build, testing, and deployment commands
 alwaysApply: false
+description: Build, testing, and deployment commands
 ---
+
 # CI & Deployment
 
 ## 1. Quality Gate (Local)

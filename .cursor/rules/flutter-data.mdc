@@ -1,6 +1,6 @@
 ---
-description: Drift database patterns, SQL-first logic, and Isolate management
 alwaysApply: false
+description: Drift database patterns, SQL-first logic, and Isolate management
 ---
 
 # Flutter Data Layer
@@ -61,11 +61,19 @@ Future<List<({String name, double total})>> getStats() async {
 
 - **Source of Truth:** The database schema is defined in `backend_pipeline/src/db.ts`
 - **Mobile Consumer:** The mobile app consumes a read-only `reference.db` artifact
+- **Schema Documentation:** Complete schema reference available in `database_schema.md` (generated artifact)
 - **SCHEMA SYNC RULE:** Changes to `medicament_summary` or any core tables MUST be done in the backend first
 - **Forbidden:** Modifying database structure in the mobile app without corresponding backend changes
-- **Mobile Schema File:** `lib/core/database/schema.sql` is synchronized from backend, not authored directly
+- **Mobile Schema File:** `lib/core/database/dbschema.drift` mirrors backend schema, not authored directly
 
 **Critical Rule:** The mobile app is a "Smart Viewer" - it reads pre-processed data but does not perform ETL or schema modifications.
+
+**Key Schema Components:**
+- **Core BDPM Tables:** `specialites`, `medicaments`, `principes_actifs`, `generique_groups`, `group_members`
+- **Aggregation Tables:** `medicament_summary` (single source of truth), `cluster_names`
+- **Normalization Tables:** `medicament_names_clean`, `group_princeps_clean`
+- **Mobile Tables:** `restock_items`, `scanned_boxes`
+- **Search:** FTS5 `search_index` with `trigram` tokenizer
 
 ## Anti-Patterns
 

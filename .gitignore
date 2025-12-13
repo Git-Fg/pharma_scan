@@ -94,3 +94,5 @@ test-results.json
 
 reports
 coverage
+
+assets/test/reference.db

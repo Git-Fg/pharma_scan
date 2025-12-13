@@ -165,7 +165,7 @@ class ScannerResultCard extends StatelessWidget {
       shape: RoundedRectangleBorder(
         borderRadius: radius,
         side: BorderSide(
-          color: isRestockMode ? restockBorder : context.shadColors.border,
+          color: isRestockMode ? restockBorder : context.colors.border,
         ),
       ),
       child: InkWell(
@@ -186,7 +186,7 @@ class ScannerResultCard extends StatelessWidget {
                       children: [
                         Text(
                           displayTitle,
-                          style: context.shadTextTheme.p.copyWith(
+                          style: context.typo.p.copyWith(
                             fontWeight: FontWeight.w700,
                             fontSize: 15,
                           ),
@@ -197,8 +197,8 @@ class ScannerResultCard extends StatelessWidget {
                           const Gap(AppDimens.spacing2xs),
                           Text(
                             summary.data.princepsDeReference,
-                            style: context.shadTextTheme.small.copyWith(
-                              color: context.shadColors.mutedForeground,
+                            style: context.typo.small.copyWith(
+                              color: context.colors.mutedForeground,
                               fontWeight: FontWeight.w600,
                             ),
                             maxLines: 1,
@@ -209,8 +209,8 @@ class ScannerResultCard extends StatelessWidget {
                           const Gap(AppDimens.spacing2xs),
                           Text(
                             combinedMetadata,
-                            style: context.shadTextTheme.small.copyWith(
-                              color: context.shadColors.mutedForeground,
+                            style: context.typo.small.copyWith(
+                              color: context.colors.mutedForeground,
                               fontSize: 12,
                             ),
                             maxLines: 2,
@@ -244,7 +244,7 @@ class ScannerResultCard extends StatelessWidget {
                             child: Icon(
                               LucideIcons.x,
                               size: 18,
-                              color: context.shadColors.mutedForeground,
+                              color: context.colors.mutedForeground,
                             ),
                           ),
                         ),
@@ -330,7 +330,7 @@ class ScannerResultCard extends StatelessWidget {
       card = DecoratedBox(
         decoration: BoxDecoration(
           border: Border.all(
-            color: context.shadColors.destructive,
+            color: context.colors.destructive,
             width: 2,
           ),
           borderRadius: context.shadTheme.radius,

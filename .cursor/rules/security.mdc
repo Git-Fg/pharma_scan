@@ -1,6 +1,7 @@
 ---
-description: Security protocols, permission handling, and data privacy standards
 alwaysApply: true
+description: Security protocols, permission handling, and data privacy standards
+globs: **/*
 ---
 
 # Security & Privacy (2025 Standard)

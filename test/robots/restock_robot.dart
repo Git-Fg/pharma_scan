@@ -2,6 +2,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pharma_scan/features/restock/presentation/screens/restock_screen.dart';
+import 'package:pharma_scan/core/services/preferences_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 class RestockRobot {
@@ -9,8 +11,9 @@ class RestockRobot {
   RestockRobot(this.tester);
 
   // Locators
-  Finder get clearAllButton => find.byKey(const ValueKey('clear_all_button'));
-  Finder get _clearButton => clearAllButton; // Deprecated, use clearAllButton
+  Finder get clearAllButton => find.byIcon(LucideIcons.trash2);
+  Finder get _clearButton => clearAllButton; // Clear all button (trash icon)
+  Finder get _clearCheckedButton => find.byIcon(LucideIcons.check); // Clear checked button (check icon)
   Finder get _confirmDialogButton => find
       .byType(ShadButton)
       .last; // Le dernier bouton ShadButton est le bouton de confirmation
@@ -21,10 +24,20 @@ class RestockRobot {
 
   // Setup
   Future<void> pumpScreen({List<dynamic> overrides = const []}) async {
+    // Set up mock preferences for testing
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final preferencesService = PreferencesService(prefs);
+
     await tester.pumpWidget(
       ProviderScope(
-        overrides: overrides.cast(),
-        child: const ShadApp(home: RestockScreen()),
+        overrides: [
+          ...overrides.cast(),
+          preferencesServiceProvider.overrideWithValue(preferencesService),
+        ],
+        child: MaterialApp(
+          home: RestockScreen(),
+        ),
       ),
     );
     await tester.pumpAndSettle();

@@ -21,45 +21,36 @@ class ScannerBubbles extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // For top offset, we'll use a safer approach without MediaQuery
-        // This component should be positioned relative to its parent container
-        final topOffset = AppDimens.spacingMd + AppDimens.iconLg + AppDimens.spacingSm;
+    return Consumer(
+      builder: (context, ref, child) {
+        final scannerAsync = ref.watch(scannerProvider);
+        final scannerState = scannerAsync.value;
 
-        final horizontalMargin = constraints.maxWidth < 600 ? 8.0 : 12.0;
+        if (scannerState == null || scannerState.bubbles.isEmpty) {
+          return const SizedBox.shrink();
+        }
 
-        return Positioned(
-          top: topOffset,
-          left: 0,
-          right: 0,
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: horizontalMargin),
-            child: Consumer(
-              builder: (context, ref, child) {
-                final scannerAsync = ref.watch(scannerProvider);
-                final scannerState = scannerAsync.value;
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final horizontalMargin = constraints.maxWidth < 600 ? 8.0 : 12.0;
 
-                if (scannerState == null || scannerState.bubbles.isEmpty) {
-                  return const SizedBox.shrink();
-                }
-
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    for (var i = 0; i < scannerState.bubbles.length; i++)
-                      _buildBubbleItem(
-                        context,
-                        ref,
-                        scannerState.bubbles[i],
-                        scannerState.mode,
-                        i,
-                      ),
-                  ],
-                );
-              },
-            ),
-          ),
+            return Padding(
+              padding: EdgeInsets.symmetric(horizontal: horizontalMargin),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (var i = 0; i < scannerState.bubbles.length; i++)
+                    _buildBubbleItem(
+                      context,
+                      ref,
+                      scannerState.bubbles[i],
+                      scannerState.mode,
+                      i,
+                    ),
+                ],
+              ),
+            );
+          },
         );
       },
     );
@@ -119,7 +110,7 @@ class ScannerBubbles extends ConsumerWidget {
         ShadBadge.outline(
           child: Text(
             summary.conditionsPrescription,
-            style: context.shadTextTheme.small,
+            style: context.typo.small,
           ),
         ),
       );

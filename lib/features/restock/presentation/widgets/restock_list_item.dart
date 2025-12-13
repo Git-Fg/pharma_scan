@@ -43,7 +43,7 @@ class RestockListItem extends StatelessWidget {
     final backgroundColor = isZero
         ? theme.colorScheme.muted.withValues(alpha: 0.1)
         : theme.colorScheme.card;
-    final formColor = getFormColor(context.shadColors, item.form);
+    final formColor = getFormColor(context.colors, item.form);
     final borderColor = isZero
         ? theme.colorScheme.border.withValues(alpha: 0.5)
         : theme.colorScheme.border;
@@ -51,7 +51,7 @@ class RestockListItem extends StatelessWidget {
     return Dismissible(
       key: ValueKey(item.cip),
       background: Container(
-        color: context.shadColors.primary,
+        color: context.colors.primary,
         alignment: Alignment.centerLeft,
         padding: const EdgeInsets.symmetric(horizontal: AppDimens.spacingMd),
         child: const Icon(
@@ -60,7 +60,7 @@ class RestockListItem extends StatelessWidget {
         ),
       ),
       secondaryBackground: Container(
-        color: context.shadColors.destructive,
+        color: context.colors.destructive,
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.symmetric(horizontal: AppDimens.spacingMd),
         child: const Icon(
@@ -124,7 +124,7 @@ class RestockListItem extends StatelessWidget {
                     children: [
                       Text(
                         item.label,
-                        style: context.shadTextTheme.p.copyWith(
+                        style: context.typo.p.copyWith(
                           decoration:
                               isZero ? TextDecoration.lineThrough : null,
                         ),
@@ -136,7 +136,7 @@ class RestockListItem extends StatelessWidget {
                           Strings.restockSubtitlePrinceps(
                             item.princepsLabel!,
                           ),
-                          style: context.shadTextTheme.muted.copyWith(
+                          style: context.typo.muted.copyWith(
                             fontSize: 12,
                           ),
                           maxLines: 1,
@@ -157,8 +157,8 @@ class RestockListItem extends StatelessWidget {
                         isZero ? LucideIcons.trash2 : LucideIcons.minus,
                         size: AppDimens.iconSm,
                         color: isZero
-                            ? context.shadColors.destructive
-                            : context.shadColors.foreground,
+                            ? context.colors.destructive
+                            : context.colors.foreground,
                       ),
                       onPressed: () async {
                         await haptics.selection();

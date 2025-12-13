@@ -49,6 +49,7 @@ class ShadcnBottomNav extends StatelessWidget {
                 : theme.colorScheme.mutedForeground;
 
             final button = ShadButton.raw(
+              key: item.testId != null ? Key(item.testId!) : null,
               onPressed: () {
                 if (isSelected && onReselect != null) {
                   onReselect!(index);

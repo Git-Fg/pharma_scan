@@ -56,8 +56,8 @@ class StatusView extends StatelessWidget {
                       title: title != null
                           ? Text(
                               title!,
-                              style: context.shadTextTheme.h4.copyWith(
-                                color: context.shadColors.destructive,
+                              style: context.typo.h4.copyWith(
+                                color: context.colors.destructive,
                               ),
                             )
                           : null,
@@ -68,14 +68,14 @@ class StatusView extends StatelessWidget {
                         children: [
                           Icon(
                             effectiveIcon,
-                            color: context.shadColors.mutedForeground,
+                            color: context.colors.mutedForeground,
                           ),
                           const Gap(AppDimens.spacingXs),
                           if (title != null)
                             Expanded(
                               child: Text(
                                 title!,
-                                style: context.shadTextTheme.h4,
+                                style: context.typo.h4,
                               ),
                             ),
                         ],
@@ -97,8 +97,8 @@ class StatusView extends StatelessWidget {
         if (descriptionText != null) ...[
           Text(
             descriptionText,
-            style: context.shadTextTheme.small.copyWith(
-              color: context.shadColors.mutedForeground,
+            style: context.typo.small.copyWith(
+              color: context.colors.mutedForeground,
             ),
           ),
         ],
@@ -123,7 +123,7 @@ class _ProgressBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.shadColors;
+    final colors = context.colors;
     return Container(
       height: 4,
       decoration: BoxDecoration(

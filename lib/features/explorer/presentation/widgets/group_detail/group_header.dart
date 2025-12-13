@@ -180,7 +180,7 @@ class _MetadataItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = context.shadTextTheme;
+    final textTheme = context.typo;
     final muted = textTheme.muted;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -188,7 +188,7 @@ class _MetadataItem extends StatelessWidget {
         Icon(
           icon,
           size: 18,
-          color: context.shadColors.mutedForeground,
+          color: context.colors.mutedForeground,
         ),
         const Gap(AppDimens.spacingSm),
         Expanded(

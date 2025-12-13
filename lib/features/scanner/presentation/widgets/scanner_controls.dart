@@ -5,6 +5,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
+import 'package:pharma_scan/core/utils/test_tags.dart';
 import 'package:pharma_scan/core/widgets/adaptive_bottom_panel.dart';
 import 'package:pharma_scan/features/scanner/presentation/models/scanner_ui_state.dart';
 import 'package:pharma_scan/features/scanner/presentation/providers/scanner_provider.dart';
@@ -62,8 +63,8 @@ class ScannerControls extends ConsumerWidget {
         ),
     };
     final buttonColor = mode == ScannerMode.restock
-        ? context.shadColors.destructive
-        : context.shadColors.primary;
+        ? context.colors.destructive
+        : context.colors.primary;
     final bottomInset = MediaQuery.paddingOf(context).bottom;
 
     return Positioned(
@@ -155,7 +156,7 @@ class ScannerControls extends ConsumerWidget {
                                       LucideIcons.zap,
                                       size: AppDimens.iconLg,
                                       color: torchState == TorchState.on
-                                          ? context.shadColors.primary
+                                          ? context.colors.primary
                                           : null,
                                     ),
                                   ),
@@ -170,6 +171,7 @@ class ScannerControls extends ConsumerWidget {
                                   child: FittedBox(
                                     fit: BoxFit.scaleDown,
                                     child: ShadButton.secondary(
+                                      key: const Key(TestTags.manualEntryButton),
                                       onPressed: isInitializing
                                           ? null
                                           : onManualEntry,
@@ -230,7 +232,7 @@ class ScannerActionButton extends StatelessWidget {
         icon: Icon(
           isCameraRunning ? LucideIcons.cameraOff : LucideIcons.scanLine,
           size: AppDimens.iconXl,
-          color: context.shadColors.primaryForeground,
+          color: context.colors.primaryForeground,
         ),
         gradient: LinearGradient(
           colors: [

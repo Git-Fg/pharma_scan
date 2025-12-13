@@ -58,7 +58,7 @@ class GroupActionsBar extends StatelessWidget {
                 leading: Icon(
                   LucideIcons.info,
                   size: AppDimens.iconSm,
-                  color: context.shadColors.secondaryForeground,
+                  color: context.colors.secondaryForeground,
                 ),
                 child: const Text(Strings.ficheInfo),
               );
@@ -69,7 +69,7 @@ class GroupActionsBar extends StatelessWidget {
                 leading: Icon(
                   LucideIcons.fileText,
                   size: AppDimens.iconSm,
-                  color: context.shadColors.foreground,
+                  color: context.colors.foreground,
                 ),
                 child: const Text(Strings.rcpDocument),
               );

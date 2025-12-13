@@ -41,7 +41,7 @@ class MoleculeGroupTile extends HookWidget {
               moleculeName,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: sheetContext.shadTextTheme.h4,
+              style: sheetContext.typo.h4,
             ),
             child: SingleChildScrollView(
               child: Padding(
@@ -64,8 +64,8 @@ class MoleculeGroupTile extends HookWidget {
 
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: context.shadColors.secondary,
-        border: Border.all(color: context.shadColors.border),
+        color: context.colors.secondary,
+        border: Border.all(color: context.colors.border),
         borderRadius: context.shadTheme.radius,
       ),
       child: GestureDetector(
@@ -82,7 +82,7 @@ class MoleculeGroupTile extends HookWidget {
                 ShadBadge.outline(
                   child: Text(
                     Strings.generics.substring(0, 1),
-                    style: context.shadTextTheme.small,
+                    style: context.typo.small,
                   ),
                 ),
                 const Gap(AppDimens.spacingSm),
@@ -94,7 +94,7 @@ class MoleculeGroupTile extends HookWidget {
                     children: [
                       Text(
                         moleculeName,
-                        style: context.shadTextTheme.p.copyWith(
+                        style: context.typo.p.copyWith(
                           fontWeight: FontWeight.w600,
                         ),
                         maxLines: 1,
@@ -105,8 +105,8 @@ class MoleculeGroupTile extends HookWidget {
                         princepsName.isNotEmpty
                             ? princepsName
                             : Strings.notDetermined,
-                        style: context.shadTextTheme.small.copyWith(
-                          color: context.shadColors.mutedForeground,
+                        style: context.typo.small.copyWith(
+                          color: context.colors.mutedForeground,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -117,8 +117,8 @@ class MoleculeGroupTile extends HookWidget {
                 const Gap(AppDimens.spacingSm),
                 Text(
                   Strings.productCount(groups.length),
-                  style: context.shadTextTheme.small.copyWith(
-                    color: context.shadColors.mutedForeground,
+                  style: context.typo.small.copyWith(
+                    color: context.colors.mutedForeground,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,

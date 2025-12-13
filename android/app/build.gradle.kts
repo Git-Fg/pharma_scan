@@ -25,6 +25,16 @@ android {
         targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        // 1. MUST use PatrolJUnitRunner
+        testInstrumentationRunner = "pl.leancode.patrol.PatrolJUnitRunner"
+        // 2. Clear package data is recommended for isolation
+        testInstrumentationRunnerArguments["clearPackageData"] = "true"
+    }
+
+    // 3. Ensure this options block exists
+    testOptions {
+        execution = "ANDROIDX_TEST_ORCHESTRATOR"
     }
 
     buildTypes {
@@ -38,6 +48,9 @@ dependencies {
     implementation("androidx.core:core-splashscreen:1.0.1")
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.appcompat:appcompat:1.6.1")
+
+    // 4. Ensure orchestrator is here
+    androidTestUtil("androidx.test:orchestrator:1.5.1")
 }
 
 flutter {

@@ -196,7 +196,7 @@ The mobile app's search normalization logic must match the backend's `normalizeF
 
 ### 4.3 Fallback Strategy
 
-The mobile app contains legacy Dart parsers (`lib/core/services/ingestion/`) strictly for emergency offline bootstrapping. These parsers are **deprecated** and should not be used for normal operation.
+The legacy Dart parsers in `lib/core/services/ingestion/` have been removed. The mobile app now relies entirely on the backend pipeline (`backend_pipeline/`) for data processing. There is no local fallback parsing strategy - the app operates as a thin client that downloads pre-processed data from the backend.
 
 ---
 

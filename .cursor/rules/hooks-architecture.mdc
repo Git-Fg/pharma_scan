@@ -1,7 +1,8 @@
 ---
-description: Custom hook standards for Flutter Hooks (2025)
 alwaysApply: false
+description: Custom hook standards for Flutter Hooks (2025)
 ---
+
 # Hooks Architecture (2025 Standard)
 
 ## Extraction Mandate

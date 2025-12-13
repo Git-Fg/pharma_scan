@@ -1,7 +1,7 @@
 ---
-description: Enforced standards for code simplicity, KISS, and YAGNI
-globs: "**/*.dart"
 alwaysApply: true
+description: Enforced standards for code simplicity, KISS, and YAGNI
+globs: **/*.dart
 ---
 
 # Simplicity Standards (KISS + YAGNI)

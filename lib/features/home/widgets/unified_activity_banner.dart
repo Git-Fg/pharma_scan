@@ -43,11 +43,11 @@ class UnifiedActivityBanner extends StatelessWidget {
 
     final alert = isError
         ? ShadAlert.destructive(
-            icon: Icon(icon, color: context.shadColors.destructive),
+            icon: Icon(icon, color: context.colors.destructive),
             title: Text(
               title,
-              style: context.shadTextTheme.h4.copyWith(
-                color: context.shadColors.destructive,
+              style: context.typo.h4.copyWith(
+                color: context.colors.destructive,
               ),
             ),
             description: _buildDescription(
@@ -57,10 +57,10 @@ class UnifiedActivityBanner extends StatelessWidget {
             ),
           )
         : ShadAlert(
-            icon: Icon(icon, color: context.shadColors.primary),
+            icon: Icon(icon, color: context.colors.primary),
             title: Text(
               title,
-              style: context.shadTextTheme.h4,
+              style: context.typo.h4,
             ),
             description: _buildDescription(
               context,
@@ -91,15 +91,15 @@ class UnifiedActivityBanner extends StatelessWidget {
       children: [
         Text(
           status,
-          style: context.shadTextTheme.small.copyWith(
-            color: context.shadColors.mutedForeground,
+          style: context.typo.small.copyWith(
+            color: context.colors.mutedForeground,
           ),
         ),
         if (secondaryStatus != null) ...[
           const Gap(AppDimens.spacing2xs),
           Text(
             secondaryStatus!,
-            style: context.shadTextTheme.small,
+            style: context.typo.small,
           ),
         ],
         if (effectiveProgress != null || indeterminate) ...[
@@ -112,11 +112,11 @@ class UnifiedActivityBanner extends StatelessWidget {
                 value: indeterminate && effectiveProgress == null
                     ? null
                     : effectiveProgress ?? 0,
-                backgroundColor: context.shadColors.mutedForeground.withValues(
+                backgroundColor: context.colors.mutedForeground.withValues(
                   alpha: 0.2,
                 ),
                 valueColor: AlwaysStoppedAnimation<Color>(
-                  context.shadColors.primary,
+                  context.colors.primary,
                 ),
               ),
             ),
@@ -124,7 +124,7 @@ class UnifiedActivityBanner extends StatelessWidget {
           const Gap(AppDimens.spacing2xs),
           Text(
             progressSummary,
-            style: context.shadTextTheme.small,
+            style: context.typo.small,
           ),
         ],
         if (isError && onRetry != null) ...[

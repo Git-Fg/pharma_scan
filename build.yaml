@@ -1,10 +1,13 @@
 targets:
   $default:
     builders:
-      # --- DRIFT (Modular Setup) ---
-      # Restriction removed to ensure all .drift and .dart table files are found.
       drift_dev:
-        enabled: true
+        options:
+          sql:
+            dialect: sqlite
+            options:
+              modules:
+                - fts5
 
       drift_dev:analyzer:
         enabled: false

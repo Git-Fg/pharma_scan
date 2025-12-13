@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:pharma_scan/core/providers/core_providers.dart';
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
 import 'package:pharma_scan/core/services/logger_service.dart';
+import 'package:pharma_scan/core/utils/async_notifier_helper.dart';
+import 'package:pharma_scan/core/mixins/safe_async_notifier_mixin.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'initialization_provider.g.dart';
@@ -17,15 +19,39 @@ enum InitializationState {
 }
 
 @Riverpod(keepAlive: true)
-class InitializationNotifier extends _$InitializationNotifier {
+class InitializationNotifier extends _$InitializationNotifier with SafeAsyncNotifierMixin {
   @override
   FutureOr<void> build() async {
-    await _runInitialization();
+    ref.onDispose(() {
+      // Cleanup if needed
+    });
+
+    final result = await AsyncNotifierHelper.safeExecute(
+      _runInitialization,
+      operationName: 'InitializationNotifier.build',
+    );
+
+    if (!isMounted()) return;
+
+    if (result.hasError) {
+      logError(
+        '[InitializationProvider] Failed to initialize database',
+        result.error!,
+        result.stackTrace ?? StackTrace.current,
+      );
+    }
   }
 
   Future<void> _runInitialization() async {
+    if (!isMounted(context: 'InitializationNotifier._runInitialization')) {
+      return;
+    }
+
     final db = ref.read(databaseProvider());
     final hasData = await db.catalogDao.hasExistingData();
+
+    if (!isMounted()) return;
+
     final prefs = ref.read(preferencesServiceProvider);
     final version = prefs.getBdpmVersion();
     const currentVersion = DataInitializationService.dataVersion;
@@ -36,12 +62,21 @@ class InitializationNotifier extends _$InitializationNotifier {
       return;
     }
 
+    if (!isMounted()) return;
+
     LoggerService.info('[InitializationProvider] initialize() - start');
     await ref.read(dataInitializationServiceProvider).initializeDatabase();
+
+    if (!isMounted()) return;
+
     LoggerService.info('[InitializationProvider] initialize() - success');
   }
 
   Future<void> retry() async {
+    if (!isMounted(context: 'InitializationNotifier.retry')) {
+      return;
+    }
+
     ref.invalidateSelf();
     await future;
   }

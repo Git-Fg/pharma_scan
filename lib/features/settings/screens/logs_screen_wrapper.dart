@@ -10,7 +10,7 @@ class LogsScreenWrapper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final backgroundColor = context.shadColors.background;
+    final backgroundColor = context.colors.background;
     return TalkerScreen(
       talker: LoggerService().talker,
       theme: TalkerScreenTheme(

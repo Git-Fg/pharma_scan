@@ -49,8 +49,8 @@ class HistorySheet extends ConsumerWidget {
                             child: Center(
                               child: Text(
                                 Strings.historyEmpty,
-                                style: context.shadTextTheme.small.copyWith(
-                                  color: context.shadColors.mutedForeground,
+                                style: context.typo.small.copyWith(
+                                  color: context.colors.mutedForeground,
                                 ),
                               ),
                             ),
@@ -94,7 +94,7 @@ class HistorySheet extends ConsumerWidget {
                                         children: [
                                           Text(
                                             item.label,
-                                            style: context.shadTextTheme.small
+                                            style: context.typo.small
                                                 .copyWith(
                                               fontWeight: FontWeight.w600,
                                             ),
@@ -108,7 +108,7 @@ class HistorySheet extends ConsumerWidget {
                                                 princepsRef,
                                               ),
                                               style:
-                                                  context.shadTextTheme.muted,
+                                                  context.typo.muted,
                                               maxLines: 1,
                                               overflow: TextOverflow.ellipsis,
                                             ),
@@ -120,7 +120,7 @@ class HistorySheet extends ConsumerWidget {
                                     Text(
                                       trailingTime,
                                       style:
-                                          context.shadTextTheme.muted.copyWith(
+                                          context.typo.muted.copyWith(
                                         fontSize: 10,
                                       ),
                                     ),
@@ -128,7 +128,7 @@ class HistorySheet extends ConsumerWidget {
                                     Icon(
                                       LucideIcons.chevronRight,
                                       size: AppDimens.iconSm,
-                                      color: context.shadColors.mutedForeground,
+                                      color: context.colors.mutedForeground,
                                     ),
                                   ],
                                 ),

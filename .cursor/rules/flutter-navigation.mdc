@@ -1,7 +1,8 @@
 ---
-description: AutoRoute navigation patterns, router injection, and route configuration
 alwaysApply: false
+description: AutoRoute navigation patterns, router injection, and route configuration
 ---
+
 # Navigation (AutoRoute 11.0.0)
 
 ## Navigation Triggering
@@ -42,6 +43,12 @@ ShadButton(
   child: Text(Strings.navigate),
 );
 ```
+
+## 2025 Update: Tab Navigation
+
+- Do NOT use `PopScope` for tab navigation/back button handling. Let AutoRoute manage the stack natively.
+- If you must intercept back, use `context.router.popForced()` (rare; see MainScreen refactor).
+- See `docs/ARCHITECTURE.md` for rationale and pattern.
 
 ## Reference Implementation
 

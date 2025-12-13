@@ -1,7 +1,8 @@
 ---
-description: Extension Types for zero-cost domain abstractions and ID types
 alwaysApply: false
+description: Extension Types for zero-cost domain abstractions and ID types
 ---
+
 # Domain Modeling (2025 Standard)
 
 ## Extension Types Pattern

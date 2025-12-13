@@ -14,6 +14,37 @@ void main() {
     database = createTestDatabase();
     dao = database.restockDao;
 
+    // Créer les tables de référence nécessaires pour les tests
+    await database.customStatement('''
+      CREATE TABLE IF NOT EXISTS medicaments (
+        code_cip TEXT NOT NULL PRIMARY KEY,
+        cis_code TEXT NOT NULL,
+        presentation_label TEXT
+      )
+    ''');
+
+    await database.customStatement('''
+      CREATE TABLE IF NOT EXISTS medicament_summary (
+        cis_code TEXT NOT NULL PRIMARY KEY,
+        nom_canonique TEXT NOT NULL,
+        princeps_de_reference TEXT,
+        princeps_brand_name TEXT,
+        is_princeps INTEGER,
+        forme_pharmaceutique TEXT,
+        voies_administration TEXT,
+        formatted_dosage TEXT,
+        representative_cip TEXT
+      )
+    ''');
+
+    await database.customStatement('''
+      CREATE TABLE IF NOT EXISTS specialites (
+        cis_code TEXT NOT NULL PRIMARY KEY,
+        nom_specialite TEXT NOT NULL,
+        forme_pharmaceutique TEXT
+      )
+    ''');
+
     // Insérer des données de référence pour les tests
     await database.into(database.medicaments).insert(
           MedicamentsCompanion.insert(
@@ -31,6 +62,9 @@ void main() {
             princepsBrandName: 'TEST BRAND',
             isPrinceps: const Value(true),
             formePharmaceutique: const Value('Comprimé'),
+            voiesAdministration: const Value('orale'),
+            formattedDosage: const Value('500mg'),
+            representativeCip: const Value('3400934056781'),
           ),
         );
 
@@ -89,34 +123,6 @@ void main() {
 
   test('clearAll should remove all items', () async {
     final cip1 = Cip13.validated('3400934056781');
-    // Créer un second médicament pour le test
-    await database.into(database.medicaments).insert(
-          MedicamentsCompanion.insert(
-            codeCip: '3400934056782',
-            cisCode: '12345679',
-            presentationLabel: const Value('Test Medicament 2'),
-          ),
-        );
-
-    await database.into(database.medicamentSummary).insert(
-          MedicamentSummaryCompanion.insert(
-            cisCode: '12345679',
-            nomCanonique: 'TEST MEDICAMENT 2',
-            princepsDeReference: 'TEST 2',
-            princepsBrandName: 'TEST BRAND 2',
-            isPrinceps: const Value(true),
-            formePharmaceutique: const Value('Gélule'),
-          ),
-        );
-
-    await database.into(database.specialites).insert(
-          SpecialitesCompanion.insert(
-            cisCode: '12345679',
-            nomSpecialite: 'TEST MEDICAMENT 2',
-            formePharmaceutique: const Value('Gélule'),
-          ),
-        );
-
     final cip2 = Cip13.validated('3400934056782');
 
     // Ajouter deux items

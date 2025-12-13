@@ -320,9 +320,9 @@ class RestockDao extends DatabaseAccessor<AppDatabase> with $RestockDaoMixin {
 
   /// Helper method to map ViewRestockItem to RestockItemEntity
   RestockItemEntity _mapRowToRestockItem(ViewRestockItem row) {
-    final cip = Cip13.validated(row.cipCode ?? '');
+    final cip = Cip13.validated(row.cipCode);
     final label = row.nomCanonique ?? Strings.unknown;
-    final quantity = int.tryParse(row.stockCount?.toString() ?? '0') ?? 0;
+    final quantity = int.tryParse(row.stockCount.toString()) ?? 0;
     final isChecked = row.notes?.contains('"checked":true') ?? false;
     final isPrinceps = row.isPrinceps == 1;
     final form = row.formePharmaceutique;

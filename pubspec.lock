@@ -330,7 +330,7 @@ packages:
     source: hosted
     version: "12.3.0"
   device_info_plus_platform_interface:
-    dependency: "direct dev"
+    dependency: transitive
     description:
       name: device_info_plus_platform_interface
       sha256: e1ea89119e34903dca74b883d0dd78eb762814f97fb6c76f35e9ff74d261a18f
@@ -537,7 +537,7 @@ packages:
     source: hosted
     version: "2.0.33"
   flutter_riverpod:
-    dependency: "direct main"
+    dependency: transitive
     description:
       name: flutter_riverpod
       sha256: "9e2d6907f12cc7d23a846847615941bddee8709bf2bfd274acdf5e80bcf22fde"
@@ -973,7 +973,7 @@ packages:
     source: hosted
     version: "2.2.1"
   path_provider_platform_interface:
-    dependency: "direct dev"
+    dependency: transitive
     description:
       name: path_provider_platform_interface
       sha256: "88f5779f72ba699763fa3a3b06aa4bf6de76c8e5de842cf6f29e2e06476c2334"
@@ -1013,7 +1013,7 @@ packages:
     source: hosted
     version: "0.6.0"
   petitparser:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: petitparser
       sha256: "1a97266a94f7350d30ae522c0af07890c70b8e62c71e8e3920d1db4d23c057d1"
@@ -1029,7 +1029,7 @@ packages:
     source: hosted
     version: "3.1.6"
   plugin_platform_interface:
-    dependency: "direct dev"
+    dependency: transitive
     description:
       name: plugin_platform_interface
       sha256: "4820fbfdb9478b1ebae27888254d445073732dae3d6ea81f0b7e06d5dedc3f02"
@@ -1052,6 +1052,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "6.0.3"
+  preact_signals:
+    dependency: transitive
+    description:
+      name: preact_signals
+      sha256: ad45313c86b2228536a16d3dfc86da8263705d4acb4136c42907378de6910d8c
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.9.4"
   process:
     dependency: transitive
     description:
@@ -1276,6 +1284,22 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.0.0"
+  signals_core:
+    dependency: transitive
+    description:
+      name: signals_core
+      sha256: ea427bd53619e69e6f6cf244177e3b72870e433065c807600fb496fd80611c9f
+      url: "https://pub.dev"
+    source: hosted
+    version: "6.2.1"
+  signals_flutter:
+    dependency: "direct main"
+    description:
+      name: signals_flutter
+      sha256: "7c83418f47e3538685217e583f0fbd17a29716fa1a9ce2247e2455786e8ea81a"
+      url: "https://pub.dev"
+    source: hosted
+    version: "6.3.0"
   sky_engine:
     dependency: transitive
     description: flutter
@@ -1689,38 +1713,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.1.0"
-  workmanager:
-    dependency: "direct main"
-    description:
-      name: workmanager
-      sha256: "065673b2a465865183093806925419d311a9a5e0995aa74ccf8920fd695e2d10"
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.9.0+3"
-  workmanager_android:
-    dependency: transitive
-    description:
-      name: workmanager_android
-      sha256: "9ae744db4ef891f5fcd2fb8671fccc712f4f96489a487a1411e0c8675e5e8cb7"
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.9.0+2"
-  workmanager_apple:
-    dependency: transitive
-    description:
-      name: workmanager_apple
-      sha256: "1cc12ae3cbf5535e72f7ba4fde0c12dd11b757caf493a28e22d684052701f2ca"
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.9.1+2"
-  workmanager_platform_interface:
-    dependency: transitive
-    description:
-      name: workmanager_platform_interface
-      sha256: f40422f10b970c67abb84230b44da22b075147637532ac501729256fcea10a47
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.9.1+1"
   xdg_directories:
     dependency: transitive
     description:

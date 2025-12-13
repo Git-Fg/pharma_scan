@@ -1,7 +1,8 @@
 ---
-description: Dart Mappable data models, serialization patterns, and sealed classes
 alwaysApply: false
+description: Dart Mappable data models, serialization patterns, and sealed classes
 ---
+
 # Dart Mappable (2025 Standard)
 
 ## Mandates

@@ -147,8 +147,8 @@ class MedicamentTile extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             softWrap: true,
             textAlign: align,
-            style: context.shadTextTheme.small.copyWith(
-              color: context.shadColors.mutedForeground,
+            style: context.typo.small.copyWith(
+              color: context.colors.mutedForeground,
             ),
           );
         }
@@ -174,7 +174,7 @@ class MedicamentTile extends StatelessWidget {
                     ),
                     decoration: BoxDecoration(
                       border: Border(
-                        bottom: BorderSide(color: context.shadColors.border),
+                        bottom: BorderSide(color: context.colors.border),
                       ),
                     ),
                     child: Row(
@@ -216,7 +216,7 @@ class MedicamentTile extends StatelessWidget {
                                     title,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: context.shadTextTheme.p.copyWith(
+                                    style: context.typo.p.copyWith(
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
@@ -228,8 +228,8 @@ class MedicamentTile extends StatelessWidget {
                                   subtitle,
                                   maxLines: 3,
                                   overflow: TextOverflow.ellipsis,
-                                  style: context.shadTextTheme.small.copyWith(
-                                    color: context.shadColors.mutedForeground,
+                                  style: context.typo.small.copyWith(
+                                    color: context.colors.mutedForeground,
                                   ),
                                 ),
                               ],
@@ -273,7 +273,7 @@ class MedicamentTile extends StatelessWidget {
                           Icon(
                             LucideIcons.circle,
                             size: 10,
-                            color: context.shadColors.destructive,
+                            color: context.colors.destructive,
                           ),
                         ],
                         const Gap(AppDimens.spacingXs),

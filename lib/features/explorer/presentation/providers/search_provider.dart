@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:pharma_scan/core/domain/types/semantic_types.dart';
 import 'package:pharma_scan/core/providers/core_providers.dart';
+import 'package:pharma_scan/core/mixins/safe_async_notifier_mixin.dart';
 import 'package:pharma_scan/features/explorer/domain/entities/medicament_entity.dart';
 import 'package:pharma_scan/features/explorer/domain/models/search_filters_model.dart';
 import 'package:pharma_scan/features/explorer/domain/models/search_result_item_model.dart';
@@ -10,7 +11,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 part 'search_provider.g.dart';
 
 @riverpod
-class SearchFiltersNotifier extends _$SearchFiltersNotifier {
+class SearchFiltersNotifier extends _$SearchFiltersNotifier with SafeAsyncNotifierMixin {
   @override
   SearchFilters build() => const SearchFilters(
         voieAdministration: 'orale',
@@ -18,10 +19,16 @@ class SearchFiltersNotifier extends _$SearchFiltersNotifier {
 
   SearchFilters get filters => state;
 
-  set filters(SearchFilters filters) => state = filters;
+  set filters(SearchFilters filters) {
+    if (isMounted(context: 'SearchFiltersNotifier.setFilters')) {
+      state = filters;
+    }
+  }
 
   void clearFilters() {
-    state = const SearchFilters();
+    if (isMounted(context: 'SearchFiltersNotifier.clearFilters')) {
+      state = const SearchFilters();
+    }
   }
 }
 
