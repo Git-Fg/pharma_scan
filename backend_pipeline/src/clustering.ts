@@ -1,5 +1,6 @@
 import { normalizePrincipleOptimal, generateGroupingKey, applyPharmacologicalMask } from "./sanitizer";
 import crypto from "crypto";
+import { ClusterData } from "./types";
 
 export interface ClusteringInput {
   groupId: string;
@@ -8,6 +9,37 @@ export interface ClusteringInput {
   princepsForm: string | null; // Forme pharmaceutique du princeps (pour masque galénique)
   commonPrincipes: string; // "P1 + P2" or "P1, P2"
   isPrincepsGroup: boolean; // Indique si le groupe contient un Type 0 (vrai princeps)
+}
+
+/**
+ * Build search vector for FTS5 indexing
+ * Concatenates substance, primary princeps, and secondary princeps
+ * then applies heavy normalization for fuzzy matching
+ */
+export function buildSearchVector(
+  substance: string,
+  primaryPrinceps: string,
+  secondaryPrincepsList: string[]
+): string {
+  // 1. Collect (Set to deduplicate)
+  const keywords = new Set<string>();
+
+  keywords.add(substance);
+  keywords.add(primaryPrinceps);
+  secondaryPrincepsList.forEach(p => keywords.add(p));
+
+  // 2. Concatenation
+  let vector = Array.from(keywords).join(' ');
+
+  // 3. Heavy "Kärcher" cleaning (Heavy normalization)
+  return vector
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Remove accents
+    .toUpperCase()
+    // Remove medical noise not useful for conceptual search
+    .replace(/\b(COMPRIME|GELULE|SIROP|SACHET|DOSE|FLACON|MG|ML|BASE|ANHYDRE)\b/g, " ")
+    .replace(/[^A-Z0-9]/g, " ") // Keep only alphanumeric
+    .replace(/\s+/g, " ")       // Trim spaces
+    .trim();
 }
 
 /**

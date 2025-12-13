@@ -405,10 +405,13 @@ export interface AppSettings {
   value: Uint8Array;
 }
 
-
-
-
-
+// Cluster-First Architecture Interface
+export interface ClusterData {
+  id: string;              // Ex: "CLS_IBUPROFENE_400"
+  display_title: string;   // Ex: "Ibuprofène 400mg" (Substance Clean)
+  display_subtitle: string;// Ex: "Réf: Advil" (Princeps Principal)
+  search_vector: string;   // Ex: "IBUPROFENE ADVIL NUROFEN SPEDIFEN ANTARENE"
+}
 
 export type RegulatoryInfo = {
   list1: boolean;

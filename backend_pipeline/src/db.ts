@@ -190,6 +190,38 @@ export class ReferenceDatabase {
       );
     `);
 
+    // --- NEW CLUSTER-FIRST TABLES ---
+    // 1. Light table for UI display list (Cluster-First Architecture)
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS cluster_index (
+        cluster_id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,              -- Ex: "Ibuprofène 400mg" (Substance Clean)
+        subtitle TEXT,                    -- Ex: "Réf: Advil" (Princeps Principal)
+        count_products INTEGER DEFAULT 0
+      );
+    `);
+
+    // 2. Detailed table for drawer content (Cluster-First Architecture)
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS medicament_detail (
+        cis_code TEXT PRIMARY KEY,
+        cluster_id TEXT,
+        nom_complet TEXT,
+        is_princeps BOOLEAN,
+        FOREIGN KEY(cluster_id) REFERENCES cluster_index(cluster_id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_med_cluster ON medicament_detail(cluster_id);
+    `);
+
+    // 3. FTS table for search (Cluster-First Architecture)
+    this.db.run(`
+      CREATE VIRTUAL TABLE IF NOT EXISTS search_index USING fts5(
+        cluster_id UNINDEXED,
+        search_vector,
+        tokenize='trigram'                -- The magic for fuzzy matching
+      );
+    `);
+
     // Ajouter la colonne secondary_princeps si elle n'existe pas (pour les bases existantes)
     try {
       this.db.run(`ALTER TABLE cluster_names ADD COLUMN secondary_princeps TEXT`);
