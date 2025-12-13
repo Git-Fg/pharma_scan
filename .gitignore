@@ -15,6 +15,7 @@ test/assets/golden.db
 test/assets/test_images/image_test_1.png
 .roo/
 
+
 # IntelliJ related
 *.iml
 *.ipr
@@ -70,6 +71,10 @@ tool/data/
 
 # Ignore generated reports in tool/report/
 tool/report/
+
+.vscode/mcp.json
+.github/
+.roo
 
 # Python
 .pytest_cache

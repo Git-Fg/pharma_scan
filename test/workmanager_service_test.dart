@@ -46,7 +46,7 @@ void main() {
             'weeklyDatabaseUpdate',
             frequency: any(named: 'frequency'),
             constraints: any(named: 'constraints'),
-          )).thenAnswer((_) => Future<void>.value());
+          ),).thenAnswer((_) => Future<void>.value());
 
       // Act
       // In a real app with DI: await workManagerService.scheduleWeeklySync();
@@ -68,7 +68,7 @@ void main() {
             'weeklyDatabaseUpdate',
             frequency: const Duration(days: 7),
             constraints: any(named: 'constraints'),
-          )).called(1);
+          ),).called(1);
     });
   });
 }

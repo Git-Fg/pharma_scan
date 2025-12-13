@@ -256,7 +256,6 @@ class ExplorerContentList extends ConsumerWidget {
 
     return Container(
       height: 32,
-      width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: AppDimens.spacingMd),
       decoration: BoxDecoration(
         color: context.shadColors.muted,

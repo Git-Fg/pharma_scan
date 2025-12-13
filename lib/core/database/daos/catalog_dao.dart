@@ -4,6 +4,7 @@ import 'package:drift/drift.dart';
 import 'package:pharma_scan/core/database/daos/catalog_dao.drift.dart';
 import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/database/dbschema.drift.dart';
+import 'package:pharma_scan/core/database/queries.drift.dart';
 import 'package:pharma_scan/core/database/views.drift.dart';
 import 'package:pharma_scan/core/domain/types/ids.dart';
 import 'package:pharma_scan/core/domain/types/semantic_types.dart';
@@ -15,6 +16,144 @@ import 'package:pharma_scan/features/explorer/domain/entities/medicament_entity.
 import 'package:pharma_scan/features/explorer/domain/models/database_stats.dart';
 import 'package:pharma_scan/features/explorer/domain/models/generic_group_entity.dart';
 import 'package:pharma_scan/features/explorer/domain/models/search_filters_model.dart';
+
+// Extension to convert query result types to MedicamentSummaryData
+extension QueryResultToMedicamentSummaryData on SearchMedicamentsResult {
+  MedicamentSummaryData toMedicamentSummaryData() {
+    return MedicamentSummaryData(
+      cisCode: cisCode,
+      nomCanonique: nomCanonique,
+      princepsDeReference: princepsDeReference,
+      isPrinceps: isPrinceps,
+      clusterId: clusterId,
+      groupId: groupId,
+      principesActifsCommuns: principesActifsCommuns,
+      formattedDosage: formattedDosage,
+      formePharmaceutique: formePharmaceutique,
+      voiesAdministration: voiesAdministration,
+      memberType: memberType,
+      princepsBrandName: princepsBrandName,
+      procedureType: procedureType,
+      titulaireId: titulaireId,
+      conditionsPrescription: conditionsPrescription,
+      dateAmm: dateAmm,
+      isSurveillance: isSurveillance,
+      atcCode: atcCode,
+      status: status,
+      priceMin: priceMin,
+      priceMax: priceMax,
+      aggregatedConditions: aggregatedConditions,
+      ansmAlertUrl: ansmAlertUrl,
+      isHospital: isHospital,
+      isDental: isDental,
+      isList1: isList1,
+      isList2: isList2,
+      isNarcotic: isNarcotic,
+      isException: isException,
+      isRestricted: isRestricted,
+      isOtc: isOtc,
+      smrNiveau: smrNiveau,
+      smrDate: smrDate,
+      asmrNiveau: asmrNiveau,
+      asmrDate: asmrDate,
+      urlNotice: urlNotice,
+      hasSafetyAlert: hasSafetyAlert,
+      representativeCip: representativeCip,
+    );
+  }
+}
+
+// Extension for WatchMedicamentsResult
+extension WatchQueryResultToMedicamentSummaryData on WatchMedicamentsResult {
+  MedicamentSummaryData toMedicamentSummaryData() {
+    return MedicamentSummaryData(
+      cisCode: cisCode,
+      nomCanonique: nomCanonique,
+      princepsDeReference: princepsDeReference,
+      isPrinceps: isPrinceps,
+      clusterId: clusterId,
+      groupId: groupId,
+      principesActifsCommuns: principesActifsCommuns,
+      formattedDosage: formattedDosage,
+      formePharmaceutique: formePharmaceutique,
+      voiesAdministration: voiesAdministration,
+      memberType: memberType,
+      princepsBrandName: princepsBrandName,
+      procedureType: procedureType,
+      titulaireId: titulaireId,
+      conditionsPrescription: conditionsPrescription,
+      dateAmm: dateAmm,
+      isSurveillance: isSurveillance,
+      atcCode: atcCode,
+      status: status,
+      priceMin: priceMin,
+      priceMax: priceMax,
+      aggregatedConditions: aggregatedConditions,
+      ansmAlertUrl: ansmAlertUrl,
+      isHospital: isHospital,
+      isDental: isDental,
+      isList1: isList1,
+      isList2: isList2,
+      isNarcotic: isNarcotic,
+      isException: isException,
+      isRestricted: isRestricted,
+      isOtc: isOtc,
+      smrNiveau: smrNiveau,
+      smrDate: smrDate,
+      asmrNiveau: asmrNiveau,
+      asmrDate: asmrDate,
+      urlNotice: urlNotice,
+      hasSafetyAlert: hasSafetyAlert,
+      representativeCip: representativeCip,
+    );
+  }
+}
+
+// Extension for GetProductByCipResult
+extension GetProductByCipResultToMedicamentSummaryData on GetProductByCipResult {
+  MedicamentSummaryData toMedicamentSummaryData() {
+    return MedicamentSummaryData(
+      cisCode: cisCode1, // Note: duplicated field in query result
+      nomCanonique: nomCanonique,
+      princepsDeReference: princepsDeReference,
+      isPrinceps: isPrinceps,
+      clusterId: clusterId,
+      groupId: groupId,
+      principesActifsCommuns: principesActifsCommuns,
+      formattedDosage: formattedDosage,
+      formePharmaceutique: formePharmaceutique,
+      voiesAdministration: voiesAdministration,
+      memberType: memberType,
+      princepsBrandName: princepsBrandName,
+      procedureType: procedureType,
+      titulaireId: titulaireId,
+      conditionsPrescription: conditionsPrescription,
+      dateAmm: dateAmm,
+      isSurveillance: isSurveillance,
+      atcCode: atcCode,
+      status: status,
+      priceMin: priceMin,
+      priceMax: priceMax,
+      aggregatedConditions: aggregatedConditions,
+      ansmAlertUrl: ansmAlertUrl,
+      isHospital: isHospital,
+      isDental: isDental,
+      isList1: isList1,
+      isList2: isList2,
+      isNarcotic: isNarcotic,
+      isException: isException,
+      isRestricted: isRestricted,
+      isOtc: isOtc,
+      smrNiveau: smrNiveau,
+      smrDate: smrDate,
+      asmrNiveau: asmrNiveau,
+      asmrDate: asmrDate,
+      urlNotice: urlNotice,
+      hasSafetyAlert: hasSafetyAlert,
+      representativeCip: representativeCip,
+    );
+  }
+}
 
 /// Builds an FTS5 query string for trigram tokenizer.
 ///
@@ -65,173 +204,35 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with $CatalogDaoMixin {
 
     final cipString = codeCip.toString();
 
-    // SIMPLIFIED: Single query joining medicaments, medicament_summary, laboratories, and availability
-    // medicament_summary already contains all specialite data, so no need for separate queries
-    final row = await customSelect(
-      '''
-      SELECT 
-        m.code_cip,
-        m.cis_code,
-        m.prix_public,
-        m.taux_remboursement,
-        m.commercialisation_statut,
-        m.agrement_collectivites,
-        m.presentation_label,
-        ma.statut AS availability_statut,
-        ms.nom_canonique,
-        ms.princeps_de_reference,
-        ms.princeps_brand_name,
-        ms.is_princeps,
-        ms.group_id,
-        ms.member_type,
-        ms.principes_actifs_communs,
-        ms.forme_pharmaceutique,
-        ms.voies_administration,
-        ms.procedure_type,
-        ms.conditions_prescription,
-        ms.date_amm,
-        ms.is_surveillance,
-        ms.formatted_dosage,
-        ms.atc_code,
-        ms.status,
-        ms.price_min,
-        ms.price_max,
-        ms.aggregated_conditions,
-        ms.ansm_alert_url,
-        ms.is_hospital,
-        ms.is_dental,
-        ms.is_list1,
-        ms.is_list2,
-        ms.is_narcotic,
-        ms.is_exception,
-        ms.is_restricted,
-        ms.is_otc,
-        ms.representative_cip,
-        ms.smr_niveau,
-        ms.smr_date,
-        ms.asmr_niveau,
-        ms.asmr_date,
-        ms.url_notice,
-        ms.has_safety_alert,
-        ls.name AS lab_name
-      FROM medicaments m
-      INNER JOIN medicament_summary ms ON ms.cis_code = m.cis_code
-      LEFT JOIN laboratories ls ON ls.id = ms.titulaire_id
-      LEFT JOIN medicament_availability ma ON ma.code_cip = m.code_cip
-      WHERE m.code_cip = ?
-      LIMIT 1
-      ''',
-      variables: [Variable<String>(cipString)],
-      readsFrom: {},
-    ).getSingleOrNull();
+    // Use generated query from queries.drift - no more manual mapping needed
+    final result = await attachedDatabase.queriesDrift.getProductByCip(cipCode: cipString).getSingleOrNull();
 
-    if (row == null) {
+    if (result == null) {
       LoggerService.db('No medicament row found for CIP $cipString');
       return null;
     }
 
-    final prixPublic = row.readNullable<double>('prix_public');
-    final tauxRemboursement = row.readNullable<String>('taux_remboursement');
-    final commercialisationStatut = row.readNullable<String>(
-      'commercialisation_statut',
-    );
-    final agrementCollectivites = row.readNullable<String>(
-      'agrement_collectivites',
-    );
-    final presentationLabel = row.readNullable<String>('presentation_label');
-    final availabilityStatut = row.readNullable<String>('availability_statut');
-    final labName = row.readNullable<String>('lab_name');
-
-    // Build MedicamentSummaryData from the single query result
-    // Since medicament_summary is the source of truth, we always have data here
-    final summary = _mapQueryRowToMedicamentSummary(row);
-
-    final result = ScanResult(
-      summary: MedicamentEntity.fromData(summary, labName: labName),
+    // Direct mapping from generated result using extension method
+    final scanResult = ScanResult(
+      summary: MedicamentEntity.fromData(result.toMedicamentSummaryData(), labName: result.labName),
       cip: codeCip,
       metadata: (
-        price: prixPublic,
-        refundRate: tauxRemboursement,
-        boxStatus: commercialisationStatut,
-        availabilityStatus: availabilityStatut,
-        isHospitalOnly:
-            summary.isHospital ||
-            _isHospitalOnly(
-              agrementCollectivites,
-              prixPublic,
-              tauxRemboursement,
-            ),
-        libellePresentation: presentationLabel,
+        price: result.prixPublic,
+        refundRate: result.tauxRemboursement,
+        boxStatus: result.commercialisationStatut,
+        availabilityStatus: result.availabilityStatut,
+        // FIXED: Now rely solely on the database isHospital flag
+        // The backend now handles all hospital-only logic centrally
+        isHospitalOnly: result.isHospital,
+        libellePresentation: result.presentationLabel,
         expDate: expDate,
       ),
     );
 
-    return result;
+    return scanResult;
   }
 
-  bool _isHospitalOnly(
-    String? agrementCollectivites,
-    double? price,
-    String? refundRate,
-  ) {
-    if (agrementCollectivites == null) return false;
-    final agrement = agrementCollectivites.trim().toLowerCase();
-    final isAgreed = agrement == 'oui';
-    final hasPrice = price != null && price > 0;
-    final hasRefund = refundRate != null && refundRate.trim().isNotEmpty;
-    return isAgreed && !hasPrice && hasRefund;
-  }
-
-  /// Maps a QueryRow to the Drift-generated MedicamentSummaryData class
-  MedicamentSummaryData _mapQueryRowToMedicamentSummary(QueryRow row) {
-    // Parse JSON data from the principes_actifs_communs field
-    final principesJson = row.readNullable<String>('principes_actifs_communs');
-    final principesActifsCommuns = principesJson != null && principesJson.isNotEmpty
-        ? principesJson
-        : null;
-
-    return MedicamentSummaryData(
-      cisCode: row.read<String>('cis_code'),
-      nomCanonique: row.read<String>('nom_canonique'),
-      princepsDeReference: row.read<String>('princeps_de_reference'),
-      isPrinceps: row.read<bool>('is_princeps'),
-      clusterId: row.readNullable<String>('cluster_id'),
-      groupId: row.readNullable<String>('group_id'),
-      principesActifsCommuns: principesActifsCommuns,
-      formattedDosage: row.readNullable<String>('formatted_dosage'),
-      formePharmaceutique: row.readNullable<String>('forme_pharmaceutique'),
-      voiesAdministration: row.readNullable<String>('voies_administration'),
-      memberType: row.read<int>('member_type'),
-      princepsBrandName: row.read<String>('princeps_brand_name'),
-      procedureType: row.readNullable<String>('procedure_type'),
-      titulaireId: row.readNullable<int>('titulaire_id'),
-      conditionsPrescription: row.readNullable<String>('conditions_prescription'),
-      dateAmm: row.readNullable<String>('date_amm'),
-      isSurveillance: row.read<bool>('is_surveillance'),
-      atcCode: row.readNullable<String>('atc_code'),
-      status: row.readNullable<String>('status'),
-      priceMin: row.readNullable<double>('price_min'),
-      priceMax: row.readNullable<double>('price_max'),
-      aggregatedConditions: row.readNullable<String>('aggregated_conditions'),
-      ansmAlertUrl: row.readNullable<String>('ansm_alert_url'),
-      isHospital: row.read<bool>('is_hospital'),
-      isDental: row.read<bool>('is_dental'),
-      isList1: row.read<bool>('is_list1'),
-      isList2: row.read<bool>('is_list2'),
-      isNarcotic: row.read<bool>('is_narcotic'),
-      isException: row.read<bool>('is_exception'),
-      isRestricted: row.read<bool>('is_restricted'),
-      isOtc: row.read<bool>('is_otc'),
-      smrNiveau: row.readNullable<String>('smr_niveau'),
-      smrDate: row.readNullable<String>('smr_date'),
-      asmrNiveau: row.readNullable<String>('asmr_niveau'),
-      asmrDate: row.readNullable<String>('asmr_date'),
-      urlNotice: row.readNullable<String>('url_notice'),
-      hasSafetyAlert: row.readNullable<bool>('has_safety_alert'),
-      representativeCip: row.readNullable<String>('representative_cip'),
-    );
-  }
-
+  
   // ============================================================================
   // Search Methods (from SearchDao)
   // ============================================================================
@@ -254,35 +255,17 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with $CatalogDaoMixin {
     final atcFilter = filters?.atcClass?.code ?? '';
     final labFilter = filters?.titulaireId ?? -1;
 
-    final queryResults = await customSelect(
-      '''
-      SELECT ms.*, l.name AS lab_name
-      FROM medicament_summary ms
-      LEFT JOIN laboratories l ON l.id = ms.titulaire_id
-      INNER JOIN search_index si ON ms.cis_code = si.cis_code
-      WHERE si.search_index MATCH ?
-        AND (? = '' OR ms.voies_administration LIKE '%' || ? || '%')
-        AND (? = '' OR ms.atc_code LIKE ? || '%')
-        AND (? = -1 OR ms.titulaire_id = ?)
-      ORDER BY bm25(si.search_index) ASC, ms.nom_canonique
-      LIMIT 50
-      ''',
-      variables: [
-        Variable<String>(sanitizedQuery),
-        Variable<String>(routeFilter),
-        Variable<String>(routeFilter),
-        Variable<String>(atcFilter),
-        Variable<String>(atcFilter),
-        Variable<int>(labFilter),
-        Variable<int>(labFilter),
-      ],
-      readsFrom: {},
+    // Use Drift-generated query from queries.drift - no manual mapping needed
+    final results = await attachedDatabase.queriesDrift.searchMedicaments(
+      fts: sanitizedQuery,
+      routeFilter: routeFilter,
+      atcFilter: atcFilter,
+      labFilter: labFilter,
     ).get();
 
-    return queryResults.map((row) {
-      final summary = _mapQueryRowToMedicamentSummary(row);
-      final labName = row.readNullable<String>('lab_name');
-      return MedicamentEntity.fromData(summary, labName: labName);
+    // Direct mapping from generated results using extension method
+    return results.map((row) {
+      return MedicamentEntity.fromData(row.toMedicamentSummaryData(), labName: row.labName);
     }).toList();
   }
 
@@ -302,36 +285,17 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with $CatalogDaoMixin {
     final atcFilter = filters?.atcClass?.code ?? '';
     final labFilter = filters?.titulaireId ?? -1;
 
-    return customSelect(
-      '''
-      SELECT ms.*, l.name AS lab_name
-      FROM medicament_summary ms
-      LEFT JOIN laboratories l ON l.id = ms.titulaire_id
-      INNER JOIN search_index si ON ms.cis_code = si.cis_code
-      WHERE si.search_index MATCH ?
-        AND (? = '' OR ms.voies_administration LIKE '%' || ? || '%')
-        AND (? = '' OR ms.atc_code LIKE ? || '%')
-        AND (? = -1 OR ms.titulaire_id = ?)
-      ORDER BY bm25(si.search_index) ASC, ms.nom_canonique
-      LIMIT 50
-      ''',
-      variables: [
-        Variable<String>(sanitizedQuery),
-        Variable<String>(routeFilter),
-        Variable<String>(routeFilter),
-        Variable<String>(atcFilter),
-        Variable<String>(atcFilter),
-        Variable<int>(labFilter),
-        Variable<int>(labFilter),
-      ],
-      readsFrom: {},
+    // Use generated query from queries.drift - no manual mapping needed
+    return attachedDatabase.queriesDrift.watchMedicaments(
+      fts: sanitizedQuery,
+      routeFilter: routeFilter,
+      atcFilter: atcFilter,
+      labFilter: labFilter,
     ).watch().map(
-      (rows) => rows.map((row) {
-        final summary = _mapQueryRowToMedicamentSummary(row);
-        final labName = row.readNullable<String>('lab_name');
-        return MedicamentEntity.fromData(summary, labName: labName);
-      }).toList(),
-    );
+          (results) => results.map((row) {
+            return MedicamentEntity.fromData(row.toMedicamentSummaryData(), labName: row.labName);
+          }).toList(),
+        );
   }
 
   /// Watch search results from view_search_results, filtered by normalized query.
@@ -375,59 +339,63 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with $CatalogDaoMixin {
       ],
       readsFrom: {attachedDatabase.viewSearchResults},
     ).watch().map(
-      (rows) => rows
-          .map(
-            (row) => ViewSearchResult(
-              type: row.read<String>('type'),
-              normalizedCommon: row.read<String?>('normalized_common'),
-              groupId: row.read<String?>('group_id'),
-              commonPrincipes: row.read<String?>('common_principes'),
-              princepsReferenceName: row.read<String?>(
-                'princeps_reference_name',
-              ),
-              princepsCisCode: row.read<String?>('princeps_cis_code'),
-              groupsJson: row.read<String?>('groups_json'),
-              displayName: row.read<String?>('display_name'),
-              sortKey: row.read<String>('sort_key'),
-              cisCode: row.read<String?>('cis_code'),
-              nomCanonique: row.read<String?>('nom_canonique'),
-              isPrinceps: row.read<int?>('is_princeps') == 1,
-              memberType: row.read<int?>('member_type'),
-              principesActifsCommuns: row.read<String?>(
-                'principes_actifs_communs',
-              ),
-              princepsDeReference: row.read<String?>('princeps_de_reference'),
-              formePharmaceutique: row.read<String?>('forme_pharmaceutique'),
-              voiesAdministration: row.read<String?>('voies_administration'),
-              princepsBrandName: row.read<String?>('princeps_brand_name'),
-              procedureType: row.read<String?>('procedure_type'),
-              titulaireId: row.read<int?>('titulaire_id'),
-              conditionsPrescription: row.read<String?>(
-                'conditions_prescription',
-              ),
-              dateAmm: row.read<String?>('date_amm'),
-              isSurveillance: row.read<int?>('is_surveillance') == 1,
-              formattedDosage: row.read<String?>('formatted_dosage'),
-              atcCode: row.read<String?>('atc_code'),
-              status: row.read<String?>('status'),
-              priceMin: row.read<double?>('price_min'),
-              priceMax: row.read<double?>('price_max'),
-              aggregatedConditions: row.read<String?>('aggregated_conditions'),
-              ansmAlertUrl: row.read<String?>('ansm_alert_url'),
-              isHospital: row.read<int?>('is_hospital') == 1,
-              isDental: row.read<int?>('is_dental') == 1,
-              isList1: row.read<int?>('is_list1') == 1,
-              isList2: row.read<int?>('is_list2') == 1,
-              isNarcotic: row.read<int?>('is_narcotic') == 1,
-              isException: row.read<int?>('is_exception') == 1,
-              isRestricted: row.read<int?>('is_restricted') == 1,
-              isOtc: row.read<int?>('is_otc') == 1,
-              representativeCip: row.read<String?>('representative_cip'),
-              labName: row.read<String?>('lab_name'),
-            ),
-          )
-          .toList(),
-    );
+          (rows) => rows
+              .map(
+                (row) => ViewSearchResult(
+                  type: row.read<String>('type'),
+                  normalizedCommon: row.read<String?>('normalized_common'),
+                  groupId: row.read<String?>('group_id'),
+                  commonPrincipes: row.read<String?>('common_principes'),
+                  princepsReferenceName: row.read<String?>(
+                    'princeps_reference_name',
+                  ),
+                  princepsCisCode: row.read<String?>('princeps_cis_code'),
+                  groupsJson: row.read<String?>('groups_json'),
+                  displayName: row.read<String?>('display_name'),
+                  sortKey: row.read<String>('sort_key'),
+                  cisCode: row.read<String?>('cis_code'),
+                  nomCanonique: row.read<String?>('nom_canonique'),
+                  isPrinceps: row.read<int?>('is_princeps') == 1,
+                  memberType: row.read<int?>('member_type'),
+                  principesActifsCommuns: row.read<String?>(
+                    'principes_actifs_communs',
+                  ),
+                  princepsDeReference:
+                      row.read<String?>('princeps_de_reference'),
+                  formePharmaceutique:
+                      row.read<String?>('forme_pharmaceutique'),
+                  voiesAdministration:
+                      row.read<String?>('voies_administration'),
+                  princepsBrandName: row.read<String?>('princeps_brand_name'),
+                  procedureType: row.read<String?>('procedure_type'),
+                  titulaireId: row.read<int?>('titulaire_id'),
+                  conditionsPrescription: row.read<String?>(
+                    'conditions_prescription',
+                  ),
+                  dateAmm: row.read<String?>('date_amm'),
+                  isSurveillance: row.read<int?>('is_surveillance') == 1,
+                  formattedDosage: row.read<String?>('formatted_dosage'),
+                  atcCode: row.read<String?>('atc_code'),
+                  status: row.read<String?>('status'),
+                  priceMin: row.read<double?>('price_min'),
+                  priceMax: row.read<double?>('price_max'),
+                  aggregatedConditions:
+                      row.read<String?>('aggregated_conditions'),
+                  ansmAlertUrl: row.read<String?>('ansm_alert_url'),
+                  isHospital: row.read<int?>('is_hospital') == 1,
+                  isDental: row.read<int?>('is_dental') == 1,
+                  isList1: row.read<int?>('is_list1') == 1,
+                  isList2: row.read<int?>('is_list2') == 1,
+                  isNarcotic: row.read<int?>('is_narcotic') == 1,
+                  isException: row.read<int?>('is_exception') == 1,
+                  isRestricted: row.read<int?>('is_restricted') == 1,
+                  isOtc: row.read<int?>('is_otc') == 1,
+                  representativeCip: row.read<String?>('representative_cip'),
+                  labName: row.read<String?>('lab_name'),
+                ),
+              )
+              .toList(),
+        );
   }
 
   // ============================================================================
@@ -492,57 +460,58 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with $CatalogDaoMixin {
       variables: [Variable<String>(groupId)],
       readsFrom: {},
     ).watch().map(
-      (rows) => rows
-          .map(
-            (row) => GroupDetailEntity.fromData(
-              ViewGroupDetail(
-                groupId: row.read<String>('group_id'),
-                codeCip: row.read<String>('default_cip'),
-                rawLabel: row.read<String?>('label'),
-                princepsCisReference: row.read<String?>('cis_code'),
-                cisCode: row.read<String>('cis_code'),
-                nomCanonique: row.read<String>('label'),
-                princepsDeReference: row.read<String>('princeps_de_reference'),
-                princepsBrandName: row.read<String>('princeps_brand_name'),
-                isPrinceps: row.read<int>('is_princeps') == 1,
-                status: row.read<String?>('status'),
-                formePharmaceutique: row.read<String?>('form'),
-                voiesAdministration: row.read<String?>('routes'),
-                principesActifsCommuns: row.read<String?>(
-                  'principes_actifs_communs',
+          (rows) => rows
+              .map(
+                (row) => GroupDetailEntity.fromData(
+                  ViewGroupDetail(
+                    groupId: row.read<String>('group_id'),
+                    codeCip: row.read<String>('default_cip'),
+                    rawLabel: row.read<String?>('label'),
+                    princepsCisReference: row.read<String?>('cis_code'),
+                    cisCode: row.read<String>('cis_code'),
+                    nomCanonique: row.read<String>('label'),
+                    princepsDeReference:
+                        row.read<String>('princeps_de_reference'),
+                    princepsBrandName: row.read<String>('princeps_brand_name'),
+                    isPrinceps: row.read<int>('is_princeps') == 1,
+                    status: row.read<String?>('status'),
+                    formePharmaceutique: row.read<String?>('form'),
+                    voiesAdministration: row.read<String?>('routes'),
+                    principesActifsCommuns: row.read<String?>(
+                      'principes_actifs_communs',
+                    ),
+                    formattedDosage: row.read<String?>('dosage'),
+                    summaryTitulaire: row.read<String?>('summary_titulaire'),
+                    officialTitulaire: row.read<String?>('summary_titulaire'),
+                    nomSpecialite: row.read<String>('label'),
+                    procedureType: row.read<String?>('procedure_type'),
+                    conditionsPrescription: row.read<String?>(
+                      'conditions_prescription',
+                    ),
+                    isSurveillance: row.read<int>('is_surveillance') == 1,
+                    atcCode: row.read<String?>('atc_code'),
+                    memberType: row.read<int>('member_type'),
+                    prixPublic: row.read<num?>('prix_public')?.toDouble(),
+                    ansmAlertUrl: row.read<String?>('ansm_alert_url'),
+                    isHospitalOnly: row.read<int>('is_hospital_only') == 1,
+                    isDental: row.read<int>('is_dental') == 1,
+                    isList1: row.read<int>('is_list1') == 1,
+                    isList2: row.read<int>('is_list2') == 1,
+                    isNarcotic: row.read<int>('is_narcotic') == 1,
+                    isException: row.read<int>('is_exception') == 1,
+                    isRestricted: row.read<int>('is_restricted') == 1,
+                    isOtc: row.read<int>('is_otc') == 1,
+                    smrNiveau: row.read<String?>('smr_niveau'),
+                    smrDate: row.read<String?>('smr_date'),
+                    asmrNiveau: row.read<String?>('asmr_niveau'),
+                    asmrDate: row.read<String?>('asmr_date'),
+                    urlNotice: row.read<String?>('url_notice'),
+                    hasSafetyAlert: row.read<int?>('has_safety_alert') == 1,
+                  ),
                 ),
-                formattedDosage: row.read<String?>('dosage'),
-                summaryTitulaire: row.read<String?>('summary_titulaire'),
-                officialTitulaire: row.read<String?>('summary_titulaire'),
-                nomSpecialite: row.read<String>('label'),
-                procedureType: row.read<String?>('procedure_type'),
-                conditionsPrescription: row.read<String?>(
-                  'conditions_prescription',
-                ),
-                isSurveillance: row.read<int>('is_surveillance') == 1,
-                atcCode: row.read<String?>('atc_code'),
-                memberType: row.read<int>('member_type'),
-                prixPublic: row.read<num?>('prix_public')?.toDouble(),
-                ansmAlertUrl: row.read<String?>('ansm_alert_url'),
-                isHospitalOnly: row.read<int>('is_hospital_only') == 1,
-                isDental: row.read<int>('is_dental') == 1,
-                isList1: row.read<int>('is_list1') == 1,
-                isList2: row.read<int>('is_list2') == 1,
-                isNarcotic: row.read<int>('is_narcotic') == 1,
-                isException: row.read<int>('is_exception') == 1,
-                isRestricted: row.read<int>('is_restricted') == 1,
-                isOtc: row.read<int>('is_otc') == 1,
-                smrNiveau: row.read<String?>('smr_niveau'),
-                smrDate: row.read<String?>('smr_date'),
-                asmrNiveau: row.read<String?>('asmr_niveau'),
-                asmrDate: row.read<String?>('asmr_date'),
-                urlNotice: row.read<String?>('url_notice'),
-                hasSafetyAlert: row.read<int?>('has_safety_alert') == 1,
-              ),
-            ),
-          )
-          .toList(),
-    );
+              )
+              .toList(),
+        );
   }
 
   Future<List<GroupDetailEntity>> getGroupDetails(
@@ -799,8 +768,8 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with $CatalogDaoMixin {
               row.readNullable<String>('representative_cis') ?? '';
           final princepsCisCode = princepsCisCodeRaw.isNotEmpty
               ? (princepsCisCodeRaw.length == 8
-                    ? CisCode.validated(princepsCisCodeRaw)
-                    : CisCode.unsafe(princepsCisCodeRaw))
+                  ? CisCode.validated(princepsCisCodeRaw)
+                  : CisCode.unsafe(princepsCisCodeRaw))
               : null;
 
           return GenericGroupEntity(

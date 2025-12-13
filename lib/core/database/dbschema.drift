@@ -175,6 +175,39 @@ CREATE INDEX idx_summary_group ON medicament_summary(group_id);
 CREATE INDEX idx_restock_items_cis_code ON restock_items(cis_code);
 CREATE INDEX idx_restock_items_expiry_date ON restock_items(expiry_date);
 CREATE INDEX idx_scanned_boxes_scan_timestamp ON scanned_boxes(scan_timestamp);
+CREATE TRIGGER update_hospital_flag_after_insert AFTER INSERT ON medicaments BEGIN
+        UPDATE medicament_summary
+        SET is_hospital = (
+          -- Condition 1: Prescription conditions contain "HOSPITALIER"
+          LOWER(medicament_summary.conditions_prescription) LIKE '%hospitalier%' OR
+          -- Condition 2: Agreement logic matching mobile app's _isHospitalOnly
+          (LOWER(m.agrement_collectivites) = 'oui' AND (m.prix_public IS NULL OR m.prix_public = 0) AND m.taux_remboursement IS NOT NULL AND m.taux_remboursement != '')
+        )
+        FROM medicaments m
+        WHERE medicament_summary.cis_code = m.cis_code;
+      END;
+CREATE TRIGGER update_hospital_flag_after_update AFTER UPDATE ON medicaments BEGIN
+        UPDATE medicament_summary
+        SET is_hospital = (
+          -- Condition 1: Prescription conditions contain "HOSPITALIER"
+          LOWER(medicament_summary.conditions_prescription) LIKE '%hospitalier%' OR
+          -- Condition 2: Agreement logic matching mobile app's _isHospitalOnly
+          (LOWER(m.agrement_collectivites) = 'oui' AND (m.prix_public IS NULL OR m.prix_public = 0) AND m.taux_remboursement IS NOT NULL AND m.taux_remboursement != '')
+        )
+        FROM medicaments m
+        WHERE medicament_summary.cis_code = m.cis_code;
+      END;
+CREATE TRIGGER update_hospital_flag_after_summary_update AFTER UPDATE ON medicament_summary WHEN NEW.conditions_prescription != OLD.conditions_prescription BEGIN
+        UPDATE medicament_summary
+        SET is_hospital = (
+          -- Condition 1: Prescription conditions contain "HOSPITALIER"
+          LOWER(NEW.conditions_prescription) LIKE '%hospitalier%' OR
+          -- Condition 2: Agreement logic matching mobile app's _isHospitalOnly
+          (LOWER(m.agrement_collectivites) = 'oui' AND (m.prix_public IS NULL OR m.prix_public = 0) AND m.taux_remboursement IS NOT NULL AND m.taux_remboursement != '')
+        )
+        FROM medicaments m
+        WHERE medicament_summary.cis_code = m.cis_code AND medicament_summary.cis_code = NEW.cis_code;
+      END;
 CREATE VIEW view_explorer_list AS
       SELECT 
         cn.cluster_id,

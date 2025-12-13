@@ -14,9 +14,7 @@ void main() {
 
     setUp(() async {
       db = AppDatabase.forTesting(
-        NativeDatabase.memory(
-          setup: configureAppSQLite,
-        ),
+        NativeDatabase.memory(setup: configureAppSQLite),
       );
 
       // Insert medicament_summary directly using SQL-first approach
@@ -262,9 +260,9 @@ void main() {
           results
               .map(
                 (entity) => entity.data.nomCanonique.toUpperCase().replaceAll(
-                  RegExp('[^A-Z0-9]'),
-                  '',
-                ),
+                      RegExp('[^A-Z0-9]'),
+                      '',
+                    ),
               )
               .any((name) => name.contains('LTHYROXINE')),
           isTrue,

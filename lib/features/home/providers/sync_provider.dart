@@ -75,7 +75,7 @@ class SyncController extends _$SyncController {
         startTime: syncStartTime,
       );
 
-      final updated = await dataInitService.updateDatabase(force: false);
+      final updated = await dataInitService.updateDatabase();
 
       if (updated) {
         state = SyncProgress(

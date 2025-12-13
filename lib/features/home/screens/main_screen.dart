@@ -1,4 +1,3 @@
-import 'dart:async';
 
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
@@ -31,13 +30,11 @@ class MainScreen extends HookConsumerWidget {
         return null;
       }
 
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        unawaited(
-          ref.read(syncControllerProvider.notifier).startSync(),
-        );
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        await ref.read(syncControllerProvider.notifier).startSync();
 
         // Register periodic sync task
-        Workmanager().registerPeriodicTask(
+        await Workmanager().registerPeriodicTask(
           'weeklyDatabaseUpdate',
           'weeklyDatabaseUpdate',
           frequency: const Duration(days: 7),
@@ -50,7 +47,7 @@ class MainScreen extends HookConsumerWidget {
         );
       });
       return null;
-    }, [initializationState]);
+    }, [initializationState],);
 
     final activityBannerState = ref.watch(activityBannerViewModelProvider);
 

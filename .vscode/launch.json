@@ -1,0 +1,10 @@
+{
+    "configurations": [
+        {
+            "name": "pharma_scan (Flutter)",
+            "program": "lib/main.dart",
+            "request": "launch",
+            "type": "dart"
+        }
+    ]
+}

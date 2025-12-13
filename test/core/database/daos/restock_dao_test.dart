@@ -12,6 +12,7 @@ void main() {
     late AppDatabase db;
 
     setUp(() {
+      // Use the existing working test database pattern
       db = AppDatabase.forTesting(
         NativeDatabase.memory(setup: configureAppSQLite),
       );
@@ -79,7 +80,8 @@ void main() {
       await dao.addToRestock(cip);
       var row = await (db.select(
         db.restockItems,
-      )..where((tbl) => tbl.cipCode.equals(cip.toString()))).getSingle();
+      )..where((tbl) => tbl.cipCode.equals(cip.toString())))
+          .getSingle();
       // Check if item is checked via notes field (JSON)
       final notes = row.notes;
       final isChecked = notes != null && notes.contains('"checked":true');
@@ -88,7 +90,8 @@ void main() {
       await dao.toggleCheck(cip);
       row = await (db.select(
         db.restockItems,
-      )..where((tbl) => tbl.cipCode.equals(cip.toString()))).getSingle();
+      )..where((tbl) => tbl.cipCode.equals(cip.toString())))
+          .getSingle();
       // Check if item is checked via notes field (JSON)
       final notesAfter = row.notes;
       final isCheckedAfter =
@@ -189,13 +192,13 @@ void main() {
       );
 
       final dup = await dao.isDuplicate(
-        cip: cip.toString(),
+        cip: cip,
         serial: 'SER-C',
       );
       expect(dup, isTrue);
 
       final notDup = await dao.isDuplicate(
-        cip: cip.toString(),
+        cip: cip,
         serial: 'SER-D',
       );
       expect(notDup, isFalse);
@@ -211,7 +214,7 @@ void main() {
       );
 
       await dao.forceUpdateQuantity(
-        cip: cip.toString(),
+        cip: cip,
         newQuantity: 7,
       );
 
@@ -225,7 +228,7 @@ void main() {
 
       await dao.addToRestock(cip);
       await dao.forceUpdateQuantity(
-        cip: cip.toString(),
+        cip: cip,
         newQuantity: 0,
       );
 

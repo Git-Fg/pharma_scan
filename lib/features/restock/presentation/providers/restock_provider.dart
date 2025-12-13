@@ -45,7 +45,7 @@ class RestockNotifier extends _$RestockNotifier {
     if (quantity < 0) return;
     final db = ref.read(databaseProvider);
     await db.restockDao.forceUpdateQuantity(
-      cip: item.cip.toString(),
+      cip: item.cip,
       newQuantity: quantity,
     );
   }
@@ -63,7 +63,7 @@ class RestockNotifier extends _$RestockNotifier {
   Future<void> restoreItem(RestockItemEntity item) async {
     final db = ref.read(databaseProvider);
     await db.restockDao.forceUpdateQuantity(
-      cip: item.cip.toString(),
+      cip: item.cip,
       newQuantity: item.quantity,
     );
   }
@@ -121,8 +121,7 @@ List<RestockItemEntity> _sortRestockItems(
     }
   }
 
-  final sorted = [...items]
-    ..sort((a, b) {
+  final sorted = [...items]..sort((a, b) {
       final ka = keyFor(a);
       final kb = keyFor(b);
       final keyCompare = ka.compareTo(kb);
@@ -152,8 +151,8 @@ Map<String, List<RestockItemEntity>> _groupByInitial(
     }
     final base =
         preference == SortingPreference.princeps && hasValidPrinceps(item)
-        ? item.princepsLabel!
-        : item.label;
+            ? item.princepsLabel!
+            : item.label;
     final trimmed = base.trim();
     if (trimmed.isEmpty) return '#';
     final first = trimmed[0].toUpperCase();
@@ -178,10 +177,12 @@ Map<String, List<RestockItemEntity>> _groupByInitial(
 List<RestockItemEntity> sortRestockItemsForTest(
   List<RestockItemEntity> items,
   SortingPreference preference,
-) => _sortRestockItems(items, preference);
+) =>
+    _sortRestockItems(items, preference);
 
 @visibleForTesting
 Map<String, List<RestockItemEntity>> groupRestockItemsForTest(
   List<RestockItemEntity> items,
   SortingPreference preference,
-) => _groupByInitial(items, preference);
+) =>
+    _groupByInitial(items, preference);

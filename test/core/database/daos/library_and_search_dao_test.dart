@@ -3,7 +3,6 @@ import 'dart:io';
 
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:path/path.dart' as p;
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/domain/types/semantic_types.dart';
@@ -155,7 +154,8 @@ void main() {
 
       // Populate the FTS5 search index for testing using raw SQL
       await database.customUpdate('DELETE FROM search_index', updates: {});
-      await database.customUpdate('''
+      await database.customUpdate(
+        '''
         INSERT INTO search_index (
           cis_code,
           molecule_name,
@@ -166,7 +166,9 @@ void main() {
           normalize_text(COALESCE(ms.nom_canonique, '')) AS molecule_name,
           normalize_text(COALESCE(ms.princeps_de_reference, '')) AS brand_name
         FROM medicament_summary ms
-      ''', updates: {});
+      ''',
+        updates: {},
+      );
 
       final catalogDao = database.catalogDao;
       final candidates = await catalogDao.searchMedicaments(

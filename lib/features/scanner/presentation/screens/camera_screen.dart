@@ -64,7 +64,7 @@ class CameraScreen extends HookConsumerWidget {
         return () => tabsRouter?.removeListener(onTabChanged);
       }
       return null;
-    }, [tabsRouter]);
+    }, [tabsRouter],);
 
     useEffect(() {
       final scannerNotifier = ref.read(scannerProvider.notifier);
@@ -118,7 +118,7 @@ class CameraScreen extends HookConsumerWidget {
       });
 
       return subscription.cancel;
-    }, [context, ref]);
+    }, [context, ref],);
 
     useAsyncFeedback<ScannerState>(ref, scannerProvider);
 
@@ -155,7 +155,7 @@ class CameraScreen extends HookConsumerWidget {
       });
       scannerController.addListener(handlePermissionChange);
       return () => scannerController.removeListener(handlePermissionChange);
-    }, [scannerController]);
+    }, [scannerController],);
     final picker = useMemoized(ImagePicker.new);
 
     Future<void> openManualEntrySheet() async {
@@ -446,7 +446,7 @@ class _DuplicateQuantitySheet extends HookWidget {
         extentOffset: controller.text.length,
       );
       return null;
-    }, [scannerInput.controller, scannerInput.focusNode]);
+    }, [scannerInput.controller, scannerInput.focusNode],);
 
     void setDelta(int delta) {
       final current = int.tryParse(scannerInput.controller.text) ?? 0;

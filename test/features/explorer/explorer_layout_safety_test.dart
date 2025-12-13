@@ -143,7 +143,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(AppDimens.searchBarHeaderHeight, 69.0);
-    }, skip: true);
+    }, skip: true,);
 
     testWidgets('adds keyboard inset padding when keyboard is open', (
       tester,
@@ -208,7 +208,7 @@ void main() {
 
       // Verify keyboard insets are handled without exceptions
       expect(tester.takeException(), isNull);
-    }, skip: true);
+    }, skip: true,);
   });
 }
 

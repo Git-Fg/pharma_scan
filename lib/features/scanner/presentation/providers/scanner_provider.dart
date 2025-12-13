@@ -186,7 +186,7 @@ class ScannerNotifier extends _$ScannerNotifier {
         return !iosInfo
             .isPhysicalDevice; // Treat simulator as low end for testing or similar
       }
-    } catch (e) {
+    } on Object catch (e) {
       LoggerService.error('Failed to check device capabilities', e);
     }
     return false;

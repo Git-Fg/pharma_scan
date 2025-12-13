@@ -1,18 +1,13 @@
 import 'package:drift/drift.dart';
+import 'package:drift/native.dart';
+import 'package:drift/wasm.dart' if (dart.library.io) 'drift_native.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
-// Conditional imports for web vs mobile
-import 'package:drift/wasm.dart' if (dart.library.io) 'drift_native.dart';
-
-// ... imports ...
-
-// ... imports ...
 import 'package:pharma_scan/core/database/daos/catalog_dao.dart';
 import 'package:pharma_scan/core/database/daos/database_dao.dart';
 import 'package:pharma_scan/core/database/daos/restock_dao.dart';
-
 import 'package:pharma_scan/core/database/database.drift.dart';
 
 @DriftDatabase(
@@ -21,17 +16,15 @@ import 'package:pharma_scan/core/database/database.drift.dart';
 )
 class AppDatabase extends $AppDatabase {
   /// Constructeur principal utilisant driftDatabase pour la configuration multi-plateforme
-  AppDatabase() : super(_openConnection());
+  AppDatabase()
+      : _isTestDatabase = false,
+        super(_openConnection());
 
   /// Constructeur pour les tests
-  AppDatabase.forTesting(super.e);
+  AppDatabase.forTesting(super.e) : _isTestDatabase = true;
 
-  @override
-  late final CatalogDao catalogDao = CatalogDao(this);
-  @override
-  late final DatabaseDao databaseDao = DatabaseDao(this);
-  @override
-  late final RestockDao restockDao = RestockDao(this);
+  /// Flag to identify test databases
+  final bool _isTestDatabase;
 
   static QueryExecutor _openConnection() {
     if (kIsWeb) {
@@ -45,7 +38,7 @@ class AppDatabase extends $AppDatabase {
             return data.buffer.asUint8List();
           },
         );
-        return result.executor;
+        return result; // result implémente QueryExecutor
       }) as QueryExecutor;
     } else {
       return driftDatabase(
@@ -64,20 +57,35 @@ class AppDatabase extends $AppDatabase {
   MigrationStrategy get migration {
     return MigrationStrategy(
       onCreate: (Migrator m) async {
-        // Pour les tests avec base de données en mémoire, créer toutes les tables
-        // depuis le schéma défini dans les fichiers .drift
-        // Exclure sqlite_sequence car c'est une table système gérée automatiquement par SQLite
-        for (final table in allTables) {
-          if (table.actualTableName != 'sqlite_sequence') {
-            await m.createTable(table);
+        if (_isTestDatabase) {
+          // For test databases, create all tables from schema
+          for (final table in allTables) {
+            if (table.actualTableName != 'sqlite_sequence') {
+              await m.createTable(table);
+            }
           }
+
+          // Create FTS5 table for search functionality
+          await customStatement('''
+            CREATE VIRTUAL TABLE IF NOT EXISTS search_index USING fts5(
+              cis_code UNINDEXED,
+              molecule_name,
+              brand_name,
+              tokenize='trigram'
+            )
+          ''');
+
+          // Create unique index for scanned_boxes duplicate detection
+          await customStatement(
+            'CREATE UNIQUE INDEX IF NOT EXISTS idx_scanned_boxes_unique ON scanned_boxes(cip_code, box_label)',
+          );
+        } else {
+          // Production databases should not be created from scratch
+          throw UnimplementedError(
+            'Database creation from scratch is not supported in production. '
+            'Production databases must be downloaded as pre-built assets.',
+          );
         }
-
-        // Créer la table virtuelle FTS5 search_index pour les tests
-        await _createFts5Table();
-
-        // Créer les index uniques nécessaires pour les tests
-        await _createUniqueIndexes();
       },
       beforeOpen: (details) async {
         // Activation des clés étrangères indispensable pour SQLite
@@ -106,41 +114,50 @@ class AppDatabase extends $AppDatabase {
       );
     }
   }
+}
 
-  /// Crée la table virtuelle FTS5 search_index (pour les tests uniquement).
-  /// En production, la table est déjà créée dans la base téléchargée.
-  Future<void> _createFts5Table() async {
-    try {
-      await customStatement(
-        '''
-        CREATE VIRTUAL TABLE IF NOT EXISTS search_index USING fts5(
-          cis_code UNINDEXED,
-          molecule_name,
-          brand_name,
-          tokenize='trigram'
-        )
-        ''',
-      );
-    } catch (_) {
-      // En cas d'erreur, ignorer silencieusement
-      // La table sera déjà créée dans la base téléchargée
+/// Test helper for creating in-memory databases with proper schema
+///
+/// This helper provides a clean way to create test databases that match the
+/// production schema without contaminating production code with test logic.
+class TestDatabaseHelper {
+  /// Creates an in-memory test database with all tables and indexes properly set up
+  static Future<AppDatabase> createTestDatabase() async {
+    // Use a direct QueryExecutor to bypass the migration check
+    final executor = NativeDatabase.memory();
+    final database = AppDatabase.forTesting(executor);
+
+    // Apply the same settings as production database
+    await database.customStatement('PRAGMA foreign_keys = ON');
+    await database.customStatement('PRAGMA journal_mode=WAL');
+    await database.customStatement('PRAGMA busy_timeout=30000');
+    await database.customStatement('PRAGMA synchronous=NORMAL');
+    await database.customStatement('PRAGMA mmap_size=300000000');
+    await database.customStatement('PRAGMA temp_store=MEMORY');
+
+    // Create all tables from schema
+    final migrator = Migrator(database);
+    for (final table in database.allTables) {
+      if (table.actualTableName != 'sqlite_sequence') {
+        await migrator.createTable(table);
+      }
     }
-  }
 
-  /// Crée les index uniques nécessaires pour les tests.
-  /// En production, ces index sont déjà créés dans la base téléchargée.
-  Future<void> _createUniqueIndexes() async {
-    try {
-      // Drop existing index if any to recreate cleanly
-      await customStatement('DROP INDEX IF EXISTS idx_scanned_boxes_unique');
+    // Create FTS5 table for search functionality
+    await database.customStatement('''
+      CREATE VIRTUAL TABLE IF NOT EXISTS search_index USING fts5(
+        cis_code UNINDEXED,
+        molecule_name,
+        brand_name,
+        tokenize='trigram'
+      )
+    ''');
 
-      // Create unique constraint for scanned_boxes duplicate detection
-      await customStatement(
-        'CREATE UNIQUE INDEX idx_scanned_boxes_unique ON scanned_boxes(cip_code, box_label)',
-      );
-    } catch (_) {
-      // En cas d'erreur, ignorer silencieusement
-      // Les index seront déjà créés dans la base téléchargée
-    }
+    // Create unique index for scanned_boxes duplicate detection
+    await database.customStatement(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_scanned_boxes_unique ON scanned_boxes(cip_code, box_label)',
+    );
+
+    return database;
   }
 }

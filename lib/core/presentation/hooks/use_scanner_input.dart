@@ -18,7 +18,7 @@ useScannerInput({
   useEffect(() {
     onSubmittedRef.value = onSubmitted;
     return null;
-  }, [onSubmitted]);
+  }, [onSubmitted],);
 
   useEffect(() {
     void keepFocused() {
@@ -30,7 +30,7 @@ useScannerInput({
     WidgetsBinding.instance.addPostFrameCallback((_) => keepFocused());
     focusNode.addListener(keepFocused);
     return () => focusNode.removeListener(keepFocused);
-  }, [focusNode]);
+  }, [focusNode],);
 
   void handleSubmit(String value) {
     final trimmed = value.trim();

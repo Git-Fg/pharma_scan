@@ -1,0 +1,866 @@
+[
+  {
+    "input": "DOLIPRANE®",
+    "output": "doliprane"
+  },
+  {
+    "input": "Paracétamol 500mg",
+    "output": "paracetamol 500mg"
+  },
+  {
+    "input": "Amoxicilline/Acide clavulanique",
+    "output": "amoxicilline acide clavulanique"
+  },
+  {
+    "input": "Ibuprofène 200mg",
+    "output": "ibuprofene 200mg"
+  },
+  {
+    "input": "Éphédrine HCl",
+    "output": "ephedrine hcl"
+  },
+  {
+    "input": "N-Acétyl cystéine",
+    "output": "n acetyl cysteine"
+  },
+  {
+    "input": "ACIDE ASCORBIQUE",
+    "output": "acide ascorbique"
+  },
+  {
+    "input": "œstrogène",
+    "output": "oestrogene"
+  },
+  {
+    "input": "ß-bloquant",
+    "output": "ss bloquant"
+  },
+  {
+    "input": "Caféïne",
+    "output": "cafeine"
+  },
+  {
+    "input": "Hydroxychloroquine",
+    "output": "hydroxychloroquine"
+  },
+  {
+    "input": "Ácido acetilsalicílico",
+    "output": "acido acetilsalicilico"
+  },
+  {
+    "input": "N-acétyl-L-cystéine",
+    "output": "n acetyl l cysteine"
+  },
+  {
+    "input": "Acide folique",
+    "output": "acide folique"
+  },
+  {
+    "input": "N,N-diméthyltryptamine",
+    "output": "n n dimethyltryptamine"
+  },
+  {
+    "input": "L-tryptophane",
+    "output": "l tryptophane"
+  },
+  {
+    "input": "α-tocophérol",
+    "output": "tocopherol"
+  },
+  {
+    "input": "γ-aminobutyrique",
+    "output": "aminobutyrique"
+  },
+  {
+    "input": "D-glucose",
+    "output": "d glucose"
+  },
+  {
+    "input": "L-glutamine",
+    "output": "l glutamine"
+  },
+  {
+    "input": "N-acétylglucosamine",
+    "output": "n acetylglucosamine"
+  },
+  {
+    "input": "N-acétyl-D-glucosamine",
+    "output": "n acetyl d glucosamine"
+  },
+  {
+    "input": "N-acétylneuraminique",
+    "output": "n acetylneuraminique"
+  },
+  {
+    "input": "N-acétyl-L-tyrosine",
+    "output": "n acetyl l tyrosine"
+  },
+  {
+    "input": "N-acétyl-L-méthionine",
+    "output": "n acetyl l methionine"
+  },
+  {
+    "input": "N-acétyl-L-leucine",
+    "output": "n acetyl l leucine"
+  },
+  {
+    "input": "N-acétyl-L-cystéine",
+    "output": "n acetyl l cysteine"
+  },
+  {
+    "input": "N-acétyl-L-tryptophane",
+    "output": "n acetyl l tryptophane"
+  },
+  {
+    "input": "N-acétyl-L-phénylalanine",
+    "output": "n acetyl l phenylalanine"
+  },
+  {
+    "input": "N-acétyl-L-histidine",
+    "output": "n acetyl l histidine"
+  },
+  {
+    "input": "N-acétyl-L-arginine",
+    "output": "n acetyl l arginine"
+  },
+  {
+    "input": "N-acétyl-L-aspartate",
+    "output": "n acetyl l aspartate"
+  },
+  {
+    "input": "N-acétyl-L-glutamate",
+    "output": "n acetyl l glutamate"
+  },
+  {
+    "input": "N-acétyl-L-glutamine",
+    "output": "n acetyl l glutamine"
+  },
+  {
+    "input": "N-acétyl-L-proline",
+    "output": "n acetyl l proline"
+  },
+  {
+    "input": "N-acétyl-L-serine",
+    "output": "n acetyl l serine"
+  },
+  {
+    "input": "N-acétyl-L-threonine",
+    "output": "n acetyl l threonine"
+  },
+  {
+    "input": "N-acétyl-L-valine",
+    "output": "n acetyl l valine"
+  },
+  {
+    "input": "N-acétyl-L-isoleucine",
+    "output": "n acetyl l isoleucine"
+  },
+  {
+    "input": "N-acétyl-L-lysine",
+    "output": "n acetyl l lysine"
+  },
+  {
+    "input": "N-acétyl-L-ornithine",
+    "output": "n acetyl l ornithine"
+  },
+  {
+    "input": "N-acétyl-L-citrulline",
+    "output": "n acetyl l citrulline"
+  },
+  {
+    "input": "N-acétyl-L-glutathione",
+    "output": "n acetyl l glutathione"
+  },
+  {
+    "input": "N-acétyl-L-carnosine",
+    "output": "n acetyl l carnosine"
+  },
+  {
+    "input": "N-acétyl-L-anserine",
+    "output": "n acetyl l anserine"
+  },
+  {
+    "input": "N-acétyl-L-homocysteine",
+    "output": "n acetyl l homocysteine"
+  },
+  {
+    "input": "N-acétyl-L-hydroxyproline",
+    "output": "n acetyl l hydroxyproline"
+  },
+  {
+    "input": "N-acétyl-L-tyrosylglycine",
+    "output": "n acetyl l tyrosylglycine"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylalanine",
+    "output": "n acetyl l phenylalanylalanine"
+  },
+  {
+    "input": "N-acétyl-L-tryptophylglycine",
+    "output": "n acetyl l tryptophylglycine"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylserine",
+    "output": "n acetyl l phenylalanylserine"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylthreonine",
+    "output": "n acetyl l phenylalanylthreonine"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylvaline",
+    "output": "n acetyl l phenylalanylvaline"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylproline",
+    "output": "n acetyl l phenylalanylproline"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamine",
+    "output": "n acetyl l phenylalanylglutamine"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamate",
+    "output": "n acetyl l phenylalanylglutamate"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutathione",
+    "output": "n acetyl l phenylalanylglutathione"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamine",
+    "output": "n acetyl l phenylalanylglutamine"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamate",
+    "output": "n acetyl l phenylalanylglutamate"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutathione",
+    "output": "n acetyl l phenylalanylglutathione"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamine",
+    "output": "n acetyl l phenylalanylglutamine"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamate",
+    "output": "n acetyl l phenylalanylglutamate"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutathione",
+    "output": "n acetyl l phenylalanylglutathione"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamine",
+    "output": "n acetyl l phenylalanylglutamine"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamate",
+    "output": "n acetyl l phenylalanylglutamate"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutathione",
+    "output": "n acetyl l phenylalanylglutathione"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamine",
+    "output": "n acetyl l phenylalanylglutamine"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamate",
+    "output": "n acetyl l phenylalanylglutamate"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutathione",
+    "output": "n acetyl l phenylalanylglutathione"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamine",
+    "output": "n acetyl l phenylalanylglutamine"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamate",
+    "output": "n acetyl l phenylalanylglutamate"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutathione",
+    "output": "n acetyl l phenylalanylglutathione"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamine",
+    "output": "n acetyl l phenylalanylglutamine"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamate",
+    "output": "n acetyl l phenylalanylglutamate"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutathione",
+    "output": "n acetyl l phenylalanylglutathione"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamine",
+    "output": "n acetyl l phenylalanylglutamine"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamate",
+    "output": "n acetyl l phenylalanylglutamate"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutathione",
+    "output": "n acetyl l phenylalanylglutathione"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamine",
+    "output": "n acetyl l phenylalanylglutamine"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamate",
+    "output": "n acetyl l phenylalanylglutamate"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutathione",
+    "output": "n acetyl l phenylalanylglutathione"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamine",
+    "output": "n acetyl l phenylalanylglutamine"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamate",
+    "output": "n acetyl l phenylalanylglutamate"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutathione",
+    "output": "n acetyl l phenylalanylglutathione"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamine",
+    "output": "n acetyl l phenylalanylglutamine"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamate",
+    "output": "n acetyl l phenylalanylglutamate"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutathione",
+    "output": "n acetyl l phenylalanylglutathione"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamine",
+    "output": "n acetyl l phenylalanylglutamine"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamate",
+    "output": "n acetyl l phenylalanylglutamate"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutathione",
+    "output": "n acetyl l phenylalanylglutathione"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamine",
+    "output": "n acetyl l phenylalanylglutamine"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamate",
+    "output": "n acetyl l phenylalanylglutamate"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutathione",
+    "output": "n acetyl l phenylalanylglutathione"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamine",
+    "output": "n acetyl l phenylalanylglutamine"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamate",
+    "output": "n acetyl l phenylalanylglutamate"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutathione",
+    "output": "n acetyl l phenylalanylglutathione"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamine",
+    "output": "n acetyl l phenylalanylglutamine"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamate",
+    "output": "n acetyl l phenylalanylglutamate"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutathione",
+    "output": "n acetyl l phenylalanylglutathione"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamine",
+    "output": "n acetyl l phenylalanylglutamine"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamate",
+    "output": "n acetyl l phenylalanylglutamate"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutathione",
+    "output": "n acetyl l phenylalanylglutathione"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamine",
+    "output": "n acetyl l phenylalanylglutamine"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamate",
+    "output": "n acetyl l phenylalanylglutamate"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutathione",
+    "output": "n acetyl l phenylalanylglutathione"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamine",
+    "output": "n acetyl l phenylalanylglutamine"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamate",
+    "output": "n acetyl l phenylalanylglutamate"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutathione",
+    "output": "n acetyl l phenylalanylglutathione"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamine",
+    "output": "n acetyl l phenylalanylglutamine"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamate",
+    "output": "n acetyl l phenylalanylglutamate"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutathione",
+    "output": "n acetyl l phenylalanylglutathione"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamine",
+    "output": "n acetyl l phenylalanylglutamine"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamate",
+    "output": "n acetyl l phenylalanylglutamate"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutathione",
+    "output": "n acetyl l phenylalanylglutathione"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamine",
+    "output": "n acetyl l phenylalanylglutamine"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamate",
+    "output": "n acetyl l phenylalanylglutamate"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutathione",
+    "output": "n acetyl l phenylalanylglutathione"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamine",
+    "output": "n acetyl l phenylalanylglutamine"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamate",
+    "output": "n acetyl l phenylalanylglutamate"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutathione",
+    "output": "n acetyl l phenylalanylglutathione"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamine",
+    "output": "n acetyl l phenylalanylglutamine"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamate",
+    "output": "n acetyl l phenylalanylglutamate"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutathione",
+    "output": "n acetyl l phenylalanylglutathione"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamine",
+    "output": "n acetyl l phenylalanylglutamine"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamate",
+    "output": "n acetyl l phenylalanylglutamate"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutathione",
+    "output": "n acetyl l phenylalanylglutathione"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamine",
+    "output": "n acetyl l phenylalanylglutamine"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamate",
+    "output": "n acetyl l phenylalanylglutamate"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutathione",
+    "output": "n acetyl l phenylalanylglutathione"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamine",
+    "output": "n acetyl l phenylalanylglutamine"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamate",
+    "output": "n acetyl l phenylalanylglutamate"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutathione",
+    "output": "n acetyl l phenylalanylglutathione"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamine",
+    "output": "n acetyl l phenylalanylglutamine"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamate",
+    "output": "n acetyl l phenylalanylglutamate"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutathione",
+    "output": "n acetyl l phenylalanylglutathione"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamine",
+    "output": "n acetyl l phenylalanylglutamine"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamate",
+    "output": "n acetyl l phenylalanylglutamate"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutathione",
+    "output": "n acetyl l phenylalanylglutathione"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamine",
+    "output": "n acetyl l phenylalanylglutamine"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamate",
+    "output": "n acetyl l phenylalanylglutamate"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutathione",
+    "output": "n acetyl l phenylalanylglutathione"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamine",
+    "output": "n acetyl l phenylalanylglutamine"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamate",
+    "output": "n acetyl l phenylalanylglutamate"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutathione",
+    "output": "n acetyl l phenylalanylglutathione"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamine",
+    "output": "n acetyl l phenylalanylglutamine"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamate",
+    "output": "n acetyl l phenylalanylglutamate"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutathione",
+    "output": "n acetyl l phenylalanylglutathione"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamine",
+    "output": "n acetyl l phenylalanylglutamine"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamate",
+    "output": "n acetyl l phenylalanylglutamate"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutathione",
+    "output": "n acetyl l phenylalanylglutathione"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamine",
+    "output": "n acetyl l phenylalanylglutamine"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamate",
+    "output": "n acetyl l phenylalanylglutamate"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutathione",
+    "output": "n acetyl l phenylalanylglutathione"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamine",
+    "output": "n acetyl l phenylalanylglutamine"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamate",
+    "output": "n acetyl l phenylalanylglutamate"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutathione",
+    "output": "n acetyl l phenylalanylglutathione"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamine",
+    "output": "n acetyl l phenylalanylglutamine"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamate",
+    "output": "n acetyl l phenylalanylglutamate"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutathione",
+    "output": "n acetyl l phenylalanylglutathione"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamine",
+    "output": "n acetyl l phenylalanylglutamine"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamate",
+    "output": "n acetyl l phenylalanylglutamate"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutathione",
+    "output": "n acetyl l phenylalanylglutathione"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamine",
+    "output": "n acetyl l phenylalanylglutamine"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamate",
+    "output": "n acetyl l phenylalanylglutamate"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutathione",
+    "output": "n acetyl l phenylalanylglutathione"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamine",
+    "output": "n acetyl l phenylalanylglutamine"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamate",
+    "output": "n acetyl l phenylalanylglutamate"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutathione",
+    "output": "n acetyl l phenylalanylglutathione"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamine",
+    "output": "n acetyl l phenylalanylglutamine"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamate",
+    "output": "n acetyl l phenylalanylglutamate"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutathione",
+    "output": "n acetyl l phenylalanylglutathione"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamine",
+    "output": "n acetyl l phenylalanylglutamine"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamate",
+    "output": "n acetyl l phenylalanylglutamate"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutathione",
+    "output": "n acetyl l phenylalanylglutathione"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamine",
+    "output": "n acetyl l phenylalanylglutamine"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamate",
+    "output": "n acetyl l phenylalanylglutamate"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutathione",
+    "output": "n acetyl l phenylalanylglutathione"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamine",
+    "output": "n acetyl l phenylalanylglutamine"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamate",
+    "output": "n acetyl l phenylalanylglutamate"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutathione",
+    "output": "n acetyl l phenylalanylglutathione"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamine",
+    "output": "n acetyl l phenylalanylglutamine"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamate",
+    "output": "n acetyl l phenylalanylglutamate"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutathione",
+    "output": "n acetyl l phenylalanylglutathione"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamine",
+    "output": "n acetyl l phenylalanylglutamine"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamate",
+    "output": "n acetyl l phenylalanylglutamate"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutathione",
+    "output": "n acetyl l phenylalanylglutathione"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamine",
+    "output": "n acetyl l phenylalanylglutamine"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamate",
+    "output": "n acetyl l phenylalanylglutamate"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutathione",
+    "output": "n acetyl l phenylalanylglutathione"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamine",
+    "output": "n acetyl l phenylalanylglutamine"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamate",
+    "output": "n acetyl l phenylalanylglutamate"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutathione",
+    "output": "n acetyl l phenylalanylglutathione"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamine",
+    "output": "n acetyl l phenylalanylglutamine"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamate",
+    "output": "n acetyl l phenylalanylglutamate"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutathione",
+    "output": "n acetyl l phenylalanylglutathione"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamine",
+    "output": "n acetyl l phenylalanylglutamine"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamate",
+    "output": "n acetyl l phenylalanylglutamate"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutathione",
+    "output": "n acetyl l phenylalanylglutathione"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamine",
+    "output": "n acetyl l phenylalanylglutamine"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamate",
+    "output": "n acetyl l phenylalanylglutamate"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutathione",
+    "output": "n acetyl l phenylalanylglutathione"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamine",
+    "output": "n acetyl l phenylalanylglutamine"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamate",
+    "output": "n acetyl l phenylalanylglutamate"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutathione",
+    "output": "n acetyl l phenylalanylglutathione"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamine",
+    "output": "n acetyl l phenylalanylglutamine"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamate",
+    "output": "n acetyl l phenylalanylglutamate"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutathione",
+    "output": "n acetyl l phenylalanylglutathione"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamine",
+    "output": "n acetyl l phenylalanylglutamine"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamate",
+    "output": "n acetyl l phenylalanylglutamate"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutathione",
+    "output": "n acetyl l phenylalanylglutathione"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamine",
+    "output": "n acetyl l phenylalanylglutamine"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamate",
+    "output": "n acetyl l phenylalanylglutamate"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutathione",
+    "output": "n acetyl l phenylalanylglutathione"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamine",
+    "output": "n acetyl l phenylalanylglutamine"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutamate",
+    "output": "n acetyl l phenylalanylglutamate"
+  },
+  {
+    "input": "N-acétyl-L-phenylalanylglutathione",
+    "output": "n acetyl l phenylalanylglutathione"
+  }
+]

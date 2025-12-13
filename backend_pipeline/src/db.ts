@@ -13,11 +13,6 @@ import type {
   Laboratory,
   RestockItem,
   ScannedBox,
-  Cluster,
-  Product,
-  Presentation,
-  GroupRow,
-  ProductGroupingUpdate,
   SafetyAlert
 } from "./types";
 
@@ -406,6 +401,44 @@ export class ReferenceDatabase {
       CREATE INDEX IF NOT EXISTS idx_restock_items_cis_code ON restock_items(cis_code);
       CREATE INDEX IF NOT EXISTS idx_restock_items_expiry_date ON restock_items(expiry_date);
       CREATE INDEX IF NOT EXISTS idx_scanned_boxes_scan_timestamp ON scanned_boxes(scan_timestamp);
+
+      -- Trigger to update is_hospital flag based on comprehensive logic
+      -- This ensures the medicament_summary.is_hospital flag matches the mobile app's logic
+      CREATE TRIGGER IF NOT EXISTS update_hospital_flag_after_insert AFTER INSERT ON medicaments BEGIN
+        UPDATE medicament_summary
+        SET is_hospital = (
+          -- Condition 1: Prescription conditions contain "HOSPITALIER"
+          LOWER(medicament_summary.conditions_prescription) LIKE '%hospitalier%' OR
+          -- Condition 2: Agreement logic matching mobile app's _isHospitalOnly
+          (LOWER(m.agrement_collectivites) = 'oui' AND (m.prix_public IS NULL OR m.prix_public = 0) AND m.taux_remboursement IS NOT NULL AND m.taux_remboursement != '')
+        )
+        FROM medicaments m
+        WHERE medicament_summary.cis_code = m.cis_code;
+      END;
+
+      CREATE TRIGGER IF NOT EXISTS update_hospital_flag_after_update AFTER UPDATE ON medicaments BEGIN
+        UPDATE medicament_summary
+        SET is_hospital = (
+          -- Condition 1: Prescription conditions contain "HOSPITALIER"
+          LOWER(medicament_summary.conditions_prescription) LIKE '%hospitalier%' OR
+          -- Condition 2: Agreement logic matching mobile app's _isHospitalOnly
+          (LOWER(m.agrement_collectivites) = 'oui' AND (m.prix_public IS NULL OR m.prix_public = 0) AND m.taux_remboursement IS NOT NULL AND m.taux_remboursement != '')
+        )
+        FROM medicaments m
+        WHERE medicament_summary.cis_code = m.cis_code;
+      END;
+
+      CREATE TRIGGER IF NOT EXISTS update_hospital_flag_after_summary_update AFTER UPDATE ON medicament_summary WHEN NEW.conditions_prescription != OLD.conditions_prescription BEGIN
+        UPDATE medicament_summary
+        SET is_hospital = (
+          -- Condition 1: Prescription conditions contain "HOSPITALIER"
+          LOWER(NEW.conditions_prescription) LIKE '%hospitalier%' OR
+          -- Condition 2: Agreement logic matching mobile app's _isHospitalOnly
+          (LOWER(m.agrement_collectivites) = 'oui' AND (m.prix_public IS NULL OR m.prix_public = 0) AND m.taux_remboursement IS NOT NULL AND m.taux_remboursement != '')
+        )
+        FROM medicaments m
+        WHERE medicament_summary.cis_code = m.cis_code AND medicament_summary.cis_code = NEW.cis_code;
+      END;
     `);
 
     // --- 4. VUES OPTIMISÉES POUR LE MOBILE ---
@@ -524,7 +557,8 @@ export class ReferenceDatabase {
       agrement_collectivites: row.agrementCollectivites
     }));
 
-    this.prepareInsert<any>("medicaments", Object.keys(transformedRows[0] || {}) as any)(transformedRows);
+    const columns = Object.keys(transformedRows[0] || {}) as (keyof typeof transformedRows[0])[];
+    this.prepareInsert<any>("medicaments", columns)(transformedRows);
     console.log(`✅ Inserted ${rows.length} medicaments`);
   }
 
@@ -606,46 +640,65 @@ export class ReferenceDatabase {
   public insertMedicamentSummary(rows: ReadonlyArray<MedicamentSummary>) {
     console.log(`📊 Inserting ${rows.length} medicament summaries...`);
 
-    const transformedRows = rows.map(row => ({
-      cis_code: row.cisCode,
-      nom_canonique: row.nomCanonique,
-      is_princeps: row.isPrinceps ? 1 : 0,
-      group_id: row.groupId,
-      member_type: row.memberType || 0,
-      principes_actifs_communs: row.principesActifsCommuns,
-      princeps_de_reference: row.princepsDeReference,
-      forme_pharmaceutique: row.formePharmaceutique,
-      voies_administration: row.voiesAdministration,
-      princeps_brand_name: row.princepsBrandName,
-      procedure_type: row.procedureType,
-      titulaire_id: row.titulaireId,
-      conditions_prescription: row.conditionsPrescription,
-      date_amm: row.dateAmm,
-      is_surveillance: row.isSurveillance ? 1 : 0,
-      formatted_dosage: row.formattedDosage,
-      atc_code: row.atcCode,
-      status: row.status,
-      price_min: row.priceMin,
-      price_max: row.priceMax,
-      aggregated_conditions: row.aggregatedConditions,
-      ansm_alert_url: row.ansmAlertUrl,
-      is_hospital: row.isHospitalOnly ? 1 : 0,
-      is_dental: row.isDental ? 1 : 0,
-      is_list1: row.isList1 ? 1 : 0,
-      is_list2: row.isList2 ? 1 : 0,
-      is_narcotic: row.isNarcotic ? 1 : 0,
-      is_exception: row.isException ? 1 : 0,
-      is_restricted: row.isRestricted ? 1 : 0,
-      is_otc: row.isOtc ? 1 : 0,
-      smr_niveau: row.smrNiveau,
-      smr_date: row.smrDate,
-      asmr_niveau: row.asmrNiveau,
-      asmr_date: row.asmrDate,
-      url_notice: row.urlNotice,
-      has_safety_alert: row.hasSafetyAlert ? 1 : 0,
-      representative_cip: row.representativeCip,
-      cluster_id: row.clusterId // NEW - cluster assignment
-    }));
+    const transformedRows = rows.map(row => {
+      // Enhanced hospital-only logic matching mobile app's _isHospitalOnly
+      // This centralizes the logic in the backend as the single source of truth
+      let isHospital = row.isHospitalOnly;
+
+      // If not already hospital-only based on conditions, check additional criteria
+      if (!isHospital && row.conditionsPrescription) {
+        // Check if conditions contain "HOSPITALIER"
+        const hasHospitalCondition = row.conditionsPrescription.toLowerCase().includes('hospitalier');
+
+        if (!hasHospitalCondition) {
+          // Apply the same logic as mobile app's _isHospitalOnly
+          // This requires access to medicaments table data for agrement, price, and refund
+          // For now, we'll use the existing isHospitalOnly flag and enhance it with a trigger
+          isHospital = hasHospitalCondition;
+        }
+      }
+
+      return {
+        cis_code: row.cisCode,
+        nom_canonique: row.nomCanonique,
+        is_princeps: row.isPrinceps ? 1 : 0,
+        group_id: row.groupId,
+        member_type: row.memberType || 0,
+        principes_actifs_communs: row.principesActifsCommuns,
+        princeps_de_reference: row.princepsDeReference,
+        forme_pharmaceutique: row.formePharmaceutique,
+        voies_administration: row.voiesAdministration,
+        princeps_brand_name: row.princepsBrandName,
+        procedure_type: row.procedureType,
+        titulaire_id: row.titulaireId,
+        conditions_prescription: row.conditionsPrescription,
+        date_amm: row.dateAmm,
+        is_surveillance: row.isSurveillance ? 1 : 0,
+        formatted_dosage: row.formattedDosage,
+        atc_code: row.atcCode,
+        status: row.status,
+        price_min: row.priceMin,
+        price_max: row.priceMax,
+        aggregated_conditions: row.aggregatedConditions,
+        ansm_alert_url: row.ansmAlertUrl,
+        is_hospital: isHospital ? 1 : 0,
+        is_dental: row.isDental ? 1 : 0,
+        is_list1: row.isList1 ? 1 : 0,
+        is_list2: row.isList2 ? 1 : 0,
+        is_narcotic: row.isNarcotic ? 1 : 0,
+        is_exception: row.isException ? 1 : 0,
+        is_restricted: row.isRestricted ? 1 : 0,
+        is_otc: row.isOtc ? 1 : 0,
+        smr_niveau: row.smrNiveau,
+        smr_date: row.smrDate,
+        asmr_niveau: row.asmrNiveau,
+        asmr_date: row.asmrDate,
+        url_notice: row.urlNotice,
+        has_safety_alert: row.hasSafetyAlert ? 1 : 0,
+        representative_cip: row.representativeCip,
+        cluster_id: row.clusterId // NEW - cluster assignment
+      };
+    });
 
     this.prepareInsert<any>("medicament_summary", Object.keys(transformedRows[0] || {}) as any)(transformedRows);
     console.log(`✅ Inserted ${rows.length} medicament summaries`);
@@ -786,92 +839,8 @@ export class ReferenceDatabase {
     }));
   }
 
-  // Legacy methods for backward compatibility (to be removed after migration)
-  public insertClusters(rows: ReadonlyArray<Cluster>) {
-    console.log(`⚠️ Deprecated: insertClusters is legacy. Use insertGeneriqueGroups instead.`);
-
-    // For backward compatibility, also insert into legacy clusters table
-    const transformedRows = rows.map(row => ({
-      id: row.id,
-      label: row.label,
-      princeps_label: row.princeps_label,
-      substance_code: row.substance_code,
-      text_brand_label: row.text_brand_label,
-      dosage: row.dosage,
-      princeps_brand: row.princeps_brand,
-      secondary_princeps_brands: row.secondary_princeps_brands,
-      has_shortage: row.has_shortage ? 1 : 0
-    }));
-
-    const columns = Object.keys(transformedRows[0] || {});
-    this.prepareInsert<any>("clusters", columns)(transformedRows);
-    console.log(`✅ Inserted ${rows.length} legacy clusters`);
-
-    // Also transform to new schema for generique_groups
-    const groups: GeneriqueGroup[] = rows.map(cluster => ({
-      groupId: cluster.id,
-      libelle: cluster.label,
-      princepsLabel: cluster.princeps_label,
-      moleculeLabel: cluster.substance_code,
-      rawLabel: cluster.text_brand_label ?? undefined, // Convert null to undefined
-      parsingMethod: undefined
-    }));
-    this.insertGeneriqueGroups(groups);
-  }
-
-  public insertProducts(rows: ReadonlyArray<Product>) {
-    console.log(`⚠️ Deprecated: insertProducts is legacy. Use insertSpecialites and insertMedicaments instead.`);
-
-    // For backward compatibility, also insert into legacy products table
-    const transformedRows = rows.map(row => ({
-      cis: row.cis,
-      label: row.label,
-      is_princeps: row.is_princeps ? 1 : 0,
-      generic_type: row.generic_type,
-      group_id: row.group_id,
-      form: row.form,
-      routes: row.routes,
-      galenic_category: row.galenic_category,
-      dosage_value: row.dosage_value,
-      dosage_unit: row.dosage_unit,
-      type_procedure: row.type_procedure,
-      surveillance_renforcee: row.surveillance_renforcee ? 1 : 0,
-      manufacturer_id: row.manufacturer_id,
-      marketing_status: row.marketing_status,
-      date_amm: row.date_amm,
-      regulatory_info: row.regulatory_info,
-      composition: row.composition,
-      composition_codes: row.composition_codes,
-      composition_display: row.composition_display,
-      drawer_label: row.drawer_label,
-      active_presentations_count: row.active_presentations_count || 0,
-      stopped_presentations_count: row.stopped_presentations_count || 0
-    }));
-
-    const columns = Object.keys(transformedRows[0] || {});
-    this.prepareInsert<any>("products", columns)(transformedRows);
-    console.log(`✅ Inserted ${rows.length} legacy products`);
-
-    // Also transform to new schema
-    const specialites: Specialite[] = rows.map(product => ({
-      cisCode: product.cis,
-      nomSpecialite: product.label,
-      procedureType: product.type_procedure,
-      formePharmaceutique: product.form,
-      voiesAdministration: product.routes,
-      isSurveillance: product.surveillance_renforcee
-    }));
-
-    const medicaments: Medicament[] = rows.map(product => ({
-      codeCip: product.cis, // This is a simplification - real migration would need actual CIP
-      cisCode: product.cis,
-      presentationLabel: product.drawer_label
-    }));
-
-    this.insertSpecialites(specialites);
-    this.insertMedicaments(medicaments);
-  }
-
+  
+  
   public insertManufacturers(rows: ReadonlyArray<{ id: number; label: string }>) {
     console.log(`📊 Inserting ${rows.length} manufacturers (as laboratories)...`);
 
@@ -884,75 +853,9 @@ export class ReferenceDatabase {
     console.log(`✅ Inserted ${rows.length} manufacturers as laboratories`);
   }
 
-  public insertGroups(rows: ReadonlyArray<GroupRow>) {
-    console.log(`⚠️ Deprecated: insertGroups is legacy. Use insertGeneriqueGroups instead.`);
-
-    // For backward compatibility, also insert into legacy groups table
-    // GroupRow uses snake_case properties as defined in types.ts
-    const transformedRows = rows.map(row => ({
-      cluster_id: row.cluster_id,
-      id: row.id,
-      label: row.label,
-      canonical_name: row.canonical_name,
-      historical_princeps_raw: row.historical_princeps_raw,
-      generic_label_clean: row.generic_label_clean,
-      naming_source: row.naming_source,
-      princeps_aliases: row.princeps_aliases,
-      safety_flags: row.safety_flags,
-      routes: row.routes,
-      confidence_score: row.confidence_score
-    }));
-
-    const columns = Object.keys(transformedRows[0] || {});
-    this.prepareInsert<any>("groups", columns)(transformedRows);
-    console.log(`✅ Inserted ${rows.length} legacy groups`);
-
-    // Also transform to new schema for generique_groups
-    const groups: GeneriqueGroup[] = rows.map(group => ({
-      groupId: group.id,
-      libelle: group.label,
-      princepsLabel: group.canonical_name,
-      moleculeLabel: group.generic_label_clean ?? undefined,
-      rawLabel: group.historical_princeps_raw ?? undefined,
-      parsingMethod: group.naming_source
-    }));
-
-    this.insertGeneriqueGroups(groups);
-  }
-
-  public updateProductGrouping(rows: ReadonlyArray<ProductGroupingUpdate>) {
-    console.log(`⚠️ Deprecated: updateProductGrouping is legacy. Updating medicament_summary...`);
-
-    const stmt = this.db.prepare(`
-      UPDATE medicament_summary
-      SET group_id = ?, is_princeps = ?
-      WHERE cis_code = ?
-    `);
-
-    this.db.transaction((items: typeof rows) => {
-      for (const item of items) {
-        stmt.run(item.group_id, item.is_princeps ? 1 : 0, item.cis);
-      }
-    })(rows);
-  }
-
-  public insertPresentations(rows: ReadonlyArray<Presentation>) {
-    console.log(`⚠️ Deprecated: insertPresentations is legacy. Inserting as medicaments...`);
-
-    // Transform to new schema temporarily
-    const medicaments: Medicament[] = rows.map(pres => ({
-      codeCip: pres.cip13,
-      cisCode: pres.cis,
-      presentationLabel: undefined, // Not in the old schema
-      commercialisationStatut: pres.market_status ?? undefined, // Convert null to undefined
-      tauxRemboursement: pres.reimbursement_rate ?? undefined, // Convert null to undefined
-      prixPublic: pres.price_cents ? pres.price_cents / 100 : undefined,
-      agrementCollectivites: undefined
-    }));
-
-    this.insertMedicaments(medicaments);
-  }
-
+  
+  
+  
   /**
    * Populates the search_index FTS5 table from medicament_summary.
    * This should be called after bulk inserts/updates to ensure search index is populated.

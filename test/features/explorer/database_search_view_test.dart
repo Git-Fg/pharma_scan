@@ -1,3 +1,5 @@
+// ignore_for_file: cascade_invocations // Current structure requires separate robot instances for different test steps
+
 import 'dart:async';
 
 import 'package:auto_route/auto_route.dart';
@@ -222,8 +224,9 @@ void main() {
       await tester.pumpAndSettle();
 
       final robot = ExplorerRobot(tester);
-      robot.expectIndexBarVisible();
-      robot.expectTextNotInResults('Mystic Molecule');
+      robot
+        ..expectIndexBarVisible()
+        ..expectTextNotInResults('Mystic Molecule');
 
       await robot.tapIndexLetter('M');
 
@@ -296,9 +299,8 @@ List<GenericGroupEntity> _buildLongListGroups() {
       GenericGroupEntity(
         groupId: GroupId.validated('GRP_${letters[i]}_$i'),
         commonPrincipes: 'Principe ${letters[i]}',
-        princepsReferenceName: letters[i] == 'M'
-            ? 'Mystic Molecule'
-            : 'Group ${letters[i]}',
+        princepsReferenceName:
+            letters[i] == 'M' ? 'Mystic Molecule' : 'Group ${letters[i]}',
       ),
     // Duplicate some early letters to ensure the list is long enough to scroll.
     GenericGroupEntity(

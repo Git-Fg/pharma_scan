@@ -26,7 +26,7 @@ useDebouncedController({
       timer?.cancel();
       controller.removeListener(listener);
     };
-  }, [controller, duration, debouncedText]);
+  }, [controller, duration, debouncedText],);
 
   return (controller: controller, debouncedText: debouncedText);
 }

@@ -405,75 +405,10 @@ export interface AppSettings {
   value: Uint8Array;
 }
 
-// Legacy types for compatibility during transition
-export type Product = {
-  cis: CisId;
-  label: string;
-  is_princeps: boolean;
-  generic_type: GenericType;
-  group_id: GroupId | null;
-  form: string;
-  routes: string;
-  galenic_category?: GalenicCategory;
-  dosage_value?: number | null;
-  dosage_unit?: string | null;
-  type_procedure: string;
-  surveillance_renforcee: boolean;
-  manufacturer_id: number;
-  marketing_status: string;
-  date_amm: string | null;
-  regulatory_info: string;
-  composition: string;
-  composition_codes: string;
-  composition_display: string;
-  drawer_label: string;
-  active_presentations_count?: number;
-  stopped_presentations_count?: number;
-};
 
-export type Presentation = {
-  cip13: Cip13;
-  cis: CisId;
-  price_cents: number | null;
-  reimbursement_rate: string | null;
-  market_status: string | null;
-  availability_status: string | null;
-  ansm_link: string | null;
-  date_commercialisation: string | null;
-};
 
-export type Cluster = {
-  id: string;
-  label: string;
-  princeps_label: string;
-  substance_code: string;
-  text_brand_label?: string | null;
-  dosage?: string | null;
-  princeps_brand?: string | null;
-  secondary_princeps_brands?: string;
-  has_shortage?: number;
-};
 
-export type GroupRow = {
-  id: string;
-  cluster_id: string;
-  label: string;
-  canonical_name: string;
-  historical_princeps_raw: string | null;
-  generic_label_clean: string | null;
-  naming_source: NamingSource;
-  princeps_aliases: string;
-  routes: string;
-  safety_flags: string;
-  confidence_score?: number | null;
-};
 
-export type ProductGroupingUpdate = {
-  cis: CisId;
-  group_id: string;
-  is_princeps: boolean;
-  generic_type: GenericType;
-};
 
 export type RegulatoryInfo = {
   list1: boolean;

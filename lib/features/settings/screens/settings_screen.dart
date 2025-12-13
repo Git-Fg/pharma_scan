@@ -1,4 +1,5 @@
-import 'dart:async';
+
+import 'dart:async' show unawaited;
 
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
@@ -29,14 +30,10 @@ class SettingsScreen extends HookConsumerWidget {
 
     final themeState = ref.watch(themeProvider);
     final frequencyState = ref.watch(appPreferencesProvider);
-    final packageInfoState = useState<PackageInfo?>(null);
-
-    useEffect(() {
-      PackageInfo.fromPlatform().then((info) {
-        packageInfoState.value = info;
-      });
-      return null;
-    }, []);
+    final packageInfoSnapshot = useFuture(
+      useMemoized(PackageInfo.fromPlatform),
+    );
+    final packageInfo = packageInfoSnapshot.data;
 
     final hapticSettingsState = ref.watch(hapticSettingsProvider);
     final sortingState = ref.watch(sortingPreferenceProvider);
@@ -45,26 +42,25 @@ class SettingsScreen extends HookConsumerWidget {
     final syncDate = lastSyncEpoch != null
         ? DateTime.fromMillisecondsSinceEpoch(lastSyncEpoch)
         : null;
-    final ageDays = syncDate != null
-        ? DateTime.now().difference(syncDate).inDays
-        : null;
+    final ageDays =
+        syncDate != null ? DateTime.now().difference(syncDate).inDays : null;
     final (Color indicatorColor, String indicatorLabel) = switch (ageDays) {
       null => (
-        context.shadColors.destructive,
-        Strings.dataUnknown,
-      ),
+          context.shadColors.destructive,
+          Strings.dataUnknown,
+        ),
       >= 31 => (
-        Colors.orange,
-        Strings.dataStaleWarning,
-      ),
+          Colors.orange,
+          Strings.dataStaleWarning,
+        ),
       _ => (
-        context.shadColors.primary,
-        syncDate != null
-            ? '${Strings.dataFresh} ${_formatDate(syncDate)}'
-            : Strings.dataFresh,
-      ),
+          context.shadColors.primary,
+          syncDate != null
+              ? '${Strings.dataFresh} ${_formatDate(syncDate)}'
+              : Strings.dataFresh,
+        ),
     };
-    const isFrequencyLoading = false;
+    // Removed unused isFrequencyLoading variable
     final isResetting = useState(false);
     final isCheckingUpdates = useState(false);
 
@@ -104,15 +100,21 @@ class SettingsScreen extends HookConsumerWidget {
     final hapticEnabled = hapticSettingsState;
     final sortingPreference = sortingState;
 
-    useEffect(() {
-      themeController.value = themeSettingFromThemeMode(themeModeValue);
-      return null;
-    }, [themeModeValue]);
+    useEffect(
+      () {
+        themeController.value = themeSettingFromThemeMode(themeModeValue);
+        return null;
+      },
+      [themeModeValue],
+    );
 
-    useEffect(() {
-      frequencyController.value = selectedFrequency;
-      return null;
-    }, [selectedFrequency]);
+    useEffect(
+      () {
+        frequencyController.value = selectedFrequency;
+        return null;
+      },
+      [selectedFrequency],
+    );
 
     Future<void> performReset() async {
       Navigator.of(context).pop();
@@ -281,17 +283,17 @@ class SettingsScreen extends HookConsumerWidget {
                         selectedOptionBuilder: (context, value) {
                           final (label, icon) = switch (value) {
                             ThemeSetting.system => (
-                              Strings.systemTheme,
-                              LucideIcons.monitor,
-                            ),
+                                Strings.systemTheme,
+                                LucideIcons.monitor,
+                              ),
                             ThemeSetting.light => (
-                              Strings.lightTheme,
-                              LucideIcons.sun,
-                            ),
+                                Strings.lightTheme,
+                                LucideIcons.sun,
+                              ),
                             ThemeSetting.dark => (
-                              Strings.darkTheme,
-                              LucideIcons.moon,
-                            ),
+                                Strings.darkTheme,
+                                LucideIcons.moon,
+                              ),
                           };
                           return Row(
                             children: [
@@ -458,21 +460,21 @@ class SettingsScreen extends HookConsumerWidget {
                         selectedOptionBuilder: (context, value) {
                           final (label, icon) = switch (value) {
                             UpdateFrequency.none => (
-                              Strings.never,
-                              LucideIcons.ban,
-                            ),
+                                Strings.never,
+                                LucideIcons.ban,
+                              ),
                             UpdateFrequency.daily => (
-                              Strings.daily,
-                              LucideIcons.calendarDays,
-                            ),
+                                Strings.daily,
+                                LucideIcons.calendarDays,
+                              ),
                             UpdateFrequency.weekly => (
-                              Strings.weekly,
-                              LucideIcons.calendarRange,
-                            ),
+                                Strings.weekly,
+                                LucideIcons.calendarRange,
+                              ),
                             UpdateFrequency.monthly => (
-                              Strings.monthly,
-                              LucideIcons.calendar,
-                            ),
+                                Strings.monthly,
+                                LucideIcons.calendar,
+                              ),
                           };
                           return Row(
                             children: [
@@ -706,7 +708,7 @@ class SettingsScreen extends HookConsumerWidget {
                       error: (error, _) => const SizedBox.shrink(),
                     ),
                     const Gap(AppDimens.spacingMd),
-                    if (packageInfoState.value != null)
+                    if (packageInfo != null)
                       ShadCard(
                         title: const Text(Strings.appInfo),
                         description: const Text(Strings.appInfoDescription),
@@ -714,17 +716,17 @@ class SettingsScreen extends HookConsumerWidget {
                           children: [
                             _AppInfoItem(
                               label: Strings.version,
-                              value: packageInfoState.value!.version,
+                              value: packageInfo.version,
                             ),
                             const Gap(AppDimens.spacingSm),
                             _AppInfoItem(
                               label: Strings.buildNumber,
-                              value: packageInfoState.value!.buildNumber,
+                              value: packageInfo.buildNumber,
                             ),
                             const Gap(AppDimens.spacingSm),
                             _AppInfoItem(
                               label: Strings.packageName,
-                              value: packageInfoState.value!.packageName,
+                              value: packageInfo.packageName,
                             ),
                           ],
                         ),

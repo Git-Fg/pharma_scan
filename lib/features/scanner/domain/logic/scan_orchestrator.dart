@@ -72,9 +72,9 @@ class ScanOrchestrator {
     required CatalogDao catalogDao,
     required RestockDao restockDao,
     required ScanTrafficControl trafficControl,
-  }) : _catalogDao = catalogDao,
-       _restockDao = restockDao,
-       _trafficControl = trafficControl;
+  })  : _catalogDao = catalogDao,
+        _restockDao = restockDao,
+        _trafficControl = trafficControl;
 
   final CatalogDao _catalogDao;
   final RestockDao _restockDao;
@@ -103,12 +103,12 @@ class ScanOrchestrator {
       return switch (mode) {
         ScannerMode.restock => await _handleRestock(parsedData, codeCip),
         ScannerMode.analysis => await _handleAnalysis(
-          codeCip: codeCip,
-          scannedCodes: scannedCodes,
-          existingBubbles: existingBubbles,
-          force: force,
-          expDate: parsedData.expDate,
-        ),
+            codeCip: codeCip,
+            scannedCodes: scannedCodes,
+            existingBubbles: existingBubbles,
+            force: force,
+            expDate: parsedData.expDate,
+          ),
       };
     } on Object catch (error, stackTrace) {
       return ScanError(error, stackTrace);
@@ -161,15 +161,15 @@ class ScanOrchestrator {
     final serial = parsedData.serial;
     if (serial != null && serial.isNotEmpty) {
       final isDuplicate = await _restockDao.isDuplicate(
-        cip: codeCip,
+        cip: cip13,
         serial: serial,
       );
       if (isDuplicate) {
         final currentQuantity =
-            await _restockDao.getRestockQuantity(codeCip) ?? 1;
+            await _restockDao.getRestockQuantity(cip13) ?? 1;
         return RestockDuplicate(
           DuplicateScanEvent(
-            cip: codeCip,
+            cip: cip13,
             serial: serial,
             productName: catalogResult.summary.data.nomCanonique,
             currentQuantity: currentQuantity,
@@ -189,11 +189,10 @@ class ScanOrchestrator {
       final toast = serial != null
           ? Strings.duplicateSerial(serial)
           : Strings.duplicateSerialUnknown;
-      final currentQuantity =
-          await _restockDao.getRestockQuantity(codeCip) ?? 1;
+      final currentQuantity = await _restockDao.getRestockQuantity(cip13) ?? 1;
       return RestockDuplicate(
         DuplicateScanEvent(
-          cip: codeCip,
+          cip: cip13,
           serial: serial ?? '',
           productName: catalogResult.summary.data.nomCanonique,
           currentQuantity: currentQuantity,
@@ -202,7 +201,7 @@ class ScanOrchestrator {
       );
     }
 
-    final quantity = await _restockDao.getRestockQuantity(codeCip) ?? 1;
+    final quantity = await _restockDao.getRestockQuantity(cip13) ?? 1;
     final restockItem = RestockItemEntity(
       cip: cip13,
       label: catalogResult.summary.data.nomCanonique,
@@ -227,7 +226,7 @@ class ScanOrchestrator {
 
   Future<void> updateQuantity(String cip, int newQuantity) {
     return _restockDao.forceUpdateQuantity(
-      cip: cip,
+      cip: Cip13.validated(cip),
       newQuantity: newQuantity,
     );
   }

@@ -38,8 +38,8 @@ void main() {
     testWidgets('updates debounced text only after delay', (tester) async {
       await tester.pumpWidget(const _DebounceHarness());
 
-      final robot = DebounceRobot(tester);
-      robot.expectDebouncedValue('');
+      final robot = DebounceRobot(tester)
+      ..expectDebouncedValue('');
 
       await robot.enterText('abc');
       await robot.pumpDuration(const Duration(milliseconds: 100));

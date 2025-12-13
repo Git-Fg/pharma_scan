@@ -101,7 +101,7 @@ class RestockScreen extends HookConsumerWidget {
         },
       );
       return null;
-    }, [scrollController]);
+    }, [scrollController],);
 
     return Scaffold(
       appBar: AppBar(

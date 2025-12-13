@@ -1,7 +1,6 @@
 // Stub implementation for mobile platforms
 // This file provides empty implementations for web-only types
 
-import 'dart:typed_data';
 import 'package:drift/drift.dart';
 
 class WasmDatabase {

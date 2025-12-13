@@ -56,7 +56,7 @@ class DatabaseSearchView extends HookConsumerWidget {
         },
       );
       return cancel.close;
-    }, [itemScrollController]);
+    }, [itemScrollController],);
 
     final groups = ref.watch(genericGroupsProvider);
     final currentQuery = debouncedQuery.value;

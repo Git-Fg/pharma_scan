@@ -30,7 +30,7 @@ class ExplorerSearchBar extends HookConsumerWidget {
     useEffect(() {
       onSearchChangedRef.value = onSearchChanged;
       return null;
-    }, [onSearchChanged]);
+    }, [onSearchChanged],);
 
     useListenable(search.debouncedText);
     useEffect(() {
@@ -42,7 +42,7 @@ class ExplorerSearchBar extends HookConsumerWidget {
       handleDebounced();
       search.debouncedText.addListener(handleDebounced);
       return () => search.debouncedText.removeListener(handleDebounced);
-    }, [search.debouncedText]);
+    }, [search.debouncedText],);
 
     final debouncedQuery = search.debouncedText.value;
 

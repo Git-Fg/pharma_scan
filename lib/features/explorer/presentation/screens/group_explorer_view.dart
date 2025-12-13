@@ -44,7 +44,7 @@ class GroupExplorerView extends HookConsumerWidget {
           notifier.canSwipe = true;
         }
       };
-    }, [groupId]);
+    }, [groupId],);
 
     final stateAsync = ref.watch(groupExplorerProvider(groupId));
 
@@ -289,7 +289,7 @@ class GroupExplorerView extends HookConsumerWidget {
                   ),
                 ),
               );
-            }, childCount: relatedMembers.length),
+            }, childCount: relatedMembers.length,),
           ),
         ),
       ],

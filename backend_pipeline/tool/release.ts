@@ -19,7 +19,7 @@ import { tmpdir } from "os";
 import { join, dirname } from "path";
 
 // Configuration
-const GITHUB_REPO = "felixdm100/pharma_scan"; // Replace with actual repo
+const GITHUB_REPO = "Git-Fg/pharma_scan"; // Synced with mobile app config
 const DATABASE_NAME = "reference.db";
 const CHECKSUMS_NAME = "checksums.txt";
 const BACKUP_SUFFIX = ".backup";

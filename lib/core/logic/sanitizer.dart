@@ -26,7 +26,10 @@ import 'package:pharma_scan/core/utils/strings.dart';
 String normalizeForSearch(String input) {
   if (input.isEmpty) return '';
 
-  return removeDiacritics(input)
+  // Special case: replace German sharp S (ß) with 'ss' for full backend/test parity
+  final preprocessed = input.replaceAll('ß', 'ss');
+
+  return removeDiacritics(preprocessed)
       .toLowerCase()
       .replaceAll(
         RegExp(r'[^a-z0-9\s]'),

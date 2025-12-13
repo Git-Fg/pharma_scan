@@ -6,6 +6,7 @@ import 'dart:convert';
 
 import 'package:drift/drift.dart';
 import 'package:pharma_scan/core/database/database.dart';
+import 'package:pharma_scan/core/database/dbschema.drift.dart' as i1;
 
 /// WHY: Fluent builder pattern for creating test database seed data.
 /// Simplifies test setup by providing a readable API instead of manually constructing Maps.
@@ -228,8 +229,7 @@ class SeedBuilder {
     bool isRestricted = false,
   }) {
     // Use provided cluster ID or generate from princeps name
-    final finalClusterId =
-        clusterId ??
+    final finalClusterId = clusterId ??
         (princepsName != null ? _generateClusterId(princepsName) : null);
 
     return addMedication(
@@ -281,176 +281,93 @@ class SeedBuilder {
 
     // Insert in the correct order to respect foreign key constraints
     await database.transaction(() async {
-      // Insert laboratories first using raw SQL
+      // Insert laboratories using Drift Companions
       if (data.laboratories.isNotEmpty) {
         for (final lab in data.laboratories) {
-          await database.customInsert(
-            'INSERT OR REPLACE INTO laboratories (id, name) VALUES (?, ?)',
-            variables: [
-              Variable.withInt(lab['id'] as int),
-              Variable.withString(lab['name'] as String),
-            ],
-            updates: {database.laboratories},
-          );
+          await database.into(database.laboratories).insertOnConflictUpdate(
+                i1.LaboratoriesCompanion(
+                  id: Value(lab['id'] as int),
+                  name: Value(lab['name'] as String),
+                ),
+              );
         }
       }
 
-      // Insert clusters using raw SQL
+      // Insert clusters using Drift Companions
       if (data.clusterNames.isNotEmpty) {
         for (final cluster in data.clusterNames) {
-          await database.customInsert(
-            'INSERT OR REPLACE INTO cluster_names (cluster_id, cluster_name, substance_code) VALUES (?, ?, ?)',
-            variables: [
-              Variable.withString(cluster['clusterId'] as String),
-              Variable.withString(cluster['clusterName'] as String),
-              Variable.withString(cluster['substanceCode'] as String? ?? ''),
-            ],
-            updates: {database.clusterNames},
-          );
+          await database.into(database.clusterNames).insertOnConflictUpdate(
+                i1.ClusterNamesCompanion(
+                  clusterId: Value(cluster['clusterId'] as String),
+                  clusterName: Value(cluster['clusterName'] as String),
+                  substanceCode:
+                      Value(cluster['substanceCode'] as String? ?? ''),
+                ),
+              );
         }
       }
 
-      // Insert medicament summaries and related base tables using raw SQL
+      // Insert medicament summaries using Drift Companions
       if (data.medicamentSummaries.isNotEmpty) {
         for (final summary in data.medicamentSummaries) {
-          final cisCode = summary['cisCode'] as String;
-          final cipCode = summary['representativeCip'] as String?;
-          final titulaireId = summary['titulaireId'] as int? ?? 0;
-
-          // Insert specialite if not already exists
-          if (cipCode != null && cipCode.isNotEmpty) {
-            // Check if specialite already exists
-            final existingSpecialite = await database
-                .customSelect(
-                  'SELECT 1 FROM specialites WHERE cis_code = ? LIMIT 1',
-                  variables: [Variable.withString(cisCode)],
-                  readsFrom: {database.specialites},
-                )
-                .getSingleOrNull();
-
-            if (existingSpecialite == null) {
-              await database.customInsert(
-                '''
-                INSERT INTO specialites (
-                  cis_code, nom_specialite, procedure_type, forme_pharmaceutique,
-                  voies_administration, titulaire_id, conditions_prescription,
-                  is_surveillance, statut_administratif, etat_commercialisation
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ''',
-                variables: [
-                  Variable.withString(cisCode),
-                  Variable.withString(summary['nomCanonique'] as String),
-                  Variable.withString(
-                    summary['procedureType'] as String? ?? 'Autorisation',
+          await database
+              .into(database.medicamentSummary)
+              .insertOnConflictUpdate(
+                i1.MedicamentSummaryCompanion(
+                  cisCode: Value(summary['cisCode'] as String),
+                  nomCanonique: Value(summary['nomCanonique'] as String),
+                  princepsDeReference:
+                      Value(summary['princepsDeReference'] as String),
+                  isPrinceps: Value(summary['isPrinceps'] as bool),
+                  clusterId: Value(summary['clusterId'] as String? ?? ''),
+                  groupId: Value(summary['groupId'] as String? ?? ''),
+                  memberType: Value(summary['memberType'] as int),
+                  principesActifsCommuns: Value(
+                    summary['principesActifsCommuns'] as String? ?? '[]',
                   ),
-                  Variable.withString(
-                    summary['formePharmaceutique'] as String? ?? '',
-                  ),
-                  Variable.withString(
-                    summary['voiesAdministration'] as String? ?? '',
-                  ),
-                  Variable.withInt(titulaireId),
-                  Variable.withString(
-                    summary['conditionsPrescription'] as String? ?? '',
-                  ),
-                  Variable.withBool(
-                    summary['isSurveillance'] as bool? ?? false,
-                  ),
-                  Variable.withString(summary['status'] as String? ?? ''),
-                  Variable.withString('Commercialisée'),
-                ],
-                updates: {database.specialites},
+                  formattedDosage:
+                      Value(summary['formattedDosage'] as String? ?? ''),
+                  formePharmaceutique:
+                      Value(summary['formePharmaceutique'] as String? ?? ''),
+                  voiesAdministration:
+                      Value(summary['voiesAdministration'] as String? ?? ''),
+                  princepsBrandName:
+                      Value(summary['princepsBrandName'] as String),
+                  procedureType:
+                      Value(summary['procedureType'] as String? ?? ''),
+                  titulaireId: Value(summary['titulaireId'] as int? ?? 0),
+                  conditionsPrescription:
+                      Value(summary['conditionsPrescription'] as String? ?? ''),
+                  dateAmm: Value(summary['dateAmm'] as String? ?? ''),
+                  isSurveillance:
+                      Value(summary['isSurveillance'] as bool? ?? false),
+                  atcCode: Value(summary['atcCode'] as String? ?? ''),
+                  status: Value(summary['status'] as String? ?? ''),
+                  priceMin: Value(summary['priceMin'] as double? ?? 0.0),
+                  priceMax: Value(summary['priceMax'] as double? ?? 0.0),
+                  aggregatedConditions:
+                      Value(summary['aggregatedConditions'] as String? ?? '[]'),
+                  ansmAlertUrl: Value(summary['ansmAlertUrl'] as String? ?? ''),
+                  isHospital: Value(summary['isHospital'] as bool? ?? false),
+                  isDental: Value(summary['isDental'] as bool? ?? false),
+                  isList1: Value(summary['isList1'] as bool? ?? false),
+                  isList2: Value(summary['isList2'] as bool? ?? false),
+                  isNarcotic: Value(summary['isNarcotic'] as bool? ?? false),
+                  isException: Value(summary['isException'] as bool? ?? false),
+                  isRestricted:
+                      Value(summary['isRestricted'] as bool? ?? false),
+                  isOtc: Value(summary['isOtc'] as bool? ?? true),
+                  smrNiveau: Value(summary['smrNiveau'] as String? ?? ''),
+                  smrDate: Value(summary['smrDate'] as String? ?? ''),
+                  asmrNiveau: Value(summary['asmrNiveau'] as String? ?? ''),
+                  asmrDate: Value(summary['asmrDate'] as String? ?? ''),
+                  urlNotice: Value(summary['urlNotice'] as String? ?? ''),
+                  hasSafetyAlert:
+                      Value(summary['hasSafetyAlert'] as bool? ?? false),
+                  representativeCip:
+                      Value(summary['representativeCip'] as String? ?? ''),
+                ),
               );
-            }
-
-            // Insert medicament for CIP lookup
-            await database.customInsert(
-              '''
-              INSERT OR REPLACE INTO medicaments (
-                code_cip, cis_code, presentation_label, commercialisation_statut,
-                taux_remboursement, prix_public
-              ) VALUES (?, ?, ?, ?, ?, ?)
-              ''',
-              variables: [
-                Variable.withString(cipCode),
-                Variable.withString(cisCode),
-                Variable.withString(''),
-                Variable.withString('Commercialisée'),
-                Variable.withString(''),
-                Variable.withReal(summary['priceMin'] as double? ?? 0.0),
-              ],
-              updates: {database.medicaments},
-            );
-          }
-
-          await database.customInsert(
-            '''
-            INSERT INTO medicament_summary (
-              cis_code, nom_canonique, princeps_de_reference, is_princeps,
-              cluster_id, group_id, member_type, principes_actifs_communs,
-              formatted_dosage, forme_pharmaceutique, voies_administration,
-              princeps_brand_name, procedure_type, titulaire_id,
-              conditions_prescription, date_amm, is_surveillance, atc_code,
-              status, price_min, price_max, aggregated_conditions, ansm_alert_url,
-              is_hospital, is_dental, is_list1, is_list2, is_narcotic, is_exception,
-              is_restricted, is_otc, smr_niveau, smr_date, asmr_niveau,
-              asmr_date, url_notice, has_safety_alert, representative_cip
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''',
-            variables: [
-              Variable.withString(summary['cisCode'] as String),
-              Variable.withString(summary['nomCanonique'] as String),
-              Variable.withString(summary['princepsDeReference'] as String),
-              Variable.withBool(summary['isPrinceps'] as bool),
-              Variable.withString(summary['clusterId'] as String? ?? ''),
-              Variable.withString(summary['groupId'] as String? ?? ''),
-              Variable.withInt(summary['memberType'] as int),
-              Variable.withString(
-                summary['principesActifsCommuns'] as String? ?? '[]',
-              ),
-              Variable.withString(summary['formattedDosage'] as String? ?? ''),
-              Variable.withString(
-                summary['formePharmaceutique'] as String? ?? '',
-              ),
-              Variable.withString(
-                summary['voiesAdministration'] as String? ?? '',
-              ),
-              Variable.withString(summary['princepsBrandName'] as String),
-              Variable.withString(summary['procedureType'] as String? ?? ''),
-              Variable.withInt(summary['titulaireId'] as int? ?? 0),
-              Variable.withString(
-                summary['conditionsPrescription'] as String? ?? '',
-              ),
-              Variable.withString(summary['dateAmm'] as String? ?? ''),
-              Variable.withBool(summary['isSurveillance'] as bool? ?? false),
-              Variable.withString(summary['atcCode'] as String? ?? ''),
-              Variable.withString(summary['status'] as String? ?? ''),
-              Variable.withReal(summary['priceMin'] as double? ?? 0.0),
-              Variable.withReal(summary['priceMax'] as double? ?? 0.0),
-              Variable.withString(
-                summary['aggregatedConditions'] as String? ?? '[]',
-              ),
-              Variable.withString(summary['ansmAlertUrl'] as String? ?? ''),
-              Variable.withBool(summary['isHospital'] as bool? ?? false),
-              Variable.withBool(summary['isDental'] as bool? ?? false),
-              Variable.withBool(summary['isList1'] as bool? ?? false),
-              Variable.withBool(summary['isList2'] as bool? ?? false),
-              Variable.withBool(summary['isNarcotic'] as bool? ?? false),
-              Variable.withBool(summary['isException'] as bool? ?? false),
-              Variable.withBool(summary['isRestricted'] as bool? ?? false),
-              Variable.withBool(summary['isOtc'] as bool? ?? true),
-              Variable.withString(summary['smrNiveau'] as String? ?? ''),
-              Variable.withString(summary['smrDate'] as String? ?? ''),
-              Variable.withString(summary['asmrNiveau'] as String? ?? ''),
-              Variable.withString(summary['asmrDate'] as String? ?? ''),
-              Variable.withString(summary['urlNotice'] as String? ?? ''),
-              Variable.withBool(summary['hasSafetyAlert'] as bool? ?? false),
-              Variable.withString(
-                summary['representativeCip'] as String? ?? '',
-              ),
-            ],
-            updates: {database.medicamentSummary},
-          );
         }
       }
     });

@@ -97,7 +97,8 @@ void main() {
       // WHEN: Query by group_id
       final summaries = await (database.select(
         database.medicamentSummary,
-      )..where((tbl) => tbl.groupId.equals('GRP_STD'))).get();
+      )..where((tbl) => tbl.groupId.equals('GRP_STD')))
+          .get();
 
       // THEN: Can read grouped medications
       expect(summaries, hasLength(2));
@@ -142,13 +143,16 @@ void main() {
       // WHEN: Query individual medications
       final hospital = await (database.select(
         database.medicamentSummary,
-      )..where((tbl) => tbl.cisCode.equals('CIS_HOSP'))).getSingle();
+      )..where((tbl) => tbl.cisCode.equals('CIS_HOSP')))
+          .getSingle();
       final narcotic = await (database.select(
         database.medicamentSummary,
-      )..where((tbl) => tbl.cisCode.equals('CIS_NARC'))).getSingle();
+      )..where((tbl) => tbl.cisCode.equals('CIS_NARC')))
+          .getSingle();
       final list1 = await (database.select(
         database.medicamentSummary,
-      )..where((tbl) => tbl.cisCode.equals('CIS_LIST1'))).getSingle();
+      )..where((tbl) => tbl.cisCode.equals('CIS_LIST1')))
+          .getSingle();
 
       // THEN: Flags are correctly readable
       expect(hospital.isHospital, isTrue);
@@ -173,7 +177,8 @@ void main() {
       // WHEN: Read the summary
       final summary = await (database.select(
         database.medicamentSummary,
-      )..where((tbl) => tbl.cisCode.equals('CIS_TEST'))).getSingle();
+      )..where((tbl) => tbl.cisCode.equals('CIS_TEST')))
+          .getSingle();
 
       // THEN: Aggregated conditions are readable
       expect(summary.aggregatedConditions, isNotNull);

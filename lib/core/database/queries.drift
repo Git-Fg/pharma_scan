@@ -21,6 +21,39 @@ WHERE search_index MATCH :fts
 ORDER BY bm25(search_index) ASC, ms.nom_canonique
 LIMIT 50;
 
+-- FTS search with optional filters for streaming results
+watchMedicaments:
+SELECT ms.*, l.name AS lab_name
+FROM medicament_summary ms
+LEFT JOIN laboratories l ON l.id = ms.titulaire_id
+INNER JOIN search_index si ON ms.cis_code = si.cis_code
+WHERE search_index MATCH :fts
+  AND (:routeFilter = '' OR ms.voies_administration LIKE '%' || :routeFilter || '%')
+  AND (:atcFilter = '' OR ms.atc_code LIKE :atcFilter || '%')
+  AND (:labFilter = -1 OR ms.titulaire_id = :labFilter)
+ORDER BY bm25(search_index) ASC, ms.nom_canonique
+LIMIT 50;
+
+-- Scan query for getting product by CIP with all required fields
+getProductByCip:
+SELECT
+  m.code_cip,
+  m.cis_code,
+  m.prix_public,
+  m.taux_remboursement,
+  m.commercialisation_statut,
+  m.agrement_collectivites,
+  m.presentation_label,
+  ma.statut AS availability_statut,
+  ms.*,
+  ls.name AS lab_name
+FROM medicaments m
+INNER JOIN medicament_summary ms ON ms.cis_code = m.cis_code
+LEFT JOIN laboratories ls ON ls.id = ms.titulaire_id
+LEFT JOIN medicament_availability ma ON ma.code_cip = m.code_cip
+WHERE m.code_cip = :cipCode
+LIMIT 1;
+
 
 -- Scan history (reverse chronological, limited)
 -- Utilise la structure du schéma SQL distant : scanned_boxes avec cip_code et scan_timestamp

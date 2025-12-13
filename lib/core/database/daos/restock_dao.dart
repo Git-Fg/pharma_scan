@@ -30,6 +30,48 @@ enum ScanOutcome { added, duplicate }
 class RestockDao extends DatabaseAccessor<AppDatabase> with $RestockDaoMixin {
   RestockDao(super.attachedDatabase);
 
+  /// Consolidated upsert helper that handles both insert and update operations
+  /// This eliminates code duplication and provides a single source of truth for upsert logic
+  Future<void> _upsertRestockItem({
+    required String cipCode,
+    required String cisCode,
+    required String nomCanonique,
+    required bool isPrinceps,
+    String? princepsDeReference,
+    String? formePharmaceutique,
+    String? voiesAdministration,
+    String? formattedDosage,
+    String? representativeCip,
+    int increment = 1,
+  }) async {
+    // Use SQLite native UPSERT (ON CONFLICT) to insert or update in one statement
+    await customUpdate(
+      '''
+      INSERT INTO restock_items (
+        cip_code, cis_code, nom_canonique, is_princeps, princeps_de_reference,
+        forme_pharmaceutique, voies_administration, formatted_dosage,
+        representative_cip, stock_count, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+      ON CONFLICT(cip_code) DO UPDATE SET
+        stock_count = restock_items.stock_count + excluded.stock_count,
+        updated_at = datetime('now')
+      ''',
+      variables: [
+        Variable<String>(cipCode),
+        Variable<String>(cisCode),
+        Variable<String>(nomCanonique),
+        Variable<int>(isPrinceps ? 1 : 0),
+        Variable<String>(princepsDeReference ?? ''),
+        Variable<String>(formePharmaceutique ?? ''),
+        Variable<String>(voiesAdministration ?? ''),
+        Variable<String>(formattedDosage ?? ''),
+        Variable<String>(representativeCip ?? ''),
+        Variable<int>(increment),
+      ],
+      updates: {},
+    );
+  }
+
   /// Ajoute un item au réapprovisionnement en utilisant le CIP.
   /// Si l'item existe déjà, incrémente stock_count.
   Future<void> addToRestock(Cip13 cip) async {
@@ -38,7 +80,7 @@ class RestockDao extends DatabaseAccessor<AppDatabase> with $RestockDaoMixin {
     // Récupérer les infos du médicament depuis la DB
     final medicamentInfo = await customSelect(
       '''
-      SELECT m.cis_code, ms.nom_canonique, ms.is_princeps, 
+      SELECT m.cis_code, ms.nom_canonique, ms.is_princeps,
              ms.princeps_de_reference, ms.forme_pharmaceutique,
              ms.voies_administration, ms.formatted_dosage, ms.representative_cip
       FROM medicaments m
@@ -52,43 +94,16 @@ class RestockDao extends DatabaseAccessor<AppDatabase> with $RestockDaoMixin {
 
     if (medicamentInfo == null) {
       // Si le médicament n'existe pas dans la DB, créer un item minimal
-      // Check if item already exists
-      final existing = await customSelect(
-        'SELECT stock_count FROM restock_items WHERE cip_code = ? LIMIT 1',
-        variables: [Variable<String>(cipString)],
-        readsFrom: {},
-      ).getSingleOrNull();
-
-      if (existing != null) {
-        // Update existing item
-        final currentCount = existing.readNullable<int>('stock_count') ?? 0;
-        await customUpdate(
-          "UPDATE restock_items SET stock_count = ?, updated_at = datetime('now') WHERE cip_code = ?",
-          variables: [
-            Variable<int>(currentCount + 1),
-            Variable<String>(cipString),
-          ],
-          updates: {},
-        );
-      } else {
-        // Insert new item
-        await customUpdate(
-          '''
-          INSERT INTO restock_items (
-            cip_code, cis_code, nom_canonique, is_princeps, stock_count, created_at, updated_at
-          ) VALUES (?, ?, ?, 0, 1, datetime('now'), datetime('now'))
-          ''',
-          variables: [
-            Variable<String>(cipString),
-            const Variable<String>(''),
-            const Variable<String>(Strings.unknown),
-          ],
-          updates: {},
-        );
-      }
+      await _upsertRestockItem(
+        cipCode: cipString,
+        cisCode: '',
+        nomCanonique: Strings.unknown,
+        isPrinceps: false,
+      );
       return;
     }
 
+    // Extract medication information
     final cisCode = medicamentInfo.readNullable<String>('cis_code') ?? '';
     final nomCanonique =
         medicamentInfo.readNullable<String>('nom_canonique') ?? Strings.unknown;
@@ -110,53 +125,18 @@ class RestockDao extends DatabaseAccessor<AppDatabase> with $RestockDaoMixin {
       'representative_cip',
     );
 
-    // Check if item already exists
-    final existing = await customSelect(
-      'SELECT stock_count FROM restock_items WHERE cip_code = ? LIMIT 1',
-      variables: [Variable<String>(cipString)],
-      readsFrom: {},
-    ).getSingleOrNull();
-
-    if (existing != null) {
-      // Update existing item
-      final currentCount = existing.readNullable<int>('stock_count') ?? 0;
-      await customUpdate(
-        '''
-        UPDATE restock_items SET 
-          stock_count = ?,
-          updated_at = datetime('now')
-        WHERE cip_code = ?
-        ''',
-        variables: [
-          Variable<int>(currentCount + 1),
-          Variable<String>(cipString),
-        ],
-        updates: {},
-      );
-    } else {
-      // Insert new item
-      await customUpdate(
-        '''
-        INSERT INTO restock_items (
-          cip_code, cis_code, nom_canonique, is_princeps, princeps_de_reference,
-          forme_pharmaceutique, voies_administration, formatted_dosage,
-          representative_cip, stock_count, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, datetime('now'), datetime('now'))
-        ''',
-        variables: [
-          Variable<String>(cipString),
-          Variable<String>(cisCode),
-          Variable<String>(nomCanonique),
-          Variable<int>(isPrinceps ? 1 : 0),
-          Variable<String>(princepsDeReference),
-          Variable<String>(formePharmaceutique),
-          Variable<String>(voiesAdministration),
-          Variable<String>(formattedDosage),
-          Variable<String>(representativeCip),
-        ],
-        updates: {},
-      );
-    }
+    // Use the consolidated upsert helper
+    await _upsertRestockItem(
+      cipCode: cipString,
+      cisCode: cisCode,
+      nomCanonique: nomCanonique,
+      isPrinceps: isPrinceps,
+      princepsDeReference: princepsDeReference,
+      formePharmaceutique: formePharmaceutique,
+      voiesAdministration: voiesAdministration,
+      formattedDosage: formattedDosage,
+      representativeCip: representativeCip,
+    );
   }
 
   /// Met à jour la quantité d'un item.
@@ -219,8 +199,7 @@ class RestockDao extends DatabaseAccessor<AppDatabase> with $RestockDaoMixin {
       readsFrom: {},
     ).getSingleOrNull();
 
-    final isChecked =
-        current != null &&
+    final isChecked = current != null &&
         (current.readNullable<String>('notes')?.contains('"checked":true') ??
             false);
 
@@ -250,14 +229,15 @@ class RestockDao extends DatabaseAccessor<AppDatabase> with $RestockDaoMixin {
 
   /// Vérifie si un scan est un doublon (basé sur box_label dans le schéma SQL)
   Future<bool> isDuplicate({
-    required String cip,
+    required Cip13 cip,
     required String serial,
   }) async {
+    final cipString = cip.toString();
     // Dans le schéma SQL, scanned_boxes utilise box_label qui peut contenir le serial
     final rows = await customSelect(
       'SELECT 1 FROM scanned_boxes WHERE cip_code = ? AND box_label LIKE ? LIMIT 1',
       variables: [
-        Variable<String>(cip),
+        Variable<String>(cipString),
         Variable<String>('%$serial%'),
       ],
       readsFrom: {},
@@ -267,17 +247,19 @@ class RestockDao extends DatabaseAccessor<AppDatabase> with $RestockDaoMixin {
 
   /// Force la mise à jour de la quantité.
   Future<void> forceUpdateQuantity({
-    required String cip,
+    required Cip13 cip,
     required int newQuantity,
   }) async {
+    final cipString = cip.toString();
+
     if (newQuantity < 0) {
-      await deleteRestockItemFully(Cip13.validated(cip));
+      await deleteRestockItemFully(cip);
       return;
     }
 
     final existing = await customSelect(
       'SELECT cip_code FROM restock_items WHERE cip_code = ?',
-      variables: [Variable<String>(cip)],
+      variables: [Variable<String>(cipString)],
       readsFrom: {},
     ).getSingleOrNull();
 
@@ -286,13 +268,13 @@ class RestockDao extends DatabaseAccessor<AppDatabase> with $RestockDaoMixin {
         "UPDATE restock_items SET stock_count = ?, updated_at = datetime('now') WHERE cip_code = ?",
         variables: [
           Variable<int>(newQuantity),
-          Variable<String>(cip),
+          Variable<String>(cipString),
         ],
         updates: {},
       );
     } else {
       // Créer un nouvel item si il n'existe pas
-      await addToRestock(Cip13.validated(cip));
+      await addToRestock(cip);
       if (newQuantity != 1) {
         await forceUpdateQuantity(cip: cip, newQuantity: newQuantity);
       }
@@ -300,10 +282,10 @@ class RestockDao extends DatabaseAccessor<AppDatabase> with $RestockDaoMixin {
   }
 
   /// Récupère la quantité d'un item.
-  Future<int?> getRestockQuantity(String cip) async {
+  Future<int?> getRestockQuantity(Cip13 cip) async {
     final row = await customSelect(
       'SELECT stock_count FROM restock_items WHERE cip_code = ?',
-      variables: [Variable<String>(cip)],
+      variables: [Variable<String>(cip.toString())],
       readsFrom: {},
     ).getSingleOrNull();
     return row?.readNullable<int>('stock_count');
@@ -379,8 +361,7 @@ class RestockDao extends DatabaseAccessor<AppDatabase> with $RestockDaoMixin {
             row.readNullable<String>('nom_canonique') ?? Strings.unknown;
         final princepsLabel = row.readNullable<String>('princeps_de_reference');
         final isPrinceps = (row.readNullable<int>('is_princeps') ?? 0) == 1;
-        final form =
-            row.readNullable<String>('forme_pharmaceutique') ??
+        final form = row.readNullable<String>('forme_pharmaceutique') ??
             row.readNullable<String>('specialite_forme');
         final quantity = row.readNullable<int>('stock_count') ?? 1;
         final notes = row.readNullable<String>('notes') ?? '';

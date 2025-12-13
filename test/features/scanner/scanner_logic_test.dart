@@ -98,9 +98,7 @@ void main() {
 
       await notifier.processBarcodeCapture(capture);
 
-      final bubbles = container
-          .read(scannerProvider)
-          .maybeWhen(
+      final bubbles = container.read(scannerProvider).maybeWhen(
             data: (state) => state.bubbles,
             orElse: () => <ScanBubble>[],
           );
@@ -109,8 +107,8 @@ void main() {
       expect(bubbles.first.cip.toString(), cipA);
       expect(
         effects.whereType<ScannerHaptic>().any(
-          (effect) => effect.type == ScannerHapticType.analysisSuccess,
-        ),
+              (effect) => effect.type == ScannerHapticType.analysisSuccess,
+            ),
         isTrue,
       );
       await sub.cancel();
@@ -128,9 +126,7 @@ void main() {
       await notifier.processBarcodeCapture(capture);
       await notifier.processBarcodeCapture(capture);
 
-      final bubbles = container
-          .read(scannerProvider)
-          .maybeWhen(
+      final bubbles = container.read(scannerProvider).maybeWhen(
             data: (state) => state.bubbles,
             orElse: () => <ScanBubble>[],
           );
@@ -152,8 +148,8 @@ void main() {
       await notifier.processBarcodeCapture(capture, force: true);
 
       final successCount = effects.whereType<ScannerHaptic>().where(
-        (effect) => effect.type == ScannerHapticType.analysisSuccess,
-      );
+            (effect) => effect.type == ScannerHapticType.analysisSuccess,
+          );
       expect(successCount.length, equals(2));
       await sub.cancel();
     });
@@ -171,17 +167,15 @@ void main() {
 
       await notifier.processBarcodeCapture(capture);
 
-      final bubbles = container
-          .read(scannerProvider)
-          .maybeWhen(
+      final bubbles = container.read(scannerProvider).maybeWhen(
             data: (state) => state.bubbles,
             orElse: () => <ScanBubble>[],
           );
       expect(bubbles, isEmpty);
       expect(
         effects.whereType<ScannerHaptic>().any(
-          (effect) => effect.type == ScannerHapticType.unknown,
-        ),
+              (effect) => effect.type == ScannerHapticType.unknown,
+            ),
         isTrue,
       );
       await sub.cancel();
@@ -207,8 +201,8 @@ void main() {
       expect(restockItems.first.cip.toString(), cipB);
       expect(
         effects.whereType<ScannerHaptic>().any(
-          (effect) => effect.type == ScannerHapticType.restockSuccess,
-        ),
+              (effect) => effect.type == ScannerHapticType.restockSuccess,
+            ),
         isTrue,
       );
       await sub.cancel();

@@ -17,7 +17,7 @@ MobileScannerController useMobileScanner({required bool enabled}) {
     return () {
       unawaited(controller.dispose());
     };
-  }, [controller]);
+  }, [controller],);
 
   final lifecycleState = useAppLifecycleState();
 
@@ -41,7 +41,7 @@ MobileScannerController useMobileScanner({required bool enabled}) {
     unawaited(startCamera());
 
     return null;
-  }, [lifecycleState, controller, enabled]);
+  }, [lifecycleState, controller, enabled],);
 
   return controller;
 }

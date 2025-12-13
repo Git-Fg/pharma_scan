@@ -9,12 +9,6 @@ class MockDeviceInfoPlatform extends Mock
     with MockPlatformInterfaceMixin
     implements DeviceInfoPlatform {}
 
-class MockAndroidDeviceInfo extends Mock {}
-
-class MockAndroidBuildVersion extends Mock {}
-
-class MockIosDeviceInfo extends Mock {}
-
 void main() {
   late MockDeviceInfoPlatform mockDeviceInfoPlatform;
 

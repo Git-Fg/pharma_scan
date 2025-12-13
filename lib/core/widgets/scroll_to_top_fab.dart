@@ -28,7 +28,7 @@ class ScrollToTopFab extends HookWidget {
 
       controller.addListener(listener);
       return () => controller.removeListener(listener);
-    }, [controller]);
+    }, [controller],);
 
     Future<void> scrollToTop() async {
       if (!controller.hasClients) return;

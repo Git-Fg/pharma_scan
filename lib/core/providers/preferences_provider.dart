@@ -71,7 +71,7 @@ class HapticMutation extends _$HapticMutation {
     state = const AsyncValue<void>.loading();
     state = await AsyncValue.guard(() async {
       final prefs = ref.read(preferencesServiceProvider);
-      await prefs.setBool(PrefKeys.hapticEnabled, enabled);
+      await prefs.setBool(PrefKeys.hapticEnabled, value: enabled);
       ref.invalidate(hapticSettingsProvider);
     });
   }

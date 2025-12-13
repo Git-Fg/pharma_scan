@@ -72,16 +72,20 @@ void main() {
 
       final narcotic1 = await (database.select(
         database.medicamentSummary,
-      )..where((tbl) => tbl.cisCode.equals('CIS_NARCOTIC_1'))).getSingle();
+      )..where((tbl) => tbl.cisCode.equals('CIS_NARCOTIC_1')))
+          .getSingle();
       final narcotic2 = await (database.select(
         database.medicamentSummary,
-      )..where((tbl) => tbl.cisCode.equals('CIS_NARCOTIC_2'))).getSingle();
+      )..where((tbl) => tbl.cisCode.equals('CIS_NARCOTIC_2')))
+          .getSingle();
       final list1 = await (database.select(
         database.medicamentSummary,
-      )..where((tbl) => tbl.cisCode.equals('CIS_LIST1'))).getSingle();
+      )..where((tbl) => tbl.cisCode.equals('CIS_LIST1')))
+          .getSingle();
       final normal = await (database.select(
         database.medicamentSummary,
-      )..where((tbl) => tbl.cisCode.equals('CIS_NORMAL'))).getSingle();
+      )..where((tbl) => tbl.cisCode.equals('CIS_NORMAL')))
+          .getSingle();
 
       expect(
         narcotic1.isNarcotic,
@@ -133,10 +137,12 @@ void main() {
 
       final hospital = await (database.select(
         database.medicamentSummary,
-      )..where((tbl) => tbl.cisCode.equals('CIS_HOSPITAL'))).getSingle();
+      )..where((tbl) => tbl.cisCode.equals('CIS_HOSPITAL')))
+          .getSingle();
       final normal = await (database.select(
         database.medicamentSummary,
-      )..where((tbl) => tbl.cisCode.equals('CIS_NORMAL'))).getSingle();
+      )..where((tbl) => tbl.cisCode.equals('CIS_NORMAL')))
+          .getSingle();
 
       expect(
         hospital.isHospital,
@@ -180,10 +186,12 @@ void main() {
 
       final list2 = await (database.select(
         database.medicamentSummary,
-      )..where((tbl) => tbl.cisCode.equals('CIS_LIST2'))).getSingle();
+      )..where((tbl) => tbl.cisCode.equals('CIS_LIST2')))
+          .getSingle();
       final list1 = await (database.select(
         database.medicamentSummary,
-      )..where((tbl) => tbl.cisCode.equals('CIS_LIST1'))).getSingle();
+      )..where((tbl) => tbl.cisCode.equals('CIS_LIST1')))
+          .getSingle();
 
       expect(
         list2.isList2,
@@ -241,7 +249,8 @@ void main() {
 
       final summaries = await (database.select(
         database.medicamentSummary,
-      )..where((tbl) => tbl.groupId.equals('GROUP_PRICE'))).get();
+      )..where((tbl) => tbl.groupId.equals('GROUP_PRICE')))
+          .get();
 
       expect(summaries, hasLength(3));
 
@@ -283,10 +292,12 @@ void main() {
 
         final surveillance = await (database.select(
           database.medicamentSummary,
-        )..where((tbl) => tbl.cisCode.equals('CIS_SURVEILLANCE'))).getSingle();
+        )..where((tbl) => tbl.cisCode.equals('CIS_SURVEILLANCE')))
+            .getSingle();
         final normal = await (database.select(
           database.medicamentSummary,
-        )..where((tbl) => tbl.cisCode.equals('CIS_NORMAL'))).getSingle();
+        )..where((tbl) => tbl.cisCode.equals('CIS_NORMAL')))
+            .getSingle();
 
         expect(
           surveillance.isSurveillance,
@@ -328,10 +339,12 @@ void main() {
 
         final otc = await (database.select(
           database.medicamentSummary,
-        )..where((tbl) => tbl.cisCode.equals('CIS_OTC'))).getSingle();
+        )..where((tbl) => tbl.cisCode.equals('CIS_OTC')))
+            .getSingle();
         final restricted = await (database.select(
           database.medicamentSummary,
-        )..where((tbl) => tbl.cisCode.equals('CIS_RESTRICTED'))).getSingle();
+        )..where((tbl) => tbl.cisCode.equals('CIS_RESTRICTED')))
+            .getSingle();
 
         expect(
           otc.isOtc,
