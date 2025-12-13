@@ -17,6 +17,13 @@ class Gs1DataMatrix {
   final DateTime? manufacturingDate;
 }
 
+/// GS1 field parsed from a barcode.
+class _Gs1Field {
+  const _Gs1Field(this.ai, this.value);
+  final String ai;
+  final String value;
+}
+
 /// Declarative GS1 DataMatrix parser using petitparser grammar.
 ///
 /// Supports the following Application Identifiers (AIs):
@@ -31,79 +38,65 @@ class Gs1Parser {
   // FNC1 separator (Group Separator character)
   static final _fnc1 = char('\x1D');
 
-  // End condition for variable-length fields: FNC1, known AI, or end of input
-  static Parser<void> _fieldTerminator() {
-    return _fnc1 | _knownAiLookahead() | endOfInput();
-  }
-
-  // Lookahead for known AI codes (doesn't consume input)
-  static Parser<void> _knownAiLookahead() {
-    return (string('01') |
-            string('10') |
-            string('11') |
-            string('17') |
-            string('21'))
-        .and();
-  }
-
   // AI 01: GTIN (14 fixed digits)
   static final _gtinParser = (string('01') & digit().repeat(14).flatten())
-      .map((values) => {'ai': '01', 'value': values[1] as String});
+      .map((values) => _Gs1Field('01', values[1] as String));
 
   // AI 17: Expiration date (6 fixed digits YYMMDD)
   static final _expDateParser = (string('17') & digit().repeat(6).flatten())
-      .map((values) => {'ai': '17', 'value': values[1] as String});
+      .map((values) => _Gs1Field('17', values[1] as String));
 
   // AI 11: Manufacturing date (6 fixed digits YYMMDD)
   static final _mfgDateParser = (string('11') & digit().repeat(6).flatten())
-      .map((values) => {'ai': '11', 'value': values[1] as String});
+      .map((values) => _Gs1Field('11', values[1] as String));
 
-  // AI 10: Lot/Batch number (variable length, up to 20 chars)
-  static Parser<Map<String, String>> _lotParser() {
-    return (string('10') & any().starLazy(_fieldTerminator()).flatten())
-        .map((values) => {'ai': '10', 'value': values[1] as String});
+  // Variable-length field content: stop only at FNC1 or end of input
+  // Known AIs within content (like "01" in "SERIAL001") should NOT stop parsing
+  // AI boundaries only matter when preceded by FNC1 or at start
+  static Parser<String> _variableContent() {
+    // Variable fields end at FNC1 or end of input only
+    // The grammar structure ensures we don't consume next AI because
+    // fixed-length AIs self-terminate by length, and variable AIs are
+    // always at the end or followed by FNC1 per GS1 spec
+    return any().starLazy(_fnc1 | endOfInput()).flatten();
   }
 
-  // AI 21: Serial number (variable length, up to 20 chars)
-  static Parser<Map<String, String>> _serialParser() {
-    return (string('21') & any().starLazy(_fieldTerminator()).flatten())
-        .map((values) => {'ai': '21', 'value': values[1] as String});
+  // AI 10: Lot/Batch number (variable length)
+  static Parser<_Gs1Field> _lotParser() {
+    return (string('10') & _variableContent())
+        .map((values) => _Gs1Field('10', values[1] as String));
+  }
+
+  // AI 21: Serial number (variable length)
+  static Parser<_Gs1Field> _serialParser() {
+    return (string('21') & _variableContent())
+        .map((values) => _Gs1Field('21', values[1] as String));
   }
 
   // Single GS1 field (any supported AI)
-  static Parser<Map<String, String>> _gs1Field() {
-    return _gtinParser |
-        _expDateParser |
-        _mfgDateParser |
-        _lotParser() |
-        _serialParser();
+  // Order matters: fixed-length AIs first, then variable-length
+  static Parser<_Gs1Field?> _gs1Field() {
+    // Try fixed-length AIs first (they are self-delimiting by length)
+    // Then try variable-length AIs (which consume until FNC1/end)
+    return (_gtinParser |
+            _mfgDateParser |
+            _expDateParser |
+            _lotParser() |
+            _serialParser())
+        .cast<_Gs1Field>();
   }
 
-  // Skip unknown AI fields (2-digit AI + variable content until next known AI or separator)
-  static Parser<void> _unknownField() {
-    return (digit().repeat(2) & any().starLazy(_fieldTerminator()))
-        .map((_) => null);
+  // Skip FNC1 separators
+  static Parser<void> _skipFnc1() {
+    return _fnc1.star().map((_) {});
   }
 
-  // Complete GS1 grammar: sequence of fields separated by optional FNC1
-  static Parser<List<Map<String, String>>> _gs1Grammar() {
-    final field = _gs1Field() | _unknownField().map((_) => <String, String>{});
-    return (_fnc1.optional() & field)
-        .separatedBy<dynamic>(_fnc1.optional())
-        .map((results) {
-      final fields = <Map<String, String>>[];
-      for (final item in results) {
-        if (item is List &&
-            item.length >= 2 &&
-            item[1] is Map<String, String>) {
-          final map = item[1] as Map<String, String>;
-          if (map.isNotEmpty) fields.add(map);
-        } else if (item is Map<String, String> && item.isNotEmpty) {
-          fields.add(item);
-        }
-      }
-      return fields;
-    });
+  // Full GS1 grammar: sequence of fields with optional FNC1 separators
+  static Parser<List<_Gs1Field>> _gs1Grammar() {
+    final fieldWithSeparator = (_skipFnc1() & _gs1Field() & _skipFnc1())
+        .map((values) => values[1] as _Gs1Field);
+
+    return fieldWithSeparator.star();
   }
 
   /// Parse a GS1 DataMatrix barcode string.
@@ -131,11 +124,10 @@ class Gs1Parser {
     DateTime? manufacturingDate;
 
     for (final field in result.value) {
-      final ai = field['ai'];
-      final value = field['value'];
-      if (value == null || value.isEmpty) continue;
+      final value = field.value;
+      if (value.isEmpty) continue;
 
-      switch (ai) {
+      switch (field.ai) {
         case '01':
           // GTIN: strip leading zero if 14 digits (CIP-13 format)
           gtin = value.length == 14 ? value.substring(1) : value;

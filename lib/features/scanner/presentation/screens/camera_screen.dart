@@ -21,7 +21,6 @@ import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/status_view.dart';
 import 'package:pharma_scan/features/history/presentation/widgets/history_sheet.dart';
 import 'package:pharma_scan/features/home/providers/initialization_provider.dart';
-import 'package:pharma_scan/features/scanner/domain/logic/scan_orchestrator.dart';
 import 'package:pharma_scan/features/scanner/presentation/models/scanner_ui_state.dart';
 import 'package:pharma_scan/features/scanner/presentation/providers/scanner_provider.dart';
 import 'package:pharma_scan/features/scanner/presentation/utils/scanner_utils.dart';
@@ -337,131 +336,6 @@ class _GallerySheet extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _DuplicateQuantitySheet extends HookWidget {
-  const _DuplicateQuantitySheet({
-    required this.event,
-    required this.onCancel,
-    required this.onConfirm,
-  });
-
-  final DuplicateScanEvent event;
-  final VoidCallback onCancel;
-  final ValueChanged<int> onConfirm;
-
-  @override
-  Widget build(BuildContext context) {
-    final scannerInput = useScannerInput(
-      onSubmitted: (_) {},
-      initialText: event.currentQuantity.toString(),
-    );
-
-    useEffect(
-      () {
-        final focusNode = scannerInput.focusNode;
-        final controller = scannerInput.controller;
-        focusNode.requestFocus();
-        controller.selection = TextSelection(
-          baseOffset: 0,
-          extentOffset: controller.text.length,
-        );
-        return null;
-      },
-      [scannerInput.controller, scannerInput.focusNode],
-    );
-
-    void setDelta(int delta) {
-      final current = int.tryParse(scannerInput.controller.text) ?? 0;
-      final next = (current + delta).clamp(0, 9999);
-      final nextStr = next.toString();
-      scannerInput.controller
-        ..text = nextStr
-        ..selection = TextSelection.collapsed(offset: nextStr.length);
-    }
-
-    return ShadSheet(
-      title: Row(
-        children: [
-          Icon(
-            LucideIcons.copy,
-            color: context.colors.destructive,
-            size: 20,
-          ),
-          const Gap(12),
-          const Expanded(
-            child: Text(Strings.duplicateScannedTitle),
-          ),
-        ],
-      ),
-      description: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            event.productName,
-            style: context.typo.small.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const Gap(8),
-          const Text(Strings.duplicateScannedDescription),
-          const Gap(16),
-          Text(
-            Strings.duplicateAdjustQuantity,
-            style: context.typo.small.copyWith(
-              color: context.colors.mutedForeground,
-            ),
-          ),
-        ],
-      ),
-      actions: [
-        ShadButton.ghost(
-          onPressed: onCancel,
-          child: const Text(Strings.duplicateCancel),
-        ),
-        ShadButton(
-          onPressed: () {
-            final qty = int.tryParse(scannerInput.controller.text);
-            if (qty != null) {
-              onConfirm(qty);
-            }
-          },
-          child: const Text(Strings.duplicateUpdate),
-        ),
-      ],
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        child: Row(
-          children: [
-            ShadButton.outline(
-              onPressed: () => setDelta(-1),
-              child: const Icon(LucideIcons.minus, size: 16),
-            ),
-            const Gap(12),
-            Expanded(
-              child: ShadInput(
-                controller: scannerInput.controller,
-                focusNode: scannerInput.focusNode,
-                keyboardType: TextInputType.number,
-                textAlign: TextAlign.center,
-                style: context.typo.large.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            const Gap(12),
-            ShadButton.outline(
-              onPressed: () => setDelta(1),
-              child: const Icon(LucideIcons.plus, size: 16),
-            ),
-          ],
-        ),
       ),
     );
   }

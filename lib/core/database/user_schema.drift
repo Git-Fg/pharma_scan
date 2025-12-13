@@ -1,7 +1,7 @@
 -- User-specific tables that should be stored in user.db
 
 CREATE TABLE app_settings (
-        `key` TEXT PRIMARY KEY,
+        key TEXT PRIMARY KEY,
         value BLOB NOT NULL
       );
 

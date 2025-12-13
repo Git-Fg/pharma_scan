@@ -5,32 +5,46 @@ description: AutoRoute navigation patterns, router injection, and route configur
 
 # Navigation (AutoRoute 11.0.0)
 
+## Context-Free Navigation Pattern
+
+Navigation is decoupled from `BuildContext` by injecting the router via `routerProvider`. This treats navigation as a **Side Effect Service**.
+
+**Architecture:**
+- `appRouterProvider`: Creates the singleton `AppRouter` instance (used in `main.dart`)
+- `routerProvider`: Exposes `Raw<StackRouter>` for navigation from logic layers
+- `ref.router`: Convenience extension for `ref.read(routerProvider)`
+
 ## Navigation Triggering
 
 1. **Inside UI (Widgets):**
    - ✅ Use `context.router.push(...)` / `context.router.replace(...)` directly.
-   - ❌ Do not inject the router via `ref.read(appRouterProvider)` inside `build()` or callbacks.
-   - Rationale: `BuildContext` already exposes the typed AutoRoute extensions; keeps UI simple and avoids passing `ref` only for navigation.
+   - Rationale: `BuildContext` already exposes the typed AutoRoute extensions; keeps UI simple.
 
 2. **Inside Logic (Notifiers/Services):**
-   - ✅ Use `ref.read(appRouterProvider)` when no `BuildContext` is available.
-   - Rationale: Logic layers cannot access `context`, so router provider remains the correct injection point.
+   - ✅ Use `ref.router` or `ref.read(routerProvider)`.
+   - ❌ Never pass `BuildContext` to Notifiers for navigation.
+   - Rationale: Decouples business logic from UI, enables testing without widget context.
 
-## Router Provider Pattern
+## Router Provider Implementation
 
 ```dart
+// lib/core/router/router_provider.dart
 @Riverpod(keepAlive: true)
 AppRouter appRouter(Ref ref) => AppRouter();
+
+@Riverpod(keepAlive: true)
+Raw<StackRouter> router(Ref ref) => ref.read(appRouterProvider);
 ```
 
-## Notifier Injection Example
+## Notifier Navigation Example
 
 ```dart
 @riverpod
-class MyNotifier extends _$MyNotifier {
-  void performAction() {
-    final router = ref.read(appRouterProvider);
-    router.push(const DetailRoute());
+class AuthNotifier extends _$AuthNotifier {
+  void logout() {
+    state = const AsyncData(null);
+    // Navigation without Context!
+    ref.router.replace(const LoginRoute());
   }
 }
 ```
@@ -54,5 +68,6 @@ ShadButton(
 
 - Router: `lib/core/router/app_router.dart`
 - Provider: `lib/core/router/router_provider.dart`
+- Extension: `lib/core/router/router_extensions.dart`
 - Tab Navigation: See main screen implementation
-- Path Parameters: See detail screen implementations
+

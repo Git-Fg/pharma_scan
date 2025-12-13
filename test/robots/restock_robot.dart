@@ -1,10 +1,35 @@
-import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:pharma_scan/features/restock/presentation/screens/restock_screen.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:pharma_scan/core/providers/app_bar_provider.dart';
 import 'package:pharma_scan/core/services/preferences_service.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:pharma_scan/features/restock/presentation/screens/restock_screen.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+/// Test wrapper that simulates the app shell with AppBar.
+///
+/// This is necessary because RestockScreen uses `useAppHeader` hook
+/// which sets header config via provider. The actual AppBar is rendered
+/// by the parent shell, not RestockScreen itself.
+class _TestShell extends ConsumerWidget {
+  const _TestShell({required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final appBarConfig = ref.watch(appBarStateProvider);
+    return Scaffold(
+      appBar: appBarConfig.isVisible
+          ? AppBar(
+              title: appBarConfig.title,
+              actions: appBarConfig.actions,
+            )
+          : null,
+      body: child,
+    );
+  }
+}
 
 class RestockRobot {
   final WidgetTester tester;
@@ -12,8 +37,7 @@ class RestockRobot {
 
   // Locators
   Finder get clearAllButton => find.byIcon(LucideIcons.trash2);
-  Finder get _clearButton => clearAllButton; // Clear all button (trash icon)
-  Finder get _clearCheckedButton => find.byIcon(LucideIcons.check); // Clear checked button (check icon)
+  Finder get clearCheckedButton => find.byIcon(LucideIcons.check);
   Finder get _confirmDialogButton => find
       .byType(ShadButton)
       .last; // Le dernier bouton ShadButton est le bouton de confirmation
@@ -22,7 +46,10 @@ class RestockRobot {
       .first; // Le premier bouton ShadButton est le bouton d'annulation
   Finder get _emptyStateText => find.text('Aucune boîte à ranger');
 
-  // Setup
+  /// Sets up the test environment with the restock screen.
+  ///
+  /// [overrides] - Optional list of provider overrides to add.
+  /// These are typically created with `.overrideWith()` or `.overrideWithValue()`.
   Future<void> pumpScreen({List<dynamic> overrides = const []}) async {
     // Set up mock preferences for testing
     SharedPreferences.setMockInitialValues({});
@@ -32,43 +59,51 @@ class RestockRobot {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          ...overrides.cast(),
           preferencesServiceProvider.overrideWithValue(preferencesService),
+          // Spread additional overrides - Dart infers the type from context
+          for (final o in overrides) o,
         ],
-        child: MaterialApp(
-          home: RestockScreen(),
+        child: const ShadApp(
+          home: _TestShell(
+            child: RestockScreen(),
+          ),
         ),
       ),
     );
-    await tester.pumpAndSettle();
+
+    // Wait for async useEffect in useAppHeader to fire
+    // Use pump with duration instead of pumpAndSettle to avoid timeout
+    // on async providers that may have continuous reloading
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 100));
   }
 
   // Actions
   Future<void> tapClearAll() async {
-    await tester.tap(_clearButton);
-    await tester.pumpAndSettle();
+    await tester.tap(clearAllButton);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
   }
 
   Future<void> tapClearChecked() async {
-    // Trouver l'icône de coche qui correspond à "clear checked"
-    final clearCheckedButton =
-        find.byKey(const ValueKey('clear_checked_button'));
     await tester.tap(clearCheckedButton);
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
   }
 
   Future<void> confirmDialog() async {
-    // Attendre que le dialogue apparaisse
-    await tester.pumpAndSettle(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 100));
     await tester.tap(_confirmDialogButton);
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
   }
 
   Future<void> cancelDialog() async {
-    // Attendre que le dialogue apparaisse
-    await tester.pumpAndSettle(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 100));
     await tester.tap(_cancelDialogButton);
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
   }
 
   // Assertions
