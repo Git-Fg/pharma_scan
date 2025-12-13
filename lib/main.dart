@@ -1,16 +1,16 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:pharma_scan/core/database/database.dart';
+import 'package:pharma_scan/core/providers/core_providers.dart';
+// import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/mappers/mappable_library.dart';
 import 'package:pharma_scan/core/providers/theme_provider.dart';
 import 'package:pharma_scan/core/router/app_router.dart';
 import 'package:pharma_scan/core/router/router_provider.dart';
-import 'package:pharma_scan/core/services/data_initialization_service.dart';
+// import 'package:pharma_scan/core/services/data_initialization_service.dart';
 import 'package:pharma_scan/core/services/file_download_service.dart';
 import 'package:pharma_scan/core/services/logger_service.dart';
 import 'package:pharma_scan/core/services/preferences_service.dart';
@@ -38,27 +38,22 @@ void callbackDispatcher() {
         // 3. Initialize dependencies manually (No Riverpod in background isolate)
         final prefs = await SharedPreferences.getInstance();
         final preferencesService = PreferencesService(prefs);
-
-        // AppDatabase handles isolate sharing via native options automatically
-        final database = AppDatabase();
-
         final fileDownloadService = FileDownloadService();
 
-        final dataInitService = DataInitializationService(
-          database: database,
-          fileDownloadService: fileDownloadService,
-          preferencesService: preferencesService,
-        );
+        // Crée un ProviderContainer local pour fournir un Ref
+        final container = ProviderContainer(overrides: [
+          preferencesServiceProvider.overrideWithValue(preferencesService),
+          fileDownloadServiceProvider.overrideWithValue(fileDownloadService),
+        ]);
+        final dataInitService =
+            container.read(dataInitializationServiceProvider);
 
         // 4. Perform the update (force=false checks version tags first)
-        final updated = await dataInitService.updateDatabase();
-
-        LoggerService.info(
-          'Background update completed. Updated: $updated',
-        );
+        await dataInitService.initializeDatabase();
+        LoggerService.info('Background update completed.');
 
         // 5. Clean up resources
-        await database.close();
+        container.dispose();
 
         return Future.value(true);
       }
@@ -72,16 +67,12 @@ void callbackDispatcher() {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  initializeMappers();
 
-  // Only initialize Workmanager on mobile platforms (not web)
-  if (!kIsWeb) {
-    unawaited(
-      Workmanager().initialize(
-        callbackDispatcher,
-      ),
-    );
-  }
+  unawaited(
+    Workmanager().initialize(
+      callbackDispatcher,
+    ),
+  );
 
   unawaited(
     Future.microtask(() {
@@ -127,7 +118,7 @@ class PharmaScanApp extends HookConsumerWidget {
       () {
         unawaited(
           Future.microtask(() async {
-            await ref.read(initializationStateProvider.notifier).initialize();
+            await ref.read(initializationProvider.notifier).retry();
           }),
         );
         return null;
@@ -139,39 +130,36 @@ class PharmaScanApp extends HookConsumerWidget {
 
     useEffect(
       () {
-        // QuickActions only available on mobile platforms
-        if (!kIsWeb) {
-          const quickActions = QuickActions();
-          unawaited(
-            quickActions.initialize((type) {
-              switch (type) {
-                case 'action_scan':
-                  unawaited(() async {
-                    final navContext =
-                        appRouter.navigatorKey.currentContext ?? context;
-                    await ref.navigateToRestockMode(navContext);
-                    await appRouter.navigate(const ScannerTabRoute());
-                  }());
-                case 'action_search':
-                  unawaited(appRouter.navigate(const ExplorerTabRoute()));
-              }
-            }),
-          );
-          unawaited(
-            quickActions.setShortcutItems(const [
-              ShortcutItem(
-                type: 'action_scan',
-                localizedTitle: Strings.shortcutScanToRestock,
-                icon: 'scan',
-              ),
-              ShortcutItem(
-                type: 'action_search',
-                localizedTitle: Strings.shortcutSearchDatabase,
-                icon: 'search',
-              ),
-            ]),
-          );
-        }
+        const quickActions = QuickActions();
+        unawaited(
+          quickActions.initialize((type) {
+            switch (type) {
+              case 'action_scan':
+                unawaited(() async {
+                  final navContext =
+                      appRouter.navigatorKey.currentContext ?? context;
+                  await ref.navigateToRestockMode(navContext);
+                  await appRouter.navigate(const ScannerTabRoute());
+                }());
+              case 'action_search':
+                unawaited(appRouter.navigate(const ExplorerTabRoute()));
+            }
+          }),
+        );
+        unawaited(
+          quickActions.setShortcutItems(const [
+            ShortcutItem(
+              type: 'action_scan',
+              localizedTitle: Strings.shortcutScanToRestock,
+              icon: 'scan',
+            ),
+            ShortcutItem(
+              type: 'action_search',
+              localizedTitle: Strings.shortcutSearchDatabase,
+              icon: 'search',
+            ),
+          ]),
+        );
         return null;
       },
       [appRouter],

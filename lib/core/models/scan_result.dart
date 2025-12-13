@@ -1,10 +1,6 @@
-import 'package:dart_mappable/dart_mappable.dart';
 import 'package:pharma_scan/core/domain/types/ids.dart';
 import 'package:pharma_scan/features/explorer/domain/entities/medicament_entity.dart';
 
-part 'scan_result.mapper.dart';
-
-@MappableRecord()
 typedef ScanMetadata = ({
   double? price,
   String? refundRate,
@@ -25,10 +21,9 @@ const ScanMetadata _emptyScanMetadata = (
   expDate: null,
 );
 
-/// WHY: Dedicated data structure for scanner results enables us to
-/// transport CIP-level metadata (price, refund) alongside the summary.
-@MappableClass()
-class ScanResult with ScanResultMappable {
+/// WHY: Dedicated data structure for scanner results.
+/// Removed @MappableClass to avoid issues with Extension Type serialization.
+class ScanResult {
   const ScanResult({
     required this.summary,
     required this.cip,
@@ -60,4 +55,16 @@ class ScanResult with ScanResultMappable {
     );
     return expiryFloor.isBefore(todayFloor);
   }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is ScanResult &&
+        other.summary == summary &&
+        other.cip == cip &&
+        other.metadata == metadata;
+  }
+
+  @override
+  int get hashCode => Object.hash(summary, cip, metadata);
 }

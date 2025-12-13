@@ -1,5 +1,6 @@
 // Test file uses SeedBuilder pattern for reliable database setup
 
+import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pharma_scan/core/database/database.dart';
@@ -8,7 +9,7 @@ import 'package:pharma_scan/features/explorer/domain/models/explorer_enums.dart'
 import 'package:pharma_scan/features/explorer/domain/models/search_filters_model.dart';
 
 import '../../../fixtures/seed_builder.dart';
-import '../../../helpers/db_loader.dart';
+import '../../../helpers/golden_db_helper.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -19,6 +20,16 @@ void main() {
     setUp(() async {
       db = AppDatabase.forTesting(
         NativeDatabase.memory(setup: configureAppSQLite),
+      );
+
+      // Insert a laboratory to satisfy FK constraint
+      await db.customInsert(
+        'INSERT OR IGNORE INTO laboratories (id, name) VALUES (?, ?)',
+        variables: [
+          Variable.withInt(1),
+          Variable.withString('Test Lab'),
+        ],
+        updates: {db.laboratories},
       );
 
       // Seed test data using SeedBuilder pattern (same as working tests)

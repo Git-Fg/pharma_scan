@@ -9,22 +9,7 @@ part 'preferences_provider.g.dart';
 enum SortingPreference {
   princeps,
   generic,
-  form
-  ;
-
-  factory SortingPreference.fromStorage(String value) {
-    return switch (value) {
-      'generic' => SortingPreference.generic,
-      'form' => SortingPreference.form,
-      _ => SortingPreference.princeps,
-    };
-  }
-
-  String get storageValue => switch (this) {
-    SortingPreference.princeps => 'princeps',
-    SortingPreference.generic => 'generic',
-    SortingPreference.form => 'form',
-  };
+  form;
 }
 
 // --- Update Frequency ---
@@ -33,7 +18,11 @@ enum SortingPreference {
 UpdateFrequency appPreferences(Ref ref) {
   final prefs = ref.watch(preferencesServiceProvider);
   final raw = prefs.getString(PrefKeys.updateFrequency);
-  return UpdateFrequency.fromStorage(raw ?? 'daily');
+  try {
+    return UpdateFrequencyMapper.fromValue(raw);
+  } catch (_) {
+    return UpdateFrequency.daily;
+  }
 }
 
 @riverpod
@@ -47,7 +36,7 @@ class UpdateFrequencyMutation extends _$UpdateFrequencyMutation {
       final prefs = ref.read(preferencesServiceProvider);
       await prefs.setString(
         PrefKeys.updateFrequency,
-        newFrequency.storageValue,
+        newFrequency.name, // Utilise la propriété name de l'enum
       );
       ref.invalidate(appPreferencesProvider);
     });
@@ -82,8 +71,15 @@ class HapticMutation extends _$HapticMutation {
 @riverpod
 SortingPreference sortingPreference(Ref ref) {
   final prefs = ref.watch(preferencesServiceProvider);
-  final raw = prefs.getString(PrefKeys.preferredSorting);
-  return SortingPreference.fromStorage(raw ?? 'princeps');
+  final raw = prefs.getString(PrefKeys.preferredSorting) ?? 'princeps';
+  switch (raw) {
+    case 'generic':
+      return SortingPreference.generic;
+    case 'form':
+      return SortingPreference.form;
+    default:
+      return SortingPreference.princeps;
+  }
 }
 
 @riverpod
@@ -95,7 +91,8 @@ class SortingPreferenceMutation extends _$SortingPreferenceMutation {
     state = const AsyncValue<void>.loading();
     state = await AsyncValue.guard(() async {
       final prefs = ref.read(preferencesServiceProvider);
-      await prefs.setString(PrefKeys.preferredSorting, pref.storageValue);
+      await prefs.setString(
+          PrefKeys.preferredSorting, pref.name); // Utilise la propriété name
       ref.invalidate(sortingPreferenceProvider);
     });
   }

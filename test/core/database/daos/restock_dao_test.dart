@@ -5,17 +5,14 @@ import 'package:pharma_scan/core/database/daos/restock_dao.dart';
 import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/domain/types/ids.dart';
 
-import '../../../helpers/db_loader.dart';
+import '../../../helpers/golden_db_helper.dart';
 
 void main() {
   group('RestockDao', () {
     late AppDatabase db;
 
-    setUp(() {
-      // Use the existing working test database pattern
-      db = AppDatabase.forTesting(
-        NativeDatabase.memory(setup: configureAppSQLite),
-      );
+    setUp(() async {
+      db = await TestDatabaseHelper.createTestDatabase();
     });
 
     tearDown(() async {

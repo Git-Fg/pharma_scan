@@ -3,7 +3,6 @@ import 'dart:io';
 
 import 'package:dart_mappable/dart_mappable.dart';
 import 'package:device_info_plus/device_info_plus.dart';
-import 'package:flutter/foundation.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:pharma_scan/core/config/app_config.dart';
 import 'package:pharma_scan/core/models/scan_result.dart';
@@ -82,7 +81,7 @@ ScanTrafficControl scanTrafficControl(Ref ref) {
 ScanOrchestrator scanOrchestrator(Ref ref) {
   return ScanOrchestrator(
     catalogDao: ref.read(catalogDaoProvider),
-    restockDao: ref.read(databaseProvider).restockDao,
+    restockDao: ref.read(databaseProvider()).restockDao,
     trafficControl: ref.read(scanTrafficControlProvider),
   );
 }
@@ -169,11 +168,6 @@ class ScannerNotifier extends _$ScannerNotifier {
 
   Future<bool> _checkDeviceCapabilities() async {
     try {
-      // Pour le web, on considère que les capacités sont suffisantes
-      if (kIsWeb) {
-        return false;
-      }
-
       if (Platform.isAndroid) {
         final androidInfo = await _deviceInfo.androidInfo;
         // Simple heuristic: Android 8.0 (SDK 26) or lower might be considered "low end"
@@ -210,9 +204,8 @@ class ScannerNotifier extends _$ScannerNotifier {
       if (rawValue == null) continue;
 
       try {
-        final rawValuePreview = rawValue.length > 50
-            ? '${rawValue.substring(0, 50)}...'
-            : rawValue;
+        final rawValuePreview =
+            rawValue.length > 50 ? '${rawValue.substring(0, 50)}...' : rawValue;
         LoggerService.debug(
           '[ScannerNotifier] Barcode detected - Format: ${barcode.format}, '
           'RawValue: $rawValuePreview, Force: $force',
@@ -294,9 +287,9 @@ class ScannerNotifier extends _$ScannerNotifier {
           ),
         );
       case RestockAdded(
-        :final scanResult,
-        :final toastMessage,
-      ):
+          :final scanResult,
+          :final toastMessage,
+        ):
         addBubble(scanResult);
         _emit(const ScannerHaptic(ScannerHapticType.restockSuccess));
         _emit(ScannerToast(toastMessage));

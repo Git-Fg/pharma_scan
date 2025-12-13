@@ -1,8 +1,8 @@
-
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:pharma_scan/core/providers/app_bar_provider.dart';
 import 'package:pharma_scan/core/providers/navigation_provider.dart';
 import 'package:pharma_scan/core/router/app_router.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
@@ -23,31 +23,30 @@ class MainScreen extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final initializationState = ref.watch(initializationStateProvider);
+    final initializationState = ref.watch(initializationProvider);
 
-    useEffect(() {
-      if (initializationState != InitializationState.success) {
+    useEffect(
+      () {
+        if (initializationState is AsyncData<void>) {
+          WidgetsBinding.instance.addPostFrameCallback((_) async {
+            await ref.read(syncControllerProvider.notifier).startSync();
+            await Workmanager().registerPeriodicTask(
+              'weeklyDatabaseUpdate',
+              'weeklyDatabaseUpdate',
+              frequency: const Duration(days: 7),
+              constraints: Constraints(
+                networkType: NetworkType.connected,
+                requiresCharging: true,
+                requiresBatteryNotLow: true,
+              ),
+              existingWorkPolicy: ExistingPeriodicWorkPolicy.replace,
+            );
+          });
+        }
         return null;
-      }
-
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        await ref.read(syncControllerProvider.notifier).startSync();
-
-        // Register periodic sync task
-        await Workmanager().registerPeriodicTask(
-          'weeklyDatabaseUpdate',
-          'weeklyDatabaseUpdate',
-          frequency: const Duration(days: 7),
-          constraints: Constraints(
-            networkType: NetworkType.connected,
-            requiresCharging: true,
-            requiresBatteryNotLow: true,
-          ),
-          existingWorkPolicy: ExistingPeriodicWorkPolicy.replace,
-        );
-      });
-      return null;
-    }, [initializationState],);
+      },
+      [initializationState],
+    );
 
     final activityBannerState = ref.watch(activityBannerViewModelProvider);
 
@@ -98,77 +97,79 @@ class MainScreen extends HookConsumerWidget {
           ref.read(tabReselectionProvider.notifier).ping(index);
         }
 
-        // WARNING: PopScope usage - see flutter-navigation.mdc section 11
-        return PopScope<Object>(
-          canPop:
-              tabsRouter.activeIndex == 0 &&
-              !tabsRouter.current.router.canPop(),
-          onPopInvokedWithResult: (didPop, _) {
-            if (didPop) return;
-            if (tabsRouter.current.router.canPop()) {
-              tabsRouter.current.router.pop();
-              return;
-            }
-            if (tabsRouter.activeIndex != 0) {
-              tabsRouter.setActiveIndex(0);
-            }
-          },
-          child: Scaffold(
-            resizeToAvoidBottomInset: true,
-            backgroundColor: context.background,
-            bottomNavigationBar: isKeyboardOpen
-                ? null
-                : ShadcnBottomNav(
-                    currentIndex: tabsRouter.activeIndex,
-                    onTap: (index) {
-                      if (tabsRouter.activeIndex == index) {
-                        handleReselect(index);
-                        return;
-                      }
-                      tabsRouter.setActiveIndex(index);
-                    },
-                    onReselect: handleReselect,
-                    items: const [
-                      (
-                        icon: LucideIcons.scan,
-                        activeIcon: LucideIcons.scan,
-                        label: Strings.scanner,
-                        testId: TestTags.navScanner,
-                      ),
-                      (
-                        icon: LucideIcons.database,
-                        activeIcon: LucideIcons.database,
-                        label: Strings.explorer,
-                        testId: TestTags.navExplorer,
-                      ),
-                      (
-                        icon: LucideIcons.list,
-                        activeIcon: LucideIcons.list,
-                        label: Strings.restockTabLabel,
-                        testId: TestTags.navRestock,
-                      ),
-                    ],
+        final appBarConfig = ref.watch(appBarStateProvider);
+        final canPop = AutoRouter.of(context).canPop();
+
+        return Scaffold(
+          resizeToAvoidBottomInset: true,
+          backgroundColor: context.shadColors.background,
+          appBar: appBarConfig.isVisible
+              ? PreferredSize(
+                  preferredSize: const Size.fromHeight(56),
+                  child: AppBar(
+                    leading: appBarConfig.showBackButton || canPop
+                        ? ShadIconButton.ghost(
+                            icon: const Icon(LucideIcons.arrowLeft),
+                            onPressed: () => AutoRouter.of(context).maybePop(),
+                          )
+                        : null,
+                    title: appBarConfig.title,
+                    actions: appBarConfig.actions,
                   ),
-            body: Column(
-              children: [
-                if (activityBannerState != null)
-                  SafeArea(
-                    bottom: false,
-                    child: UnifiedActivityBanner(
-                      icon: activityBannerState.icon,
-                      title: activityBannerState.title,
-                      status: activityBannerState.status,
-                      secondaryStatus: activityBannerState.secondaryStatus,
-                      progressValue: activityBannerState.progressValue,
-                      progressLabel: activityBannerState.progressLabel,
-                      indeterminate: activityBannerState.indeterminate,
-                      isError: activityBannerState.isError,
-                      onRetry: activityBannerState.onRetry,
+                )
+              : null,
+          bottomNavigationBar: isKeyboardOpen
+              ? null
+              : ShadcnBottomNav(
+                  currentIndex: tabsRouter.activeIndex,
+                  onTap: (index) {
+                    if (tabsRouter.activeIndex == index) {
+                      handleReselect(index);
+                      return;
+                    }
+                    tabsRouter.setActiveIndex(index);
+                  },
+                  onReselect: handleReselect,
+                  items: const [
+                    (
+                      icon: LucideIcons.scan,
+                      activeIcon: LucideIcons.scan,
+                      label: Strings.scanner,
+                      testId: TestTags.navScanner,
                     ),
+                    (
+                      icon: LucideIcons.database,
+                      activeIcon: LucideIcons.database,
+                      label: Strings.explorer,
+                      testId: TestTags.navExplorer,
+                    ),
+                    (
+                      icon: LucideIcons.list,
+                      activeIcon: LucideIcons.list,
+                      label: Strings.restockTabLabel,
+                      testId: TestTags.navRestock,
+                    ),
+                  ],
+                ),
+          body: Column(
+            children: [
+              if (activityBannerState != null)
+                SafeArea(
+                  bottom: false,
+                  child: UnifiedActivityBanner(
+                    icon: activityBannerState.icon,
+                    title: activityBannerState.title,
+                    status: activityBannerState.status,
+                    secondaryStatus: activityBannerState.secondaryStatus,
+                    progressValue: activityBannerState.progressValue,
+                    progressLabel: activityBannerState.progressLabel,
+                    indeterminate: activityBannerState.indeterminate,
+                    isError: activityBannerState.isError,
+                    onRetry: activityBannerState.onRetry,
                   ),
-                Expanded(child: child),
-              ],
-            ),
+                ),
+              Expanded(child: child),
+            ],
           ),
         );
       },
@@ -191,7 +192,8 @@ class SyncStatusPresenter {
       SyncStatusCode.checkingUpdates ||
       SyncStatusCode.downloadingSource ||
       SyncStatusCode.applyingUpdate ||
-      SyncStatusCode.error => null,
+      SyncStatusCode.error =>
+        null,
     };
   }
 

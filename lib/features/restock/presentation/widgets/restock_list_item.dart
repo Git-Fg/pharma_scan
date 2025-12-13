@@ -20,6 +20,7 @@ class RestockListItem extends StatelessWidget {
     required this.onSetQuantity,
     required this.onToggleChecked,
     required this.onDismissed,
+    this.onRemove,
     super.key,
   });
 
@@ -32,6 +33,7 @@ class RestockListItem extends StatelessWidget {
   final ValueChanged<int> onSetQuantity;
   final VoidCallback onToggleChecked;
   final void Function(DismissDirection) onDismissed;
+  final VoidCallback? onRemove;
 
   @override
   Widget build(BuildContext context) {
@@ -102,166 +104,144 @@ class RestockListItem extends StatelessWidget {
             borderRadius: theme.radius,
             border: Border.all(color: borderColor),
           ),
-          child: Row(
-            children: [
-              Container(
-                width: 4,
-                decoration: BoxDecoration(
-                  color: formColor,
-                  borderRadius: BorderRadius.only(
-                    topLeft: theme.radius.topLeft,
-                    bottomLeft: theme.radius.bottomLeft,
+          child: Padding(
+            padding: const EdgeInsets.all(AppDimens.spacingMd),
+            child: Row(
+              children: [
+                Container(
+                  width: 4,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: formColor,
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-              ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppDimens.spacingMd,
-                    vertical: AppDimens.spacingSm,
-                  ),
-                  child: Row(
+                const SizedBox(width: AppDimens.spacingMd),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Expanded(
-                        child: Opacity(
-                          opacity: contentOpacity,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                item.label,
-                                style: context.shadTextTheme.p.copyWith(
-                                  decoration: isZero
-                                      ? TextDecoration.lineThrough
-                                      : null,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              if (showPrincepsSubtitle &&
-                                  item.princepsLabel != null)
-                                Text(
-                                  Strings.restockSubtitlePrinceps(
-                                    item.princepsLabel!,
-                                  ),
-                                  style: context.shadTextTheme.muted.copyWith(
-                                    fontSize: 12,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                            ],
-                          ),
+                      Text(
+                        item.label,
+                        style: context.shadTextTheme.p.copyWith(
+                          decoration:
+                              isZero ? TextDecoration.lineThrough : null,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      const Gap(AppDimens.spacingSm),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            constraints: const BoxConstraints.tightFor(
-                              width: 32,
-                              height: 32,
-                            ),
-                            style: IconButton.styleFrom(
-                              padding: EdgeInsets.zero,
-                              visualDensity: VisualDensity.compact,
-                              foregroundColor: isZero
-                                  ? theme.colorScheme.destructive
-                                  : theme.colorScheme.foreground,
-                            ),
-                            onPressed: () async {
-                              if (isZero) {
-                                await haptics.deleteImpact();
-                              } else if (item.quantity == 1) {
-                                await haptics.heavyImpact();
-                              } else {
-                                await haptics.selection();
-                              }
-                              onDecrement();
-                            },
-                            icon: Icon(
-                              isZero ? LucideIcons.trash2 : LucideIcons.minus,
-                              size: AppDimens.iconSm,
-                            ),
+                      if (showPrincepsSubtitle && item.princepsLabel != null)
+                        Text(
+                          Strings.restockSubtitlePrinceps(
+                            item.princepsLabel!,
                           ),
-                          const SizedBox(width: AppDimens.spacing2xs),
-                          GestureDetector(
-                            onTap: () => _showQuantityDialog(
-                              context,
-                              item.quantity,
-                            ),
-                            child: Container(
-                              constraints: const BoxConstraints(
-                                minWidth: 32,
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: AppDimens.spacing2xs,
-                                vertical: AppDimens.spacing2xs,
-                              ),
-                              alignment: Alignment.center,
-                              child: Text(
-                                item.quantity.toString(),
-                                style: theme.textTheme.large.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: isZero
-                                      ? theme.colorScheme.mutedForeground
-                                      : theme.colorScheme.primary,
-                                ),
-                              ),
-                            ),
+                          style: context.shadTextTheme.muted.copyWith(
+                            fontSize: 12,
                           ),
-                          const SizedBox(width: AppDimens.spacing2xs),
-                          IconButton(
-                            constraints: const BoxConstraints.tightFor(
-                              width: 32,
-                              height: 32,
-                            ),
-                            style: IconButton.styleFrom(
-                              padding: EdgeInsets.zero,
-                              visualDensity: VisualDensity.compact,
-                            ),
-                            onPressed: () async {
-                              await haptics.selection();
-                              onIncrement();
-                            },
-                            icon: const Icon(
-                              LucideIcons.plus,
-                              size: AppDimens.iconSm,
-                            ),
-                          ),
-                          const SizedBox(width: AppDimens.spacing2xs),
-                          TextButton(
-                            style: TextButton.styleFrom(
-                              minimumSize: const Size(44, 32),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: AppDimens.spacing2xs,
-                              ),
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            ),
-                            onPressed: () async {
-                              await haptics.mediumImpact();
-                              onAddTen();
-                            },
-                            child: const Text(
-                              Strings.restockAddTenLabel,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const Gap(AppDimens.spacingSm),
-                      Opacity(
-                        opacity: contentOpacity,
-                        child: ShadCheckbox(
-                          value: item.isChecked,
-                          onChanged: (_) => onToggleChecked(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                      ),
                     ],
                   ),
                 ),
-              ),
-            ],
+                const Gap(AppDimens.spacingSm),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ShadIconButton.ghost(
+                      width: 32,
+                      height: 32,
+                      padding: EdgeInsets.zero,
+                      icon: Icon(
+                        isZero ? LucideIcons.trash2 : LucideIcons.minus,
+                        size: AppDimens.iconSm,
+                        color: isZero
+                            ? context.shadColors.destructive
+                            : context.shadColors.foreground,
+                      ),
+                      onPressed: () async {
+                        await haptics.selection();
+                        if (isZero) {
+                          if (onRemove != null) {
+                            onRemove!();
+                          }
+                        } else {
+                          onDecrement();
+                        }
+                      },
+                    ),
+                    const SizedBox(width: AppDimens.spacing2xs),
+                    GestureDetector(
+                      onTap: () => _showQuantityDialog(
+                        context,
+                        item.quantity,
+                      ),
+                      child: Container(
+                        constraints: const BoxConstraints(
+                          minWidth: 32,
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppDimens.spacing2xs,
+                          vertical: AppDimens.spacing2xs,
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          item.quantity.toString(),
+                          style: theme.textTheme.large.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: isZero
+                                ? theme.colorScheme.mutedForeground
+                                : theme.colorScheme.primary,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: AppDimens.spacing2xs),
+                    ShadIconButton.ghost(
+                      width: 32,
+                      height: 32,
+                      padding: EdgeInsets.zero,
+                      icon: const Icon(
+                        LucideIcons.plus,
+                        size: AppDimens.iconSm,
+                      ),
+                      onPressed: () async {
+                        await haptics.selection();
+                        onIncrement();
+                      },
+                    ),
+                    const SizedBox(width: AppDimens.spacing2xs),
+                    TextButton(
+                      style: TextButton.styleFrom(
+                        minimumSize: const Size(44, 32),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppDimens.spacing2xs,
+                        ),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      onPressed: () async {
+                        await haptics.mediumImpact();
+                        onAddTen();
+                      },
+                      child: const Text(
+                        Strings.restockAddTenLabel,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                const Gap(AppDimens.spacingSm),
+                Opacity(
+                  opacity: contentOpacity,
+                  child: ShadCheckbox(
+                    value: item.isChecked,
+                    onChanged: (_) => onToggleChecked(),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

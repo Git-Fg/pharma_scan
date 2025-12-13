@@ -6,4 +6,4 @@ library pharma_scan_mappers;
 
 import 'package:dart_mappable/dart_mappable.dart';
 
-export 'mappable_library.init.dart' show initializeMappers;
+// export 'mappable_library.init.dart' show initializeMappers;

@@ -61,19 +61,21 @@ ShadApp.custom(
 );
 ````
 
-### Context Accessor (Syntax Sugar)
+### Theme Access Patterns
 
-We use `ShadShortcuts` in `lib/core/theme/theme_extensions.dart` to flatten access:
+We use the `ShadThemeContext` extension in `lib/core/theme/theme_extensions.dart` for consistent theme access:
 
 ```dart
-// Theme aliases
-context.colors.primary;
-context.typo.h3;
+// ✅ Preferred patterns
+context.shadTheme.colorScheme.primary
+context.shadColors.primary
+context.shadTextTheme.h3
+context.shadTheme.radius
 
-// Direct shortcuts
-context.primary;        // Color
-context.h3;             // TextStyle
-context.router.push(...); // AutoRoute
+// ❌ Deprecated - Do not use
+context.colors.primary
+context.typo.h3
+context.primary
 ```
 
 ---

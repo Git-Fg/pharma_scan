@@ -148,3 +148,10 @@ showShadDialog(
 - ❌ `Either` crossing into UI/Notifier layer
 - ✅ `AsyncValue.guard` for mutations
 - ✅ `ref.listen` for UI side effects
+
+## 2025 Update: Pragmatic Error Surfacing
+
+- Notifier mutations MAY use a private `_perform` helper that sets `state = AsyncError` on failure (as in `RestockNotifier`).
+- This is equivalent to `AsyncValue.guard` for surfacing DB/IO errors, and is preferred when you want to avoid unnecessary loading flashes for small/optimistic UI updates.
+- All errors must still be surfaced via `AsyncError` for UI feedback (toasts/haptics).
+- See `RestockNotifier` for reference implementation.

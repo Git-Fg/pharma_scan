@@ -1,3 +1,31 @@
+import 'dart:convert';
+
+import 'package:drift/drift.dart';
+
+/// TypeConverter for List<String> to JSON String
+class StringListConverter extends TypeConverter<List<String>, String> {
+  const StringListConverter();
+
+  @override
+  List<String> fromSql(String fromDb) {
+    if (fromDb.isEmpty) return [];
+    try {
+      final decoded = jsonDecode(fromDb);
+      if (decoded is List) {
+        return decoded.map((e) => e.toString()).toList();
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  @override
+  String toSql(List<String> value) {
+    return jsonEncode(value);
+  }
+}
+
 /// Helpers pour convertir les types String? retournés par les vues Drift
 /// vers les types Dart attendus (bool, int, double).
 ///

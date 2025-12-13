@@ -1,9 +1,4 @@
-import 'package:dart_mappable/dart_mappable.dart';
-
-part 'gs1_parser.mapper.dart';
-
-@MappableClass()
-class Gs1DataMatrix with Gs1DataMatrixMappable {
+class Gs1DataMatrix {
   const Gs1DataMatrix({
     this.gtin, // AI (01) -> Code CIP
     this.serial, // AI (21)
@@ -100,9 +95,8 @@ class Gs1Parser {
           }
         default:
           final separatorIndex = normalized.indexOf(_internalSeparator, i);
-          var nextPos = separatorIndex != -1
-              ? separatorIndex
-              : normalized.length;
+          var nextPos =
+              separatorIndex != -1 ? separatorIndex : normalized.length;
           for (var j = i; j < normalized.length - 1; j++) {
             final potentialAI = normalized.substring(j, j + 2);
             if (_knownAIs.contains(potentialAI)) {

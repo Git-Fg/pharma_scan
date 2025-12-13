@@ -83,29 +83,18 @@ void main() {
       expect(pref, equals(SortingPreference.generic));
     });
 
-    test('SortingPreference.fromStorage parses values correctly', () {
+    test('SortingPreference.name returns correct values', () {
       expect(
-        SortingPreference.fromStorage('generic'),
-        equals(SortingPreference.generic),
-      );
-      expect(
-        SortingPreference.fromStorage('princeps'),
-        equals(SortingPreference.princeps),
-      );
-      expect(
-        SortingPreference.fromStorage('unknown'),
-        equals(SortingPreference.princeps),
-      );
-    });
-
-    test('SortingPreference.storageValue returns correct string', () {
-      expect(
-        SortingPreference.generic.storageValue,
+        SortingPreference.generic.name,
         equals('generic'),
       );
       expect(
-        SortingPreference.princeps.storageValue,
+        SortingPreference.princeps.name,
         equals('princeps'),
+      );
+      expect(
+        SortingPreference.form.name,
+        equals('form'),
       );
     });
 

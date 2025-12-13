@@ -9,8 +9,9 @@ getMedicamentSummariesByGroup: SELECT * FROM medicament_summary WHERE group_id =
 getDistinctPrincipesActifsCommuns: SELECT DISTINCT principes_actifs_communs FROM medicament_summary WHERE principes_actifs_communs != '' ORDER BY principes_actifs_communs;
 
 -- FTS search with optional filters for route and ATC class.
+-- UPDATE: Utilisation de ms.** pour mapper automatiquement vers MedicamentSummaryData
 searchMedicaments:
-SELECT ms.*, l.name AS lab_name
+SELECT ms.**, l.name AS lab_name
 FROM medicament_summary ms
 LEFT JOIN laboratories l ON l.id = ms.titulaire_id
 INNER JOIN search_index si ON ms.cis_code = si.cis_code
@@ -21,9 +22,10 @@ WHERE search_index MATCH :fts
 ORDER BY bm25(search_index) ASC, ms.nom_canonique
 LIMIT 50;
 
--- FTS search with optional filters for streaming results
+-- FTS search for streaming.
+-- UPDATE: Utilisation de ms.**
 watchMedicaments:
-SELECT ms.*, l.name AS lab_name
+SELECT ms.**, l.name AS lab_name
 FROM medicament_summary ms
 LEFT JOIN laboratories l ON l.id = ms.titulaire_id
 INNER JOIN search_index si ON ms.cis_code = si.cis_code
@@ -34,7 +36,8 @@ WHERE search_index MATCH :fts
 ORDER BY bm25(search_index) ASC, ms.nom_canonique
 LIMIT 50;
 
--- Scan query for getting product by CIP with all required fields
+-- Scan query
+-- UPDATE: Utilisation de ms.**
 getProductByCip:
 SELECT
   m.code_cip,
@@ -45,7 +48,7 @@ SELECT
   m.agrement_collectivites,
   m.presentation_label,
   ma.statut AS availability_statut,
-  ms.*,
+  ms.**, -- Mappe automatiquement toutes les colonnes de ms vers MedicamentSummaryData
   ls.name AS lab_name
 FROM medicaments m
 INNER JOIN medicament_summary ms ON ms.cis_code = m.cis_code

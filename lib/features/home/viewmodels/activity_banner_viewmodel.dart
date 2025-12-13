@@ -62,10 +62,10 @@ ActivityBannerState? activityBannerViewModel(Ref ref) {
   final isInitializationErrored = initState == InitializationState.error;
   final isInitializationActive =
       initState == InitializationState.initializing ||
-      (initStep != null &&
-          initStep != InitializationStep.idle &&
-          initStep != InitializationStep.ready &&
-          initStep != InitializationStep.error);
+          (initStep != null &&
+              initStep != InitializationStep.idle &&
+              initStep != InitializationStep.ready &&
+              initStep != InitializationStep.error);
 
   // Priority 1: Initialization Error
   if (isInitializationErrored) {
@@ -77,8 +77,7 @@ ActivityBannerState? activityBannerViewModel(Ref ref) {
           initializationErrorMessage ?? Strings.initializationErrorDescription,
       indeterminate: true,
       isError: true,
-      onRetry: () =>
-          ref.read(initializationStateProvider.notifier).initialize(),
+      onRetry: () => ref.read(initializationProvider.notifier).retry(),
     );
   }
 
@@ -97,25 +96,25 @@ ActivityBannerState? activityBannerViewModel(Ref ref) {
     }
     final (status, description, icon) = switch (currentStage) {
       InitializationStep.downloading => (
-        Strings.initializationDownloading,
-        Strings.initializationDownloadingDescription,
-        LucideIcons.download,
-      ),
+          Strings.initializationDownloading,
+          Strings.initializationDownloadingDescription,
+          LucideIcons.download,
+        ),
       InitializationStep.ready => (
-        Strings.initializationReady,
-        Strings.initializationReady,
-        LucideIcons.check,
-      ),
+          Strings.initializationReady,
+          Strings.initializationReady,
+          LucideIcons.check,
+        ),
       InitializationStep.error => (
-        Strings.initializationError,
-        Strings.initializationError,
-        LucideIcons.triangleAlert,
-      ),
+          Strings.initializationError,
+          Strings.initializationError,
+          LucideIcons.triangleAlert,
+        ),
       InitializationStep.idle => (
-        '',
-        '',
-        LucideIcons.circleDot,
-      ),
+          '',
+          '',
+          LucideIcons.circleDot,
+        ),
     };
     return ActivityBannerState(
       icon: icon,
@@ -191,8 +190,10 @@ ActivityBannerState? activityBannerViewModel(Ref ref) {
       isError: isError,
       onRetry: isError
           ? () => unawaited(
-              ref.read(syncControllerProvider.notifier).startSync(force: true),
-            )
+                ref
+                    .read(syncControllerProvider.notifier)
+                    .startSync(force: true),
+              )
           : null,
     );
   }
@@ -217,7 +218,8 @@ class SyncStatusPresenter {
       SyncStatusCode.checkingUpdates ||
       SyncStatusCode.downloadingSource ||
       SyncStatusCode.applyingUpdate ||
-      SyncStatusCode.error => null,
+      SyncStatusCode.error =>
+        null,
     };
   }
 

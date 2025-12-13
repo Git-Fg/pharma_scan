@@ -8,7 +8,7 @@ import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/domain/types/semantic_types.dart';
 
 import '../../../fixtures/seed_builder.dart';
-import '../../../helpers/db_loader.dart';
+import '../../../helpers/golden_db_helper.dart';
 import '../../../test_utils.dart';
 
 void main() {

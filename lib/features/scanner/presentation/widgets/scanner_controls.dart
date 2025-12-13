@@ -46,11 +46,11 @@ class ScannerControls extends ConsumerWidget {
       :isInitializing,
     ) = switch (state) {
       ScannerInitializing(:final mode) => (
-        mode: mode,
-        isCameraRunning: false,
-        torchState: TorchState.off,
-        isInitializing: true,
-      ),
+          mode: mode,
+          isCameraRunning: false,
+          torchState: TorchState.off,
+          isInitializing: true,
+        ),
       ScannerActive(
         :final mode,
         :final torchState,
@@ -72,181 +72,191 @@ class ScannerControls extends ConsumerWidget {
       bottom: AppDimens.spacingMd + bottomInset,
       left: 0,
       right: 0,
-      child:
-          AdaptiveBottomPanel(
-                children: [
-                  Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 600),
-                      child: ClipRRect(
-                        borderRadius: context.shadTheme.radius,
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            color: ShadTheme.of(
-                              context,
-                            ).colorScheme.background.withValues(alpha: 0.9),
-                            border: Border.all(
-                              color: ShadTheme.of(
-                                context,
-                              ).colorScheme.border.withValues(alpha: 0.5),
-                            ),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(
-                              AppDimens.spacingLg,
-                            ),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                Center(
-                                  child: ScannerModeToggle(
-                                    mode: mode,
-                                    onToggle: onToggleMode,
-                                  ),
-                                ),
-                                const Gap(AppDimens.spacingMd),
-                                Center(
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Testable(
-                                        id: isCameraRunning
-                                            ? TestTags.scanStopBtn
-                                            : TestTags.scanStartBtn,
-                                        child: SizedBox(
-                                          width: 88,
-                                          height: 88,
-                                          child: ShadIconButton(
-                                            onPressed: isInitializing
-                                                ? null
-                                                : onToggleCamera,
-                                            icon: Icon(
-                                              isCameraRunning
-                                                  ? LucideIcons.cameraOff
-                                                  : LucideIcons.scanLine,
-                                              size: AppDimens.iconXl,
-                                              color: ShadTheme.of(
-                                                context,
-                                              ).colorScheme.primaryForeground,
-                                            ),
-                                            gradient: LinearGradient(
-                                              colors: [
-                                                buttonColor,
-                                                buttonColor.withValues(
-                                                  alpha: 0.85,
-                                                ),
-                                              ],
-                                            ),
-                                            shadows: [
-                                              BoxShadow(
-                                                color: buttonColor.withValues(
-                                                  alpha: 0.35,
-                                                ),
-                                                blurRadius: 20,
-                                                offset: const Offset(0, 12),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const Gap(AppDimens.spacingLg),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: Testable(
-                                        id: TestTags.scanGalleryBtn,
-                                        child: Semantics(
-                                          button: true,
-                                          label:
-                                              Strings.importBarcodeFromGallery,
-                                          child: FittedBox(
-                                            fit: BoxFit.scaleDown,
-                                            child: ShadButton.secondary(
-                                              onPressed: isInitializing
-                                                  ? null
-                                                  : onGallery,
-                                              leading: const Icon(
-                                                LucideIcons.image,
-                                                size: AppDimens.iconSm,
-                                              ),
-                                              child: const Text(
-                                                Strings.gallery,
-                                                overflow: TextOverflow.ellipsis,
-                                                maxLines: 1,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    if (isCameraRunning) ...[
-                                      const Gap(AppDimens.spacingSm),
-                                      Semantics(
-                                        button: true,
-                                        label: torchState == TorchState.on
-                                            ? Strings.turnOffTorch
-                                            : Strings.turnOnTorch,
-                                        child: ShadIconButton.secondary(
-                                          onPressed:
-                                              isCameraRunning && !isInitializing
-                                              ? onToggleTorch
-                                              : null,
-                                          icon: Icon(
-                                            LucideIcons.zap,
-                                            size: AppDimens.iconLg,
-                                            color: torchState == TorchState.on
-                                                ? context.shadColors.primary
-                                                : null,
-                                          ),
-                                        ),
-                                      ),
-                                      const Gap(AppDimens.spacingSm),
-                                    ] else
-                                      const Gap(AppDimens.spacingMd),
-                                    Expanded(
-                                      child: Testable(
-                                        id: TestTags.scanManualBtn,
-                                        child: Semantics(
-                                          button: true,
-                                          label: Strings.manuallyEnterCipCode,
-                                          child: FittedBox(
-                                            fit: BoxFit.scaleDown,
-                                            child: ShadButton.secondary(
-                                              onPressed: isInitializing
-                                                  ? null
-                                                  : onManualEntry,
-                                              leading: const Icon(
-                                                LucideIcons.keyboard,
-                                                size: AppDimens.iconSm,
-                                              ),
-                                              child: const Text(
-                                                Strings.manualEntry,
-                                                overflow: TextOverflow.ellipsis,
-                                                maxLines: 1,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
+      child: AdaptiveBottomPanel(
+        children: [
+          Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: ClipRRect(
+                borderRadius: context.shadTheme.radius,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: ShadTheme.of(
+                      context,
+                    ).colorScheme.background.withValues(alpha: 0.9),
+                    border: Border.all(
+                      color: ShadTheme.of(
+                        context,
+                      ).colorScheme.border.withValues(alpha: 0.5),
                     ),
                   ),
-                ],
-              )
-              .animate()
-              .fadeIn(delay: 200.ms)
-              .slideY(begin: 0.2, end: 0, curve: Curves.easeOutBack),
+                  child: Padding(
+                    padding: const EdgeInsets.all(
+                      AppDimens.spacingLg,
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      spacing: AppDimens.spacingMd,
+                      children: [
+                        Center(
+                          child: ScannerModeToggle(
+                            mode: mode,
+                            onToggle: onToggleMode,
+                          ),
+                        ),
+                        Center(
+                          child: ScannerActionButton(
+                            isCameraRunning: isCameraRunning,
+                            isInitializing: isInitializing,
+                            onPressed: onToggleCamera,
+                            buttonColor: buttonColor,
+                          ),
+                        ),
+                        Padding(
+                          padding:
+                              const EdgeInsets.only(top: AppDimens.spacingSm),
+                          child: Row(
+                            spacing: AppDimens.spacingSm,
+                            children: [
+                              Expanded(
+                                child: Testable(
+                                  id: TestTags.scanGalleryBtn,
+                                  child: Semantics(
+                                    button: true,
+                                    label: Strings.importBarcodeFromGallery,
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: ShadButton.secondary(
+                                        onPressed:
+                                            isInitializing ? null : onGallery,
+                                        leading: const Icon(
+                                          LucideIcons.image,
+                                          size: AppDimens.iconSm,
+                                        ),
+                                        child: const Text(
+                                          Strings.gallery,
+                                          overflow: TextOverflow.ellipsis,
+                                          maxLines: 1,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              if (isCameraRunning) ...[
+                                const Gap(AppDimens.spacingSm),
+                                Semantics(
+                                  button: true,
+                                  label: torchState == TorchState.on
+                                      ? Strings.turnOffTorch
+                                      : Strings.turnOnTorch,
+                                  child: ShadIconButton.secondary(
+                                    onPressed:
+                                        isCameraRunning && !isInitializing
+                                            ? onToggleTorch
+                                            : null,
+                                    icon: Icon(
+                                      LucideIcons.zap,
+                                      size: AppDimens.iconLg,
+                                      color: torchState == TorchState.on
+                                          ? context.shadColors.primary
+                                          : null,
+                                    ),
+                                  ),
+                                ),
+                                const Gap(AppDimens.spacingSm),
+                              ] else
+                                const Gap(AppDimens.spacingMd),
+                              Expanded(
+                                child: Testable(
+                                  id: TestTags.scanManualBtn,
+                                  child: Semantics(
+                                    button: true,
+                                    label: Strings.manuallyEnterCipCode,
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: ShadButton.secondary(
+                                        onPressed: isInitializing
+                                            ? null
+                                            : onManualEntry,
+                                        leading: const Icon(
+                                          LucideIcons.keyboard,
+                                          size: AppDimens.iconSm,
+                                        ),
+                                        child: const Text(
+                                          Strings.manualEntry,
+                                          overflow: TextOverflow.ellipsis,
+                                          maxLines: 1,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      )
+          .animate()
+          .fadeIn(delay: 200.ms)
+          .slideY(begin: 0.2, end: 0, curve: Curves.easeOutBack),
+    );
+  }
+}
+
+/// Main scanner action button (Scan/Stop) with animation and gradient.
+class ScannerActionButton extends StatelessWidget {
+  const ScannerActionButton({
+    required this.isCameraRunning,
+    required this.isInitializing,
+    required this.onPressed,
+    required this.buttonColor,
+    super.key,
+  });
+
+  final bool isCameraRunning;
+  final bool isInitializing;
+  final VoidCallback onPressed;
+  final Color buttonColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Testable(
+      id: isCameraRunning ? TestTags.scanStopBtn : TestTags.scanStartBtn,
+      child: SizedBox(
+        width: 88,
+        height: 88,
+        child: ShadIconButton(
+          onPressed: isInitializing ? null : onPressed,
+          icon: Icon(
+            isCameraRunning ? LucideIcons.cameraOff : LucideIcons.scanLine,
+            size: AppDimens.iconXl,
+            color: context.shadColors.primaryForeground,
+          ),
+          gradient: LinearGradient(
+            colors: [
+              buttonColor,
+              buttonColor.withValues(alpha: 0.85),
+            ],
+          ),
+          shadows: [
+            BoxShadow(
+              color: buttonColor.withValues(alpha: 0.35),
+              blurRadius: 20,
+              offset: const Offset(0, 12),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -263,15 +273,13 @@ class ScannerModeToggle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = ShadTheme.of(context);
+    final theme = context.shadTheme;
     final isRestock = mode == ScannerMode.restock;
-    final color = isRestock
-        ? theme.colorScheme.destructive
-        : theme.colorScheme.primary;
+    final color =
+        isRestock ? theme.colorScheme.destructive : theme.colorScheme.primary;
     final icon = isRestock ? LucideIcons.box : LucideIcons.scanSearch;
-    final label = isRestock
-        ? Strings.scannerModeRestock
-        : Strings.scannerModeAnalysis;
+    final label =
+        isRestock ? Strings.scannerModeRestock : Strings.scannerModeAnalysis;
 
     return FittedBox(
       child: ConstrainedBox(

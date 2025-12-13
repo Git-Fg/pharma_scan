@@ -72,7 +72,7 @@ void main() {
 
         final container = ProviderContainer(
           overrides: [
-            databaseProvider.overrideWithValue(db),
+            databaseProvider().overrideWithValue(db),
             dataInitializationServiceProvider.overrideWithValue(mockDataInit),
             syncControllerProvider.overrideWith(_FakeSyncController.new),
             appRouterProvider.overrideWithValue(router),
@@ -89,9 +89,6 @@ void main() {
             ),
           ],
         );
-
-        container.read(initializationStateProvider.notifier).state =
-            InitializationState.success;
 
         await tester.pumpWidget(
           UncontrolledProviderScope(
@@ -160,7 +157,8 @@ void main() {
         // Get sample medications from the golden database for testing
         final summaries = await (db.select(
           db.medicamentSummary,
-        )..limit(5)).get();
+        )..limit(5))
+            .get();
         expect(summaries, isNotEmpty, reason: 'Golden DB should have data');
 
         // Verify search_index is populated

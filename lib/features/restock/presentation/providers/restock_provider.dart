@@ -1,5 +1,4 @@
 import 'package:meta/meta.dart';
-import 'package:pharma_scan/core/database/providers.dart';
 import 'package:pharma_scan/core/providers/core_providers.dart';
 import 'package:pharma_scan/core/providers/preferences_provider.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
@@ -12,16 +11,16 @@ part 'restock_provider.g.dart';
 class RestockNotifier extends _$RestockNotifier {
   @override
   Stream<List<RestockItemEntity>> build() {
-    return ref.watch(databaseProvider).restockDao.watchRestockItems();
+    return ref.read(restockDaoProvider).watchRestockItems();
   }
 
   Future<void> increment(RestockItemEntity item) async {
-    final db = ref.read(databaseProvider);
+    final db = ref.read(databaseProvider());
     await db.restockDao.updateQuantity(item.cip, 1);
   }
 
   Future<void> decrement(RestockItemEntity item) async {
-    final db = ref.read(databaseProvider);
+    final db = ref.read(databaseProvider());
     if (item.quantity == 0) {
       await deleteItem(item);
       return;
@@ -34,7 +33,7 @@ class RestockNotifier extends _$RestockNotifier {
   }
 
   Future<void> addBulk(RestockItemEntity item, int amount) async {
-    final db = ref.read(databaseProvider);
+    final db = ref.read(databaseProvider());
     await db.restockDao.updateQuantity(item.cip, amount);
   }
 
@@ -43,7 +42,7 @@ class RestockNotifier extends _$RestockNotifier {
     int quantity,
   ) async {
     if (quantity < 0) return;
-    final db = ref.read(databaseProvider);
+    final db = ref.read(databaseProvider());
     await db.restockDao.forceUpdateQuantity(
       cip: item.cip,
       newQuantity: quantity,
@@ -51,17 +50,17 @@ class RestockNotifier extends _$RestockNotifier {
   }
 
   Future<void> toggleChecked(RestockItemEntity item) async {
-    final db = ref.read(databaseProvider);
+    final db = ref.read(databaseProvider());
     await db.restockDao.toggleCheck(item.cip);
   }
 
   Future<void> deleteItem(RestockItemEntity item) async {
-    final db = ref.read(databaseProvider);
+    final db = ref.read(databaseProvider());
     await db.restockDao.deleteRestockItemFully(item.cip);
   }
 
   Future<void> restoreItem(RestockItemEntity item) async {
-    final db = ref.read(databaseProvider);
+    final db = ref.read(databaseProvider());
     await db.restockDao.forceUpdateQuantity(
       cip: item.cip,
       newQuantity: item.quantity,
@@ -69,12 +68,12 @@ class RestockNotifier extends _$RestockNotifier {
   }
 
   Future<void> clearChecked() async {
-    final db = ref.read(databaseProvider);
+    final db = ref.read(databaseProvider());
     await db.restockDao.clearChecked();
   }
 
   Future<void> clearAll() async {
-    final db = ref.read(databaseProvider);
+    final db = ref.read(databaseProvider());
     await db.restockDao.clearAll();
   }
 }

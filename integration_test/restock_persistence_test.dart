@@ -105,32 +105,25 @@ void main() {
 
         final container1 = ProviderContainer(
           overrides: [
-            databaseProvider.overrideWithValue(baseDb),
+            databaseProvider().overrideWithValue(baseDb),
             dataInitializationServiceProvider.overrideWithValue(mockDataInit),
             syncControllerProvider.overrideWith(_FakeSyncController.new),
+            initializationStateProvider
+                .overrideWithValue(InitializationState.ready),
           ],
         );
-        final database = container1.read(databaseProvider);
+        final database = container1.read(databaseProvider());
 
         // Get real medications from golden database for testing
-        final summaries =
-            await (database.select(
-                  database.medicamentSummary,
-                )..limit(2)).get()
-                as List<dynamic>;
+        final summaries = await (database.select(
+          database.medicamentSummary,
+        )..limit(2))
+            .get() as List<dynamic>;
         expect(
           summaries.length,
           greaterThanOrEqualTo(2),
           reason: 'Golden DB should have at least 2 medications',
         );
-
-        // Short-circuit initialization state
-        final initNotifier = container1.read(
-          initializationStateProvider.notifier,
-        );
-        // Lint-safe sequential calls; FTS depends on summary population.
-        // ignore: cascade_invocations
-        initNotifier.state = InitializationState.success;
 
         await tester.pumpWidget(
           UncontrolledProviderScope(
@@ -192,9 +185,11 @@ void main() {
 
         final container2 = ProviderContainer(
           overrides: [
-            databaseProvider.overrideWithValue(database),
+            databaseProvider().overrideWithValue(database),
             dataInitializationServiceProvider.overrideWithValue(mockDataInit2),
             syncControllerProvider.overrideWith(_FakeSyncController.new),
+            initializationStateProvider
+                .overrideWithValue(InitializationState.ready),
           ],
         );
 
@@ -233,14 +228,13 @@ void main() {
 
         final container3 = ProviderContainer(
           overrides: [
-            databaseProvider.overrideWithValue(freshDb),
+            databaseProvider().overrideWithValue(freshDb),
             dataInitializationServiceProvider.overrideWithValue(mockDataInit3),
             syncControllerProvider.overrideWith(_FakeSyncController.new),
+            initializationStateProvider
+                .overrideWithValue(InitializationState.ready),
           ],
         );
-
-        container3.read(initializationStateProvider.notifier).state =
-            InitializationState.success;
 
         await tester.pumpWidget(
           UncontrolledProviderScope(

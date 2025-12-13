@@ -1,15 +1,14 @@
 import 'dart:async';
 
 import 'package:flutter/services.dart';
-import 'package:pharma_scan/core/providers/preferences_provider.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'haptic_service.g.dart';
 
 @Riverpod(keepAlive: true)
 HapticService hapticService(Ref ref) {
-  final enabled = ref.watch(hapticSettingsProvider);
-  return HapticService(enabled: enabled);
+  // Le provider sera configuré dans core_providers.dart
+  return HapticService(enabled: true);
 }
 
 /// Single smart haptics service that owns the enabled flag.

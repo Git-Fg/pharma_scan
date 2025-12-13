@@ -1,7 +1,6 @@
-
-
 import 'database.dart';
 import 'dbschema.drift';
+import 'restock_views.drift';
 
 -- View exposing UI-ready group member rows with CIP metadata
 -- RADICALLY SIMPLIFIED: medicament_summary contains ALL aggregated data from the remote DB

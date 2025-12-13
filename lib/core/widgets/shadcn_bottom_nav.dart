@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/test_tags.dart';
 import 'package:pharma_scan/core/widgets/testable.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
@@ -26,7 +27,7 @@ class ShadcnBottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = ShadTheme.of(context);
+    final theme = context.shadTheme;
 
     return SafeArea(
       top: false,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:gap/gap.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
@@ -18,133 +19,140 @@ class HistorySheet extends ConsumerWidget {
     return ShadSheet(
       title: const Text(Strings.historyTitle),
       description: const Text(Strings.historySubtitle),
-      child: SafeArea(
-        minimum: const EdgeInsets.symmetric(
-          vertical: AppDimens.spacingMd,
-        ),
-        child: SizedBox(
-          height: MediaQuery.sizeOf(context).height * 0.9,
-          child: Column(
-            children: [
-              Expanded(
-                child: historyAsync.when(
-                  loading: () => const Center(
-                    child: CircularProgressIndicator(),
-                  ),
-                  error: (err, _) => Padding(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: AppDimens.spacingMd,
-                    ),
-                    child: Text(Strings.historyError(err.toString())),
-                  ),
-                  data: (items) {
-                    if (items.isEmpty) {
-                      return Padding(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final sheetHeight = (constraints.maxHeight * 0.8).clamp(400.0, 800.0);
+          return SafeArea(
+            minimum: const EdgeInsets.symmetric(
+              vertical: AppDimens.spacingMd,
+            ),
+            child: SizedBox(
+              height: sheetHeight,
+              child: Column(
+                children: [
+                  Expanded(
+                    child: historyAsync.when(
+                      loading: () => const Center(
+                        child: CircularProgressIndicator(),
+                      ),
+                      error: (err, _) => Padding(
                         padding: const EdgeInsets.symmetric(
-                          vertical: AppDimens.spacingLg,
+                          vertical: AppDimens.spacingMd,
                         ),
-                        child: Center(
-                          child: Text(
-                            Strings.historyEmpty,
-                            style: context.shadTextTheme.small.copyWith(
-                              color: context.shadColors.mutedForeground,
-                            ),
-                          ),
-                        ),
-                      );
-                    }
-
-                    return ListView.separated(
-                      itemCount: items.length,
-                      separatorBuilder: (context, _) =>
-                          const Divider(height: 1),
-                      itemBuilder: (context, index) {
-                        final item = items[index];
-                        final princepsRef = item.princepsDeReference;
-                        final showPrincepsRef =
-                            princepsRef != null &&
-                            princepsRef.trim().isNotEmpty;
-                        final trailingTime = DateFormat(
-                          'HH:mm',
-                        ).format(item.scannedAt.toLocal());
-
-                        return ShadButton.raw(
-                          onPressed: () async {
-                            await Navigator.of(context).maybePop();
-                          },
-                          variant: ShadButtonVariant.ghost,
-                          width: double.infinity,
-                          padding: EdgeInsets.zero,
-                          child: Container(
-                            constraints: const BoxConstraints(minHeight: 48),
+                        child: Text(Strings.historyError(err.toString())),
+                      ),
+                      data: (items) {
+                        if (items.isEmpty) {
+                          return Padding(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: AppDimens.spacingMd,
-                              vertical: AppDimens.spacingSm,
+                              vertical: AppDimens.spacingLg,
                             ),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        item.label,
-                                        style: context.shadTextTheme.small
-                                            .copyWith(
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                      if (showPrincepsRef) ...[
-                                        const Gap(AppDimens.spacing2xs),
-                                        Text(
-                                          Strings.historyPrincepsReference(
-                                            princepsRef,
-                                          ),
-                                          style: context.shadTextTheme.muted,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ],
-                                    ],
-                                  ),
-                                ),
-                                const Gap(AppDimens.spacingSm),
-                                Text(
-                                  trailingTime,
-                                  style: context.shadTextTheme.muted.copyWith(
-                                    fontSize: 10,
-                                  ),
-                                ),
-                                const Gap(AppDimens.spacingXs),
-                                Icon(
-                                  LucideIcons.chevronRight,
-                                  size: AppDimens.iconSm,
+                            child: Center(
+                              child: Text(
+                                Strings.historyEmpty,
+                                style: context.shadTextTheme.small.copyWith(
                                   color: context.shadColors.mutedForeground,
                                 ),
-                              ],
+                              ),
                             ),
-                          ),
+                          );
+                        }
+
+                        return ListView.separated(
+                          itemCount: items.length,
+                          separatorBuilder: (context, _) =>
+                              const Divider(height: 1),
+                          itemBuilder: (context, index) {
+                            final item = items[index];
+                            final princepsRef = item.princepsDeReference;
+                            final showPrincepsRef = princepsRef != null &&
+                                princepsRef.trim().isNotEmpty;
+                            final trailingTime = DateFormat(
+                              'HH:mm',
+                            ).format(item.scannedAt.toLocal());
+
+                            return ShadButton.raw(
+                              onPressed: () async {
+                                await Navigator.of(context).maybePop();
+                              },
+                              variant: ShadButtonVariant.ghost,
+                              width: double.infinity,
+                              padding: EdgeInsets.zero,
+                              child: Container(
+                                constraints:
+                                    const BoxConstraints(minHeight: 48),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: AppDimens.spacingMd,
+                                  vertical: AppDimens.spacingSm,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            item.label,
+                                            style: context.shadTextTheme.small
+                                                .copyWith(
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          if (showPrincepsRef) ...[
+                                            const Gap(AppDimens.spacing2xs),
+                                            Text(
+                                              Strings.historyPrincepsReference(
+                                                princepsRef,
+                                              ),
+                                              style:
+                                                  context.shadTextTheme.muted,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ),
+                                    const Gap(AppDimens.spacingSm),
+                                    Text(
+                                      trailingTime,
+                                      style:
+                                          context.shadTextTheme.muted.copyWith(
+                                        fontSize: 10,
+                                      ),
+                                    ),
+                                    const Gap(AppDimens.spacingXs),
+                                    Icon(
+                                      LucideIcons.chevronRight,
+                                      size: AppDimens.iconSm,
+                                      color: context.shadColors.mutedForeground,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
                         );
                       },
-                    );
-                  },
-                ),
+                    ),
+                  ),
+                  const Gap(AppDimens.spacingSm),
+                  ShadButton.destructive(
+                    leading: const Icon(LucideIcons.trash2, size: 16),
+                    onPressed: isClearing
+                        ? null
+                        : () => _confirmClearHistory(context, ref),
+                    child: const Text(Strings.historyClear),
+                  ),
+                ],
               ),
-              const Gap(AppDimens.spacingSm),
-              ShadButton.destructive(
-                leading: const Icon(LucideIcons.trash2, size: 16),
-                onPressed: isClearing
-                    ? null
-                    : () => _confirmClearHistory(context, ref),
-                child: const Text(Strings.historyClear),
-              ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
   }

@@ -8,14 +8,14 @@ import 'package:gap/gap.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart' hide ScanWindowOverlay;
+import 'package:pharma_scan/core/hooks/use_app_header.dart';
 import 'package:pharma_scan/core/presentation/hooks/use_scanner_input.dart';
 import 'package:pharma_scan/core/router/app_router.dart';
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
 import 'package:pharma_scan/core/services/haptic_service.dart';
-import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/hooks/use_async_feedback.dart';
-import 'package:pharma_scan/core/utils/hooks/use_mobile_scanner.dart';
+import 'package:pharma_scan/features/scanner/presentation/providers/scanner_controller_provider.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/status_view.dart';
 import 'package:pharma_scan/features/history/presentation/widgets/history_sheet.dart';
@@ -36,7 +36,6 @@ class CameraScreen extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isCameraActive = useState(false);
-    final lastPermissionGranted = useRef<bool?>(null);
     final scannerState = ref.watch(scannerProvider);
     final scannerMode = scannerState.value?.mode ?? ScannerMode.analysis;
 
@@ -57,105 +56,79 @@ class CameraScreen extends HookConsumerWidget {
       }
     }
 
-    useEffect(() {
-      if (tabsRouter != null) {
-        // Force rebuild when tab changes
-        tabsRouter.addListener(onTabChanged);
-        return () => tabsRouter?.removeListener(onTabChanged);
-      }
-      return null;
-    }, [tabsRouter],);
-
-    useEffect(() {
-      final scannerNotifier = ref.read(scannerProvider.notifier);
-      final feedback = ref.read(hapticServiceProvider);
-      final subscription = scannerNotifier.sideEffects.listen((effect) async {
-        if (!context.mounted) return;
-        switch (effect) {
-          case ScannerToast(:final message):
-            ShadToaster.of(context).show(
-              ShadToast(
-                title: Text(message),
-              ),
-            );
-          case ScannerHaptic(:final type):
-            switch (type) {
-              case ScannerHapticType.analysisSuccess:
-                await feedback.analysisSuccess();
-              case ScannerHapticType.restockSuccess:
-                await feedback.restockSuccess();
-              case ScannerHapticType.warning:
-                await feedback.warning();
-              case ScannerHapticType.error:
-                await feedback.error();
-              case ScannerHapticType.duplicate:
-                await feedback.duplicate();
-              case ScannerHapticType.unknown:
-                await feedback.unknown();
-            }
-          case ScannerDuplicateDetected(:final duplicate):
-            final event = duplicate;
-            unawaited(
-              showShadSheet<void>(
-                context: context,
-                side: ShadSheetSide.bottom,
-                builder: (dialogContext) => _DuplicateQuantitySheet(
-                  event: event,
-                  onCancel: () => Navigator.of(dialogContext).pop(),
-                  onConfirm: (newQty) async {
-                    await scannerNotifier.updateQuantityFromDuplicate(
-                      event.cip,
-                      newQty,
-                    );
-                    if (dialogContext.mounted) {
-                      Navigator.of(dialogContext).pop();
-                    }
-                  },
-                ),
-              ),
-            );
+    useEffect(
+      () {
+        if (tabsRouter != null) {
+          // Force rebuild when tab changes
+          tabsRouter.addListener(onTabChanged);
+          return () => tabsRouter?.removeListener(onTabChanged);
         }
-      });
+        return null;
+      },
+      [tabsRouter],
+    );
 
-      return subscription.cancel;
-    }, [context, ref],);
+    useEffect(
+      () {
+        final scannerNotifier = ref.read(scannerProvider.notifier);
+        final feedback = ref.read(hapticServiceProvider);
+        final subscription = scannerNotifier.sideEffects.listen((effect) async {
+          if (!context.mounted) return;
+          switch (effect) {
+            case ScannerToast(:final message):
+              ShadToaster.of(context).show(
+                ShadToast(
+                  title: Text(message),
+                ),
+              );
+            case ScannerHaptic(:final type):
+              switch (type) {
+                case ScannerHapticType.analysisSuccess:
+                  await feedback.analysisSuccess();
+                case ScannerHapticType.restockSuccess:
+                  await feedback.restockSuccess();
+                case ScannerHapticType.warning:
+                  await feedback.warning();
+                case ScannerHapticType.error:
+                  await feedback.error();
+                case ScannerHapticType.duplicate:
+                  await feedback.duplicate();
+                case ScannerHapticType.unknown:
+                  await feedback.unknown();
+              }
+            case ScannerDuplicateDetected(:final duplicate):
+              final event = duplicate;
+              unawaited(
+                showShadSheet<void>(
+                  context: context,
+                  side: ShadSheetSide.bottom,
+                  builder: (dialogContext) => _DuplicateQuantitySheet(
+                    event: event,
+                    onCancel: () => Navigator.of(dialogContext).pop(),
+                    onConfirm: (newQty) async {
+                      await scannerNotifier.updateQuantityFromDuplicate(
+                        event.cip,
+                        newQty,
+                      );
+                      if (dialogContext.mounted) {
+                        Navigator.of(dialogContext).pop();
+                      }
+                    },
+                  ),
+                ),
+              );
+          }
+        });
+
+        return subscription.cancel;
+      },
+      [context, ref],
+    );
 
     useAsyncFeedback<ScannerState>(ref, scannerProvider);
 
-    final scannerController = useMobileScanner(
-      enabled: isTabActive && isCameraActive.value,
-    );
-    useListenable(scannerController);
-    final torchState = scannerController.value.torchState;
-    useEffect(() {
-      void handlePermissionChange() {
-        final hasPermission = scannerController.value.hasCameraPermission;
-        if (lastPermissionGranted.value == hasPermission) {
-          return;
-        }
-        lastPermissionGranted.value = hasPermission;
-
-        if (!hasPermission && context.mounted) {
-          isCameraActive.value = false;
-          ShadToaster.of(context).show(
-            const ShadToast.destructive(
-              title: Text(Strings.cameraUnavailable),
-              description: Text(
-                Strings.checkPermissionsMessage,
-              ),
-            ),
-          );
-        }
-      }
-
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (context.mounted) {
-          handlePermissionChange();
-        }
-      });
-      scannerController.addListener(handlePermissionChange);
-      return () => scannerController.removeListener(handlePermissionChange);
-    }, [scannerController],);
+    final scannerController = ref.watch(scannerControllerProvider);
+    // Camera permission and lifecycle logic is now handled by the provider and app lifecycle, not here.
     final picker = useMemoized(ImagePicker.new);
 
     Future<void> openManualEntrySheet() async {
@@ -223,49 +196,52 @@ class CameraScreen extends HookConsumerWidget {
         ? ScannerInitializing(mode: scannerMode)
         : ScannerActive(
             mode: scannerMode,
-            torchState: torchState,
+            torchState: TorchState.off,
             isCameraRunning: isCameraActive.value,
           );
 
-    return Scaffold(
-      resizeToAvoidBottomInset: false,
-      body: SafeArea(
-        top: false,
-        bottom: false,
-        child: Stack(
-          children: [
-            if (isCameraActive.value && !isInitializing)
-              MobileScanner(
-                controller: scannerController,
-                onDetect: onDetect,
-                tapToFocus: true,
-                errorBuilder: (context, error) => const Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: AppDimens.spacingXl,
-                  ),
-                  child: Center(
-                    child: StatusView(
-                      type: StatusType.error,
-                      icon: LucideIcons.videoOff,
-                      title: Strings.cameraUnavailable,
-                      description: Strings.checkPermissionsMessage,
-                    ),
+    useAppHeader(
+      title: const SizedBox.shrink(),
+      isVisible: false,
+    );
+
+    return SafeArea(
+      top: false,
+      bottom: false,
+      child: Stack(
+        children: [
+          if (isCameraActive.value && !isInitializing)
+            MobileScanner(
+              controller: scannerController,
+              onDetect: onDetect,
+              tapToFocus: true,
+              errorBuilder: (context, error) => const Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: 24,
+                ),
+                child: Center(
+                  child: StatusView(
+                    type: StatusType.error,
+                    icon: LucideIcons.videoOff,
+                    title: Strings.cameraUnavailable,
+                    description: Strings.checkPermissionsMessage,
                   ),
                 ),
-              )
-            else if (isInitializing)
-              const Center(
-                child: StatusView(
-                  type: StatusType.loading,
-                  icon: LucideIcons.loader,
-                  title: Strings.initializationInProgress,
-                  description: Strings.initializationDescription,
-                ),
-              )
-            else
-              Align(
-                alignment: const Alignment(0, -0.3),
-                child: Column(
+              ),
+            )
+          else if (isInitializing)
+            const Center(
+              child: StatusView(
+                type: StatusType.loading,
+                icon: LucideIcons.loader,
+                title: Strings.initializationInProgress,
+                description: Strings.initializationDescription,
+              ),
+            )
+          else
+            Align(
+              alignment: const Alignment(0, -0.3),
+              child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
@@ -273,7 +249,7 @@ class CameraScreen extends HookConsumerWidget {
                       size: 80,
                       color: context.shadColors.muted,
                     ),
-                    const Gap(AppDimens.spacingLg),
+                    const Gap(20),
                     Text(
                       Strings.readyToScan,
                       style: context.shadTextTheme.h4.copyWith(
@@ -287,8 +263,8 @@ class CameraScreen extends HookConsumerWidget {
               ScanWindowOverlay(mode: scannerMode),
             const ScannerBubbles(),
             Positioned(
-              top: MediaQuery.paddingOf(context).top + AppDimens.spacingMd,
-              left: AppDimens.spacingMd,
+              top: MediaQuery.paddingOf(context).top + 16,
+              left: 16,
               child: ClipRRect(
                 borderRadius: context.shadTheme.radius,
                 child: DecoratedBox(
@@ -319,8 +295,8 @@ class CameraScreen extends HookConsumerWidget {
               ),
             ),
             Positioned(
-              top: MediaQuery.paddingOf(context).top + AppDimens.spacingMd,
-              right: AppDimens.spacingMd,
+              top: MediaQuery.paddingOf(context).top + 16,
+              right: 16,
               child: ClipRRect(
                 borderRadius: context.shadTheme.radius,
                 child: DecoratedBox(
@@ -383,9 +359,9 @@ class _GallerySheet extends StatelessWidget {
               Icon(
                 LucideIcons.shieldCheck,
                 color: theme.colorScheme.primary,
-                size: AppDimens.iconMd,
+                size: 20,
               ),
-              const Gap(AppDimens.spacingSm),
+              const Gap(12),
               Expanded(
                 child: Text(
                   Strings.noPhotoStoredMessage,
@@ -394,7 +370,7 @@ class _GallerySheet extends StatelessWidget {
               ),
             ],
           ),
-          const Gap(AppDimens.spacingMd),
+          const Gap(16),
           Semantics(
             button: true,
             label: Strings.choosePhotoFromGallery,
@@ -404,7 +380,7 @@ class _GallerySheet extends StatelessWidget {
               child: const Text(Strings.choosePhoto),
             ),
           ),
-          const Gap(AppDimens.spacingXs),
+          const Gap(8),
           Semantics(
             button: true,
             label: Strings.cancelPhotoSelection,
@@ -437,16 +413,19 @@ class _DuplicateQuantitySheet extends HookWidget {
       initialText: event.currentQuantity.toString(),
     );
 
-    useEffect(() {
-      final focusNode = scannerInput.focusNode;
-      final controller = scannerInput.controller;
-      focusNode.requestFocus();
-      controller.selection = TextSelection(
-        baseOffset: 0,
-        extentOffset: controller.text.length,
-      );
-      return null;
-    }, [scannerInput.controller, scannerInput.focusNode],);
+    useEffect(
+      () {
+        final focusNode = scannerInput.focusNode;
+        final controller = scannerInput.controller;
+        focusNode.requestFocus();
+        controller.selection = TextSelection(
+          baseOffset: 0,
+          extentOffset: controller.text.length,
+        );
+        return null;
+      },
+      [scannerInput.controller, scannerInput.focusNode],
+    );
 
     void setDelta(int delta) {
       final current = int.tryParse(scannerInput.controller.text) ?? 0;
@@ -463,9 +442,9 @@ class _DuplicateQuantitySheet extends HookWidget {
           Icon(
             LucideIcons.copy,
             color: context.shadColors.destructive,
-            size: AppDimens.iconMd,
+            size: 20,
           ),
-          const Gap(AppDimens.spacingSm),
+          const Gap(12),
           const Expanded(
             child: Text(Strings.duplicateScannedTitle),
           ),
@@ -483,9 +462,9 @@ class _DuplicateQuantitySheet extends HookWidget {
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
-          const Gap(AppDimens.spacingXs),
+          const Gap(8),
           const Text(Strings.duplicateScannedDescription),
-          const Gap(AppDimens.spacingMd),
+          const Gap(16),
           Text(
             Strings.duplicateAdjustQuantity,
             style: context.shadTextTheme.small.copyWith(
@@ -510,14 +489,14 @@ class _DuplicateQuantitySheet extends HookWidget {
         ),
       ],
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: AppDimens.spacingSm),
+        padding: const EdgeInsets.symmetric(vertical: 12),
         child: Row(
           children: [
             ShadButton.outline(
               onPressed: () => setDelta(-1),
               child: const Icon(LucideIcons.minus, size: 16),
             ),
-            const Gap(AppDimens.spacingSm),
+            const Gap(12),
             Expanded(
               child: ShadInput(
                 controller: scannerInput.controller,
@@ -529,7 +508,7 @@ class _DuplicateQuantitySheet extends HookWidget {
                 ),
               ),
             ),
-            const Gap(AppDimens.spacingSm),
+            const Gap(12),
             ShadButton.outline(
               onPressed: () => setDelta(1),
               child: const Icon(LucideIcons.plus, size: 16),
@@ -637,7 +616,7 @@ class _ManualCipSheet extends HookConsumerWidget {
                 ],
                 child: ShadForm(
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(AppDimens.spacingMd),
+                    padding: const EdgeInsets.all(16),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -648,7 +627,7 @@ class _ManualCipSheet extends HookConsumerWidget {
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                        const Gap(AppDimens.spacing2xs),
+                        const Gap(4),
                         Semantics(
                           textField: true,
                           label: Strings.manualEntryFieldLabel,
@@ -669,7 +648,7 @@ class _ManualCipSheet extends HookConsumerWidget {
                             onSubmitted: scanner.submit,
                           ),
                         ),
-                        const Gap(AppDimens.spacingMd),
+                        const Gap(16),
                         Text(
                           Strings.searchStartsAutomatically,
                           style: context.shadTextTheme.small,

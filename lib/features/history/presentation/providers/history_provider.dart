@@ -1,4 +1,3 @@
-import 'package:pharma_scan/core/database/providers.dart';
 import 'package:pharma_scan/core/providers/core_providers.dart';
 import 'package:pharma_scan/core/providers/preferences_provider.dart';
 import 'package:pharma_scan/features/history/domain/entities/scan_history_entry.dart';
@@ -11,13 +10,13 @@ class HistoryController extends _$HistoryController {
   @override
   Stream<List<ScanHistoryEntry>> build() {
     final limit = ref.watch(scanHistoryLimitProvider);
-    final dao = ref.watch(databaseProvider).restockDao;
+    final dao = ref.read(restockDaoProvider);
     return dao.watchScanHistory(limit);
   }
 
   Future<void> clearHistory() async {
     // Mark loading so UI can disable the clear button while the stream refreshes.
     state = const AsyncLoading();
-    await ref.read(databaseProvider).restockDao.clearHistory();
+    await ref.read(restockDaoProvider).clearHistory();
   }
 }

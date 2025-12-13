@@ -49,6 +49,12 @@ ShadButton(
 );
 ```
 
+## 2025 Update: Tab Navigation
+
+- Do NOT use `PopScope` for tab navigation/back button handling. Let AutoRoute manage the stack natively.
+- If you must intercept back, use `context.router.popForced()` (rare; see MainScreen refactor).
+- See `docs/ARCHITECTURE.md` for rationale and pattern.
+
 ## Reference Implementation
 
 - Router: `lib/core/router/app_router.dart`

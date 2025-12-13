@@ -1,15 +1,21 @@
+import 'dart:io';
+
+import 'package:drift/native.dart';
 import 'package:pharma_scan/core/database/database.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'providers.g.dart';
 
 @Riverpod(keepAlive: true)
-AppDatabase database(Ref ref) {
-  // La connexion est gérée en interne par AppDatabase via drift_flutter
-  final db = AppDatabase();
+AppDatabase database(Ref ref, {String? overridePath}) {
+  // Permet d'injecter un chemin custom pour les tests
+  final db = overridePath != null
+      ? AppDatabase.forTesting(NativeDatabase(File(overridePath)))
+      : AppDatabase();
 
-  // Fermer la connexion proprement si le provider est détruit (rare avec keepAlive)
-  ref.onDispose(db.close);
+  ref.onDispose(() async {
+    await db.close();
+  });
 
   return db;
 }

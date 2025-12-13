@@ -18,73 +18,74 @@ class ScanWindowOverlay extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final breakpoint = context.breakpoint;
-    final windowSize = breakpoint >= context.breakpoints.md
-        ? 300.0
-        : AppDimens.scannerWindowSize;
-    final theme = context.shadTheme;
-    final borderRadius = theme.radius.topLeft.x;
-    final scrimColor = Colors.black.withValues(alpha: 0.3);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final windowSize = (constraints.maxWidth * 0.7).clamp(250.0, 350.0);
+        final theme = context.shadTheme;
+        final borderRadius = theme.radius.topLeft.x;
+        final scrimColor = Colors.black.withValues(alpha: 0.3);
 
     final scannerAsync = ref.watch(scannerProvider);
-    final bubblesCount = scannerAsync.value?.bubbles.length ?? 0;
-    final isLoading = scannerAsync.isLoading;
+        final bubblesCount = scannerAsync.value?.bubbles.length ?? 0;
+        final isLoading = scannerAsync.isLoading;
 
-    final reticleState = useState<_ReticleState>(_ReticleState.idle);
-    final previousCount = useRef<int>(0);
-    final successResetTimer = useRef<Timer?>(null);
+        final reticleState = useState<_ReticleState>(_ReticleState.idle);
+        final previousCount = useRef<int>(0);
+        final successResetTimer = useRef<Timer?>(null);
 
-    useEffect(() {
-      final prev = previousCount.value;
-      previousCount.value = bubblesCount;
+        useEffect(() {
+          final prev = previousCount.value;
+          previousCount.value = bubblesCount;
 
-      if (bubblesCount > prev) {
-        reticleState.value = _ReticleState.success;
-        successResetTimer.value?.cancel();
-        successResetTimer.value = Timer(const Duration(milliseconds: 650), () {
-          reticleState.value = _ReticleState.idle;
-        });
-      } else if (reticleState.value != _ReticleState.success) {
-        reticleState.value = isLoading
-            ? _ReticleState.detecting
-            : _ReticleState.idle;
-      }
+          if (bubblesCount > prev) {
+            reticleState.value = _ReticleState.success;
+            successResetTimer.value?.cancel();
+            successResetTimer.value = Timer(const Duration(milliseconds: 650), () {
+              reticleState.value = _ReticleState.idle;
+            });
+          } else if (reticleState.value != _ReticleState.success) {
+            reticleState.value = isLoading
+                ? _ReticleState.detecting
+                : _ReticleState.idle;
+          }
 
-      return () => successResetTimer.value?.cancel();
-    }, [bubblesCount, isLoading],);
+          return () => successResetTimer.value?.cancel();
+        }, [bubblesCount, isLoading],);
 
-    useEffect(
-      () => () {
-        successResetTimer.value?.cancel();
+        useEffect(
+          () => () {
+            successResetTimer.value?.cancel();
+          },
+          const [],
+        );
+
+        final modeColor = mode == ScannerMode.restock
+            ? theme.colorScheme.destructive
+            : theme.colorScheme.primary;
+
+        return IgnorePointer(
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              CustomPaint(
+                painter: _ScanScrimPainter(
+                  scrimColor: scrimColor,
+                  windowSize: windowSize,
+                  borderRadius: borderRadius,
+                ),
+              ),
+              Center(
+                child: _Reticle(
+                  windowSize: windowSize,
+                  borderRadius: borderRadius,
+                  state: reticleState.value,
+                  modeColor: modeColor,
+                ),
+              ),
+            ],
+          ),
+        );
       },
-      const [],
-    );
-
-    final modeColor = mode == ScannerMode.restock
-        ? theme.colorScheme.destructive
-        : theme.colorScheme.primary;
-
-    return IgnorePointer(
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          CustomPaint(
-            painter: _ScanScrimPainter(
-              scrimColor: scrimColor,
-              windowSize: windowSize,
-              borderRadius: borderRadius,
-            ),
-          ),
-          Center(
-            child: _Reticle(
-              windowSize: windowSize,
-              borderRadius: borderRadius,
-              state: reticleState.value,
-              modeColor: modeColor,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -176,7 +177,7 @@ class _Reticle extends HookWidget {
               width: iconContainerSize,
               height: iconContainerSize,
               decoration: BoxDecoration(
-                color: context.background.withValues(alpha: 0.18),
+                color: context.shadColors.background.withValues(alpha: 0.18),
                 shape: BoxShape.circle,
                 border: Border.all(
                   color: targetColor.withValues(alpha: 0.4),

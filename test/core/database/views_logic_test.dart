@@ -6,7 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pharma_scan/core/database/database.dart';
 
 import '../../fixtures/seed_builder.dart';
-import '../../helpers/db_loader.dart';
+import '../../helpers/golden_db_helper.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

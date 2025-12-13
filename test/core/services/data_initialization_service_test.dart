@@ -7,11 +7,14 @@ import 'package:mocktail/mocktail.dart';
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
+import 'package:pharma_scan/core/providers/core_providers.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:pharma_scan/core/services/file_download_service.dart';
 import 'package:pharma_scan/core/services/preferences_service.dart';
+import 'package:dart_either/dart_either.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../helpers/db_loader.dart';
+// import '../../helpers/golden_db_helper.dart';
 import '../../test_utils.dart';
 
 class MockFileDownloadService extends Mock implements FileDownloadService {}
@@ -27,11 +30,10 @@ void main() {
     late DataInitializationService service;
 
     setUp(() async {
-      database = AppDatabase.forTesting(
-        NativeDatabase.memory(setup: configureAppSQLite),
-      );
-
       mockDownloadService = MockFileDownloadService();
+      // Mock le comportement de downloadToBytes pour éviter l'appel null
+      when(() => mockDownloadService.downloadToBytes(any()))
+          .thenAnswer((_) async => Right(<int>[]));
 
       // Mock SharedPreferences
       SharedPreferences.setMockInitialValues({});
@@ -42,11 +44,17 @@ void main() {
       testDataDir = tempDir.path;
       PathProviderPlatform.instance = FakePathProviderPlatform(testDataDir);
 
-      service = DataInitializationService(
-        database: database,
-        fileDownloadService: mockDownloadService,
-        preferencesService: preferencesService,
+      // Initialise la base de données pour chaque test
+      database = AppDatabase.forTesting(
+        NativeDatabase.memory(),
       );
+
+      // Crée un ProviderContainer local pour fournir un Ref
+      final container = ProviderContainer(overrides: [
+        preferencesServiceProvider.overrideWithValue(preferencesService),
+        fileDownloadServiceProvider.overrideWithValue(mockDownloadService),
+      ]);
+      service = container.read(dataInitializationServiceProvider);
     });
 
     tearDown(() async {

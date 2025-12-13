@@ -1,4 +1,3 @@
-
 import 'dart:async' show unawaited;
 
 import 'package:auto_route/auto_route.dart';
@@ -15,6 +14,7 @@ import 'package:pharma_scan/core/router/app_router.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
+import 'package:pharma_scan/core/hooks/use_app_header.dart';
 import 'package:pharma_scan/features/explorer/presentation/providers/database_stats_provider.dart';
 import 'package:pharma_scan/features/home/providers/sync_provider.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
@@ -230,546 +230,565 @@ class SettingsScreen extends HookConsumerWidget {
       }
     }
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          Strings.settings,
-          style: context.shadTextTheme.h4,
-        ),
-        leading: ShadIconButton.ghost(
-          icon: const Icon(LucideIcons.arrowLeft),
-          onPressed: () => context.pop(),
-        ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: AppDimens.spacingSm),
-            child: Semantics(
-              label: indicatorLabel,
-              child: Tooltip(
-                message: indicatorLabel,
-                child: Container(
-                  width: 12,
-                  height: 12,
-                  decoration: BoxDecoration(
-                    color: indicatorColor,
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: context.shadColors.border,
-                    ),
+    useAppHeader(
+      title: Text(
+        Strings.settings,
+        style: context.shadTextTheme.h4,
+      ),
+      showBackButton: true,
+      actions: [
+        Padding(
+          padding: const EdgeInsets.only(right: AppDimens.spacingSm),
+          child: Semantics(
+            label: indicatorLabel,
+            child: Tooltip(
+              message: indicatorLabel,
+              child: Container(
+                width: 12,
+                height: 12,
+                decoration: BoxDecoration(
+                  color: indicatorColor,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: context.shadColors.border,
                   ),
                 ),
               ),
             ),
           ),
-        ],
-      ),
-      body: Stack(
-        children: [
-          SingleChildScrollView(
-            padding: const EdgeInsets.all(AppDimens.spacingMd),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 600),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    ShadCard(
-                      title: const Text(Strings.appearance),
-                      description: const Text(Strings.appearanceDescription),
-                      child: ShadSelect<ThemeSetting>(
-                        key: ValueKey('theme_${themeController.value}'),
-                        initialValue: themeController.value,
-                        placeholder: const Text(Strings.themeSelectorLabel),
-                        selectedOptionBuilder: (context, value) {
-                          final (label, icon) = switch (value) {
-                            ThemeSetting.system => (
-                                Strings.systemTheme,
-                                LucideIcons.monitor,
-                              ),
-                            ThemeSetting.light => (
-                                Strings.lightTheme,
-                                LucideIcons.sun,
-                              ),
-                            ThemeSetting.dark => (
-                                Strings.darkTheme,
-                                LucideIcons.moon,
-                              ),
-                          };
-                          return Row(
-                            children: [
-                              Icon(icon, size: AppDimens.iconSm),
-                              const Gap(AppDimens.spacingSm),
-                              Text(label),
-                            ],
-                          );
-                        },
-                        onChanged: (value) {
-                          if (value != null) {
-                            unawaited(
-                              ref
-                                  .read(themeMutationProvider.notifier)
-                                  .setTheme(value),
-                            );
-                          }
-                        },
-                        options: const [
-                          ShadOption(
-                            value: ThemeSetting.system,
-                            child: Row(
-                              children: [
-                                Icon(
-                                  LucideIcons.monitor,
-                                  size: AppDimens.iconSm,
-                                ),
-                                Gap(AppDimens.spacingSm),
-                                Text(Strings.systemTheme),
-                              ],
-                            ),
-                          ),
-                          ShadOption(
-                            value: ThemeSetting.light,
-                            child: Row(
-                              children: [
-                                Icon(LucideIcons.sun, size: AppDimens.iconSm),
-                                Gap(AppDimens.spacingSm),
-                                Text(Strings.lightTheme),
-                              ],
-                            ),
-                          ),
-                          ShadOption(
-                            value: ThemeSetting.dark,
-                            child: Row(
-                              children: [
-                                Icon(
-                                  LucideIcons.moon,
-                                  size: AppDimens.iconSm,
-                                ),
-                                Gap(AppDimens.spacingSm),
-                                Text(Strings.darkTheme),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Gap(AppDimens.spacingMd),
-                    ShadCard(
-                      title: const Text(Strings.hapticsTitle),
-                      description: const Text(Strings.hapticsDescription),
-                      child: Row(
-                        children: [
-                          const Expanded(
-                            child: Row(
-                              children: [
-                                Icon(
-                                  LucideIcons.vibrate,
-                                  size: AppDimens.iconSm,
-                                ),
-                                Gap(AppDimens.spacingSm),
-                                Flexible(
-                                  child: Text(Strings.hapticsVibrationsLabel),
-                                ),
-                              ],
-                            ),
-                          ),
-                          ShadSwitch(
-                            value: hapticEnabled,
-                            onChanged: (value) {
-                              unawaited(
-                                ref
-                                    .read(hapticMutationProvider.notifier)
-                                    .setEnabled(enabled: value),
+        ),
+      ],
+    );
+
+    return Stack(
+      children: [
+        CustomScrollView(
+          slivers: [
+            SliverPadding(
+              padding: const EdgeInsets.all(AppDimens.spacingMd),
+              sliver: SliverList(
+                  delegate: SliverChildListDelegate.fixed([
+                Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 600),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // ...existing settings cards and content...
+                        ShadCard(
+                          title: const Text(Strings.appearance),
+                          description:
+                              const Text(Strings.appearanceDescription),
+                          child: ShadSelect<ThemeSetting>(
+                            key: ValueKey('theme_${themeController.value}'),
+                            initialValue: themeController.value,
+                            placeholder: const Text(Strings.themeSelectorLabel),
+                            selectedOptionBuilder: (context, value) {
+                              final (label, icon) = switch (value) {
+                                ThemeSetting.system => (
+                                    Strings.systemTheme,
+                                    LucideIcons.monitor,
+                                  ),
+                                ThemeSetting.light => (
+                                    Strings.lightTheme,
+                                    LucideIcons.sun,
+                                  ),
+                                ThemeSetting.dark => (
+                                    Strings.darkTheme,
+                                    LucideIcons.moon,
+                                  ),
+                              };
+                              return Row(
+                                children: [
+                                  Icon(icon, size: AppDimens.iconSm),
+                                  const Gap(AppDimens.spacingSm),
+                                  Text(label),
+                                ],
                               );
                             },
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Gap(AppDimens.spacingMd),
-                    ShadCard(
-                      title: const Text(Strings.sortingTitle),
-                      description: const Text(Strings.sortingDescription),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          const Row(
-                            children: [
-                              Icon(
-                                LucideIcons.arrowUpDown,
-                                size: AppDimens.iconSm,
+                            onChanged: (value) {
+                              if (value != null) {
+                                unawaited(
+                                  ref
+                                      .read(themeMutationProvider.notifier)
+                                      .setTheme(value),
+                                );
+                              }
+                            },
+                            options: const [
+                              ShadOption(
+                                value: ThemeSetting.system,
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      LucideIcons.monitor,
+                                      size: AppDimens.iconSm,
+                                    ),
+                                    Gap(AppDimens.spacingSm),
+                                    Text(Strings.systemTheme),
+                                  ],
+                                ),
                               ),
-                              Gap(AppDimens.spacingSm),
-                              Flexible(
-                                child: Text(Strings.sortingDescription),
+                              ShadOption(
+                                value: ThemeSetting.light,
+                                child: Row(
+                                  children: [
+                                    Icon(LucideIcons.sun,
+                                        size: AppDimens.iconSm),
+                                    Gap(AppDimens.spacingSm),
+                                    Text(Strings.lightTheme),
+                                  ],
+                                ),
+                              ),
+                              ShadOption(
+                                value: ThemeSetting.dark,
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      LucideIcons.moon,
+                                      size: AppDimens.iconSm,
+                                    ),
+                                    Gap(AppDimens.spacingSm),
+                                    Text(Strings.darkTheme),
+                                  ],
+                                ),
                               ),
                             ],
                           ),
-                          const Gap(AppDimens.spacingSm),
-                          ShadSelect<SortingPreference>(
-                            key: ValueKey('sorting_$sortingPreference'),
-                            initialValue: sortingPreference,
-                            placeholder: const Text(Strings.sortingTitle),
+                        ),
+                        const Gap(AppDimens.spacingMd),
+                        ShadCard(
+                          title: const Text(Strings.hapticsTitle),
+                          description: const Text(Strings.hapticsDescription),
+                          child: Row(
+                            children: [
+                              const Expanded(
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      LucideIcons.vibrate,
+                                      size: AppDimens.iconSm,
+                                    ),
+                                    Gap(AppDimens.spacingSm),
+                                    Flexible(
+                                      child:
+                                          Text(Strings.hapticsVibrationsLabel),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              ShadSwitch(
+                                value: hapticEnabled,
+                                onChanged: (value) {
+                                  unawaited(
+                                    ref
+                                        .read(hapticMutationProvider.notifier)
+                                        .setEnabled(enabled: value),
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Gap(AppDimens.spacingMd),
+                        ShadCard(
+                          title: const Text(Strings.sortingTitle),
+                          description: const Text(Strings.sortingDescription),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              const Row(
+                                children: [
+                                  Icon(
+                                    LucideIcons.arrowUpDown,
+                                    size: AppDimens.iconSm,
+                                  ),
+                                  Gap(AppDimens.spacingSm),
+                                  Flexible(
+                                    child: Text(Strings.sortingDescription),
+                                  ),
+                                ],
+                              ),
+                              const Gap(AppDimens.spacingSm),
+                              ShadSelect<SortingPreference>(
+                                key: ValueKey('sorting_$sortingPreference'),
+                                initialValue: sortingPreference,
+                                placeholder: const Text(Strings.sortingTitle),
+                                selectedOptionBuilder: (context, value) {
+                                  final label = switch (value) {
+                                    SortingPreference.generic =>
+                                      Strings.sortingByName,
+                                    SortingPreference.princeps =>
+                                      Strings.sortingByPrinceps,
+                                    SortingPreference.form =>
+                                      Strings.sortingByForm,
+                                  };
+                                  return Text(label);
+                                },
+                                onChanged: (value) {
+                                  if (value != null) {
+                                    unawaited(
+                                      ref
+                                          .read(
+                                            sortingPreferenceMutationProvider
+                                                .notifier,
+                                          )
+                                          .setSortingPreference(value),
+                                    );
+                                  }
+                                },
+                                options: const [
+                                  ShadOption(
+                                    value: SortingPreference.princeps,
+                                    child: Text(Strings.sortingByPrinceps),
+                                  ),
+                                  ShadOption(
+                                    value: SortingPreference.generic,
+                                    child: Text(Strings.sortingByName),
+                                  ),
+                                  ShadOption(
+                                    value: SortingPreference.form,
+                                    child: Text(Strings.sortingByForm),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Gap(AppDimens.spacingMd),
+                        ShadCard(
+                          title: const Text(Strings.sync),
+                          description:
+                              const Text(Strings.determinesCheckFrequency),
+                          child: ShadSelect<UpdateFrequency>(
+                            key: ValueKey('frequency_$selectedFrequency'),
+                            initialValue: selectedFrequency,
+                            placeholder: const Text(Strings.syncFrequencyLabel),
                             selectedOptionBuilder: (context, value) {
-                              final label = switch (value) {
-                                SortingPreference.generic =>
-                                  Strings.sortingByName,
-                                SortingPreference.princeps =>
-                                  Strings.sortingByPrinceps,
-                                SortingPreference.form => Strings.sortingByForm,
+                              final (label, icon) = switch (value) {
+                                UpdateFrequency.none => (
+                                    Strings.never,
+                                    LucideIcons.ban,
+                                  ),
+                                UpdateFrequency.daily => (
+                                    Strings.daily,
+                                    LucideIcons.calendarDays,
+                                  ),
+                                UpdateFrequency.weekly => (
+                                    Strings.weekly,
+                                    LucideIcons.calendarRange,
+                                  ),
+                                UpdateFrequency.monthly => (
+                                    Strings.monthly,
+                                    LucideIcons.calendar,
+                                  ),
                               };
-                              return Text(label);
+                              return Row(
+                                children: [
+                                  Icon(icon, size: AppDimens.iconSm),
+                                  const Gap(AppDimens.spacingSm),
+                                  Text(label),
+                                ],
+                              );
                             },
                             onChanged: (value) {
                               if (value != null) {
                                 unawaited(
                                   ref
                                       .read(
-                                        sortingPreferenceMutationProvider
+                                        updateFrequencyMutationProvider
                                             .notifier,
                                       )
-                                      .setSortingPreference(value),
+                                      .setUpdateFrequency(value),
                                 );
                               }
                             },
                             options: const [
                               ShadOption(
-                                value: SortingPreference.princeps,
-                                child: Text(Strings.sortingByPrinceps),
+                                value: UpdateFrequency.none,
+                                child: Row(
+                                  children: [
+                                    Icon(LucideIcons.ban,
+                                        size: AppDimens.iconSm),
+                                    Gap(AppDimens.spacingSm),
+                                    Text(Strings.never),
+                                  ],
+                                ),
                               ),
                               ShadOption(
-                                value: SortingPreference.generic,
-                                child: Text(Strings.sortingByName),
+                                value: UpdateFrequency.daily,
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      LucideIcons.calendarDays,
+                                      size: AppDimens.iconSm,
+                                    ),
+                                    Gap(AppDimens.spacingSm),
+                                    Text(Strings.daily),
+                                  ],
+                                ),
                               ),
                               ShadOption(
-                                value: SortingPreference.form,
-                                child: Text(Strings.sortingByForm),
+                                value: UpdateFrequency.weekly,
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      LucideIcons.calendarRange,
+                                      size: AppDimens.iconSm,
+                                    ),
+                                    Gap(AppDimens.spacingSm),
+                                    Text(Strings.weekly),
+                                  ],
+                                ),
+                              ),
+                              ShadOption(
+                                value: UpdateFrequency.monthly,
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      LucideIcons.calendar,
+                                      size: AppDimens.iconSm,
+                                    ),
+                                    Gap(AppDimens.spacingSm),
+                                    Text(Strings.monthly),
+                                  ],
+                                ),
                               ),
                             ],
                           ),
-                        ],
-                      ),
-                    ),
-                    const Gap(AppDimens.spacingMd),
-                    ShadCard(
-                      title: const Text(Strings.sync),
-                      description: const Text(Strings.determinesCheckFrequency),
-                      child: ShadSelect<UpdateFrequency>(
-                        key: ValueKey('frequency_$selectedFrequency'),
-                        initialValue: selectedFrequency,
-                        placeholder: const Text(Strings.syncFrequencyLabel),
-                        selectedOptionBuilder: (context, value) {
-                          final (label, icon) = switch (value) {
-                            UpdateFrequency.none => (
-                                Strings.never,
-                                LucideIcons.ban,
-                              ),
-                            UpdateFrequency.daily => (
-                                Strings.daily,
-                                LucideIcons.calendarDays,
-                              ),
-                            UpdateFrequency.weekly => (
-                                Strings.weekly,
-                                LucideIcons.calendarRange,
-                              ),
-                            UpdateFrequency.monthly => (
-                                Strings.monthly,
-                                LucideIcons.calendar,
-                              ),
-                          };
-                          return Row(
-                            children: [
-                              Icon(icon, size: AppDimens.iconSm),
-                              const Gap(AppDimens.spacingSm),
-                              Text(label),
-                            ],
-                          );
-                        },
-                        onChanged: (value) {
-                          if (value != null) {
-                            unawaited(
-                              ref
-                                  .read(
-                                    updateFrequencyMutationProvider.notifier,
-                                  )
-                                  .setUpdateFrequency(value),
-                            );
-                          }
-                        },
-                        options: const [
-                          ShadOption(
-                            value: UpdateFrequency.none,
-                            child: Row(
-                              children: [
-                                Icon(LucideIcons.ban, size: AppDimens.iconSm),
-                                Gap(AppDimens.spacingSm),
-                                Text(Strings.never),
-                              ],
-                            ),
-                          ),
-                          ShadOption(
-                            value: UpdateFrequency.daily,
-                            child: Row(
-                              children: [
-                                Icon(
-                                  LucideIcons.calendarDays,
-                                  size: AppDimens.iconSm,
-                                ),
-                                Gap(AppDimens.spacingSm),
-                                Text(Strings.daily),
-                              ],
-                            ),
-                          ),
-                          ShadOption(
-                            value: UpdateFrequency.weekly,
-                            child: Row(
-                              children: [
-                                Icon(
-                                  LucideIcons.calendarRange,
-                                  size: AppDimens.iconSm,
-                                ),
-                                Gap(AppDimens.spacingSm),
-                                Text(Strings.weekly),
-                              ],
-                            ),
-                          ),
-                          ShadOption(
-                            value: UpdateFrequency.monthly,
-                            child: Row(
-                              children: [
-                                Icon(
-                                  LucideIcons.calendar,
-                                  size: AppDimens.iconSm,
-                                ),
-                                Gap(AppDimens.spacingSm),
-                                Text(Strings.monthly),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Gap(AppDimens.spacingMd),
-                    ShadCard(
-                      title: const Text(Strings.data),
-                      description: const Text(Strings.dataSectionDescription),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          ConstrainedBox(
-                            constraints: const BoxConstraints(minHeight: 72),
-                            child: ShadButton.outline(
-                              width: double.infinity,
-                              padding: const EdgeInsets.symmetric(
-                                vertical: AppDimens.spacingSm,
-                                horizontal: AppDimens.spacingMd,
-                              ),
-                              mainAxisAlignment: MainAxisAlignment.start,
-                              leading: isCheckingUpdates.value
-                                  ? const SizedBox(
-                                      width: AppDimens.iconSm,
-                                      height: AppDimens.iconSm,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : const Icon(LucideIcons.refreshCw),
-                              onPressed: isCheckingUpdates.value
-                                  ? null
-                                  : runManualSync,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Flexible(
-                                    child: Text(
-                                      isCheckingUpdates.value
-                                          ? Strings.checkingUpdatesInProgress
-                                          : Strings.checkUpdatesNow,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                  const Gap(4),
-                                  Flexible(
-                                    child: Text(
-                                      isCheckingUpdates.value
-                                          ? Strings.pleaseWaitSync
-                                          : Strings.checkUpdatesTitle,
-                                      style: context.shadTextTheme.small,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          const Gap(AppDimens.spacingSm),
-                          ConstrainedBox(
-                            constraints: const BoxConstraints(minHeight: 72),
-                            child: ShadButton.outline(
-                              width: double.infinity,
-                              padding: const EdgeInsets.symmetric(
-                                vertical: AppDimens.spacingSm,
-                                horizontal: AppDimens.spacingMd,
-                              ),
-                              mainAxisAlignment: MainAxisAlignment.start,
-                              leading: const Icon(LucideIcons.databaseZap),
-                              onPressed: showResetConfirmation,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Flexible(
-                                    child: Text(
-                                      Strings.forceReset,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                  const Gap(4),
-                                  Flexible(
-                                    child: Text(
-                                      Strings.forceResetDescription,
-                                      style: context.shadTextTheme.small,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Gap(AppDimens.spacingMd),
-                    ShadCard(
-                      title: const Text(Strings.diagnostics),
-                      description: const Text(Strings.diagnosticsDescription),
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(minHeight: 72),
-                        child: ShadButton.outline(
-                          width: double.infinity,
-                          padding: const EdgeInsets.symmetric(
-                            vertical: AppDimens.spacingSm,
-                            horizontal: AppDimens.spacingMd,
-                          ),
-                          mainAxisAlignment: MainAxisAlignment.start,
-                          leading: const Icon(LucideIcons.terminal),
-                          onPressed: () =>
-                              AutoRouter.of(context).push(const LogsRoute()),
+                        ),
+                        const Gap(AppDimens.spacingMd),
+                        ShadCard(
+                          title: const Text(Strings.data),
+                          description:
+                              const Text(Strings.dataSectionDescription),
                           child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              const Text(Strings.showLogs),
-                              const Gap(4),
-                              Text(
-                                Strings.openDetailedViewForSupport,
-                                style: context.shadTextTheme.small,
+                              ConstrainedBox(
+                                constraints:
+                                    const BoxConstraints(minHeight: 72),
+                                child: ShadButton.outline(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: AppDimens.spacingSm,
+                                    horizontal: AppDimens.spacingMd,
+                                  ),
+                                  mainAxisAlignment: MainAxisAlignment.start,
+                                  leading: isCheckingUpdates.value
+                                      ? const SizedBox(
+                                          width: AppDimens.iconSm,
+                                          height: AppDimens.iconSm,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : const Icon(LucideIcons.refreshCw),
+                                  onPressed: isCheckingUpdates.value
+                                      ? null
+                                      : runManualSync,
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Flexible(
+                                        child: Text(
+                                          isCheckingUpdates.value
+                                              ? Strings
+                                                  .checkingUpdatesInProgress
+                                              : Strings.checkUpdatesNow,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      const Gap(4),
+                                      Flexible(
+                                        child: Text(
+                                          isCheckingUpdates.value
+                                              ? Strings.pleaseWaitSync
+                                              : Strings.checkUpdatesTitle,
+                                          style: context.shadTextTheme.small,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              const Gap(AppDimens.spacingSm),
+                              ConstrainedBox(
+                                constraints:
+                                    const BoxConstraints(minHeight: 72),
+                                child: ShadButton.outline(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: AppDimens.spacingSm,
+                                    horizontal: AppDimens.spacingMd,
+                                  ),
+                                  mainAxisAlignment: MainAxisAlignment.start,
+                                  leading: const Icon(LucideIcons.databaseZap),
+                                  onPressed: showResetConfirmation,
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Flexible(
+                                        child: Text(
+                                          Strings.forceReset,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      const Gap(4),
+                                      Flexible(
+                                        child: Text(
+                                          Strings.forceResetDescription,
+                                          style: context.shadTextTheme.small,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ),
                             ],
+                          ),
+                        ),
+                        const Gap(AppDimens.spacingMd),
+                        ShadCard(
+                          title: const Text(Strings.diagnostics),
+                          description:
+                              const Text(Strings.diagnosticsDescription),
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(minHeight: 72),
+                            child: ShadButton.outline(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(
+                                vertical: AppDimens.spacingSm,
+                                horizontal: AppDimens.spacingMd,
+                              ),
+                              mainAxisAlignment: MainAxisAlignment.start,
+                              leading: const Icon(LucideIcons.terminal),
+                              onPressed: () => AutoRouter.of(context)
+                                  .push(const LogsRoute()),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Text(Strings.showLogs),
+                                  const Gap(4),
+                                  Text(
+                                    Strings.openDetailedViewForSupport,
+                                    style: context.shadTextTheme.small,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        const Gap(AppDimens.spacingMd),
+                        databaseStats.when(
+                          data: (stats) => ShadCard(
+                            title: const Text(Strings.databaseStatsTitle),
+                            description: const Text(
+                              Strings.databaseStatsDescription,
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: AppDimens.spacingXs,
+                                horizontal: AppDimens.spacingSm,
+                              ),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceAround,
+                                children: [
+                                  _StatsItem(
+                                    icon: LucideIcons.star,
+                                    label: Strings.totalPrinceps,
+                                    value: '${stats.totalPrinceps}',
+                                  ),
+                                  _StatsItem(
+                                    icon: LucideIcons.pill,
+                                    label: Strings.totalGenerics,
+                                    value: '${stats.totalGeneriques}',
+                                  ),
+                                  _StatsItem(
+                                    icon: LucideIcons.activity,
+                                    label: Strings.totalPrinciples,
+                                    value: '${stats.totalPrincipes}',
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          loading: () => const SizedBox.shrink(),
+                          error: (error, _) => const SizedBox.shrink(),
+                        ),
+                        const Gap(AppDimens.spacingMd),
+                        if (packageInfo != null)
+                          ShadCard(
+                            title: const Text(Strings.appInfo),
+                            description: const Text(Strings.appInfoDescription),
+                            child: Column(
+                              children: [
+                                _AppInfoItem(
+                                  label: Strings.version,
+                                  value: packageInfo.version,
+                                ),
+                                const Gap(AppDimens.spacingSm),
+                                _AppInfoItem(
+                                  label: Strings.buildNumber,
+                                  value: packageInfo.buildNumber,
+                                ),
+                                const Gap(AppDimens.spacingSm),
+                                _AppInfoItem(
+                                  label: Strings.packageName,
+                                  value: packageInfo.packageName,
+                                ),
+                              ],
+                            ),
+                          ),
+                        const Gap(AppDimens.spacingXl),
+                      ],
+                    ),
+                  ),
+                ),
+              ])),
+            ),
+          ],
+        ),
+        if (isResetting.value)
+          Positioned.fill(
+            child: ColoredBox(
+              color: context.shadColors.background.withValues(alpha: 0.8),
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      height: 4,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(999),
+                        child: LinearProgressIndicator(
+                          backgroundColor: context.shadColors.mutedForeground
+                              .withValues(alpha: 0.2),
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            context.shadColors.primary,
                           ),
                         ),
                       ),
                     ),
                     const Gap(AppDimens.spacingMd),
-                    databaseStats.when(
-                      data: (stats) => ShadCard(
-                        title: const Text(Strings.databaseStatsTitle),
-                        description: const Text(
-                          Strings.databaseStatsDescription,
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            vertical: AppDimens.spacingXs,
-                            horizontal: AppDimens.spacingSm,
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceAround,
-                            children: [
-                              _StatsItem(
-                                icon: LucideIcons.star,
-                                label: Strings.totalPrinceps,
-                                value: '${stats.totalPrinceps}',
-                              ),
-                              _StatsItem(
-                                icon: LucideIcons.pill,
-                                label: Strings.totalGenerics,
-                                value: '${stats.totalGeneriques}',
-                              ),
-                              _StatsItem(
-                                icon: LucideIcons.activity,
-                                label: Strings.totalPrinciples,
-                                value: '${stats.totalPrincipes}',
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      loading: () => const SizedBox.shrink(),
-                      error: (error, _) => const SizedBox.shrink(),
+                    Text(
+                      Strings.resetting,
+                      style: context.shadTextTheme.p,
                     ),
-                    const Gap(AppDimens.spacingMd),
-                    if (packageInfo != null)
-                      ShadCard(
-                        title: const Text(Strings.appInfo),
-                        description: const Text(Strings.appInfoDescription),
-                        child: Column(
-                          children: [
-                            _AppInfoItem(
-                              label: Strings.version,
-                              value: packageInfo.version,
-                            ),
-                            const Gap(AppDimens.spacingSm),
-                            _AppInfoItem(
-                              label: Strings.buildNumber,
-                              value: packageInfo.buildNumber,
-                            ),
-                            const Gap(AppDimens.spacingSm),
-                            _AppInfoItem(
-                              label: Strings.packageName,
-                              value: packageInfo.packageName,
-                            ),
-                          ],
-                        ),
-                      ),
-                    const Gap(AppDimens.spacingXl),
                   ],
                 ),
               ),
             ),
           ),
-          if (isResetting.value)
-            Positioned.fill(
-              child: ColoredBox(
-                color: context.shadColors.background.withValues(alpha: 0.8),
-                child: Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      SizedBox(
-                        height: 4,
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(999),
-                          child: LinearProgressIndicator(
-                            backgroundColor: context.shadColors.mutedForeground
-                                .withValues(alpha: 0.2),
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              context.shadColors.primary,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const Gap(AppDimens.spacingMd),
-                      Text(
-                        Strings.resetting,
-                        style: context.shadTextTheme.p,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
+      ],
     );
   }
 }

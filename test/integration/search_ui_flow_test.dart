@@ -1,4 +1,3 @@
-import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -7,16 +6,14 @@ import 'package:pharma_scan/core/database/providers.dart';
 import 'package:pharma_scan/features/explorer/presentation/screens/database_search_view.dart';
 import 'package:pharma_scan/features/explorer/presentation/widgets/explorer_search_bar.dart';
 
-import '../helpers/db_loader.dart';
+import '../helpers/golden_db_helper.dart';
 
 void main() {
   group('Search UI Flow Integration Tests', () {
     late AppDatabase db;
 
     setUp(() async {
-      db = AppDatabase.forTesting(
-        NativeDatabase.memory(setup: configureAppSQLite),
-      );
+      db = await loadGoldenDatabase();
     });
 
     tearDown(() async {
@@ -27,7 +24,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            databaseProvider.overrideWithValue(db),
+            databaseProvider().overrideWithValue(db),
           ],
           child: const MaterialApp(
             home: Scaffold(
@@ -65,7 +62,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            databaseProvider.overrideWithValue(db),
+            databaseProvider().overrideWithValue(db),
           ],
           child: const MaterialApp(
             home: Scaffold(
@@ -104,7 +101,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            databaseProvider.overrideWithValue(db),
+            databaseProvider().overrideWithValue(db),
           ],
           child: const MaterialApp(
             home: Scaffold(
@@ -131,7 +128,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            databaseProvider.overrideWithValue(db),
+            databaseProvider().overrideWithValue(db),
           ],
           child: const MaterialApp(
             home: Scaffold(
@@ -164,7 +161,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            databaseProvider.overrideWithValue(db),
+            databaseProvider().overrideWithValue(db),
           ],
           child: const MaterialApp(
             home: Scaffold(
@@ -202,7 +199,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            databaseProvider.overrideWithValue(db),
+            databaseProvider().overrideWithValue(db),
           ],
           child: const MaterialApp(
             home: Scaffold(

@@ -6,7 +6,11 @@ This document lists every component available in the `shadcn_ui` library for Flu
 
 ## 1. Layout & Containers
 
-* **Scaffold (Tabs):** When using `AutoTabsRouter`, keep the parent shell free of an `appBar`; let each tab screen own its `Scaffold` header/actions to avoid nested AppBars.
+* **Hoisted Header (2025):**
+  * The `AppBar` (header) is now owned by the parent shell (`MainScreen`) and configured by child screens using the `useAppHeader` hook and a Riverpod provider.
+  * **Do not** define a `Scaffold` or `AppBar` in feature/tab screens. Instead, call `useAppHeader(title: ..., actions: [...])` at the top of your build method.
+  * For immersive screens (e.g., Scanner), set `isVisible: false` in `useAppHeader` to hide the header.
+  * See `lib/core/hooks/use_app_header.dart` for usage.
 
 ### **Card (`ShadCard`)**
 

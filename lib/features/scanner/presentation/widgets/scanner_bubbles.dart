@@ -21,24 +21,19 @@ class ScannerBubbles extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final topOffset =
-        MediaQuery.paddingOf(context).top +
-        AppDimens.spacingMd +
-        AppDimens.iconLg +
-        AppDimens.spacingSm;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // For top offset, we'll use a safer approach without MediaQuery
+        // This component should be positioned relative to its parent container
+        final topOffset = AppDimens.spacingMd + AppDimens.iconLg + AppDimens.spacingSm;
 
-    return Positioned(
-      top: topOffset,
-      left: 0,
-      right: 0,
-      child: Builder(
-        builder: (context) {
-          final breakpoint = context.breakpoint;
-          final horizontalMargin = breakpoint < context.breakpoints.sm
-              ? 8.0
-              : 12.0;
+        final horizontalMargin = constraints.maxWidth < 600 ? 8.0 : 12.0;
 
-          return Padding(
+        return Positioned(
+          top: topOffset,
+          left: 0,
+          right: 0,
+          child: Padding(
             padding: EdgeInsets.symmetric(horizontal: horizontalMargin),
             child: Consumer(
               builder: (context, ref, child) {
@@ -64,9 +59,9 @@ class ScannerBubbles extends ConsumerWidget {
                 );
               },
             ),
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 

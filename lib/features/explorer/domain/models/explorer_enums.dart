@@ -1,6 +1,9 @@
-
 import 'package:pharma_scan/core/utils/strings.dart';
+import 'package:dart_mappable/dart_mappable.dart';
 
+part 'explorer_enums.mapper.dart';
+
+@MappableEnum()
 enum AtcLevel1 {
   a,
   b,

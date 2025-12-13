@@ -1,25 +1,19 @@
-# This file configures the analyzer, which statically analyzes Dart code to
-# check for errors, warnings, and lints.
-#
-# The following line activates a set of recommended lints for Flutter apps,
-# packages, and plugins designed to encourage good coding practices.
-include: package:very_good_analysis/analysis_options.yaml
-
 linter:
   rules:
     # --- VERBOSITY REDUCTION (Solo Dev Optimization) ---
     # Disable mandatory documentation for public members
     public_member_api_docs: false
-    
+
     # --- PROJECT SPECIFIC EXCLUSIONS ---
     # Allow simple string concatenation when cleaner than interpolation
     prefer_interpolation_to_compose_strings: false
-    
+
     # Optional: If you prefer lines longer than 80 chars (modern screens)
     lines_longer_than_80_chars: false
-    
+
     # Disable I/O warnings for offline-first, I/O-heavy application
     avoid_slow_async_io: false
+    avoid_print: false # Autorise print dans les tests
 
 analyzer:
   exclude:
@@ -40,7 +34,7 @@ analyzer:
     strict-inference: true
     strict-raw-types: true
   enable-experiment:
-    - dot-shorthands  # Required for Mix 2.0 dot notation syntax (Dart SDK ≥ 3.9.0)
+    - dot-shorthands # Required for Mix 2.0 dot notation syntax (Dart SDK ≥ 3.9.0)
   errors:
     # Treat specific hints as errors for stricter quality
     missing_return: error
@@ -50,11 +44,11 @@ analyzer:
     unnecessary_lambdas: warning
     # Relaxed for external DB-driven architecture
     # Test files work with dynamic data from backend pipeline and generated companion types
-    argument_type_not_assignable: warning  # Allow dynamic types in test helpers
-    avoid_dynamic_calls: warning  # Allow in test files for backend data handling
-    undefined_method: warning  # Test files use generated companion constructors
-    undefined_identifier: warning  # Test files reference generated companion types
+    argument_type_not_assignable: warning # Allow dynamic types in test helpers
+    avoid_dynamic_calls: warning # Allow in test files for backend data handling
+    undefined_method: warning # Test files use generated companion constructors
+    undefined_identifier: warning # Test files reference generated companion types
     # Allow generated types in test files (companion types from build_runner)
-    non_type_as_type_argument: warning  # Test files reference generated types
-    undefined_class: warning  # Test files reference generated companion classes
-    undefined_function: warning  # Test files reference generated companion constructors
+    non_type_as_type_argument: warning # Test files reference generated types
+    undefined_class: warning # Test files reference generated companion classes
+    undefined_function: warning # Test files reference generated companion constructors

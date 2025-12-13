@@ -13,7 +13,7 @@ import 'package:pharma_scan/features/explorer/presentation/providers/search_prov
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../fixtures/seed_builder.dart';
-import '../../helpers/db_loader.dart';
+import '../../helpers/golden_db_helper.dart';
 
 class _FakeCatalogDao extends Fake implements CatalogDao {
   @override
@@ -88,7 +88,7 @@ void main() {
       final fakeCatalogDao = _FakeCatalogDao();
       container = ProviderContainer(
         overrides: [
-          databaseProvider.overrideWithValue(database),
+          databaseProvider().overrideWithValue(database),
           catalogDaoProvider.overrideWithValue(fakeCatalogDao),
           searchFiltersProvider.overrideWith(_FakeSearchFiltersNotifier.new),
           preferencesServiceProvider.overrideWithValue(preferencesService),

@@ -4,14 +4,13 @@ import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:pharma_scan/core/hooks/use_app_header.dart';
 import 'package:pharma_scan/core/providers/navigation_provider.dart';
 import 'package:pharma_scan/core/providers/preferences_provider.dart';
 import 'package:pharma_scan/core/services/haptic_service.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
-import 'package:pharma_scan/core/utils/navigation_helpers.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
-import 'package:pharma_scan/core/widgets/scroll_to_top_fab.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/status_view.dart';
 import 'package:pharma_scan/features/restock/presentation/providers/restock_provider.dart';
 import 'package:pharma_scan/features/restock/presentation/widgets/restock_list_item.dart';
@@ -101,178 +100,118 @@ class RestockScreen extends HookConsumerWidget {
         },
       );
       return null;
-    }, [scrollController],);
+    }, [scrollController]);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          Strings.restockTitle,
-          style: context.shadTextTheme.h4,
-        ),
-        elevation: 0,
-        backgroundColor: context.background,
-        foregroundColor: context.shadColors.foreground,
-        actions: [
-          ShadTooltip(
-            builder: (context) => const Text(Strings.restockClearChecked),
-            child: ShadIconButton.ghost(
-              icon: const Icon(LucideIcons.check),
-              onPressed: onClearChecked,
-            ),
-          ),
-          ShadTooltip(
-            builder: (context) => const Text(Strings.restockClearAll),
-            child: ShadIconButton.ghost(
-              icon: const Icon(LucideIcons.trash2),
-              onPressed: onClearAll,
-            ),
-          ),
-        ],
+    useAppHeader(
+      title: Text(
+        Strings.restockTitle,
+        style: context.shadTextTheme.h4,
       ),
-      body: restockAsync.when(
-        loading: () => const Center(
-          child: StatusView(type: StatusType.loading),
-        ),
-        error: (error, _) => Center(
-          child: StatusView(
-            type: StatusType.error,
-            title: Strings.error,
-            description: error.toString(),
+      actions: [
+        ShadTooltip(
+          builder: (context) => const Text(Strings.restockClearChecked),
+          child: ShadIconButton.ghost(
+            icon: const Icon(LucideIcons.check),
+            onPressed: onClearChecked,
           ),
         ),
-        data: (grouped) {
-          if (grouped.isEmpty) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(AppDimens.spacingXl),
-                child: StatusView(
-                  type: StatusType.empty,
-                  title: Strings.restockEmptyTitle,
-                  description: Strings.restockEmpty,
-                  icon: LucideIcons.clipboardList,
-                  action: ConstrainedBox(
-                    constraints: const BoxConstraints(
-                      maxWidth: 360,
-                      minWidth: 200,
+        ShadTooltip(
+          builder: (context) => const Text(Strings.restockClearAll),
+          child: ShadIconButton.ghost(
+            icon: const Icon(LucideIcons.trash2),
+            onPressed: onClearAll,
+          ),
+        ),
+      ],
+    );
+
+    return restockAsync.when(
+      data: (grouped) {
+        final slivers = <Widget>[];
+
+        grouped.forEach((letter, groupItems) {
+          slivers.add(
+            SliverMainAxisGroup(
+              slivers: [
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppDimens.spacingMd,
+                      vertical: AppDimens.spacingSm,
                     ),
-                    child: ShadButton(
-                      size: ShadButtonSize.lg,
-                      onPressed: () => ref.navigateToRestockMode(context),
-                      child: const Wrap(
-                        spacing: AppDimens.spacingXs,
-                        runSpacing: AppDimens.spacingXs,
-                        alignment: WrapAlignment.center,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          Icon(LucideIcons.scanLine),
-                          SizedBox(width: AppDimens.spacingXs),
-                          Text(
-                            Strings.restockOpenScanner,
-                            textAlign: TextAlign.center,
-                            softWrap: true,
-                          ),
-                        ],
+                    child: Text(
+                      letter,
+                      style: context.shadTextTheme.small.copyWith(
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),
                 ),
-              ),
-            );
-          }
-
-          final totalQuantity = grouped.values
-              .expand((group) => group)
-              .fold<int>(0, (acc, item) => acc + item.quantity);
-
-          final slivers = <Widget>[];
-
-          grouped.forEach((letter, groupItems) {
-            slivers.add(
-              SliverMainAxisGroup(
-                slivers: [
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppDimens.spacingMd,
-                        vertical: AppDimens.spacingSm,
-                      ),
-                      child: Text(
-                        letter,
-                        style: context.shadTextTheme.small.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                  SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                        final item = groupItems[index];
-                        final notifier = ref.read(restockProvider.notifier);
-                        return RestockListItem(
-                          item: item,
-                          showPrincepsSubtitle:
-                              sortingPreference == SortingPreference.princeps &&
-                              item.princepsLabel != null,
-                          haptics: haptics,
-                          onIncrement: () => notifier.increment(item),
-                          onDecrement: () => notifier.decrement(item),
-                          onAddTen: () => notifier.addBulk(item, 10),
-                          onSetQuantity: (value) =>
-                              notifier.setQuantity(item, value),
-                          onToggleChecked: () => notifier.toggleChecked(item),
-                          onDismissed: (_) async {
-                            final removedItem = item;
-                            await notifier.deleteItem(removedItem);
-                            if (!context.mounted) return;
-                            ShadToaster.of(context).show(
-                              ShadToast(
-                                title: const Text(Strings.itemDeleted),
-                                description: Text(
-                                  '${item.quantity} x ${item.label}',
-                                ),
-                                action: ShadButton.outline(
-                                  size: ShadButtonSize.sm,
-                                  width: 120,
-                                  onPressed: () async {
-                                    await notifier.restoreItem(removedItem);
-                                    if (!context.mounted) return;
-                                    await ShadToaster.of(context).hide();
-                                  },
-                                  child: const Text(Strings.undo),
-                                ),
-                                duration: const Duration(seconds: 4),
+                SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final item = groupItems[index];
+                      final notifier = ref.read(restockProvider.notifier);
+                      return RestockListItem(
+                        item: item,
+                        showPrincepsSubtitle:
+                            sortingPreference == SortingPreference.princeps &&
+                                item.princepsLabel != null,
+                        haptics: haptics,
+                        onIncrement: () => notifier.increment(item),
+                        onDecrement: () => notifier.decrement(item),
+                        onAddTen: () => notifier.addBulk(item, 10),
+                        onSetQuantity: (value) =>
+                            notifier.setQuantity(item, value),
+                        onToggleChecked: () => notifier.toggleChecked(item),
+                        onDismissed: (direction) async {
+                          final removedItem = item;
+                          await notifier.deleteItem(removedItem);
+                          if (!context.mounted) return;
+                          ShadToaster.of(context).show(
+                            ShadToast(
+                              title: const Text(Strings.itemDeleted),
+                              description: Text(
+                                '${item.quantity} x ${item.label}',
                               ),
-                            );
-                          },
-                        );
-                      },
-                      childCount: groupItems.length,
-                    ),
+                              action: ShadButton.outline(
+                                size: ShadButtonSize.sm,
+                                width: 120,
+                                onPressed: () async {
+                                  await notifier.restoreItem(removedItem);
+                                  if (!context.mounted) return;
+                                  await ShadToaster.of(context).hide();
+                                },
+                                child: const Text(Strings.undo),
+                              ),
+                              duration: const Duration(seconds: 4),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                    childCount: groupItems.length,
                   ),
-                ],
-              ),
-            );
-          });
-
-          return Stack(
-            children: [
-              CustomScrollView(
-                controller: scrollController,
-                slivers: slivers,
-              ),
-              Positioned(
-                right: AppDimens.spacingMd,
-                bottom:
-                    AppDimens.spacingMd + MediaQuery.paddingOf(context).bottom,
-                child: ScrollToTopFab(
-                  controller: scrollController,
-                  badgeCount: totalQuantity == 0 ? null : totalQuantity,
                 ),
-              ),
-            ],
+              ],
+            ),
           );
-        },
+        });
+
+        return CustomScrollView(
+          controller: scrollController,
+          slivers: slivers,
+        );
+      },
+      loading: () => const Center(
+        child: StatusView(type: StatusType.loading),
+      ),
+      error: (error, _) => Center(
+        child: StatusView(
+          type: StatusType.error,
+          title: Strings.error,
+          description: error.toString(),
+        ),
       ),
     );
   }

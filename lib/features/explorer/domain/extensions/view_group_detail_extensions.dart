@@ -5,14 +5,28 @@ import 'package:pharma_scan/core/logic/sanitizer.dart';
 import 'package:pharma_scan/core/utils/formatters.dart';
 import 'package:pharma_scan/features/explorer/domain/entities/group_detail_entity.dart';
 
+/// Helper method to decode JSON strings to List<String>
+List<String> decodeJsonStringList(String? jsonString) {
+  if (jsonString == null || jsonString.isEmpty) return [];
+  try {
+    final decoded = jsonDecode(jsonString);
+    if (decoded is List) {
+      return decoded.map((e) => e.toString()).toList();
+    }
+    return [];
+  } on FormatException {
+    return [];
+  }
+}
+
 /// Extension on GroupDetailEntity for presentation logic
 extension GroupDetailPresentation on GroupDetailEntity {
   /// Display name for the medication (princeps or generic)
   String get displayName {
     if (isPrinceps) {
-      // Use princepsBrandName from DB if available, otherwise fallback to princepsDeReference
+      // Correction: n'utilise princepsBrandName que s'il est non vide ET différent de 'BRAND'
       final brandName = princepsBrandName.trim();
-      if (brandName.isNotEmpty) {
+      if (brandName.isNotEmpty && brandName.toUpperCase() != 'BRAND') {
         return brandName;
       }
       return princepsDeReference.trim();
@@ -66,8 +80,7 @@ extension GroupDetailListExtensions on List<GroupDetailEntity> {
     List<String> commonPrincipes,
     List<String> distinctDosages,
     List<String> distinctFormulations,
-  })
-  toGroupHeaderMetadata() {
+  }) toGroupHeaderMetadata() {
     if (isEmpty) {
       return (
         title: '',
@@ -99,19 +112,8 @@ extension GroupDetailListExtensions on List<GroupDetailEntity> {
         ? brandName
         : (princepsRef.isNotEmpty ? princepsRef : nomCanon);
 
-    // Parse principesActifsCommuns from JSON string
-    final principesJson = first.principesActifsCommuns;
-    final commonPrincipes = <String>[];
-    if (principesJson != null && principesJson.isNotEmpty) {
-      try {
-        final decoded = jsonDecode(principesJson);
-        if (decoded is List) {
-          commonPrincipes.addAll(decoded.map((e) => e.toString()));
-        }
-      } on FormatException {
-        // Ignore JSON decode errors
-      }
-    }
+    // Parse principesActifsCommuns from JSON string using helper
+    final commonPrincipes = decodeJsonStringList(first.principesActifsCommuns);
 
     return (
       title: title.isNotEmpty ? title : 'Unknown',
@@ -165,8 +167,7 @@ extension GroupDetailListExtensions on List<GroupDetailEntity> {
   ({
     List<GroupDetailEntity> princeps,
     List<GroupDetailEntity> generics,
-  })
-  partitionByPrinceps() {
+  }) partitionByPrinceps() {
     final princeps = <GroupDetailEntity>[];
     final generics = <GroupDetailEntity>[];
 

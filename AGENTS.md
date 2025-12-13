@@ -50,6 +50,30 @@ You operate with **radical autonomy**: you own the stack, you run the tests, and
      -> *Correction:* UI rendering requires length-preserving logic. Write a local helper.
 </reasoning_engine>
 
+<ui_layout_standards>
+**Mandatory Layout Principles:**
+
+1. **The Rule of Infinity:**
+   - Never place a `Column` (unbounded vertical expansion) inside a `ListView` (unbounded vertical constraint) without a boundary widget.
+   - **Fix:** Use `SliverList` inside `CustomScrollView` instead of nesting standard lists, or wrap the Column in a `SizedBox`/`ConstrainedBox` if fixed size is intended.
+
+2. **The Rule of Flex:**
+   - `Expanded` and `Flexible` widgets MUST be direct descendants of `Row`, `Column`, or `Flex`.
+   - Using them inside `Container`, `Stack`, or `Padding` causes runtime errors or no effect.
+
+3. **The Rule of LayoutBuilder:**
+   - **Forbidden:** Using `MediaQuery.of(context).size` or `context.breakpoint` to make local layout decisions (e.g., card layout, button stacking).
+   - **Required:** Use `LayoutBuilder` to make decisions based on the *actual* available space (`constraints.maxWidth`). This ensures components are reusable in Sidebars, Dialogs, or Split Views.
+   - *Exception:* `MediaQuery` is allowed only for full-screen scaffold decisions (e.g., hiding a bottom nav bar).
+
+4. **LayoutBuilder Usage Patterns:**
+   - **Local Layout Decisions:** Always use `LayoutBuilder` for component-level responsive design
+   - **Global Scaffold Decisions:** Only use `MediaQuery` for full-screen scaffold decisions
+   - **Breakpoint Migration:** Replace `context.breakpoint` with constraint-based logic like `constraints.maxWidth < 600`
+   - **Responsive Percentages:** Use percentage-based sizing with clamp: `(constraints.maxWidth * 0.7).clamp(250.0, 350.0)`
+   - **Reusable Components:** Ensure components work in dialogs, sidebars, and split views by using constraint-based design
+</ui_layout_standards>
+
 <simplicity_standards>
 **The Zero-Boilerplate Mandate:**
 

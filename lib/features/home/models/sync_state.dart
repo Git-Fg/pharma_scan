@@ -1,10 +1,6 @@
 /// Models defining the state and progress of the synchronization process.
 library;
 
-import 'package:dart_mappable/dart_mappable.dart';
-
-part 'sync_state.mapper.dart';
-
 enum SyncPhase {
   idle,
   waitingNetwork,
@@ -29,8 +25,7 @@ enum SyncStatusCode {
 
 enum SyncErrorType { network, scraping, download, apply, unknown }
 
-@MappableClass()
-class SyncProgress with SyncProgressMappable {
+class SyncProgress {
   const SyncProgress({
     required this.phase,
     required this.code,

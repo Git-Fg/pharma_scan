@@ -29,19 +29,13 @@ targets:
       riverpod_generator:
         generate_for:
           include:
-            - lib/**/*.dart
-          exclude:
-            - lib/**/*.g.dart
-            - lib/**/*.freezed.dart
-            - lib/**/*.mapper.dart
-            - lib/main.dart
-            - lib/**/widgets/**/*
-            - lib/**/ui/**/*
-            - lib/**/screens/**/*
-            - lib/core/theme/**/*
-            - test/**/*
-            - integration_test/**/*
-            - tool/**/*
+            - lib/core/providers/**.dart
+            - lib/core/services/**.dart
+            - lib/core/database/providers.dart
+            - lib/core/router/router_provider.dart
+            - lib/features/**/providers/**.dart
+            - lib/features/**/viewmodels/**.dart
+          # Exclude UI widgets explicitly
 
       # --- AUTO ROUTE ---
       # Scope to router + screen folders (no cached builds to avoid stale outputs)
@@ -61,17 +55,11 @@ targets:
       dart_mappable_builder:
         generate_for:
           include:
-            - lib/**/*.dart
-          exclude:
-            - lib/**/*.g.dart
-            - lib/main.dart
-            - lib/**/widgets/**/*
-            - lib/**/ui/**/*
-            - lib/**/screens/**/*
-            - lib/core/theme/**/*
-            - test/**/*
-            - integration_test/**/*
-            - tool/**/*
+            - lib/core/models/**.dart
+            - lib/features/**/domain/models/**.dart
+            - lib/features/**/domain/entities/**.dart
+            - lib/features/**/presentation/providers/**.dart
+            - lib/features/**/presentation/viewmodels/**.dart
         options:
           caseStyle: camelCase
           generateMethods:

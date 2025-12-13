@@ -38,8 +38,7 @@ class StatusView extends StatelessWidget {
         );
       case StatusType.empty:
       case StatusType.error:
-        final effectiveIcon =
-            icon ??
+        final effectiveIcon = icon ??
             (type == StatusType.empty
                 ? LucideIcons.searchX
                 : LucideIcons.triangleAlert);
@@ -125,11 +124,16 @@ class _ProgressBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.shadColors;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(999),
-      child: LinearProgressIndicator(
+    return Container(
+      height: 4,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: ShadProgress(
+        value: null, // indéterminé
         backgroundColor: colors.mutedForeground.withValues(alpha: 0.2),
-        valueColor: AlwaysStoppedAnimation<Color>(colors.primary),
+        color: colors.primary,
+        borderRadius: BorderRadius.circular(999),
       ),
     );
   }

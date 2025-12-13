@@ -5,10 +5,12 @@ import 'package:dio/dio.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:pharma_scan/core/config/database_config.dart';
-import 'package:pharma_scan/core/database/database.dart';
+// import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/services/file_download_service.dart';
 import 'package:pharma_scan/core/services/logger_service.dart';
 import 'package:pharma_scan/core/services/preferences_service.dart';
+import 'package:riverpod/riverpod.dart';
+import 'package:pharma_scan/core/database/providers.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 
 enum InitializationStep { idle, downloading, ready, error }
@@ -16,20 +18,21 @@ enum InitializationStep { idle, downloading, ready, error }
 /// Service for database initialization using a download-only workflow.
 ///
 /// Flow: Version Check → Download → Decompress → Integrity Check → Update Preferences
+
 class DataInitializationService {
   DataInitializationService({
-    required AppDatabase database,
+    required Ref ref,
     required FileDownloadService fileDownloadService,
     required PreferencesService preferencesService,
     Dio? dio,
-  }) : _db = database,
-       _downloadService = fileDownloadService,
-       _prefs = preferencesService,
-       _dio = dio ?? _createDefaultDio();
+  })  : _ref = ref,
+        _downloadService = fileDownloadService,
+        _prefs = preferencesService,
+        _dio = dio ?? _createDefaultDio();
 
   static const String dataVersion = 'remote-database';
 
-  final AppDatabase _db;
+  final Ref _ref;
   final FileDownloadService _downloadService;
   final PreferencesService _prefs;
   final Dio _dio;
@@ -47,10 +50,11 @@ class DataInitializationService {
   /// Initializes the database by downloading from GitHub if needed.
   Future<void> initializeDatabase({bool forceRefresh = false}) async {
     try {
-      // 1. Check for existing data
-      final hasData = await _db.catalogDao.hasExistingData();
+      // 1. Accès DB via ref
+      final db = _ref.read(databaseProvider());
+      final hasData = await db.catalogDao.hasExistingData();
       if (!forceRefresh && hasData) {
-        await _db.checkDatabaseIntegrity();
+        await db.checkDatabaseIntegrity();
         LoggerService.info('[DataInit] Database ready with existing data.');
         _emit(InitializationStep.ready, Strings.initializationReady);
         return;
@@ -72,13 +76,10 @@ class DataInitializationService {
         ifRight: (bytes) => bytes,
       );
 
-      // 4. Decompress and replace database file
-      await _decompressAndReplace(compressedBytes);
+      // 4. Effectuer la mise à jour avec cycle de vie sécurisé
+      await _performUpdate(compressedBytes);
 
-      // 5. Verify integrity
-      await _db.checkDatabaseIntegrity();
-
-      // 6. Save version tag
+      // 5. Save version tag
       await _prefs.setDbVersionTag(dataVersion);
 
       LoggerService.info('[DataInit] Initialization complete.');
@@ -94,35 +95,38 @@ class DataInitializationService {
     }
   }
 
+  Future<void> _performUpdate(List<int> compressedBytes) async {
+    // 1. Préparer le remplacement
+    final dir = await getApplicationDocumentsDirectory();
+    final dbPath = p.join(dir.path, DatabaseConfig.dbFilename);
+
+    // 2. Invalider le provider (ferme la connexion SQL)
+    _ref.invalidate(databaseProvider);
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+
+    // 3. Décompresser et écrire le fichier
+    final decompressed = GZipCodec().decode(compressedBytes);
+    final dbFile = File(dbPath);
+    if (await dbFile.exists()) await dbFile.delete();
+    await dbFile.writeAsBytes(decompressed, flush: true);
+
+    // 4. Nettoyer WAL/SHM
+    await _cleanupWalFiles(dbPath);
+
+    // 5. Rouvrir la DB (nouvelle instance)
+    final newDb = _ref.read(databaseProvider());
+    await newDb.checkDatabaseIntegrity();
+  }
+
   Future<String?> _resolveDownloadUrl() async {
     // Build URL to the asset in latest GitHub release
-    const baseUrl =
-        'https://github.com/${DatabaseConfig.repoOwner}/'
+    const baseUrl = 'https://github.com/${DatabaseConfig.repoOwner}/'
         '${DatabaseConfig.repoName}/releases/latest/download/'
         '${DatabaseConfig.compressedDbFilename}';
     return baseUrl;
   }
 
-  Future<void> _decompressAndReplace(List<int> compressedBytes) async {
-    final dir = await getApplicationDocumentsDirectory();
-    final dbPath = p.join(dir.path, DatabaseConfig.dbFilename);
-
-    // Decompress using GZip
-    final decompressed = GZipCodec().decode(compressedBytes);
-
-    // Close existing connection before replacing file
-    await _db.close();
-
-    // Clean WAL/SHM files
-    await _cleanupWalFiles(dbPath);
-
-    // Write new database file
-    final dbFile = File(dbPath);
-    if (await dbFile.exists()) await dbFile.delete();
-    await dbFile.writeAsBytes(decompressed, flush: true);
-
-    LoggerService.info('[DataInit] Database file replaced.');
-  }
+  // _decompressAndReplace supprimé (remplacé par _performUpdate)
 
   Future<void> _cleanupWalFiles(String dbPath) async {
     for (final suffix in ['-wal', '-shm']) {
@@ -218,10 +222,10 @@ class DataInitializationService {
       );
 
       // Decompress and replace database file
-      await _decompressAndReplace(compressedBytes);
+      await _performUpdate(compressedBytes);
 
       // Verify integrity
-      await _db.checkDatabaseIntegrity();
+      // plus d'appel à _db ici, tout passe par _ref.read(databaseProvider)
 
       // Save the new version tag
       await _prefs.setDbVersionTag(latestTag);

@@ -5,7 +5,7 @@ import 'package:pharma_scan/core/database/daos/restock_dao.dart';
 import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/domain/types/ids.dart';
 
-import '../../helpers/db_loader.dart';
+import '../../helpers/golden_db_helper.dart';
 
 void main() {
   group('Database constraints', () {

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:pharma_scan/core/hooks/use_app_header.dart';
 import 'package:pharma_scan/core/providers/navigation_provider.dart';
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
@@ -24,6 +25,7 @@ class DatabaseSearchView extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    useAutomaticKeepAlive();
     final itemScrollController = useMemoized(
       ItemScrollController.new,
       const [],
@@ -40,23 +42,26 @@ class DatabaseSearchView extends HookConsumerWidget {
     final listBottomPadding =
         AppDimens.searchBarHeaderHeight + bottomSpace + AppDimens.spacingSm;
 
-    useEffect(() {
-      final cancel = ref.listenManual<TabReselectionSignal>(
-        tabReselectionProvider,
-        (previous, next) {
-          if (next.tabIndex == 1 && itemScrollController.isAttached) {
-            unawaited(
-              itemScrollController.scrollTo(
-                index: 0,
-                duration: const Duration(milliseconds: 250),
-                curve: Curves.easeOut,
-              ),
-            );
-          }
-        },
-      );
-      return cancel.close;
-    }, [itemScrollController],);
+    useEffect(
+      () {
+        final cancel = ref.listenManual<TabReselectionSignal>(
+          tabReselectionProvider,
+          (previous, next) {
+            if (next.tabIndex == 1 && itemScrollController.isAttached) {
+              unawaited(
+                itemScrollController.scrollTo(
+                  index: 0,
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeOut,
+                ),
+              );
+            }
+          },
+        );
+        return cancel.close;
+      },
+      [itemScrollController],
+    );
 
     final groups = ref.watch(genericGroupsProvider);
     final currentQuery = debouncedQuery.value;
@@ -67,104 +72,73 @@ class DatabaseSearchView extends HookConsumerWidget {
 
     final groupedContent = ref.watch(groupedExplorerContentProvider);
     final isIndexing = groupedContent.isLoading || groupedContent.isRefreshing;
-    final groupedData = groupedContent.when(
-      skipLoadingOnReload: true,
-      data: (value) => value,
-      loading: () => (
-        groupedItems: <GenericGroupEntity>[],
-        letterIndex: <String, int>{},
-      ),
-      error: (error, stackTrace) => (
-        groupedItems: <GenericGroupEntity>[],
-        letterIndex: <String, int>{},
-      ),
-    );
+    final groupedData = switch (groupedContent) {
+      AsyncData(:final value) => value,
+      _ => (groupedItems: <GenericGroupEntity>[], letterIndex: <String, int>{}),
+    };
 
     final initStep = initStepAsync.value;
     if (initStep != null &&
         initStep != InitializationStep.ready &&
         initStep != InitializationStep.error) {
-      return const Scaffold(
-        body: Center(
-          child: StatusView(
-            type: StatusType.loading,
-            icon: LucideIcons.loader,
-            title: Strings.initializationInProgress,
-            description: Strings.initializationDescription,
-          ),
+      return const Center(
+        child: StatusView(
+          type: StatusType.loading,
+          icon: LucideIcons.loader,
+          title: Strings.initializationInProgress,
+          description: Strings.initializationDescription,
         ),
       );
     }
 
-    return _KeepAliveWrapper(
-      child: Scaffold(
-        resizeToAvoidBottomInset: true,
-        backgroundColor: context.background,
-        appBar: AppBar(
-          title: Text(
-            Strings.explorer,
-            style: context.shadTextTheme.h4,
-          ),
-          elevation: 0,
-          backgroundColor: context.background,
-          foregroundColor: context.shadColors.foreground,
-        ),
-        body: Column(
-          children: [
-            if (isIndexing)
-              PreferredSize(
-                preferredSize: const Size.fromHeight(2),
-                child: LinearProgressIndicator(
-                  value: 1,
-                  minHeight: 2,
-                  backgroundColor: context.shadColors.border,
-                  color: context.shadColors.primary,
-                ),
-              ),
-            Expanded(
-              child: ExplorerContentList(
-                groups: groups,
-                groupedItems: groupedData.groupedItems,
-                searchResults: searchResults,
-                hasSearchText: hasSearchText,
-                isSearching: isSearching,
-                currentQuery: currentQuery,
-                bottomPadding: listBottomPadding,
-                itemScrollController: itemScrollController,
-                itemPositionsListener: itemPositionsListener,
-              ),
-            ),
-            SafeArea(
-              top: false,
-              child: Padding(
-                padding: EdgeInsets.only(
-                  left: AppDimens.spacingMd,
-                  right: AppDimens.spacingMd,
-                  bottom: viewInsetsBottom > 0
-                      ? viewInsetsBottom
-                      : AppDimens.spacingSm,
-                ),
-                child: ExplorerSearchBar(
-                  key: const ValueKey('searchBar'),
-                  onSearchChanged: (query) => debouncedQuery.value = query,
-                ),
-              ),
-            ),
-          ],
-        ),
+    useAppHeader(
+      title: Text(
+        Strings.explorer,
+        style: context.shadTextTheme.h4,
       ),
     );
-  }
-}
 
-class _KeepAliveWrapper extends HookWidget {
-  const _KeepAliveWrapper({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    useAutomaticKeepAlive();
-    return child;
+    return Column(
+      children: [
+        if (isIndexing)
+          PreferredSize(
+            preferredSize: const Size.fromHeight(2),
+            child: LinearProgressIndicator(
+              value: 1,
+              minHeight: 2,
+              backgroundColor: context.shadColors.border,
+              color: context.shadColors.primary,
+            ),
+          ),
+        Expanded(
+          child: ExplorerContentList(
+            groups: groups,
+            groupedItems: groupedData.groupedItems,
+            searchResults: searchResults,
+            hasSearchText: hasSearchText,
+            isSearching: isSearching,
+            currentQuery: currentQuery,
+            bottomPadding: listBottomPadding,
+            itemScrollController: itemScrollController,
+            itemPositionsListener: itemPositionsListener,
+          ),
+        ),
+        SafeArea(
+          top: false,
+          child: Padding(
+            padding: EdgeInsets.only(
+              left: AppDimens.spacingMd,
+              right: AppDimens.spacingMd,
+              bottom:
+                  viewInsetsBottom > 0 ? viewInsetsBottom : AppDimens.spacingSm,
+            ),
+            child: ExplorerSearchBar(
+              key: const ValueKey('searchBar'),
+              onSearchChanged: (query) => debouncedQuery.value = query,
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }

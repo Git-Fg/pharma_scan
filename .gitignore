@@ -88,3 +88,4 @@ test/assets/golden.db
 # AO
 .claude
 .cursor
+CLAUDE.md

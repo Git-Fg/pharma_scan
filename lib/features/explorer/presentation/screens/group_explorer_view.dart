@@ -6,12 +6,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:gap/gap.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:pharma_scan/core/hooks/use_app_header.dart';
 import 'package:pharma_scan/core/providers/navigation_provider.dart';
 import 'package:pharma_scan/core/router/app_router.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
-import 'package:pharma_scan/core/widgets/scroll_to_top_fab.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/status_view.dart';
 import 'package:pharma_scan/features/explorer/domain/entities/group_detail_entity.dart';
 import 'package:pharma_scan/features/explorer/domain/extensions/view_group_detail_extensions.dart';
@@ -36,182 +36,151 @@ class GroupExplorerView extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final scrollController = useScrollController();
 
-    useEffect(() {
-      final notifier = ref.read(canSwipeRootProvider.notifier);
-      unawaited(Future.microtask(() => notifier.canSwipe = false));
-      return () {
-        if (context.mounted) {
-          notifier.canSwipe = true;
-        }
-      };
-    }, [groupId],);
+    useEffect(
+      () {
+        final notifier = ref.read(canSwipeRootProvider.notifier);
+        unawaited(Future.microtask(() => notifier.canSwipe = false));
+        return () {
+          if (context.mounted) {
+            notifier.canSwipe = true;
+          }
+        };
+      },
+      [groupId],
+    );
 
     final stateAsync = ref.watch(groupExplorerProvider(groupId));
 
     return stateAsync.when(
       data: (GroupExplorerState state) {
-        if (state.princeps.isEmpty && state.generics.isEmpty) {
-          return Scaffold(
-            appBar: AppBar(
-              title: const Text(Strings.loadDetailsError),
-              leading: ShadIconButton.ghost(
-                icon: const Icon(LucideIcons.arrowLeft),
-                onPressed: () => AutoRouter.of(context).maybePop(),
-              ),
-            ),
-            body: StatusView(
-              type: StatusType.error,
-              title: Strings.loadDetailsError,
-              description: Strings.errorLoadingGroups,
-              action: Semantics(
-                button: true,
-                label: Strings.backButtonLabel,
-                hint: Strings.backButtonHint,
-                child: ShadButton.outline(
-                  onPressed: () => AutoRouter.of(context).maybePop(),
-                  child: const Text(Strings.back),
-                ),
-              ),
-            ),
-          );
-        }
-
         final shouldShowRelatedSection = state.related.isNotEmpty;
-
-        // Detect if we're in Scanner context
-        final isInScannerContext = _isInScannerContext(context);
         final heroMember =
             state.princeps.firstOrNull ?? state.generics.firstOrNull;
         final genericsForList = heroMember != null && !heroMember.isPrinceps
             ? state.generics.skip(1).toList()
             : state.generics;
 
-        return Scaffold(
-          appBar: AppBar(
-            title: Hero(
-              tag: 'group-$groupId',
-              child: Material(
-                type: MaterialType.transparency,
-                child: Text(
-                  state.title,
-                  style: context.shadTextTheme.h4,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+        useAppHeader(
+          title: Hero(
+            tag: 'group-$groupId',
+            child: Material(
+              type: MaterialType.transparency,
+              child: Text(
+                state.title,
+                style: context.shadTextTheme.h4,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ),
+          showBackButton: true,
+        );
+
+        if (state.princeps.isEmpty && state.generics.isEmpty) {
+          return Column(
+            children: [
+              Expanded(
+                child: StatusView(
+                  type: StatusType.error,
+                  title: Strings.loadDetailsError,
+                  description: Strings.errorLoadingGroups,
+                  action: Semantics(
+                    button: true,
+                    label: Strings.backButtonLabel,
+                    hint: Strings.backButtonHint,
+                    child: ShadButton.outline(
+                      onPressed: () => AutoRouter.of(context).maybePop(),
+                      child: const Text(Strings.back),
+                    ),
+                  ),
                 ),
               ),
-            ),
-            leading: ShadIconButton.ghost(
-              icon: const Icon(LucideIcons.arrowLeft),
-              onPressed: () => AutoRouter.of(context).maybePop(),
-            ),
-            actions: isInScannerContext
-                ? [
-                    Tooltip(
-                      message: Strings.viewInExplorer,
-                      child: ShadIconButton.ghost(
-                        icon: const Icon(LucideIcons.database),
-                        onPressed: () => _navigateToExplorer(context, groupId),
-                      ),
-                    ),
-                  ]
-                : null,
-          ),
-          body: Stack(
-            children: [
-              CustomScrollView(
-                controller: scrollController,
-                slivers: [
-                  SliverToBoxAdapter(
-                    child: GroupHeader(state: state),
-                  ),
-                  if (heroMember != null)
-                    SliverMainAxisGroup(
-                      slivers: [
-                        SliverToBoxAdapter(
-                          child: _buildSectionHeader(
-                            context: context,
-                            title: Strings.princeps,
-                            badgeCount: state.princeps.length,
-                            icon: LucideIcons.shieldCheck,
-                          ),
-                        ),
-                        SliverPadding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppDimens.spacingMd,
-                          ),
-                          sliver: SliverToBoxAdapter(
-                            child: PrincepsHeroCard(
-                              princeps: heroMember,
-                              isFallbackGeneric: !heroMember.isPrinceps,
-                              onViewDetails: () => _openDetailSheet(
-                                context,
-                                heroMember,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  if (genericsForList.isNotEmpty)
-                    SliverToBoxAdapter(
-                      child: GenericsSection(
-                        generics: genericsForList,
-                        onViewDetail: (generic) =>
-                            _openDetailSheet(context, generic),
-                      ),
-                    ),
-                  if (shouldShowRelatedSection)
-                    _buildRelatedSectionSliver(
-                      context,
-                      state.related,
-                      isLoading: false,
-                    ),
-                  const SliverGap(AppDimens.spacingXl),
-                ],
-              ),
-              Positioned(
-                right: AppDimens.spacingMd,
-                bottom:
-                    AppDimens.spacingMd + MediaQuery.paddingOf(context).bottom,
-                child: ScrollToTopFab(controller: scrollController),
-              ),
             ],
+          );
+        }
+
+        return CustomScrollView(
+          controller: scrollController,
+          slivers: [
+            SliverToBoxAdapter(
+              child: GroupHeader(
+                state: state,
+              ),
+            ),
+            if (state.princeps.isNotEmpty)
+              SliverToBoxAdapter(
+                child: PrincepsHeroCard(
+                  princeps: state.princeps.first,
+                  onViewDetails: () =>
+                      _openDetailSheet(context, state.princeps.first),
+                ),
+              ),
+            SliverToBoxAdapter(
+              child: GenericsSection(
+                generics: genericsForList,
+                onViewDetail: (member) => _openDetailSheet(context, member),
+              ),
+            ),
+            if (shouldShowRelatedSection)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppDimens.spacingMd,
+                    vertical: AppDimens.spacingMd,
+                  ),
+                  child: Text(
+                    Strings.relatedGroups,
+                    style: context.shadTextTheme.h4,
+                  ),
+                ),
+              ),
+            if (shouldShowRelatedSection)
+              ...state.related.map(
+                (related) => SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppDimens.spacingMd,
+                      vertical: AppDimens.spacingXs,
+                    ),
+                    child: MedicationDetailSheet(
+                      item: related,
+                    ),
+                  ),
+                ),
+              ),
+            const SliverToBoxAdapter(child: Gap(AppDimens.spacingLg)),
+          ],
+        );
+      },
+      loading: () {
+        useAppHeader(
+          title: const Text(Strings.loading),
+          showBackButton: true,
+        );
+        return const Center(child: StatusView(type: StatusType.loading));
+      },
+      error: (error, stackTrace) {
+        useAppHeader(
+          title: const Text(Strings.loadDetailsError),
+          showBackButton: true,
+        );
+        return Center(
+          child: StatusView(
+            type: StatusType.error,
+            title: Strings.loadDetailsError,
+            description: error.toString(),
+            action: Semantics(
+              button: true,
+              label: Strings.retryButtonLabel,
+              hint: Strings.retryButtonHint,
+              child: ShadButton(
+                onPressed: () => ref.invalidate(groupExplorerProvider(groupId)),
+                child: const Text(Strings.retry),
+              ),
+            ),
           ),
         );
       },
-      loading: () => Scaffold(
-        appBar: AppBar(
-          title: const Text(Strings.loading),
-          leading: ShadIconButton.ghost(
-            icon: const Icon(LucideIcons.arrowLeft),
-            onPressed: () => AutoRouter.of(context).maybePop(),
-          ),
-        ),
-        body: const StatusView(type: StatusType.loading),
-      ),
-      error: (error, stackTrace) => Scaffold(
-        appBar: AppBar(
-          title: const Text(Strings.loadDetailsError),
-          leading: ShadIconButton.ghost(
-            icon: const Icon(LucideIcons.arrowLeft),
-            onPressed: () => AutoRouter.of(context).maybePop(),
-          ),
-        ),
-        body: StatusView(
-          type: StatusType.error,
-          title: Strings.loadDetailsError,
-          description: error.toString(),
-          action: Semantics(
-            button: true,
-            label: Strings.retryButtonLabel,
-            hint: Strings.retryButtonHint,
-            child: ShadButton(
-              onPressed: () => ref.invalidate(groupExplorerProvider(groupId)),
-              child: const Text(Strings.retry),
-            ),
-          ),
-        ),
-      ),
     );
   }
 
@@ -270,26 +239,29 @@ class GroupExplorerView extends HookConsumerWidget {
         SliverPadding(
           padding: const EdgeInsets.symmetric(horizontal: AppDimens.spacingMd),
           sliver: SliverList(
-            delegate: SliverChildBuilderDelegate((context, index) {
-              final therapy = relatedMembers[index];
-              return Padding(
-                padding: const EdgeInsets.symmetric(
-                  vertical: AppDimens.spacing2xs,
-                ),
-                child: Semantics(
-                  button: true,
-                  label: Strings.associatedTherapySemantics(
-                    therapy.displayName,
+            delegate: SliverChildBuilderDelegate(
+              (context, index) {
+                final therapy = relatedMembers[index];
+                return Padding(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: AppDimens.spacing2xs,
                   ),
-                  child: _buildMemberTile(
-                    context,
-                    therapy,
-                    showNavigationIndicator: true,
-                    navigationGroupId: therapy.groupId,
+                  child: Semantics(
+                    button: true,
+                    label: Strings.associatedTherapySemantics(
+                      therapy.displayName,
+                    ),
+                    child: _buildMemberTile(
+                      context,
+                      therapy,
+                      showNavigationIndicator: true,
+                      navigationGroupId: therapy.groupId,
+                    ),
                   ),
-                ),
-              );
-            }, childCount: relatedMembers.length,),
+                );
+              },
+              childCount: relatedMembers.length,
+            ),
           ),
         ),
       ],
@@ -306,17 +278,12 @@ class GroupExplorerView extends HookConsumerWidget {
       item: member,
       onTap: showNavigationIndicator && navigationGroupId != null
           ? () => AutoRouter.of(context).push(
-              GroupExplorerRoute(groupId: navigationGroupId),
-            )
+                GroupExplorerRoute(groupId: navigationGroupId),
+              )
           : null,
       showNavigationIndicator:
           showNavigationIndicator && navigationGroupId != null,
     );
-  }
-
-  bool _isInScannerContext(BuildContext context) {
-    final parentRoute = AutoRouter.of(context).parent();
-    return parentRoute?.routeData.name == 'ScannerTabRoute';
   }
 
   void _navigateToExplorer(BuildContext context, String groupId) {

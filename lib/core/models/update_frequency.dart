@@ -1,3 +1,8 @@
+import 'package:dart_mappable/dart_mappable.dart';
+
+part 'update_frequency.mapper.dart';
+
+@MappableEnum(mode: ValuesMode.named)
 enum UpdateFrequency {
   none(Duration.zero),
   daily(Duration(days: 1)),
@@ -7,14 +12,4 @@ enum UpdateFrequency {
   const UpdateFrequency(this.interval);
 
   final Duration interval;
-
-  String get storageValue => name;
-
-  static UpdateFrequency fromStorage(String? raw) {
-    if (raw == null || raw.isEmpty) return UpdateFrequency.daily;
-    return UpdateFrequency.values.firstWhere(
-      (value) => value.storageValue == raw,
-      orElse: () => UpdateFrequency.daily,
-    );
-  }
 }

@@ -8,6 +8,17 @@ For domain-specific business logic, see `docs/DOMAIN_LOGIC.md`. For maintenance 
 
 ---
 
+# 2025 Audit Update (December)
+
+- **Navigation:** `PopScope` for back-to-tab-0 removed from `MainScreen`. AutoRoute now manages back stack natively; use `context.router.popForced()` only if strict interception is needed. See section 'Navigation (AutoRoute v11)'.
+- **Error Handling:** All Notifier mutations (writes) now use a private `_perform` helper that sets `state = AsyncError` on failure, ensuring robust UI feedback and preventing uncaught DB errors. See section 'Error Handling (Riverpod AsyncValue)'.
+- **UI Components:** The main Scan/Stop button is now a dedicated `ScannerActionButton` widget, reducing build complexity and isolating animation/gradient logic.
+- **Drift Optimization (2025):** SQL-first mapping using `**` syntax in queries.drift for automatic Drift mapping. Removed repetitive manual extensions in CatalogDao, reducing boilerplate code by over 50 lines.
+- **Mappable Enums (2025):** Adopted `@MappableEnum` for `UpdateFrequency` and `SortingPreference` enums, eliminating manual mapping code and using native enum properties for persistence.
+- **ScanResult Simplification:** Removed `@MappableClass` annotation to avoid Extension Type serialization issues and implemented manual equality comparison.
+
+---
+
 ## High-Level Overview
 
 This application follows an **offline-first architecture** using:
@@ -86,8 +97,18 @@ The architecture prioritizes **simplicity**, **robustness**, and **performance**
 
 **Scaffold Strategy:**
 
-- **MainScreen:** Acts strictly as a routing shell. It provides the `AutoTabsRouter` and `ShadcnBottomNav`. It **must not** define an `appBar` to avoid duplication.
-- **Feature Screens:** Every top-level tab screen (e.g., `RestockScreen`, `DatabaseSearchView`) is responsible for its own `Scaffold`. This allows unique titles, actions, and floating action buttons per feature.
+
+**Hoisted Header Pattern (2025):**
+
+- **MainScreen:** Now owns the single global `Scaffold` and `AppBar` (header) for the app. The AppBar is always present (except for immersive screens like Scanner) and is configured by child screens via a Riverpod provider and the `useAppHeader` hook.
+- **Feature Screens:** No longer own a `Scaffold` or `AppBar`. Instead, each screen calls `useAppHeader(...)` at the top of its build method to emit its desired header config (title, actions, back button, visibility). The root widget is typically a `Column` or `CustomScrollView`.
+- **Benefits:**
+  - Eliminates header flicker and z-index issues during tab switches.
+  - Ensures a single source of truth for header styling and logic.
+  - Allows immersive/edge-case screens (e.g., Scanner) to hide the header by setting `isVisible: false`.
+- **Implementation:**
+  - See `lib/core/utils/app_bar_config.dart`, `lib/core/providers/app_bar_provider.dart`, and `lib/core/hooks/use_app_header.dart` for the pattern.
+  - All navigation and back button logic is handled in the shell, not in feature screens.
 
 Technical guardrails for UI components are defined in `.cursor/rules/`.
 
@@ -95,10 +116,10 @@ Technical guardrails for UI components are defined in `.cursor/rules/`.
 
 L'application utilise une variation personnalisée du système **Shadcn Green** pour s'aligner avec l'esthétique pharmaceutique tout en restant moderne et sobre.
 
-| Mode | Couleur Primaire | Hex | Rationale |
-| :--- | :--- | :--- | :--- |
-| **Light** | **Teal 700** | `#0F766E` | Évoque la croix de pharmacie et le sérieux médical sans être agressif. |
-| **Dark** | **Teal 500** | `#14B8A6` | Version éclaircie pour garantir un contraste suffisant (AA/AAA) sur fond `zinc`. |
+| Mode      | Couleur Primaire | Hex       | Rationale                                                                        |
+| :-------- | :--------------- | :-------- | :------------------------------------------------------------------------------- |
+| **Light** | **Teal 700**     | `#0F766E` | Évoque la croix de pharmacie et le sérieux médical sans être agressif.           |
+| **Dark**  | **Teal 500**     | `#14B8A6` | Version éclaircie pour garantir un contraste suffisant (AA/AAA) sur fond `zinc`. |
 
 **Principes :**
 
@@ -351,7 +372,7 @@ For simple widget callbacks, `context.router` remains acceptable and convenient.
 - **Custom Cases:** Use `AutoTabsRouter` with builder pattern when you need:
   - Custom body structure (e.g., activity banner above tab content)
   - Conditional bottom navigation (e.g., hide when keyboard is open)
-  - Custom AppBar with actions
+  - Hoisted AppBar with actions (see Hoisted Header Pattern)
   - PopScope logic for back button handling
 
 **Pattern Example:**

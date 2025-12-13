@@ -1,21 +1,21 @@
 class AppDimens {
   AppDimens._();
 
-  static const double spacing2xs = 4;
-  static const double spacingXs = 8;
-  static const double spacingSm = 12;
-  static const double spacingMd = 16;
-  static const double spacingLg = 20;
-  static const double spacingXl = 24;
-  static const double spacing2xl = 32;
-  static const double spacing3xl = 48;
+  // Spacing constants
+  static const double spacing2xs = 2.0;
+  static const double spacingXs = 4.0;
+  static const double spacingSm = 8.0;
+  static const double spacingMd = 16.0;
+  static const double spacingLg = 24.0;
+  static const double spacingXl = 32.0;
+  static const double spacing2xl = 48.0;
 
-  static const double iconXs = 14;
-  static const double iconSm = 16;
-  static const double iconMd = 20;
-  static const double iconLg = 24;
-  static const double iconXl = 32;
-  static const double icon2xl = 48;
+  // Icon sizes
+  static const double iconXs = 12.0;
+  static const double iconSm = 16.0;
+  static const double iconMd = 20.0;
+  static const double iconLg = 24.0;
+  static const double iconXl = 32.0;
 
   /// Minimum height for tappable list tiles to keep touch targets accessible
   /// Dense lists aim for 48–56px; use 56 for comfort.

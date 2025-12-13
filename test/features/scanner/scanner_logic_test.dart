@@ -9,7 +9,7 @@ import 'package:pharma_scan/core/providers/preferences_provider.dart';
 import 'package:pharma_scan/features/scanner/presentation/providers/scanner_provider.dart';
 
 import '../../fixtures/seed_builder.dart';
-import '../../helpers/db_loader.dart';
+import '../../helpers/golden_db_helper.dart';
 import '../../test_utils.dart' show generateGs1String, generateSimpleGs1String;
 
 class MockBarcode extends Mock implements Barcode {
@@ -72,7 +72,7 @@ void main() {
 
       container = ProviderContainer(
         overrides: [
-          databaseProvider.overrideWithValue(database),
+          databaseProvider().overrideWithValue(database),
           catalogDaoProvider.overrideWithValue(database.catalogDao),
           hapticSettingsProvider.overrideWith(
             (ref) => true,

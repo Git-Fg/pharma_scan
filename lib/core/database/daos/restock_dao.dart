@@ -1,6 +1,8 @@
 import 'package:drift/drift.dart';
 import 'package:pharma_scan/core/database/daos/restock_dao.drift.dart';
 import 'package:pharma_scan/core/database/database.dart';
+import 'package:pharma_scan/core/database/dbschema.drift.dart';
+import 'package:pharma_scan/core/database/restock_views.drift.dart';
 import 'package:pharma_scan/core/domain/types/ids.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/features/history/domain/entities/scan_history_entry.dart';
@@ -44,31 +46,26 @@ class RestockDao extends DatabaseAccessor<AppDatabase> with $RestockDaoMixin {
     String? representativeCip,
     int increment = 1,
   }) async {
-    // Use SQLite native UPSERT (ON CONFLICT) to insert or update in one statement
-    await customUpdate(
-      '''
-      INSERT INTO restock_items (
-        cip_code, cis_code, nom_canonique, is_princeps, princeps_de_reference,
-        forme_pharmaceutique, voies_administration, formatted_dosage,
-        representative_cip, stock_count, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
-      ON CONFLICT(cip_code) DO UPDATE SET
-        stock_count = restock_items.stock_count + excluded.stock_count,
-        updated_at = datetime('now')
-      ''',
-      variables: [
-        Variable<String>(cipCode),
-        Variable<String>(cisCode),
-        Variable<String>(nomCanonique),
-        Variable<int>(isPrinceps ? 1 : 0),
-        Variable<String>(princepsDeReference ?? ''),
-        Variable<String>(formePharmaceutique ?? ''),
-        Variable<String>(voiesAdministration ?? ''),
-        Variable<String>(formattedDosage ?? ''),
-        Variable<String>(representativeCip ?? ''),
-        Variable<int>(increment),
-      ],
-      updates: {},
+    // Use Drift's type-safe DSL with onConflict for upsert
+    await into(attachedDatabase.restockItems).insert(
+      RestockItemsCompanion(
+        cipCode: Value(cipCode),
+        cisCode: Value(cisCode),
+        nomCanonique: Value(nomCanonique),
+        isPrinceps: Value(isPrinceps ? 1 : 0),
+        princepsDeReference: Value(princepsDeReference),
+        formePharmaceutique: Value(formePharmaceutique),
+        voiesAdministration: Value(voiesAdministration),
+        formattedDosage: Value(formattedDosage),
+        representativeCip: Value(representativeCip),
+        stockCount: Value(increment),
+        createdAt: Value(DateTime.now().toIso8601String()),
+        updatedAt: Value(DateTime.now().toIso8601String()),
+      ),
+      onConflict: DoUpdate((old) => RestockItemsCompanion.custom(
+        stockCount: old.stockCount + Constant(increment),
+        updatedAt: Constant(DateTime.now().toIso8601String()),
+      )),
     );
   }
 
@@ -150,43 +147,32 @@ class RestockDao extends DatabaseAccessor<AppDatabase> with $RestockDaoMixin {
     final existing = await customSelect(
       'SELECT stock_count FROM restock_items WHERE cip_code = ?',
       variables: [Variable<String>(cipString)],
-      readsFrom: {},
+      readsFrom: {attachedDatabase.restockItems},
     ).getSingleOrNull();
 
     if (existing == null) return;
 
-    final currentCount = existing.readNullable<int>('stock_count') ?? 0;
+    final currentCount = existing.read<int>('stock_count');
     final newQuantity = currentCount + delta;
     final shouldDelete = allowZero ? newQuantity < 0 : newQuantity <= 0;
 
     if (shouldDelete) {
       await deleteRestockItemFully(cip);
     } else {
-      await customUpdate(
-        "UPDATE restock_items SET stock_count = ?, updated_at = datetime('now') WHERE cip_code = ?",
-        variables: [
-          Variable<int>(newQuantity),
-          Variable<String>(cipString),
-        ],
-        updates: {},
-      );
+      await (attachedDatabase.update(attachedDatabase.restockItems)..where((tbl) => tbl.cipCode.equals(cipString)))
+          .write(RestockItemsCompanion.custom(
+        stockCount: Constant(newQuantity),
+        updatedAt: Constant(DateTime.now().toIso8601String()),
+      ));
     }
   }
 
   /// Supprime complètement un item du réapprovisionnement.
   Future<void> deleteRestockItemFully(Cip13 cip) async {
     final cipString = cip.toString();
-    await customUpdate(
-      'DELETE FROM restock_items WHERE cip_code = ?',
-      variables: [Variable<String>(cipString)],
-      updates: {},
-    );
+    await (attachedDatabase.delete(attachedDatabase.restockItems)..where((tbl) => tbl.cipCode.equals(cipString))).go();
     // Supprimer aussi les scans associés
-    await customUpdate(
-      'DELETE FROM scanned_boxes WHERE cip_code = ?',
-      variables: [Variable<String>(cipString)],
-      updates: {},
-    );
+    await (attachedDatabase.delete(attachedDatabase.scannedBoxes)..where((tbl) => tbl.cipCode.equals(cipString))).go();
   }
 
   /// Toggle l'état "checked" d'un item (utilise la colonne notes pour stocker l'état)
@@ -196,35 +182,32 @@ class RestockDao extends DatabaseAccessor<AppDatabase> with $RestockDaoMixin {
     final current = await customSelect(
       'SELECT notes FROM restock_items WHERE cip_code = ?',
       variables: [Variable<String>(cipString)],
-      readsFrom: {},
+      readsFrom: {attachedDatabase.restockItems},
     ).getSingleOrNull();
 
     final isChecked = current != null &&
-        (current.readNullable<String>('notes')?.contains('"checked":true') ??
-            false);
+        (current.read<String?>('notes')?.contains('"checked":true') ?? false);
 
     await customUpdate(
-      "UPDATE restock_items SET notes = ?, updated_at = datetime('now') WHERE cip_code = ?",
+      'UPDATE restock_items SET notes = ?, updated_at = ? WHERE cip_code = ?',
       variables: [
         Variable<String>('{"checked":${!isChecked}}'),
+        Variable<String>(DateTime.now().toIso8601String()),
         Variable<String>(cipString),
       ],
-      updates: {},
+      updates: {attachedDatabase.restockItems},
     );
   }
 
   /// Supprime tous les items checked.
   Future<void> clearChecked() async {
-    await customUpdate(
-      'DELETE FROM restock_items WHERE notes LIKE \'%"checked":true%\'',
-      updates: {},
-    );
+    await (attachedDatabase.delete(attachedDatabase.restockItems)..where((tbl) => tbl.notes.like('%"checked":true%'))).go();
   }
 
   /// Supprime tous les items de réapprovisionnement.
   Future<void> clearAll() async {
-    await customUpdate('DELETE FROM restock_items', updates: {});
-    await customUpdate('DELETE FROM scanned_boxes', updates: {});
+    await (attachedDatabase.delete(attachedDatabase.restockItems)).go();
+    await (attachedDatabase.delete(attachedDatabase.scannedBoxes)).go();
   }
 
   /// Vérifie si un scan est un doublon (basé sur box_label dans le schéma SQL)
@@ -235,12 +218,12 @@ class RestockDao extends DatabaseAccessor<AppDatabase> with $RestockDaoMixin {
     final cipString = cip.toString();
     // Dans le schéma SQL, scanned_boxes utilise box_label qui peut contenir le serial
     final rows = await customSelect(
-      'SELECT 1 FROM scanned_boxes WHERE cip_code = ? AND box_label LIKE ? LIMIT 1',
+      'SELECT cip_code FROM scanned_boxes WHERE cip_code = ? AND box_label LIKE ?',
       variables: [
         Variable<String>(cipString),
         Variable<String>('%$serial%'),
       ],
-      readsFrom: {},
+      readsFrom: {attachedDatabase.scannedBoxes},
     ).get();
     return rows.isNotEmpty;
   }
@@ -260,17 +243,18 @@ class RestockDao extends DatabaseAccessor<AppDatabase> with $RestockDaoMixin {
     final existing = await customSelect(
       'SELECT cip_code FROM restock_items WHERE cip_code = ?',
       variables: [Variable<String>(cipString)],
-      readsFrom: {},
+      readsFrom: {attachedDatabase.restockItems},
     ).getSingleOrNull();
 
     if (existing != null) {
       await customUpdate(
-        "UPDATE restock_items SET stock_count = ?, updated_at = datetime('now') WHERE cip_code = ?",
+        'UPDATE restock_items SET stock_count = ?, updated_at = ? WHERE cip_code = ?',
         variables: [
           Variable<int>(newQuantity),
+          Variable<String>(DateTime.now().toIso8601String()),
           Variable<String>(cipString),
         ],
-        updates: {},
+        updates: {attachedDatabase.restockItems},
       );
     } else {
       // Créer un nouvel item si il n'existe pas
@@ -286,9 +270,9 @@ class RestockDao extends DatabaseAccessor<AppDatabase> with $RestockDaoMixin {
     final row = await customSelect(
       'SELECT stock_count FROM restock_items WHERE cip_code = ?',
       variables: [Variable<String>(cip.toString())],
-      readsFrom: {},
+      readsFrom: {attachedDatabase.restockItems},
     ).getSingleOrNull();
-    return row?.readNullable<int>('stock_count');
+    return row?.read<int>('stock_count');
   }
 
   /// Enregistre un scan dans scanned_boxes (structure du schéma SQL)
@@ -301,27 +285,23 @@ class RestockDao extends DatabaseAccessor<AppDatabase> with $RestockDaoMixin {
     try {
       // Récupérer cis_code depuis medicaments
       final medicament = await customSelect(
-        'SELECT cis_code FROM medicaments WHERE code_cip = ? LIMIT 1',
+        'SELECT cis_code FROM medicaments WHERE code_cip = ?',
         variables: [Variable<String>(cip.toString())],
-        readsFrom: {},
+        readsFrom: {attachedDatabase.medicaments},
       ).getSingleOrNull();
 
-      final cisCode = medicament?.readNullable<String>('cis_code');
+      final cisCode = medicament?.read<String>('cis_code') ?? '';
       final boxLabel = serial != null
           ? '${cip}_$serial${batchNumber != null ? '_$batchNumber' : ''}'
           : cip.toString();
 
-      await customUpdate(
-        '''
-        INSERT INTO scanned_boxes (box_label, cis_code, cip_code, scan_timestamp)
-        VALUES (?, ?, ?, datetime('now'))
-        ''',
-        variables: [
-          Variable<String>(boxLabel),
-          Variable<String>(cisCode),
-          Variable<String>(cip.toString()),
-        ],
-        updates: {},
+      await attachedDatabase.into(attachedDatabase.scannedBoxes).insert(
+        ScannedBoxesCompanion(
+          boxLabel: Value(boxLabel),
+          cisCode: Value(cisCode),
+          cipCode: Value(cip.toString()),
+          scanTimestamp: Value(DateTime.now().toIso8601String()),
+        ),
       );
       return ScanOutcome.added;
     } catch (e) {
@@ -332,52 +312,31 @@ class RestockDao extends DatabaseAccessor<AppDatabase> with $RestockDaoMixin {
     }
   }
 
-  /// Stream des items de réapprovisionnement avec jointures vers medicament_summary
+  /// Stream des items de réapprovisionnement via la vue view_restock_items
   Stream<List<RestockItemEntity>> watchRestockItems() {
-    return customSelect(
-      '''
-      SELECT 
-        ri.cip_code,
-        ri.stock_count,
-        ri.notes,
-        ms.nom_canonique,
-        ms.princeps_de_reference,
-        ms.is_princeps,
-        ms.forme_pharmaceutique,
-        s.forme_pharmaceutique AS specialite_forme
-      FROM restock_items ri
-      LEFT JOIN medicaments m ON m.code_cip = ri.cip_code
-      LEFT JOIN medicament_summary ms ON ms.cis_code = m.cis_code
-      LEFT JOIN specialites s ON s.cis_code = m.cis_code
-      ORDER BY ri.updated_at DESC
-      ''',
-      readsFrom: {},
-    ).watch().map((rows) {
-      return rows.map((row) {
-        final cip = Cip13.validated(
-          row.readNullable<String>('cip_code') ?? '',
-        );
-        final label =
-            row.readNullable<String>('nom_canonique') ?? Strings.unknown;
-        final princepsLabel = row.readNullable<String>('princeps_de_reference');
-        final isPrinceps = (row.readNullable<int>('is_princeps') ?? 0) == 1;
-        final form = row.readNullable<String>('forme_pharmaceutique') ??
-            row.readNullable<String>('specialite_forme');
-        final quantity = row.readNullable<int>('stock_count') ?? 1;
-        final notes = row.readNullable<String>('notes') ?? '';
-        final isChecked = notes.contains('"checked":true');
+    return attachedDatabase.select(attachedDatabase.viewRestockItems).watch()
+        .map((rows) => rows.map((row) => _mapRowToRestockItem(row)).toList());
+  }
 
-        return RestockItemEntity(
-          cip: cip,
-          label: label,
-          princepsLabel: princepsLabel,
-          quantity: quantity,
-          isChecked: isChecked,
-          isPrinceps: isPrinceps,
-          form: form,
-        );
-      }).toList();
-    });
+  /// Helper method to map ViewRestockItem to RestockItemEntity
+  RestockItemEntity _mapRowToRestockItem(ViewRestockItem row) {
+    final cip = Cip13.validated(row.cipCode ?? '');
+    final label = row.nomCanonique ?? Strings.unknown;
+    final quantity = int.tryParse(row.stockCount?.toString() ?? '0') ?? 0;
+    final isChecked = row.notes?.contains('"checked":true') ?? false;
+    final isPrinceps = row.isPrinceps == 1;
+    final form = row.formePharmaceutique;
+    final princepsLabel = row.princepsDeReference;
+
+    return RestockItemEntity(
+      cip: cip,
+      label: label,
+      quantity: quantity,
+      isChecked: isChecked,
+      isPrinceps: isPrinceps,
+      form: form,
+      princepsLabel: princepsLabel,
+    );
   }
 
   /// Ajoute une boîte unique avec gestion des doublons
@@ -426,14 +385,14 @@ class RestockDao extends DatabaseAccessor<AppDatabase> with $RestockDaoMixin {
 
   /// Supprime l'historique des scans.
   Future<void> clearHistory() async {
-    await customUpdate('DELETE FROM scanned_boxes', updates: {});
+    await (attachedDatabase.delete(attachedDatabase.scannedBoxes)).go();
   }
 
   /// Stream des totaux de scans par CIP
   Stream<List<({Cip13 cip, int quantity})>> watchScannedBoxTotals() {
     return customSelect(
       'SELECT cip_code AS cip, COUNT(*) AS quantity FROM scanned_boxes GROUP BY cip_code',
-      readsFrom: {},
+      readsFrom: {attachedDatabase.scannedBoxes},
     ).watch().map((rows) {
       return rows.map((row) {
         final cip = Cip13.validated(row.readNullable<String>('cip') ?? '');

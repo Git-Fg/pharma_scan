@@ -29,7 +29,7 @@ void main() {
 
       final container = ProviderContainer(
         overrides: [
-          databaseProvider.overrideWithValue(db),
+          databaseProvider().overrideWithValue(db),
           dataInitializationServiceProvider.overrideWithValue(mockDataInit),
         ],
       );

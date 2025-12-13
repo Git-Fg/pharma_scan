@@ -131,73 +131,74 @@ class MedicamentTile extends StatelessWidget {
       }(),
     };
 
-    final breakpoint = context.breakpoint;
-    final isStackedLayout = breakpoint < context.breakpoints.sm;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isStackedLayout = constraints.maxWidth < 600;
 
     Widget? buildDetails({
-      required TextAlign align,
-      required int maxLines,
-    }) {
-      final detailValue = details;
-      if (detailValue == null) return null;
-      return Text(
-        detailValue,
-        maxLines: maxLines,
-        overflow: TextOverflow.ellipsis,
-        softWrap: true,
-        textAlign: align,
-        style: context.shadTextTheme.small.copyWith(
-          color: context.shadColors.mutedForeground,
-        ),
-      );
-    }
+          required TextAlign align,
+          required int maxLines,
+        }) {
+          final detailValue = details;
+          if (detailValue == null) return null;
+          return Text(
+            detailValue,
+            maxLines: maxLines,
+            overflow: TextOverflow.ellipsis,
+            softWrap: true,
+            textAlign: align,
+            style: context.shadTextTheme.small.copyWith(
+              color: context.shadColors.mutedForeground,
+            ),
+          );
+        }
 
-    return Semantics(
-      label: semanticLabel,
-      hint: Strings.medicationTileHint,
-      button: true,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: onTap,
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 56),
-            child: Opacity(
-              opacity: isRevoked ? 0.6 : 1,
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppDimens.spacingMd,
-                  vertical: AppDimens.spacingSm,
-                ),
-                decoration: BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(color: context.shadColors.border),
-                  ),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    ...[
-                      ExcludeSemantics(child: prefix),
-                      const Gap(AppDimens.spacingSm),
-                    ],
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Hero(
-                            tag: heroTag,
-                            flightShuttleBuilder:
-                                (
-                                  _,
-                                  animation,
-                                  direction,
-                                  fromContext,
-                                  toContext,
-                                ) {
+        return Semantics(
+          label: semanticLabel,
+          hint: Strings.medicationTileHint,
+          button: true,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onTap,
+            child: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 56),
+                child: Opacity(
+                  opacity: isRevoked ? 0.6 : 1,
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppDimens.spacingMd,
+                      vertical: AppDimens.spacingSm,
+                    ),
+                    decoration: BoxDecoration(
+                      border: Border(
+                        bottom: BorderSide(color: context.shadColors.border),
+                      ),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        ...[
+                          ExcludeSemantics(child: prefix),
+                          const Gap(AppDimens.spacingSm),
+                        ],
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Hero(
+                                tag: heroTag,
+                                flightShuttleBuilder:
+                                    (
+                                      _,
+                                      animation,
+                                      direction,
+                                      fromContext,
+                                      toContext,
+                                    ) {
                                   final target =
                                       direction == HeroFlightDirection.push
                                       ? toContext.widget
@@ -209,83 +210,85 @@ class MedicamentTile extends StatelessWidget {
                                     child: target,
                                   );
                                 },
-                            child: Material(
-                              type: MaterialType.transparency,
-                              child: Text(
-                                title,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: context.shadTextTheme.p.copyWith(
-                                  fontWeight: FontWeight.w600,
+                                child: Material(
+                                  type: MaterialType.transparency,
+                                  child: Text(
+                                    title,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: context.shadTextTheme.p.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
                                 ),
                               ),
-                            ),
+                              if (subtitle != null) ...[
+                                const Gap(4),
+                                Text(
+                                  subtitle,
+                                  maxLines: 3,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: context.shadTextTheme.small.copyWith(
+                                    color: context.shadColors.mutedForeground,
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
-                          if (subtitle != null) ...[
-                            const Gap(4),
-                            Text(
-                              subtitle,
-                              maxLines: 3,
-                              overflow: TextOverflow.ellipsis,
-                              style: context.shadTextTheme.small.copyWith(
-                                color: context.shadColors.mutedForeground,
-                              ),
+                        ),
+                        if (isStackedLayout) ...[
+                          const Gap(AppDimens.spacing2xs),
+                          if (buildDetails(
+                                align: TextAlign.start,
+                                maxLines: 2,
+                              ) !=
+                              null)
+                            Expanded(
+                              child:
+                                  buildDetails(
+                                    align: TextAlign.start,
+                                    maxLines: 2,
+                                  ) ??
+                                  const SizedBox.shrink(),
+                            ),
+                        ] else ...[
+                          if (buildDetails(
+                                align: TextAlign.end,
+                                maxLines: 1,
+                              ) !=
+                              null) ...[
+                            const Gap(AppDimens.spacingSm),
+                            Flexible(
+                              child:
+                                  buildDetails(
+                                    align: TextAlign.end,
+                                    maxLines: 1,
+                                  ) ??
+                                  const SizedBox.shrink(),
                             ),
                           ],
                         ],
-                      ),
-                    ),
-                    if (isStackedLayout) ...[
-                      const Gap(AppDimens.spacing2xs),
-                      if (buildDetails(
-                            align: TextAlign.start,
-                            maxLines: 2,
-                          ) !=
-                          null)
-                        Expanded(
-                          child:
-                              buildDetails(
-                                align: TextAlign.start,
-                                maxLines: 2,
-                              ) ??
-                              const SizedBox.shrink(),
-                        ),
-                    ] else ...[
-                      if (buildDetails(
-                            align: TextAlign.end,
-                            maxLines: 1,
-                          ) !=
-                          null) ...[
-                        const Gap(AppDimens.spacingSm),
-                        Flexible(
-                          child:
-                              buildDetails(
-                                align: TextAlign.end,
-                                maxLines: 1,
-                              ) ??
-                              const SizedBox.shrink(),
+                        if (isRevoked) ...[
+                          const Gap(AppDimens.spacingXs),
+                          Icon(
+                            LucideIcons.circle,
+                            size: 10,
+                            color: context.shadColors.destructive,
+                          ),
+                        ],
+                        const Gap(AppDimens.spacingXs),
+                        const ExcludeSemantics(
+                          child: Icon(LucideIcons.chevronRight, size: 16),
                         ),
                       ],
-                    ],
-                    if (isRevoked) ...[
-                      const Gap(AppDimens.spacingXs),
-                      Icon(
-                        LucideIcons.circle,
-                        size: 10,
-                        color: context.shadColors.destructive,
-                      ),
-                    ],
-                    const Gap(AppDimens.spacingXs),
-                    const ExcludeSemantics(
-                      child: Icon(LucideIcons.chevronRight, size: 16),
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 

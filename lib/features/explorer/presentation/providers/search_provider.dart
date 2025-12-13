@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:pharma_scan/core/domain/types/semantic_types.dart';
 import 'package:pharma_scan/core/providers/core_providers.dart';
-import 'package:pharma_scan/features/explorer/domain/extensions/view_search_result_extensions.dart';
+import 'package:pharma_scan/features/explorer/domain/entities/medicament_entity.dart';
 import 'package:pharma_scan/features/explorer/domain/models/search_filters_model.dart';
 import 'package:pharma_scan/features/explorer/domain/models/search_result_item_model.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -13,8 +13,8 @@ part 'search_provider.g.dart';
 class SearchFiltersNotifier extends _$SearchFiltersNotifier {
   @override
   SearchFilters build() => const SearchFilters(
-    voieAdministration: 'orale',
-  );
+        voieAdministration: 'orale',
+      );
 
   SearchFilters get filters => state;
 
@@ -33,12 +33,29 @@ Stream<List<SearchResultItem>> searchResults(Ref ref, String rawQuery) {
   }
   final normalizedQuery = NormalizedQuery.fromString(query);
 
-  final catalogDao = ref.watch(catalogDaoProvider);
-  return catalogDao.watchSearchResultsSql(normalizedQuery).map((rows) {
-    if (rows.isEmpty) return const <SearchResultItem>[];
-    return rows
-        .map((row) => row.toSearchResultItem())
-        .whereType<SearchResultItem>()
-        .toList();
-  });
+  return Stream.fromFuture(
+    ref
+        .read(catalogDaoProvider)
+        .searchMedicaments(
+          normalizedQuery,
+        )
+        .then((medicaments) => medicaments
+            .map((med) => med.toSearchResultItem())
+            .whereType<SearchResultItem>()
+            .toList()),
+  );
+}
+
+extension MedicamentEntityToSearchResult on MedicamentEntity {
+  SearchResultItem? toSearchResultItem() {
+    final repCip = representativeCip;
+    if (repCip == null) return null;
+
+    return StandaloneResult(
+      cisCode: cisCode,
+      summary: this,
+      representativeCip: repCip,
+      commonPrinciples: data.principesActifsCommuns ?? '',
+    );
+  }
 }

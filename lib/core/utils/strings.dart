@@ -209,6 +209,7 @@ class Strings {
   static const String princeps = 'Princeps';
   static const String generics = 'Génériques';
   static const String relatedTherapies = 'Thérapies Associées';
+  static const String relatedGroups = 'Groupes associés';
   static const String sharedActiveIngredients = 'Principe(s) actif(s) partagés';
   static const String notDetermined = 'Non déterminé';
   static const String technicalInformation = 'Informations techniques';
@@ -496,9 +497,8 @@ class Strings {
     String molecule, {
     required bool hasGenerics,
   }) {
-    final genericsText = hasGenerics
-        ? 'Génériques disponibles'
-        : 'Aucun générique';
+    final genericsText =
+        hasGenerics ? 'Génériques disponibles' : 'Aucun générique';
     return 'Princeps: $name. PA: $molecule. $genericsText';
   }
 

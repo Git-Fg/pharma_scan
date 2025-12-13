@@ -1,0 +1,16 @@
+-- View for restock items with all UI-ready fields, joining restock_items with medicament_summary and specialites
+CREATE VIEW view_restock_items AS
+SELECT
+  ri.cip_code,
+  ri.stock_count,
+  ri.notes,
+  ms.nom_canonique,
+  ms.princeps_de_reference,
+  ms.is_princeps,
+  ms.forme_pharmaceutique,
+  s.forme_pharmaceutique AS specialite_forme
+FROM restock_items ri
+LEFT JOIN medicaments m ON m.code_cip = ri.cip_code
+LEFT JOIN medicament_summary ms ON ms.cis_code = m.cis_code
+LEFT JOIN specialites s ON s.cis_code = m.cis_code
+ORDER BY ri.updated_at DESC;
