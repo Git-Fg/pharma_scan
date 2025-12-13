@@ -5,7 +5,7 @@
   "module": "src/index.ts",
   "scripts": {
     "test": "bun test",
-    "build:db": "bun run src/index.ts && sqlite3 data/reference.db \".schema\" > data/schema.sql",
+    "build:db": "bun run src/index.ts && echo \"DROP TABLE IF EXISTS app_settings; DROP TABLE IF EXISTS restock_items; DROP TABLE IF EXISTS scanned_boxes; DROP INDEX IF EXISTS idx_restock_items_cis_code; DROP INDEX IF EXISTS idx_restock_items_expiry_date; DROP INDEX IF EXISTS idx_scanned_boxes_scan_timestamp; DROP INDEX IF EXISTS idx_scanned_boxes_unique;\" | sqlite3 data/reference.db && sqlite3 data/reference.db \".schema\" > data/reference_schema.drift",
     "tool": "bun run tool/export_preview.ts && bun run tool/audit_data.ts",
     "preflight": "bun test && bun run build:db && bun run tool",
     "preflight:bp": "bun run build:db && bun run tool",

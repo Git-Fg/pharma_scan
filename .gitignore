@@ -91,3 +91,6 @@ test/assets/golden.db
 CLAUDE.md
 
 test-results.json
+
+reports
+coverage

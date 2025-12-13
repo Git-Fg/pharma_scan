@@ -1,5 +1,6 @@
 import 'database.dart';
-import 'dbschema.drift';
+import 'reference_schema.drift';
+import 'user_schema.drift';
 import 'restock_views.drift';
 
 -- View exposing UI-ready group member rows with CIP metadata

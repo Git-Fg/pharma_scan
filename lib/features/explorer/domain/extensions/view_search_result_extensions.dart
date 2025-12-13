@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:pharma_scan/core/database/dbschema.drift.dart';
+import 'package:pharma_scan/core/database/reference_schema.drift.dart';
 import 'package:pharma_scan/core/database/views.drift.dart';
 import 'package:pharma_scan/core/domain/types/ids.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
@@ -27,7 +27,8 @@ extension ViewSearchResultExtension on ViewSearchResult {
 
   ClusterResult _toClusterResult() {
     final groups = _parseGroups(groupsJson);
-    final displayName = _nonEmpty(commonPrincipes, fallback: Strings.notDetermined);
+    final displayName =
+        _nonEmpty(commonPrincipes, fallback: Strings.notDetermined);
     final sortKey = _nonEmpty(this.sortKey, fallback: Strings.notDetermined);
 
     return ClusterResult(
@@ -39,15 +40,18 @@ extension ViewSearchResultExtension on ViewSearchResult {
   }
 
   GroupResult _toGroupResult() {
-    final commonPrincipes = _nonEmpty(this.commonPrincipes, fallback: Strings.notDetermined);
-    final princepsRefName = _nonEmpty(princepsReferenceName, fallback: Strings.notDetermined);
+    final commonPrincipes =
+        _nonEmpty(this.commonPrincipes, fallback: Strings.notDetermined);
+    final princepsRefName =
+        _nonEmpty(princepsReferenceName, fallback: Strings.notDetermined);
 
     return GroupResult(
       group: GenericGroupEntity(
         groupId: GroupId(groupId!),
         commonPrincipes: commonPrincipes,
         princepsReferenceName: princepsRefName,
-        princepsCisCode: princepsCisCode != null ? CisCode(princepsCisCode!) : null,
+        princepsCisCode:
+            princepsCisCode != null ? CisCode(princepsCisCode!) : null,
       ),
     );
   }
@@ -56,9 +60,8 @@ extension ViewSearchResultExtension on ViewSearchResult {
     if (cisCode == null) return null;
 
     final principlesList = _decodePrinciples(principesActifsCommuns);
-    final commonPrinciples = principlesList
-        .where((p) => p.trim().isNotEmpty)
-        .join(', ');
+    final commonPrinciples =
+        principlesList.where((p) => p.trim().isNotEmpty).join(', ');
 
     // Create MedicamentSummaryData directly from ViewSearchResult fields
     final summary = MedicamentSummaryData(
@@ -67,9 +70,10 @@ extension ViewSearchResultExtension on ViewSearchResult {
       princepsDeReference: princepsDeReference ?? '',
       isPrinceps: isPrinceps ?? false,
       groupId: groupId,
-      principesActifsCommuns: principesActifsCommuns != null && principesActifsCommuns!.isNotEmpty
-          ? principesActifsCommuns!
-          : null,
+      principesActifsCommuns:
+          principesActifsCommuns != null && principesActifsCommuns!.isNotEmpty
+              ? principesActifsCommuns!
+              : null,
       formattedDosage: formattedDosage,
       formePharmaceutique: formePharmaceutique,
       voiesAdministration: voiesAdministration,

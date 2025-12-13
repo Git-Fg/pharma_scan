@@ -1,4 +1,4 @@
-import 'package:pharma_scan/core/database/dbschema.drift.dart';
+import 'package:pharma_scan/core/database/reference_schema.drift.dart';
 import 'package:pharma_scan/core/domain/types/ids.dart';
 
 /// Extension Type wrapping [MedicamentSummaryData] to decouple UI from database schema.

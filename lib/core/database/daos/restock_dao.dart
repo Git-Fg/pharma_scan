@@ -1,7 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:pharma_scan/core/database/daos/restock_dao.drift.dart';
 import 'package:pharma_scan/core/database/database.dart';
-import 'package:pharma_scan/core/database/dbschema.drift.dart';
+import 'package:pharma_scan/core/database/user_schema.drift.dart';
 import 'package:pharma_scan/core/database/restock_views.drift.dart';
 import 'package:pharma_scan/core/domain/types/ids.dart';
 import 'package:pharma_scan/core/utils/strings.dart';

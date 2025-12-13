@@ -1,5 +1,4 @@
 import 'package:drift/drift.dart';
-import 'package:meta/meta.dart';
 import 'package:pharma_scan/core/database/daos/database_dao.drift.dart';
 import 'package:pharma_scan/core/database/database.dart';
 

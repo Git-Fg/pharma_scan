@@ -27,6 +27,7 @@ analyzer:
     - ".dart_tool/**"
     - "test/**/*.mocks.dart"
     - "tool/**"
+    - "patrol_test/**"  # Exclude Patrol test files from analyzer
   language:
     # Relaxed for external DB-driven architecture
     # Test files work with dynamic data from backend pipeline

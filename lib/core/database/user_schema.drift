@@ -1,0 +1,38 @@
+-- User-specific tables that should be stored in user.db
+
+CREATE TABLE app_settings (
+        key TEXT PRIMARY KEY,
+        value BLOB NOT NULL
+      );
+
+CREATE TABLE restock_items (
+        cip_code TEXT PRIMARY KEY NOT NULL,
+        cis_code TEXT NOT NULL,
+        nom_canonique TEXT NOT NULL,
+        is_princeps INTEGER NOT NULL,
+        princeps_de_reference TEXT,
+        forme_pharmaceutique TEXT,
+        voies_administration TEXT,
+        formatted_dosage TEXT,
+        representative_cip TEXT,
+        expiry_date TEXT,
+        stock_count INTEGER NOT NULL DEFAULT 1,
+        location TEXT,
+        notes TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+
+CREATE TABLE scanned_boxes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        box_label TEXT NOT NULL,
+        cis_code TEXT,
+        cip_code TEXT,
+        scan_timestamp TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+
+-- Indexes for user tables
+CREATE INDEX idx_restock_items_cis_code ON restock_items(cis_code);
+CREATE INDEX idx_restock_items_expiry_date ON restock_items(expiry_date);
+CREATE INDEX idx_scanned_boxes_scan_timestamp ON scanned_boxes(scan_timestamp);
+CREATE UNIQUE INDEX idx_scanned_boxes_unique ON scanned_boxes(cip_code, box_label);

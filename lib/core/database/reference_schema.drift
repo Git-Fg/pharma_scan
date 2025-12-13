@@ -129,35 +129,6 @@ CREATE TABLE medicament_summary (
         FOREIGN KEY(titulaire_id) REFERENCES laboratories(id),
         FOREIGN KEY(cluster_id) REFERENCES cluster_names(cluster_id)
       );
-CREATE TABLE app_settings (
-        key TEXT PRIMARY KEY,
-        value BLOB NOT NULL
-      );
-CREATE TABLE restock_items (
-        cip_code TEXT PRIMARY KEY NOT NULL,
-        cis_code TEXT NOT NULL,
-        nom_canonique TEXT NOT NULL,
-        is_princeps INTEGER NOT NULL,
-        princeps_de_reference TEXT,
-        forme_pharmaceutique TEXT,
-        voies_administration TEXT,
-        formatted_dosage TEXT,
-        representative_cip TEXT,
-        expiry_date TEXT,
-        stock_count INTEGER NOT NULL DEFAULT 1,
-        location TEXT,
-        notes TEXT,
-        created_at TEXT NOT NULL DEFAULT (datetime('now')),
-        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-      );
-CREATE TABLE scanned_boxes (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        box_label TEXT NOT NULL,
-        cis_code TEXT,
-        cip_code TEXT,
-        scan_timestamp TEXT NOT NULL DEFAULT (datetime('now'))
-      );
-CREATE UNIQUE INDEX idx_scanned_boxes_unique ON scanned_boxes(cip_code, box_label);
 CREATE INDEX idx_medicaments_cis_code ON medicaments(cis_code);
 CREATE INDEX idx_principes_code_cip ON principes_actifs(code_cip);
 CREATE INDEX idx_principes_normalized_cip ON principes_actifs(principe_normalized, code_cip);
@@ -172,9 +143,39 @@ CREATE INDEX idx_medicament_summary_principes_actifs_communs ON medicament_summa
 CREATE INDEX idx_medicament_summary_cluster_id ON medicament_summary(cluster_id);
 CREATE INDEX idx_summary_cluster ON medicament_summary(cluster_id);
 CREATE INDEX idx_summary_group ON medicament_summary(group_id);
-CREATE INDEX idx_restock_items_cis_code ON restock_items(cis_code);
-CREATE INDEX idx_restock_items_expiry_date ON restock_items(expiry_date);
-CREATE INDEX idx_scanned_boxes_scan_timestamp ON scanned_boxes(scan_timestamp);
+CREATE TRIGGER update_hospital_flag_after_insert AFTER INSERT ON medicaments BEGIN
+        UPDATE medicament_summary
+        SET is_hospital = (
+          -- Condition 1: Prescription conditions contain "HOSPITALIER"
+          LOWER(medicament_summary.conditions_prescription) LIKE '%hospitalier%' OR
+          -- Condition 2: Agreement logic matching mobile app's _isHospitalOnly
+          (LOWER(m.agrement_collectivites) = 'oui' AND (m.prix_public IS NULL OR m.prix_public = 0) AND m.taux_remboursement IS NOT NULL AND m.taux_remboursement != '')
+        )
+        FROM medicaments m
+        WHERE medicament_summary.cis_code = m.cis_code;
+      END;
+CREATE TRIGGER update_hospital_flag_after_update AFTER UPDATE ON medicaments BEGIN
+        UPDATE medicament_summary
+        SET is_hospital = (
+          -- Condition 1: Prescription conditions contain "HOSPITALIER"
+          LOWER(medicament_summary.conditions_prescription) LIKE '%hospitalier%' OR
+          -- Condition 2: Agreement logic matching mobile app's _isHospitalOnly
+          (LOWER(m.agrement_collectivites) = 'oui' AND (m.prix_public IS NULL OR m.prix_public = 0) AND m.taux_remboursement IS NOT NULL AND m.taux_remboursement != '')
+        )
+        FROM medicaments m
+        WHERE medicament_summary.cis_code = m.cis_code;
+      END;
+CREATE TRIGGER update_hospital_flag_after_summary_update AFTER UPDATE ON medicament_summary WHEN NEW.conditions_prescription != OLD.conditions_prescription BEGIN
+        UPDATE medicament_summary
+        SET is_hospital = (
+          -- Condition 1: Prescription conditions contain "HOSPITALIER"
+          LOWER(NEW.conditions_prescription) LIKE '%hospitalier%' OR
+          -- Condition 2: Agreement logic matching mobile app's _isHospitalOnly
+          (LOWER(m.agrement_collectivites) = 'oui' AND (m.prix_public IS NULL OR m.prix_public = 0) AND m.taux_remboursement IS NOT NULL AND m.taux_remboursement != '')
+        )
+        FROM medicaments m
+        WHERE medicament_summary.cis_code = m.cis_code AND medicament_summary.cis_code = NEW.cis_code;
+      END;
 CREATE VIEW view_explorer_list AS
       SELECT 
         cn.cluster_id,
@@ -314,8 +315,49 @@ CREATE VIRTUAL TABLE search_index USING fts5(
         tokenize='trigram'
       )
 /* search_index(cis_code,molecule_name,brand_name) */;
-CREATE TABLE IF NOT EXISTS 'search_index_data'(id INTEGER PRIMARY KEY, block BLOB);
-CREATE TABLE IF NOT EXISTS 'search_index_idx'(segid, term, pgno, PRIMARY KEY(segid, term)) WITHOUT ROWID;
-CREATE TABLE IF NOT EXISTS 'search_index_content'(id INTEGER PRIMARY KEY, c0, c1, c2);
-CREATE TABLE IF NOT EXISTS 'search_index_docsize'(id INTEGER PRIMARY KEY, sz BLOB);
-CREATE TABLE IF NOT EXISTS 'search_index_config'(k PRIMARY KEY, v) WITHOUT ROWID;
+CREATE TRIGGER search_index_ai AFTER INSERT ON medicament_summary BEGIN
+        INSERT INTO search_index(
+          cis_code,
+          molecule_name,
+          brand_name
+        ) VALUES (
+          new.cis_code,
+          normalize_text(COALESCE(new.nom_canonique, '')),
+          normalize_text(COALESCE(new.princeps_de_reference, ''))
+        );
+      END;
+CREATE TRIGGER search_index_ad AFTER DELETE ON medicament_summary BEGIN
+        INSERT INTO search_index(
+          search_index,
+          cis_code,
+          molecule_name,
+          brand_name
+        ) VALUES (
+          'delete',
+          old.cis_code,
+          normalize_text(COALESCE(old.nom_canonique, '')),
+          normalize_text(COALESCE(old.princeps_de_reference, ''))
+        );
+      END;
+CREATE TRIGGER search_index_au AFTER UPDATE ON medicament_summary BEGIN
+        INSERT INTO search_index(
+          search_index,
+          cis_code,
+          molecule_name,
+          brand_name
+        ) VALUES (
+          'delete',
+          old.cis_code,
+          normalize_text(COALESCE(old.nom_canonique, '')),
+          normalize_text(COALESCE(old.princeps_de_reference, ''))
+        );
+        INSERT INTO search_index(
+          cis_code,
+          molecule_name,
+          brand_name
+        ) VALUES (
+          new.cis_code,
+          normalize_text(COALESCE(new.nom_canonique, '')),
+          normalize_text(COALESCE(new.princeps_de_reference, ''))
+        );
+      END;

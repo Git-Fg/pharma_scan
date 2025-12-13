@@ -11,8 +11,6 @@ import type {
   GroupMember,
   MedicamentSummary,
   Laboratory,
-  RestockItem,
-  ScannedBox,
   SafetyAlert
 } from "./types";
 
@@ -292,34 +290,6 @@ export class ReferenceDatabase {
         value BLOB NOT NULL
       );
 
-      -- Restock items table (from Flutter)
-      CREATE TABLE IF NOT EXISTS restock_items (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        cis_code TEXT NOT NULL,
-        cip_code TEXT NOT NULL,
-        nom_canonique TEXT NOT NULL,
-        is_princeps INTEGER NOT NULL,
-        princeps_de_reference TEXT,
-        forme_pharmaceutique TEXT,
-        voies_administration TEXT,
-        formatted_dosage TEXT,
-        representative_cip TEXT,
-        expiry_date TEXT,
-        stock_count INTEGER NOT NULL DEFAULT 1,
-        location TEXT,
-        notes TEXT,
-        created_at TEXT NOT NULL DEFAULT (datetime('now')),
-        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-      );
-
-      -- Scanned boxes table (from Flutter)
-      CREATE TABLE IF NOT EXISTS scanned_boxes (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        box_label TEXT NOT NULL,
-        cis_code TEXT,
-        cip_code TEXT,
-        scan_timestamp TEXT NOT NULL DEFAULT (datetime('now'))
-      );
 
       -- FTS5 virtual table for full-text search with TRIGRAM tokenizer
       -- TRIGRAM enables powerful fuzzy matching (e.g., "dolipprane" finds "doliprane")
@@ -398,9 +368,6 @@ export class ReferenceDatabase {
       CREATE INDEX IF NOT EXISTS idx_medicament_summary_cluster_id ON medicament_summary(cluster_id);
       CREATE INDEX IF NOT EXISTS idx_summary_cluster ON medicament_summary(cluster_id);
       CREATE INDEX IF NOT EXISTS idx_summary_group ON medicament_summary(group_id);
-      CREATE INDEX IF NOT EXISTS idx_restock_items_cis_code ON restock_items(cis_code);
-      CREATE INDEX IF NOT EXISTS idx_restock_items_expiry_date ON restock_items(expiry_date);
-      CREATE INDEX IF NOT EXISTS idx_scanned_boxes_scan_timestamp ON scanned_boxes(scan_timestamp);
 
       -- Trigger to update is_hospital flag based on comprehensive logic
       -- This ensures the medicament_summary.is_hospital flag matches the mobile app's logic
@@ -716,54 +683,6 @@ export class ReferenceDatabase {
     console.log(`✅ Inserted ${rows.length} laboratories`);
   }
 
-  // Additional tables from Flutter app
-  public insertAppSettings(rows: ReadonlyArray<{ key: string; value: Uint8Array }>) {
-    console.log(`📊 Inserting ${rows.length} app settings...`);
-
-    this.prepareInsert<any>("app_settings", ["key", "value"])(rows);
-    console.log(`✅ Inserted ${rows.length} app settings`);
-  }
-
-  public insertRestockItems(rows: ReadonlyArray<RestockItem>) {
-    console.log(`📊 Inserting ${rows.length} restock items...`);
-
-    const transformedRows = rows.map(row => ({
-      id: row.id,
-      cis_code: row.cisCode,
-      cip_code: row.cipCode,
-      nom_canonique: row.nomCanonique,
-      is_princeps: row.isPrinceps ? 1 : 0,
-      princeps_de_reference: row.princepsDeReference,
-      forme_pharmaceutique: row.formePharmaceutique,
-      voies_administration: row.voiesAdministration,
-      formatted_dosage: row.formattedDosage,
-      representative_cip: row.representativeCip,
-      expiry_date: row.expiryDate,
-      stock_count: row.stockCount,
-      location: row.location,
-      notes: row.notes,
-      created_at: row.createdAt,
-      updated_at: row.updatedAt
-    }));
-
-    this.prepareInsert<any>("restock_items", Object.keys(transformedRows[0] || {}) as any)(transformedRows);
-    console.log(`✅ Inserted ${rows.length} restock items`);
-  }
-
-  public insertScannedBoxes(rows: ReadonlyArray<ScannedBox>) {
-    console.log(`📊 Inserting ${rows.length} scanned boxes...`);
-
-    const transformedRows = rows.map(row => ({
-      id: row.id,
-      box_label: row.boxLabel,
-      cis_code: row.cisCode,
-      cip_code: row.cipCode,
-      scan_timestamp: row.scanTimestamp
-    }));
-
-    this.prepareInsert<any>("scanned_boxes", Object.keys(transformedRows[0] || {}) as any)(transformedRows);
-    console.log(`✅ Inserted ${rows.length} scanned boxes`);
-  }
 
   // Search methods for FTS
   public searchMedicaments(query: string, limit?: number): ReadonlyArray<MedicamentSummary> {

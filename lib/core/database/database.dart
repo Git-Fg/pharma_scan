@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
-import 'package:drift_flutter/drift_flutter.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
 
 import 'package:pharma_scan/core/database/daos/catalog_dao.dart';
 import 'package:pharma_scan/core/database/daos/database_dao.dart';
@@ -9,51 +12,58 @@ import 'package:pharma_scan/core/database/database.drift.dart';
 import 'package:pharma_scan/core/services/logger_service.dart';
 
 @DriftDatabase(
+  // Include BOTH schema files so Drift knows about all tables for query generation
+  include: {
+    'reference_schema.drift',
+    'user_schema.drift',
+    'queries.drift',
+    'views.drift'
+  },
   daos: [CatalogDao, DatabaseDao, RestockDao],
-  include: {'dbschema.drift', 'queries.drift', 'views.drift'},
 )
 class AppDatabase extends $AppDatabase {
-  final bool _isTestEnvironment;
+  /// Constructeur principal configurant user.db comme principal et reference.db attaché
+  AppDatabase() : super(_openConnection());
 
-  /// Constructeur principal utilisant driftDatabase pour la configuration multi-plateforme
-  AppDatabase()
-      : this._isTestEnvironment = false,
-        super(_openConnection());
-
+  /// Constructeur pour les tests utilisant une base de données en mémoire
+  AppDatabase.forTesting(QueryExecutor executor) : super(executor);
 
   static QueryExecutor _openConnection() {
-    return driftDatabase(
-      name: 'pharma_scan_db_v3',
-      native: const DriftNativeOptions(
-        shareAcrossIsolates: true,
-      ),
-    );
+    return LazyDatabase(() async {
+      final dbFolder = await getApplicationDocumentsDirectory();
+
+      // 1. Define paths for BOTH databases
+      final userDbFile = File(p.join(dbFolder.path, 'user.db'));
+      final referenceDbFile = File(p.join(dbFolder.path, 'reference.db'));
+
+      // 2. Open USER.DB as the primary connection
+      return NativeDatabase(
+        userDbFile,
+        setup: (database) {
+          // 3. Attach REFERENCE.DB dynamically when connection opens
+          // 'reference_db' is the alias we will use in queries if needed,
+          // though Drift handles this transparently for known tables.
+          database.execute(
+              "ATTACH DATABASE '${referenceDbFile.path}' AS reference_db");
+        },
+      );
+    });
   }
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 1; // Kept at 1 as per requirements
 
   @override
   MigrationStrategy get migration {
     return MigrationStrategy(
       onCreate: (Migrator m) async {
-        // For production: Assume downloaded database already has complete schema
-        // For testing: Create schema from .drift files
-        final isTestEnvironment = _isTestEnvironment;
-
-        if (isTestEnvironment) {
-          LoggerService.info(
-              '[DB] Creating schema from .drift files for testing');
-          await _createSchemaFromDriftFiles(m);
-        } else {
-          LoggerService.info(
-              '[DB] Assuming downloaded database has complete schema');
-          // Verify schema compatibility instead of creating
-          await _verifySchemaCompatibility();
-        }
+        // 4. CRITICAL: Only create USER tables.
+        // The reference tables already exist in the attached file.
+        await m.createTable(restockItems);
+        await m.createTable(scannedBoxes);
+        await m.createTable(appSettings);
       },
       beforeOpen: (details) async {
-        // Activation des clés étrangères indispensable pour SQLite
         await customStatement('PRAGMA foreign_keys = ON');
         // Configuration SQLite optimale
         await customStatement('PRAGMA journal_mode=WAL');
@@ -61,8 +71,23 @@ class AppDatabase extends $AppDatabase {
         await customStatement('PRAGMA synchronous=NORMAL');
         await customStatement('PRAGMA mmap_size=300000000');
         await customStatement('PRAGMA temp_store=MEMORY');
+        // Check integrity of the attached reference DB
+        await _verifyReferenceIntegrity();
       },
     );
+  }
+
+  Future<void> _verifyReferenceIntegrity() async {
+    // Run a quick check to ensure attachment worked
+    try {
+      await customSelect('SELECT count(*) FROM reference_db.medicament_summary')
+          .get();
+    } catch (e) {
+      // Handle missing reference.db (e.g., first launch)
+      // You might want to trigger the download service here if it fails
+      LoggerService.warning(
+          '[DB] Reference database not attached or missing: $e');
+    }
   }
 
   /// Vérifie l'intégrité complète de la base de données téléchargée.
@@ -73,7 +98,7 @@ class AppDatabase extends $AppDatabase {
     try {
       LoggerService.db('[DB] Vérifying database integrity...');
 
-      // Vérification des tables critiques
+      // Vérification des tables critiques dans reference.db
       final criticalTables = [
         'medicament_summary',
         'medicaments',
@@ -84,16 +109,13 @@ class AppDatabase extends $AppDatabase {
       ];
 
       for (final table in criticalTables) {
-        await customSelect('SELECT COUNT(*) FROM $table LIMIT 1').get();
-        LoggerService.db('[DB] Table $table verified');
+        await customSelect('SELECT COUNT(*) FROM reference_db.$table LIMIT 1')
+            .get();
+        LoggerService.db('[DB] Table reference_db.$table verified');
       }
 
-      // Vérification des vues critiques
-      final criticalViews = [
-        'view_group_details',
-        'view_search_results',
-        'view_explorer_list'
-      ];
+      // Vérification des vues critiques (devraient être définies dans reference_schema.drift)
+      final criticalViews = ['view_group_details', 'view_search_results'];
 
       for (final view in criticalViews) {
         await customSelect('SELECT COUNT(*) FROM $view LIMIT 1').get();
@@ -101,7 +123,9 @@ class AppDatabase extends $AppDatabase {
       }
 
       // Vérification du FTS5 index
-      await customSelect('SELECT COUNT(*) FROM search_index LIMIT 1').get();
+      await customSelect(
+              'SELECT COUNT(*) FROM reference_db.search_index LIMIT 1')
+          .get();
       LoggerService.db('[DB] FTS5 index verified');
 
       LoggerService.info('[DB] Database integrity check passed');
@@ -112,16 +136,4 @@ class AppDatabase extends $AppDatabase {
       );
     }
   }
-
-
-  /// Vérifie la compatibilité du schéma téléchargé avec les attentes locales
-  Future<void> _verifySchemaCompatibility() async {
-    // Cette méthode sera appelée après téléchargement pour vérifier
-    // que le schéma de la base téléchargée correspond aux attentes
-    LoggerService.db(
-        '[DB] Verifying schema compatibility with local expectations');
-
-    // Les vérifications détaillées sont faites dans checkDatabaseIntegrity()
-  }
 }
-

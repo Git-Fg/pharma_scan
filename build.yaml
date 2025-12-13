@@ -4,10 +4,14 @@ targets:
       # --- DRIFT (Modular Setup) ---
       # Restriction removed to ensure all .drift and .dart table files are found.
       drift_dev:
-        enabled: false
+        enabled: true
 
       drift_dev:analyzer:
-        enabled: true
+        enabled: false
+        generate_for:
+          exclude:
+            - integration_test/**
+            - test/**
         options: &drift_options
           store_date_time_values_as_text: true
           named_parameters: true
