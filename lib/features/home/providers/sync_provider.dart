@@ -5,7 +5,6 @@ import 'package:pharma_scan/core/providers/capability_providers.dart';
 import 'package:pharma_scan/core/providers/core_providers.dart';
 import 'package:pharma_scan/core/providers/preferences_provider.dart';
 import 'package:pharma_scan/core/services/logger_service.dart';
-import 'package:pharma_scan/core/services/preferences_service.dart';
 import 'package:pharma_scan/features/home/models/sync_state.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 

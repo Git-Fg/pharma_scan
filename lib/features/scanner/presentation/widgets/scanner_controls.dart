@@ -5,9 +5,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
-import 'package:pharma_scan/core/utils/test_tags.dart';
 import 'package:pharma_scan/core/widgets/adaptive_bottom_panel.dart';
-import 'package:pharma_scan/core/widgets/testable.dart';
 import 'package:pharma_scan/features/scanner/presentation/models/scanner_ui_state.dart';
 import 'package:pharma_scan/features/scanner/presentation/providers/scanner_provider.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
@@ -120,25 +118,22 @@ class ScannerControls extends ConsumerWidget {
                             spacing: AppDimens.spacingSm,
                             children: [
                               Expanded(
-                                child: Testable(
-                                  id: TestTags.scanGalleryBtn,
-                                  child: Semantics(
-                                    button: true,
-                                    label: Strings.importBarcodeFromGallery,
-                                    child: FittedBox(
-                                      fit: BoxFit.scaleDown,
-                                      child: ShadButton.secondary(
-                                        onPressed:
-                                            isInitializing ? null : onGallery,
-                                        leading: const Icon(
-                                          LucideIcons.image,
-                                          size: AppDimens.iconSm,
-                                        ),
-                                        child: const Text(
-                                          Strings.gallery,
-                                          overflow: TextOverflow.ellipsis,
-                                          maxLines: 1,
-                                        ),
+                                child: Semantics(
+                                  button: true,
+                                  label: Strings.importBarcodeFromGallery,
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: ShadButton.secondary(
+                                      onPressed:
+                                          isInitializing ? null : onGallery,
+                                      leading: const Icon(
+                                        LucideIcons.image,
+                                        size: AppDimens.iconSm,
+                                      ),
+                                      child: const Text(
+                                        Strings.gallery,
+                                        overflow: TextOverflow.ellipsis,
+                                        maxLines: 1,
                                       ),
                                     ),
                                   ),
@@ -169,26 +164,23 @@ class ScannerControls extends ConsumerWidget {
                               ] else
                                 const Gap(AppDimens.spacingMd),
                               Expanded(
-                                child: Testable(
-                                  id: TestTags.scanManualBtn,
-                                  child: Semantics(
-                                    button: true,
-                                    label: Strings.manuallyEnterCipCode,
-                                    child: FittedBox(
-                                      fit: BoxFit.scaleDown,
-                                      child: ShadButton.secondary(
-                                        onPressed: isInitializing
-                                            ? null
-                                            : onManualEntry,
-                                        leading: const Icon(
-                                          LucideIcons.keyboard,
-                                          size: AppDimens.iconSm,
-                                        ),
-                                        child: const Text(
-                                          Strings.manualEntry,
-                                          overflow: TextOverflow.ellipsis,
-                                          maxLines: 1,
-                                        ),
+                                child: Semantics(
+                                  button: true,
+                                  label: Strings.manuallyEnterCipCode,
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: ShadButton.secondary(
+                                      onPressed: isInitializing
+                                          ? null
+                                          : onManualEntry,
+                                      leading: const Icon(
+                                        LucideIcons.keyboard,
+                                        size: AppDimens.iconSm,
+                                      ),
+                                      child: const Text(
+                                        Strings.manualEntry,
+                                        overflow: TextOverflow.ellipsis,
+                                        maxLines: 1,
                                       ),
                                     ),
                                   ),
@@ -230,32 +222,29 @@ class ScannerActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Testable(
-      id: isCameraRunning ? TestTags.scanStopBtn : TestTags.scanStartBtn,
-      child: SizedBox(
-        width: 88,
-        height: 88,
-        child: ShadIconButton(
-          onPressed: isInitializing ? null : onPressed,
-          icon: Icon(
-            isCameraRunning ? LucideIcons.cameraOff : LucideIcons.scanLine,
-            size: AppDimens.iconXl,
-            color: context.shadColors.primaryForeground,
-          ),
-          gradient: LinearGradient(
-            colors: [
-              buttonColor,
-              buttonColor.withValues(alpha: 0.85),
-            ],
-          ),
-          shadows: [
-            BoxShadow(
-              color: buttonColor.withValues(alpha: 0.35),
-              blurRadius: 20,
-              offset: const Offset(0, 12),
-            ),
+    return SizedBox(
+      width: 88,
+      height: 88,
+      child: ShadIconButton(
+        onPressed: isInitializing ? null : onPressed,
+        icon: Icon(
+          isCameraRunning ? LucideIcons.cameraOff : LucideIcons.scanLine,
+          size: AppDimens.iconXl,
+          color: context.shadColors.primaryForeground,
+        ),
+        gradient: LinearGradient(
+          colors: [
+            buttonColor,
+            buttonColor.withValues(alpha: 0.85),
           ],
         ),
+        shadows: [
+          BoxShadow(
+            color: buttonColor.withValues(alpha: 0.35),
+            blurRadius: 20,
+            offset: const Offset(0, 12),
+          ),
+        ],
       ),
     );
   }

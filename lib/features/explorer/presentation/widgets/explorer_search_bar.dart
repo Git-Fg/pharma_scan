@@ -8,8 +8,6 @@ import 'package:pharma_scan/core/presentation/hooks/use_debounced_controller.dar
 import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
-import 'package:pharma_scan/core/utils/test_tags.dart';
-import 'package:pharma_scan/core/widgets/testable.dart';
 import 'package:pharma_scan/features/explorer/domain/models/explorer_enums.dart';
 import 'package:pharma_scan/features/explorer/domain/models/search_filters_model.dart';
 import 'package:pharma_scan/features/explorer/presentation/providers/search_provider.dart';
@@ -96,56 +94,53 @@ class ExplorerSearchBar extends HookConsumerWidget {
     bool isFetching,
     ObjectRef<ValueChanged<String>> onSearchChangedRef,
   ) {
-    return Testable(
-      id: TestTags.searchInput,
-      child: Semantics(
-        textField: true,
-        label: Strings.searchLabel,
-        hint: Strings.searchHint,
-        value: search.controller.text,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(
-            minHeight: AppDimens.inputFieldHeight,
+    return Semantics(
+      textField: true,
+      label: Strings.searchLabel,
+      hint: Strings.searchHint,
+      value: search.controller.text,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(
+          minHeight: AppDimens.inputFieldHeight,
+        ),
+        child: ShadInput(
+          focusNode: focusNode,
+          controller: search.controller,
+          placeholder: const Text(Strings.searchPlaceholder),
+          textInputAction: TextInputAction.search,
+          leading: Icon(
+            LucideIcons.search,
+            size: AppDimens.iconSm,
+            color: context.shadColors.mutedForeground,
           ),
-          child: ShadInput(
-            focusNode: focusNode,
-            controller: search.controller,
-            placeholder: const Text(Strings.searchPlaceholder),
-            textInputAction: TextInputAction.search,
-            leading: Icon(
-              LucideIcons.search,
-              size: AppDimens.iconSm,
-              color: context.shadColors.mutedForeground,
-            ),
-            trailing: isFetching
-                ? Semantics(
-                    label: Strings.searchingInProgress,
-                    liveRegion: true,
-                    child: const SizedBox(
-                      width: AppDimens.iconSm,
-                      height: AppDimens.iconSm,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  )
-                : (search.controller.text.isNotEmpty && !isFetching
-                      ? ShadButton.ghost(
-                          size: ShadButtonSize.sm,
-                          onPressed: () {
-                            search.controller.clear();
-                            _commitSearchQuery(
-                              '',
-                              search,
-                              onSearchChangedRef,
-                            );
-                          },
-                          child: const Icon(LucideIcons.x, size: 16),
-                        )
-                      : null),
-            onSubmitted: (_) => _commitSearchQuery(
-              search.controller.text,
-              search,
-              onSearchChangedRef,
-            ),
+          trailing: isFetching
+              ? Semantics(
+                  label: Strings.searchingInProgress,
+                  liveRegion: true,
+                  child: const SizedBox(
+                    width: AppDimens.iconSm,
+                    height: AppDimens.iconSm,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                )
+              : (search.controller.text.isNotEmpty && !isFetching
+                    ? ShadButton.ghost(
+                        size: ShadButtonSize.sm,
+                        onPressed: () {
+                          search.controller.clear();
+                          _commitSearchQuery(
+                            '',
+                            search,
+                            onSearchChangedRef,
+                          );
+                        },
+                        child: const Icon(LucideIcons.x, size: 16),
+                      )
+                    : null),
+          onSubmitted: (_) => _commitSearchQuery(
+            search.controller.text,
+            search,
+            onSearchChangedRef,
           ),
         ),
       ),
@@ -165,39 +160,36 @@ class ExplorerSearchBar extends HookConsumerWidget {
         ? Strings.activeFilterCount(filterCount)
         : null;
 
-    return Testable(
-      id: TestTags.filterBtn,
-      child: Semantics(
-        button: true,
-        label: filterLabel,
-        value: filterValue,
-        hint: Strings.filterHint,
-        child: Stack(
-          clipBehavior: Clip.none,
-          alignment: Alignment.center,
-          children: [
-            ShadIconButton.ghost(
-              icon: const Icon(LucideIcons.slidersHorizontal),
-              onPressed: () => _openFiltersSheet(context, filters, ref),
-            ),
-            if (hasActiveFilters)
-              Positioned(
-                top: -2,
-                right: -2,
-                child: IgnorePointer(
-                  child: Semantics(
-                    label: Strings.activeFilterCount(filterCount),
-                    child: ShadBadge(
-                      child: Text(
-                        '$filterCount',
-                        style: context.shadTextTheme.small,
-                      ),
+    return Semantics(
+      button: true,
+      label: filterLabel,
+      value: filterValue,
+      hint: Strings.filterHint,
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.center,
+        children: [
+          ShadIconButton.ghost(
+            icon: const Icon(LucideIcons.slidersHorizontal),
+            onPressed: () => _openFiltersSheet(context, filters, ref),
+          ),
+          if (hasActiveFilters)
+            Positioned(
+              top: -2,
+              right: -2,
+              child: IgnorePointer(
+                child: Semantics(
+                  label: Strings.activeFilterCount(filterCount),
+                  child: ShadBadge(
+                    child: Text(
+                      '$filterCount',
+                      style: context.shadTextTheme.small,
                     ),
                   ),
                 ),
               ),
-          ],
-        ),
+            ),
+        ],
       ),
     );
   }

@@ -89,3 +89,5 @@ test/assets/golden.db
 .claude
 .cursor
 CLAUDE.md
+
+test-results.json

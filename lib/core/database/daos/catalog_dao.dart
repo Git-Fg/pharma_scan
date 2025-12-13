@@ -7,6 +7,7 @@ import 'package:pharma_scan/core/domain/types/semantic_types.dart';
 import 'package:pharma_scan/core/logic/sanitizer.dart';
 import 'package:pharma_scan/core/models/scan_result.dart';
 import 'package:pharma_scan/core/services/logger_service.dart';
+import 'package:pharma_scan/core/database/views.drift.dart';
 import 'package:pharma_scan/features/explorer/domain/entities/group_detail_entity.dart';
 import 'package:pharma_scan/features/explorer/domain/entities/medicament_entity.dart';
 import 'package:pharma_scan/features/explorer/domain/models/database_stats.dart';
@@ -156,6 +157,48 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> {
         );
   }
 
+  /// Returns clustered search results for UI display
+  /// Uses view_search_results to provide cluster, group, and standalone results
+  Stream<List<ViewSearchResult>> watchSearchResults(NormalizedQuery query) {
+    final sanitizedQuery = _buildFtsQuery(query.toString());
+    if (sanitizedQuery.isEmpty) {
+      LoggerService.db('Empty search query, emitting empty stream');
+      return Stream<List<ViewSearchResult>>.value(const []);
+    }
+
+    LoggerService.db(
+        'Watching clustered search results for query: $sanitizedQuery');
+
+    // Filter view_search_results based on display_name and common_principes
+    // Use FTS5 MATCH for efficient text search
+    return attachedDatabase
+        .select(attachedDatabase.viewSearchResults)
+        .watch()
+        .map((rows) {
+      // Apply client-side filtering since FTS5 on views can be complex
+      final normalizedSearchTerms = query
+          .toString()
+          .toLowerCase()
+          .split(' ')
+          .where((term) => term.isNotEmpty)
+          .toList();
+
+      if (normalizedSearchTerms.isEmpty) return <ViewSearchResult>[];
+
+      return rows.where((row) {
+        final displayName = (row.displayName ?? '').toLowerCase();
+        final commonPrincipes = (row.commonPrincipes ?? '').toLowerCase();
+        final nomCanonique = (row.nomCanonique ?? '').toLowerCase();
+
+        // Check if all search terms are present in any of the relevant fields
+        return normalizedSearchTerms.every((term) =>
+            displayName.contains(term) ||
+            commonPrincipes.contains(term) ||
+            nomCanonique.contains(term));
+      }).toList();
+    });
+  }
+
   // ============================================================================
   // Library Methods
   // ============================================================================
@@ -186,13 +229,16 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> {
       'Fetching snapshot for group $groupId via view_group_details',
     );
 
-    final rows = await (attachedDatabase.select(attachedDatabase.viewGroupDetails)
-      ..where((t) => t.groupId.equals(groupId))
-      ..orderBy([
-        (t) => OrderingTerm(expression: t.isPrinceps, mode: OrderingMode.desc),
-        (t) => OrderingTerm(expression: t.nomCanonique, mode: OrderingMode.asc),
-      ])
-    ).get();
+    final rows = await (attachedDatabase
+            .select(attachedDatabase.viewGroupDetails)
+          ..where((t) => t.groupId.equals(groupId))
+          ..orderBy([
+            (t) =>
+                OrderingTerm(expression: t.isPrinceps, mode: OrderingMode.desc),
+            (t) => OrderingTerm(
+                expression: t.nomCanonique, mode: OrderingMode.asc),
+          ]))
+        .get();
 
     return rows.map(GroupDetailEntity.fromData).toList();
   }
@@ -403,5 +449,4 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> {
     final sorted = routes.toList()..sort((a, b) => a.compareTo(b));
     return sorted;
   }
-
-  }
+}

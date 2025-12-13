@@ -40,10 +40,8 @@ class CameraScreen extends HookConsumerWidget {
     final scannerMode = scannerState.value?.mode ?? ScannerMode.analysis;
 
     TabsRouter? tabsRouter;
-    var isTabActive = true;
     try {
       tabsRouter = AutoTabsRouter.of(context);
-      isTabActive = tabsRouter.activeIndex == 0;
     } on Object {
       // Not available in test contexts or when not inside AutoTabsRouter
       tabsRouter = null;
@@ -242,97 +240,96 @@ class CameraScreen extends HookConsumerWidget {
             Align(
               alignment: const Alignment(0, -0.3),
               child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      LucideIcons.scan,
-                      size: 80,
-                      color: context.shadColors.muted,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    LucideIcons.scan,
+                    size: 80,
+                    color: context.shadColors.muted,
+                  ),
+                  const Gap(20),
+                  Text(
+                    Strings.readyToScan,
+                    style: context.shadTextTheme.h4.copyWith(
+                      color: context.shadColors.mutedForeground,
                     ),
-                    const Gap(20),
-                    Text(
-                      Strings.readyToScan,
-                      style: context.shadTextTheme.h4.copyWith(
-                        color: context.shadColors.mutedForeground,
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            if (isCameraActive.value && !isInitializing)
-              ScanWindowOverlay(mode: scannerMode),
-            const ScannerBubbles(),
-            Positioned(
-              top: MediaQuery.paddingOf(context).top + 16,
-              left: 16,
-              child: ClipRRect(
-                borderRadius: context.shadTheme.radius,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
+            ),
+          if (isCameraActive.value && !isInitializing)
+            ScanWindowOverlay(mode: scannerMode),
+          const ScannerBubbles(),
+          Positioned(
+            top: MediaQuery.paddingOf(context).top + 16,
+            left: 16,
+            child: ClipRRect(
+              borderRadius: context.shadTheme.radius,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: ShadTheme.of(
+                    context,
+                  ).colorScheme.background.withValues(alpha: 0.82),
+                  border: Border.all(
                     color: ShadTheme.of(
                       context,
-                    ).colorScheme.background.withValues(alpha: 0.82),
-                    border: Border.all(
-                      color: ShadTheme.of(
-                        context,
-                      ).colorScheme.border.withValues(alpha: 0.3),
-                    ),
-                    borderRadius: context.shadTheme.radius,
+                    ).colorScheme.border.withValues(alpha: 0.3),
                   ),
-                  child: Semantics(
-                    button: true,
-                    label: Strings.historyTitle,
-                    child: ShadIconButton.ghost(
-                      icon: const Icon(LucideIcons.history),
-                      onPressed: () => showShadSheet<void>(
-                        context: context,
-                        side: ShadSheetSide.left,
-                        builder: (sheetContext) => const HistorySheet(),
-                      ),
+                  borderRadius: context.shadTheme.radius,
+                ),
+                child: Semantics(
+                  button: true,
+                  label: Strings.historyTitle,
+                  child: ShadIconButton.ghost(
+                    icon: const Icon(LucideIcons.history),
+                    onPressed: () => showShadSheet<void>(
+                      context: context,
+                      side: ShadSheetSide.left,
+                      builder: (sheetContext) => const HistorySheet(),
                     ),
                   ),
                 ),
               ),
             ),
-            Positioned(
-              top: MediaQuery.paddingOf(context).top + 16,
-              right: 16,
-              child: ClipRRect(
-                borderRadius: context.shadTheme.radius,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
+          ),
+          Positioned(
+            top: MediaQuery.paddingOf(context).top + 16,
+            right: 16,
+            child: ClipRRect(
+              borderRadius: context.shadTheme.radius,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: ShadTheme.of(
+                    context,
+                  ).colorScheme.background.withValues(alpha: 0.82),
+                  border: Border.all(
                     color: ShadTheme.of(
                       context,
-                    ).colorScheme.background.withValues(alpha: 0.82),
-                    border: Border.all(
-                      color: ShadTheme.of(
-                        context,
-                      ).colorScheme.border.withValues(alpha: 0.3),
-                    ),
-                    borderRadius: context.shadTheme.radius,
+                    ).colorScheme.border.withValues(alpha: 0.3),
                   ),
-                  child: Semantics(
-                    button: true,
-                    label: Strings.settings,
-                    child: ShadIconButton.ghost(
-                      icon: const Icon(LucideIcons.settings),
-                      onPressed: () =>
-                          AutoRouter.of(context).push(const SettingsRoute()),
-                    ),
+                  borderRadius: context.shadTheme.radius,
+                ),
+                child: Semantics(
+                  button: true,
+                  label: Strings.settings,
+                  child: ShadIconButton.ghost(
+                    icon: const Icon(LucideIcons.settings),
+                    onPressed: () =>
+                        AutoRouter.of(context).push(const SettingsRoute()),
                   ),
                 ),
               ),
             ),
-            ScannerControls(
-              state: scannerUiState,
-              onToggleCamera: toggleCamera,
-              onGallery: openGallerySheet,
-              onManualEntry: openManualEntrySheet,
-              onToggleTorch: toggleTorch,
-              onToggleMode: toggleMode,
-            ),
-          ],
-        ),
+          ),
+          ScannerControls(
+            state: scannerUiState,
+            onToggleCamera: toggleCamera,
+            onGallery: openGallerySheet,
+            onManualEntry: openManualEntrySheet,
+            onToggleTorch: toggleTorch,
+            onToggleMode: toggleMode,
+          ),
+        ],
       ),
     );
   }

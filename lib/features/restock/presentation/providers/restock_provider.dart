@@ -172,16 +172,3 @@ Map<String, List<RestockItemEntity>> _groupByInitial(
   return sortedGroups;
 }
 
-@visibleForTesting
-List<RestockItemEntity> sortRestockItemsForTest(
-  List<RestockItemEntity> items,
-  SortingPreference preference,
-) =>
-    _sortRestockItems(items, preference);
-
-@visibleForTesting
-Map<String, List<RestockItemEntity>> groupRestockItemsForTest(
-  List<RestockItemEntity> items,
-  SortingPreference preference,
-) =>
-    _groupByInitial(items, preference);

@@ -14,16 +14,4 @@ class DatabaseDao extends DatabaseAccessor<AppDatabase> with $DatabaseDaoMixin {
 
   AppDatabase get database => attachedDatabase;
 
-  /// Nettoie la base de données (uniquement pour les tests)
-  @visibleForTesting
-  Future<void> clearDatabase() async {
-    await customUpdate('DELETE FROM medicament_summary', updates: {});
-    await customUpdate('DELETE FROM group_members', updates: {});
-    await customUpdate('DELETE FROM generique_groups', updates: {});
-    await customUpdate('DELETE FROM principes_actifs', updates: {});
-    await customUpdate('DELETE FROM medicaments', updates: {});
-    await customUpdate('DELETE FROM specialites', updates: {});
-    await customUpdate('DELETE FROM laboratories', updates: {});
-    // Settings are now managed by PreferencesService (SharedPreferences)
-  }
 }

@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
-import 'package:pharma_scan/core/utils/test_tags.dart';
-import 'package:pharma_scan/core/widgets/testable.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 typedef ShadcnNavItem = ({
@@ -91,12 +89,7 @@ class ShadcnBottomNav extends StatelessWidget {
             );
 
             return Expanded(
-              child: item.testId != null
-                  ? Testable(
-                      id: item.testId ?? TestTags.navScanner,
-                      child: button,
-                    )
-                  : button,
+              child: button,
             );
           }).toList(),
         ),

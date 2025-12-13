@@ -50,39 +50,49 @@ class DataInitializationService {
   /// Initializes the database by downloading from GitHub if needed.
   Future<void> initializeDatabase({bool forceRefresh = false}) async {
     try {
-      // 1. Accès DB via ref
-      final db = _ref.read(databaseProvider());
-      final hasData = await db.catalogDao.hasExistingData();
-      if (!forceRefresh && hasData) {
+      // 1. Check if database needs to be downloaded/updated
+      final currentVersion = _prefs.getDbVersionTag();
+      final needsDownload = forceRefresh || currentVersion != dataVersion;
+
+      if (!needsDownload) {
+        LoggerService.info(
+            '[DataInit] Database is up to date, verifying integrity...');
+        // 2. Verify existing database integrity
+        final db = _ref.read(databaseProvider());
         await db.checkDatabaseIntegrity();
         LoggerService.info('[DataInit] Database ready with existing data.');
         _emit(InitializationStep.ready, Strings.initializationReady);
         return;
       }
 
-      LoggerService.info('[DataInit] Downloading database...');
+      LoggerService.info(
+          '[DataInit] Downloading fresh database from backend...');
       _emit(InitializationStep.downloading, 'Téléchargement de la base...');
 
-      // 2. Build download URL from GitHub latest release
+      // 3. Build download URL from GitHub latest release
       final downloadUrl = await _resolveDownloadUrl();
       if (downloadUrl == null) {
         throw Exception('Could not resolve database download URL.');
       }
 
-      // 3. Download compressed file
+      // 4. Download compressed file
       final bytesEither = await _downloadService.downloadToBytes(downloadUrl);
       final compressedBytes = bytesEither.fold(
         ifLeft: (f) => throw Exception('Download failed: ${f.message}'),
         ifRight: (bytes) => bytes,
       );
 
-      // 4. Effectuer la mise à jour avec cycle de vie sécurisé
+      // 5. Perform update with secure lifecycle
       await _performUpdate(compressedBytes);
 
-      // 5. Save version tag
+      // 6. Verify the downloaded database
+      final newDb = _ref.read(databaseProvider());
+      await newDb.checkDatabaseIntegrity();
+
+      // 7. Save version tag
       await _prefs.setDbVersionTag(dataVersion);
 
-      LoggerService.info('[DataInit] Initialization complete.');
+      LoggerService.info('[DataInit] Database initialization complete.');
       _emit(InitializationStep.ready, Strings.initializationReady);
     } catch (e, stackTrace) {
       LoggerService.error(
@@ -100,22 +110,39 @@ class DataInitializationService {
     final dir = await getApplicationDocumentsDirectory();
     final dbPath = p.join(dir.path, DatabaseConfig.dbFilename);
 
-    // 2. Invalider le provider (ferme la connexion SQL)
-    _ref.invalidate(databaseProvider);
-    await Future<void>.delayed(const Duration(milliseconds: 50));
+    // 2. Fermer la connexion actuelle de manière sécurisée
+    try {
+      final currentDb = _ref.read(databaseProvider());
+      await currentDb.close();
+    } catch (e) {
+      LoggerService.warning(
+          '[DataInit] Error closing current database connection: $e');
+    }
 
-    // 3. Décompresser et écrire le fichier
+    // 3. Invalider le provider pour forcer une nouvelle instance
+    _ref.invalidate(databaseProvider);
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+
+    // 4. Décompresser et écrire le nouveau fichier
+    LoggerService.info('[DataInit] Writing new database file...');
     final decompressed = GZipCodec().decode(compressedBytes);
     final dbFile = File(dbPath);
-    if (await dbFile.exists()) await dbFile.delete();
-    await dbFile.writeAsBytes(decompressed, flush: true);
 
-    // 4. Nettoyer WAL/SHM
+    // Supprimer l'ancien fichier
+    if (await dbFile.exists()) {
+      await dbFile.delete();
+      LoggerService.info('[DataInit] Removed old database file');
+    }
+
+    // Écrire le nouveau fichier
+    await dbFile.writeAsBytes(decompressed, flush: true);
+    LoggerService.info('[DataInit] Database file written successfully');
+
+    // 5. Nettoyer WAL/SHM pour éviter les conflits
     await _cleanupWalFiles(dbPath);
 
-    // 5. Rouvrir la DB (nouvelle instance)
-    final newDb = _ref.read(databaseProvider());
-    await newDb.checkDatabaseIntegrity();
+    // 6. La nouvelle instance sera créée automatiquement lors du prochain accès
+    LoggerService.info('[DataInit] Database file replacement complete');
   }
 
   Future<String?> _resolveDownloadUrl() async {

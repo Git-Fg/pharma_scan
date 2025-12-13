@@ -510,29 +510,6 @@ Technical guardrails for folder structure and layering live in `.cursor/rules/`.
 
 ---
 
-## Testing Strategy
-
-### Unit Tests
-
-- Focus on logic in `lib/core/`
-- Test business logic, parsers, and utilities in isolation
-
-### Widget Tests
-
-- Test UI components with mocked providers
-- Use `ShadApp.custom` in test helpers
-- Test all `AsyncValue` states (Loading, Data, Error)
-
-### Integration Tests
-
-- Validate flows using real DB logic (Drift in-memory)
-- Test complete user flows and data pipelines
-- Use Robot pattern for complex, reusable flows
-
-Testing guardrails live in `.cursor/rules/`.
-
----
-
 ## Quality Gate
 
 Before committing, run this sequence (stop if any step fails):
