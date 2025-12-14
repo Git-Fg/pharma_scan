@@ -1,4 +1,5 @@
-import 'package:pharma_scan/core/models/scan_result.dart';
+import 'dart:async';
+import 'package:pharma_scan/core/models/scan_models.dart';
 import 'package:pharma_scan/features/scanner/logic/scanner_store.dart';
 import 'package:pharma_scan/features/scanner/presentation/providers/scanner_provider.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -25,28 +26,22 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 ScannerLogic useScannerLogic(WidgetRef ref) {
   final store = useMemoized(() => ScannerStore());
 
-  // Watch the existing scanner state and sync with Signals
-  final scannerState = ref.watch(scannerProvider);
+  // Watch notifier for persistence and read the provider once for initial state
   final scannerNotifier = ref.read(scannerProvider.notifier);
 
-  // Initialize store with device capabilities
+  // One-time initial sync: populate Signals from Riverpod at mount
   useEffect(() {
-    store.setLowEndDevice(false); // TODO: Implement actual device detection
+    unawaited(Future.microtask(() {
+      final current = ref.read(scannerProvider);
+      if (current is AsyncData<ScannerState>) {
+        final state = current.value;
+        // Initial sync from Riverpod to Signals
+        store.bubbles.value = state.bubbles;
+        store.setMode(state.mode);
+      }
+    }));
     return null;
-  }, [store]);
-
-  // Sync Signals store with Riverpod state when it changes
-  useEffect(() {
-    final state = scannerState.value;
-    if (state != null) {
-      // Sync bubbles from Riverpod to Signals
-      store.bubbles.value = state.bubbles;
-
-      // Sync mode
-      store.setMode(state.mode);
-    }
-    return null;
-  }, [scannerState.value]);
+  }, [ref]);
 
   // Cleanup when hook is disposed
   useEffect(() {
@@ -60,26 +55,26 @@ ScannerLogic useScannerLogic(WidgetRef ref) {
     // Add to Signals store for high-frequency UI updates
     store.addScan(result);
 
-    // Let Riverpod handle the business logic and database operations
-    // Note: This creates a temporary duplication during the transition period
-    // In production, we'd modify ScannerNotifier to use the Signals store directly
+    // Fire-and-forget: Let Riverpod handle persistence/business logic
+    // Do not wait for Riverpod to update the UI — Signals remains the UI source of truth
+    unawaited(scannerNotifier.findMedicament(result.cip.toString()));
   }
 
   void removeBubble(String cip) {
     store.removeBubble(cip);
-    // Also remove from Riverpod state
+    // Fire-and-forget persistence update; do not await or rely on Riverpod to update the UI
     scannerNotifier.removeBubble(cip);
   }
 
   void clearAllBubbles() {
     store.clearAllBubbles();
-    // Also clear from Riverpod state
+    // Fire-and-forget persistence
     scannerNotifier.clearAllBubbles();
   }
 
   void setMode(ScannerMode mode) {
     store.setMode(mode);
-    // Also set in Riverpod state
+    // Fire-and-forget persistence
     scannerNotifier.setMode(mode);
   }
 

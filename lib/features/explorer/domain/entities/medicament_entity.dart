@@ -11,8 +11,7 @@ import 'package:pharma_scan/core/domain/types/ids.dart';
 /// **2025 Standard:** All database rows must be wrapped in Extension Types before
 /// reaching the UI layer. See `.cursor/rules/domain-modeling.mdc` for details.
 extension type MedicamentEntity(
-  (MedicamentSummaryData data, String? labName) _value
-) {
+    (MedicamentSummaryData data, String? labName) _value) {
   // ============================================================================
   // Factory Constructors
   // ============================================================================

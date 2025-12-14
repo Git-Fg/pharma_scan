@@ -213,21 +213,29 @@ FeatureLogic useFeatureLogic(WidgetRef ref) {
   final store = useMemoized(() => FeatureStore());
   final notifier = ref.read(featureProvider.notifier);
 
-  // Sync Riverpod → Signals
+  // One-time initial sync Riverpod → Signals (avoid circular updates)
   useEffect(() {
-    final state = ref.watch(featureProvider);
-    store.items.value = state.items;
-    store.isLoading.value = state.isLoading;
+    var hasInitialized = false;
+    ref.listen<AsyncValue<FeatureState>>(featureProvider, (previous, next) {
+      if (!hasInitialized && next is AsyncData<FeatureState>) {
+        hasInitialized = true;
+        final state = next.value;
+        if (state != null) {
+          store.items.value = state.items;
+          store.isLoading.value = state.isLoading;
+        }
+      }
+    });
     return null;
   });
 
   // Bridge Actions
   void handleAction() {
     // Update Signals for instant UI
-    store.addItem newItem);
+    store.addItem(newItem);
 
-    // Update Riverpod for persistence
-    notifier.addItem(newItem);
+    // Fire-and-forget persistence update via Riverpod; do not wait for a re-sync
+    unawaited(notifier.addItem(newItem));
   }
 
   return FeatureLogic(
@@ -363,12 +371,12 @@ test('Camera maintains 60fps during rapid scanning', () async {
 ## Real-World Results
 
 ### Performance Metrics
-| Metric | Before | After | Improvement |
-|--------|--------|-------|-------------|
-| Camera FPS | 45-50 | 60 | +20% |
-| Widget Rebuilds | 120/sec | 12/sec | -90% |
-| Memory Usage | 85MB | 72MB | -15% |
-| Scan Response Time | 150ms | 50ms | -67% |
+| Metric             | Before  | After  | Improvement |
+| ------------------ | ------- | ------ | ----------- |
+| Camera FPS         | 45-50   | 60     | +20%        |
+| Widget Rebuilds    | 120/sec | 12/sec | -90%        |
+| Memory Usage       | 85MB    | 72MB   | -15%        |
+| Scan Response Time | 150ms   | 50ms   | -67%        |
 
 ### User Experience
 - ✅ Smooth camera preview during burst scanning

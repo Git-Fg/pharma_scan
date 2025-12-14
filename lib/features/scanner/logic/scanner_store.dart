@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:pharma_scan/core/config/app_config.dart';
-import 'package:pharma_scan/core/models/scan_result.dart';
+import 'package:pharma_scan/core/models/scan_models.dart';
 import 'package:pharma_scan/features/scanner/domain/scanner_mode.dart';
 import 'package:signals_flutter/signals_flutter.dart';
 
@@ -26,7 +26,6 @@ class ScannerStore {
   final bubbles = signal<List<ScanResult>>([]);
   final scannedCodes = signal<Set<String>>({}); // Set for O(1) lookups
   final mode = signal<ScannerMode>(ScannerMode.analysis);
-  final isLowEndDevice = signal<bool>(false);
 
   // 2. COMPUTED SIGNALS (Derived State - TypeScript magic!)
   // These automatically update when dependencies change, no manual dependency arrays needed
@@ -97,11 +96,6 @@ class ScannerStore {
   /// Updates scanner mode
   void setMode(ScannerMode newMode) {
     mode.value = newMode;
-  }
-
-  /// Sets device capability flag
-  void setLowEndDevice(bool isLowEnd) {
-    isLowEndDevice.value = isLowEnd;
   }
 
   // 4. PRIVATE HELPER METHODS
@@ -187,7 +181,6 @@ class ScannerStore {
         isAtCapacity: isAtCapacity.value,
         scannedCodesCount: scannedCodes.value.length,
         mode: mode.value,
-        isLowEndDevice: isLowEndDevice.value,
       );
 }
 
@@ -200,7 +193,6 @@ class ScannerStateSnapshot {
     required this.isAtCapacity,
     required this.scannedCodesCount,
     required this.mode,
-    required this.isLowEndDevice,
   });
 
   final int bubbleCount;
@@ -209,7 +201,6 @@ class ScannerStateSnapshot {
   final bool isAtCapacity;
   final int scannedCodesCount;
   final ScannerMode mode;
-  final bool isLowEndDevice;
 
   @override
   String toString() {
@@ -219,7 +210,6 @@ class ScannerStateSnapshot {
         'hasDuplicateScans: $hasDuplicateScans, '
         'isAtCapacity: $isAtCapacity, '
         'scannedCodesCount: $scannedCodesCount, '
-        'mode: $mode, '
-        'isLowEndDevice: $isLowEndDevice)';
+        'mode: $mode)';
   }
 }

@@ -1,11 +1,9 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:dart_mappable/dart_mappable.dart';
-import 'package:device_info_plus/device_info_plus.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:pharma_scan/core/config/app_config.dart';
-import 'package:pharma_scan/core/models/scan_result.dart';
+import 'package:pharma_scan/core/models/scan_models.dart';
 import 'package:pharma_scan/core/providers/core_providers.dart';
 import 'package:pharma_scan/core/services/logger_service.dart';
 import 'package:pharma_scan/features/scanner/domain/logic/scan_orchestrator.dart';
@@ -92,14 +90,11 @@ class ScannerState with ScannerStateMappable {
     required this.bubbles,
     required this.scannedCodes,
     required this.mode,
-    this.isLowEndDevice = false,
   });
 
   final List<ScanBubble> bubbles;
   final Set<String> scannedCodes;
   final ScannerMode mode;
-  @MappableField(key: 'isLowEndDevice')
-  final bool isLowEndDevice;
 }
 
 @Riverpod(keepAlive: true)
@@ -116,8 +111,6 @@ class ScannerNotifier extends _$ScannerNotifier {
   ScannerRuntime? _cachedRuntime;
   ScanTrafficControl? _cachedTrafficControl;
   ScanOrchestrator? _cachedOrchestrator;
-
-  final DeviceInfoPlugin _deviceInfo = DeviceInfoPlugin();
 
   ScannerRuntime get _runtime {
     final runtime = _cachedRuntime;
@@ -161,28 +154,13 @@ class ScannerNotifier extends _$ScannerNotifier {
       unawaited(_sideEffects.close());
     });
 
-    final isLowEnd = await _checkDeviceCapabilities();
+    await _checkDeviceCapabilities(); // We still call this to maintain async pattern
 
-    return _initialState.copyWith(isLowEndDevice: isLowEnd);
+    return _initialState;
   }
 
   Future<bool> _checkDeviceCapabilities() async {
-    try {
-      if (Platform.isAndroid) {
-        final androidInfo = await _deviceInfo.androidInfo;
-        // Simple heuristic: Android 8.0 (SDK 26) or lower might be considered "low end"
-        // for heavy ML tasks, or check memory if available (not directly in basic info).
-        // Here we just check SDK version as an example.
-        return androidInfo.version.sdkInt <= 26;
-      } else if (Platform.isIOS) {
-        final iosInfo = await _deviceInfo.iosInfo;
-        // Example: iPhone 6s or older (just a placeholder logic)
-        return !iosInfo
-            .isPhysicalDevice; // Treat simulator as low end for testing or similar
-      }
-    } on Object catch (e) {
-      LoggerService.error('Failed to check device capabilities', e);
-    }
+    // Device capability detection removed
     return false;
   }
 
