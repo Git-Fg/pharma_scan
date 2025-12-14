@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:patrol/patrol.dart';
 
@@ -17,18 +18,11 @@ import '../robots/app_robot.dart';
 /// 6. Complete user journey simulation
 void main() {
   group('GP5: Full App Cycle Tests', () {
-    late AppRobot appRobot;
-
-    setUp(() async {
-      appRobot = AppRobot($);
-    });
-
     patrolTest(
       'GP5.1: Complete cross-tab user journey',
-      config: PatrolTesterConfig(
-        reportLogs: true,
-      ),
+      config: PatrolTesterConfig(),
       ($) async {
+        final appRobot = AppRobot($);
         // PHASE 1: Setup and Initialization
         await MockPreferencesHelper.configureForTesting();
         await TestDatabaseHelper.injectTestDatabase();
@@ -36,7 +30,7 @@ void main() {
         await appRobot.completeAppInitialization();
 
         // PHASE 2: Start in Scanner - Manual entry workflow
-        print('📱 GP5.1: Starting scanner workflow');
+        debugPrint('📱 GP5.1: Starting scanner workflow');
         await appRobot.navigateToTab('scanner');
         await appRobot.scanner.waitForCameraInitialization();
 
@@ -46,7 +40,7 @@ void main() {
         appRobot.scanner.expectBubbleVisible(TestProducts.doliprane1000Name);
 
         // PHASE 3: Navigate to Explorer - Search workflow
-        print('🔍 GP5.1: Navigating to explorer');
+        debugPrint('🔍 GP5.1: Navigating to explorer');
         await appRobot.navigateToTab('explorer');
         await appRobot.explorer.expectExplorerScreenVisible();
 
@@ -55,14 +49,14 @@ void main() {
         await appRobot.explorer.submitSearch();
         await appRobot.waitForNetworkRequests();
 
-        appRobot.explorer.expectMedicationGroupVisible('DOLIPRANE');
+        await appRobot.explorer.expectMedicationGroupVisible('DOLIPRANE');
 
         // Open medication details
         await appRobot.explorer.tapMedicationGroup('DOLIPRANE');
         await appRobot.explorer.waitForDrawer();
 
         // PHASE 4: Navigate to Restock - Inventory workflow
-        print('📦 GP5.1: Navigating to restock');
+        debugPrint('📦 GP5.1: Navigating to restock');
         await appRobot.navigateToTab('scanner');
         await appRobot.scanner.switchToRestockMode();
 
@@ -75,29 +69,29 @@ void main() {
         await appRobot.waitForNetworkRequests();
 
         // Verify medication in restock
-        appRobot.restock.expectItemInRestock('DOLIPRANE');
+        await appRobot.restock.expectItemInRestock('DOLIPRANE');
 
         // PHASE 5: Cross-tab state verification
-        print('🔄 GP5.1: Verifying cross-tab state');
+        debugPrint('🔄 GP5.1: Verifying cross-tab state');
 
         // Navigate back through tabs
         await appRobot.navigateToTab('explorer');
-        await $.pumpAndSettle();
+        await appRobot.waitAndSettle();
 
         // Previous search should persist
         appRobot.explorer.expectSearchQueryEntered('Doliprane');
 
         await appRobot.navigateToTab('scanner');
-        await $.pumpAndSettle();
+        await appRobot.waitAndSettle();
 
         // Scanner bubble should persist
         appRobot.scanner.expectBubbleVisible(TestProducts.doliprane1000Name);
 
         // Verify restock item still exists
         await appRobot.navigateToTab('restock');
-        appRobot.restock.expectItemInRestock('DOLIPRANE');
+        await appRobot.restock.expectItemInRestock('DOLIPRANE');
 
-        print('✅ GP5.1: Complete cross-tab user journey passed');
+        debugPrint('✅ GP5.1: Complete cross-tab user journey passed');
       },
     );
 
@@ -105,6 +99,7 @@ void main() {
       'GP5.2: App lifecycle - Background and resume persistence',
       config: PatrolTesterConfig(),
       ($) async {
+        final appRobot = AppRobot($);
         // Setup initial state
         await MockPreferencesHelper.configureForTesting();
         await TestDatabaseHelper.injectTestDatabase();
@@ -112,7 +107,7 @@ void main() {
         await appRobot.completeAppInitialization();
 
         // Create some data in each tab
-        print('📱 GP5.2: Setting up initial state');
+        debugPrint('📱 GP5.2: Setting up initial state');
 
         // Scanner: Scan multiple items
         await appRobot.navigateToTab('scanner');
@@ -127,7 +122,7 @@ void main() {
         for (final cip in scanTargets) {
           await appRobot.scanner.scanCipCode(cip);
           await appRobot.scanner.waitForScanResult();
-          await Future.delayed(const Duration(milliseconds: 300));
+          await Future<void>.delayed(const Duration(milliseconds: 300));
         }
 
         // Explorer: Search and open details
@@ -153,22 +148,22 @@ void main() {
         await appRobot.scanner.waitForScanResult();
 
         // PHASE: Background app
-        print('⏸️ GP5.2: Backgrounding app');
+        debugPrint('⏸️ GP5.2: Backgrounding app');
         await appRobot.backgroundApp();
-        await Future.delayed(const Duration(seconds: 3));
+        await Future<void>.delayed(const Duration(seconds: 3));
 
         // PHASE: Resume app
-        print('▶️ GP5.2: Resuming app');
+        debugPrint('▶️ GP5.2: Resuming app');
         await appRobot.resumeApp();
         await appRobot.waitForAppToFullyLoad();
 
         // PHASE: Verify persistence
-        print('✅ GP5.2: Verifying persistence');
+        debugPrint('✅ GP5.2: Verifying persistence');
 
         // Verify restock data persisted
         await appRobot.navigateToTab('restock');
         await appRobot.waitForNetworkRequests();
-        appRobot.restock.expectItemQuantity('DOLIPRANE 500 mg', 3);
+        await appRobot.restock.expectItemQuantity('DOLIPRANE 500 mg', 3);
 
         // Verify scanner bubbles persisted
         await appRobot.navigateToTab('scanner');
@@ -178,7 +173,7 @@ void main() {
         await appRobot.navigateToTab('explorer');
         appRobot.explorer.expectSearchQueryEntered('Paracétamol');
 
-        print('✅ GP5.2: App lifecycle persistence verified');
+        debugPrint('✅ GP5.2: App lifecycle persistence verified');
       },
     );
 
@@ -186,6 +181,7 @@ void main() {
       'GP5.3: App resilience and stress testing',
       config: PatrolTesterConfig(),
       ($) async {
+        final appRobot = AppRobot($);
         // Setup
         await MockPreferencesHelper.configureForTesting();
         await TestDatabaseHelper.injectTestDatabase();
@@ -193,13 +189,13 @@ void main() {
         await appRobot.completeAppInitialization();
 
         // Stress test: Rapid navigation and actions
-        print('🏋️ GP5.3: Starting resilience test');
+        debugPrint('🏋️ GP5.3: Starting resilience test');
 
         final resilienceStartTime = DateTime.now();
 
         // Phase 1: Rapid tab switching
         for (int cycle = 0; cycle < 5; cycle++) {
-          print('🔄 GP5.3: Resilience cycle ${cycle + 1}/5');
+          debugPrint('🔄 GP5.3: Resilience cycle ${cycle + 1}/5');
 
           await appRobot.navigateToTab('scanner');
           await appRobot.scanner.scanCipCode(TestProducts.doliprane1000Cip);
@@ -221,10 +217,10 @@ void main() {
 
         // Phase 2: Background/resume stress
         for (int i = 0; i < 3; i++) {
-          print('⏸️ GP5.3: Background cycle ${i + 1}/3');
+          debugPrint('⏸️ GP5.3: Background cycle ${i + 1}/3');
 
           await appRobot.backgroundApp();
-          await Future.delayed(const Duration(seconds: 1));
+          await Future<void>.delayed(const Duration(seconds: 1));
 
           await appRobot.resumeApp();
           await appRobot.waitForAppToFullyLoad();
@@ -235,7 +231,7 @@ void main() {
         }
 
         // Phase 3: Memory stress test
-        print('🧠 GP5.3: Memory stress test');
+        debugPrint('🧠 GP5.3: Memory stress test');
 
         // Add many scanner bubbles
         for (int i = 0; i < 10; i++) {
@@ -243,7 +239,8 @@ void main() {
           await appRobot.scanner.waitForScanResult();
         }
 
-        appRobot.scanner.expectBubbleCount(10); // Should have at least some bubbles
+        appRobot.scanner
+            .expectBubbleCount(10); // Should have at least some bubbles
 
         // Clear some memory by navigation
         await appRobot.performCompleteAppTour();
@@ -251,12 +248,13 @@ void main() {
         final resilienceEndTime = DateTime.now();
         final totalDuration = resilienceEndTime.difference(resilienceStartTime);
 
-        print('📊 GP5.3: Resilience test completed in ${totalDuration.inSeconds}s');
+        debugPrint(
+            '📊 GP5.3: Resilience test completed in ${totalDuration.inSeconds}s');
 
         // Final verification
         await appRobot.expectAppStateConsistent();
 
-        print('✅ GP5.3: App resilience and stress testing passed');
+        debugPrint('✅ GP5.3: App resilience and stress testing passed');
       },
     );
 
@@ -264,6 +262,7 @@ void main() {
       'GP5.4: Data integrity across app restart',
       config: PatrolTesterConfig(),
       ($) async {
+        final appRobot = AppRobot($);
         // Initial setup
         await MockPreferencesHelper.configureForTesting();
         await TestDatabaseHelper.injectTestDatabase();
@@ -271,7 +270,7 @@ void main() {
         await appRobot.completeAppInitialization();
 
         // Create data
-        print('💾 GP5.4: Creating test data');
+        debugPrint('💾 GP5.4: Creating test data');
 
         await appRobot.navigateToTab('scanner');
         await appRobot.scanner.waitForCameraInitialization();
@@ -280,13 +279,25 @@ void main() {
         await appRobot.scanner.switchToRestockMode();
 
         final restockItems = [
-          {'cip': TestProducts.doliprane500Cip, 'name': 'DOLIPRANE 500 mg', 'quantity': 2},
-          {'cip': TestProducts.ibuprofene400Cip, 'name': 'IBUPROFENE 400 mg', 'quantity': 1},
-          {'cip': TestProducts.aspirine500Cip, 'name': 'ASPIRINE 500 mg', 'quantity': 3},
+          {
+            'cip': TestProducts.doliprane500Cip,
+            'name': 'DOLIPRANE 500 mg',
+            'quantity': 2
+          },
+          {
+            'cip': TestProducts.ibuprofene400Cip,
+            'name': 'IBUPROFENE 400 mg',
+            'quantity': 1
+          },
+          {
+            'cip': TestProducts.aspirine500Cip,
+            'name': 'ASPIRINE 500 mg',
+            'quantity': 3
+          },
         ];
 
         for (final item in restockItems) {
-          for (int i = 0; i < item['quantity'] as int; i++) {
+          for (int i = 0; i < (item['quantity'] as int); i++) {
             await appRobot.scanner.scanCipCode(item['cip'] as String);
             await appRobot.scanner.waitForScanResult();
           }
@@ -297,16 +308,17 @@ void main() {
         await appRobot.waitForNetworkRequests();
 
         for (final item in restockItems) {
-          appRobot.restock.expectItemQuantity(item['name'] as String, item['quantity'] as int);
+          await appRobot.restock.expectItemQuantity(
+              item['name'] as String, item['quantity'] as int);
         }
 
         // Simulate app restart (in real scenario, this would be a fresh app launch)
-        print('🔄 GP5.4: Simulating app restart');
+        debugPrint('🔄 GP5.4: Simulating app restart');
 
         // In a real test, you would restart the app here
         // For this simulation, we'll verify data persistence through background/resume
         await appRobot.backgroundApp();
-        await Future.delayed(const Duration(seconds: 5)); // Longer pause
+        await Future<void>.delayed(const Duration(seconds: 5)); // Longer pause
         await appRobot.resumeApp();
         await appRobot.waitForAppToFullyLoad();
 
@@ -315,10 +327,11 @@ void main() {
         await appRobot.waitForNetworkRequests();
 
         for (final item in restockItems) {
-          appRobot.restock.expectItemQuantity(item['name'] as String, item['quantity'] as int);
+          await appRobot.restock.expectItemQuantity(
+              item['name'] as String, item['quantity'] as int);
         }
 
-        print('✅ GP5.4: Data integrity verification passed');
+        debugPrint('✅ GP5.4: Data integrity verification passed');
       },
     );
 
@@ -326,13 +339,14 @@ void main() {
       'GP5.5: Complete user journey with controlled substances',
       config: PatrolTesterConfig(),
       ($) async {
+        final appRobot = AppRobot($);
         // Setup for controlled substances testing
         await MockPreferencesHelper.configureForTesting();
         await TestDatabaseHelper.injectTestDatabase();
 
         await appRobot.completeAppInitialization();
 
-        print('🚫 GP5.5: Testing controlled substances workflow');
+        debugPrint('🚫 GP5.5: Testing controlled substances workflow');
 
         // Test Ventoline (controlled asthma medication)
         await appRobot.navigateToTab('scanner');
@@ -343,11 +357,14 @@ void main() {
 
         // Look for controlled substance indicators
         try {
-          await $.waitForTextToAppear('Médicament contrôlé', timeout: const Duration(seconds: 3));
-          await $.waitForTextToAppear('Stupéfiant', timeout: const Duration(seconds: 3));
-          print('✅ GP5.5: Controlled substance warnings found');
+          await appRobot.waitForTextToAppear('Médicament contrôlé',
+              timeout: const Duration(seconds: 3));
+          await appRobot.waitForTextToAppear('Stupéfiant',
+              timeout: const Duration(seconds: 3));
+          debugPrint('✅ GP5.5: Controlled substance warnings found');
         } catch (e) {
-          print('⚠️ GP5.5: Controlled substance warnings not immediately visible');
+          debugPrint(
+              '⚠️ GP5.5: Controlled substance warnings not immediately visible');
         }
 
         // Verify bubble appears (may have special styling)
@@ -359,11 +376,14 @@ void main() {
 
         // Look for prescription requirements
         try {
-          await $.waitForTextToAppear('Ordonnance', timeout: const Duration(seconds: 2));
-          await $.waitForTextToAppear('Prescription', timeout: const Duration(seconds: 2));
-          print('✅ GP5.5: Prescription requirements found');
+          await appRobot.waitForTextToAppear('Ordonnance',
+              timeout: const Duration(seconds: 2));
+          await appRobot.waitForTextToAppear('Prescription',
+              timeout: const Duration(seconds: 2));
+          debugPrint('✅ GP5.5: Prescription requirements found');
         } catch (e) {
-          print('⚠️ GP5.5: Prescription requirements not immediately visible');
+          debugPrint(
+              '⚠️ GP5.5: Prescription requirements not immediately visible');
         }
 
         // Test normal medication for comparison
@@ -373,7 +393,7 @@ void main() {
 
         appRobot.scanner.expectBubbleVisible('DOLIPRANE');
 
-        print('✅ GP5.5: Controlled substances workflow completed');
+        debugPrint('✅ GP5.5: Controlled substances workflow completed');
       },
     );
 
@@ -381,13 +401,14 @@ void main() {
       'GP5.6: Error handling and recovery testing',
       config: PatrolTesterConfig(),
       ($) async {
+        final appRobot = AppRobot($);
         // Setup
         await MockPreferencesHelper.configureForTesting();
         await TestDatabaseHelper.injectTestDatabase();
 
         await appRobot.completeAppInitialization();
 
-        print('🚨 GP5.6: Testing error handling and recovery');
+        debugPrint('🚨 GP5.6: Testing error handling and recovery');
 
         // Test unknown CIP handling
         await appRobot.navigateToTab('scanner');
@@ -398,10 +419,10 @@ void main() {
 
         // Should show error but app remains functional
         try {
-          await $.waitForTextToAppear('Non trouvé');
-          print('✅ GP5.6: Unknown CIP error handled');
+          await appRobot.waitForTextToAppear('Non trouvé');
+          debugPrint('✅ GP5.6: Unknown CIP error handled');
         } catch (e) {
-          print('⚠️ GP5.6: Unknown CIP error message not found');
+          debugPrint('⚠️ GP5.6: Unknown CIP error message not found');
         }
 
         // Verify app still works
@@ -417,7 +438,7 @@ void main() {
         try {
           await appRobot.handleNetworkErrors();
         } catch (e) {
-          print('⚠️ GP5.6: Network error handling tested');
+          debugPrint('⚠️ GP5.6: Network error handling tested');
         }
 
         // Test rapid consecutive operations
@@ -426,7 +447,7 @@ void main() {
         // Verify app recovered successfully
         await appRobot.expectAppStateConsistent();
 
-        print('✅ GP5.6: Error handling and recovery verified');
+        debugPrint('✅ GP5.6: Error handling and recovery verified');
       },
     );
   });

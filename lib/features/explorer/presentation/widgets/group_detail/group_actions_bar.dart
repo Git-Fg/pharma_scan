@@ -99,7 +99,7 @@ class GroupActionsBar extends StatelessWidget {
           ),
         );
       }
-      LoggerService.error('Failed to launch URL: $url', e);
+      LoggerService().error('Failed to launch URL: $url', e);
     }
   }
 }

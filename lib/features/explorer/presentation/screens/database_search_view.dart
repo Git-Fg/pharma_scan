@@ -12,8 +12,7 @@ import 'package:pharma_scan/core/widgets/ui_kit/status_view.dart';
 import 'package:pharma_scan/features/explorer/presentation/providers/cluster_provider.dart';
 import 'package:pharma_scan/features/explorer/presentation/widgets/cluster_tile.dart'
     hide Strings;
-import 'package:pharma_scan/features/explorer/presentation/widgets/medication_drawer.dart'
-    hide Strings;
+import 'package:pharma_scan/features/explorer/presentation/utils/drawer_utils.dart';
 import 'package:pharma_scan/features/home/providers/initialization_provider.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
@@ -102,11 +101,8 @@ class DatabaseSearchView extends HookConsumerWidget {
               itemBuilder: (context, index) {
                 final cluster = clusters[index];
                 return ClusterTile(
-                  title: cluster.title, // Display title (Substance Clean)
-                  subtitle:
-                      cluster.subtitle, // Display subtitle (Princeps Principal)
-                  countProducts: cluster.countProducts ?? 0,
-                  onTap: () => _openDrawer(context, cluster.clusterId),
+                  entity: cluster,
+                  onTap: () => openMedicationDrawer(context, cluster.id),
                 );
               },
             ),
@@ -130,13 +126,4 @@ class DatabaseSearchView extends HookConsumerWidget {
       ],
     );
   }
-}
-
-/// Utility function to open medication drawer
-void _openDrawer(BuildContext context, String clusterId) {
-  showShadSheet(
-    context: context,
-    side: ShadSheetSide.bottom,
-    builder: (context) => MedicationDrawer(clusterId: clusterId),
-  );
 }

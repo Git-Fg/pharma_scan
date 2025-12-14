@@ -49,7 +49,7 @@ class ScannerRobot extends BaseRobot {
 
   // --- Enhanced Camera Actions ---
   Future<void> waitForCameraInitialization() async {
-    await waitForWidgetToAppear(TestTags.scannerScreen);
+    await waitForWidgetToAppear(Key(TestTags.scannerScreen));
     await pumpAndSettleWithDelay(const Duration(seconds: 2));
   }
 
@@ -213,7 +213,7 @@ class ScannerRobot extends BaseRobot {
   }
 
   void expectScannerModeActive() {
-    expectVisibleByKey(Key(TestTags.scannerScreen));
+    expectVisibleByKeyWidget(Key(TestTags.scannerScreen));
     final modeIndicator = find.textContaining('Analysis');
     if (modeIndicator.evaluate().isNotEmpty) {
       expect(modeIndicator, findsOneWidget);
@@ -221,7 +221,7 @@ class ScannerRobot extends BaseRobot {
   }
 
   void expectRestockModeActive() {
-    expectVisibleByKey(Key(TestTags.scannerScreen));
+    expectVisibleByKeyWidget(Key(TestTags.scannerScreen));
     final modeIndicator = find.textContaining('Restock');
     if (modeIndicator.evaluate().isNotEmpty) {
       expect(modeIndicator, findsOneWidget);
@@ -229,7 +229,7 @@ class ScannerRobot extends BaseRobot {
   }
 
   void expectCameraActive() {
-    expectVisibleByKey(Key(TestTags.scannerScreen));
+    expectVisibleByKeyWidget(Key(TestTags.scannerScreen));
   }
 
   void expectManualEntrySheetVisible() {
@@ -268,39 +268,9 @@ class ScannerRobot extends BaseRobot {
     }
   }
 
-  void expectCameraPermissionDenied() {
-    expectVisibleByText('Camera Permission Required');
-  }
-
   void expectCameraPermissionGranted() {
-    expectVisibleByKey(Key(TestTags.scannerScreen));
+    expectVisibleByKeyWidget(Key(TestTags.scannerScreen));
     expectNotVisibleByText('Camera Permission Required');
-  }
-
-  // --- Scanner Actions ---
-  Future<void> openManualEntry() async {
-    await $(const Key(TestTags.manualEntryButton)).tap();
-    await $.pumpAndSettle();
-  }
-
-  Future<void> enterCipAndSearch(String cip) async {
-    final inputFinder = $(Strings.cipPlaceholder);
-    await inputFinder.waitUntilVisible();
-    await inputFinder.enterText(cip);
-    await $.pumpAndSettle();
-
-    await $(Strings.search).tap();
-    await $.pumpAndSettle();
-  }
-
-  Future<void> tapScanButton() async {
-    await $(const Key(TestTags.scannerButton)).tap();
-    await $.pumpAndSettle();
-  }
-
-  Future<void> toggleTorch() async {
-    await $(const Key(TestTags.torchButton)).tap();
-    await $.pumpAndSettle();
   }
 
   // --- Scanner Verifications ---

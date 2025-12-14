@@ -39,8 +39,9 @@ class MedicationDrawer extends ConsumerWidget {
             itemBuilder: (ctx, idx) {
               final product = products[idx];
               return ProductRow(
-                name: product.nomComplet ?? '',
-                isPrinceps: (product.isPrinceps ?? 0) == 1,
+                name: product.name,
+                isPrinceps: product.isPrinceps,
+                cisCode: product.cisCode,
               );
             },
           ),
@@ -79,11 +80,13 @@ class ProductRow extends StatelessWidget {
   const ProductRow({
     required this.name,
     required this.isPrinceps,
+    required this.cisCode,
     super.key,
   });
 
   final String name;
   final bool isPrinceps;
+  final String cisCode; // For potential navigation to details
 
   @override
   Widget build(BuildContext context) {

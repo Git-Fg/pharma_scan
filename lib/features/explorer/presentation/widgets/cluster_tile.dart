@@ -3,29 +3,24 @@ import 'package:gap/gap.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
+import 'package:pharma_scan/features/explorer/domain/entities/cluster_entity.dart';
 
 /// A tile representing a cluster (conceptual group) in search results
 /// Displays cluster information and opens a drawer when tapped
 class ClusterTile extends StatelessWidget {
   const ClusterTile({
-    required this.title,
-    this.subtitle,
-    this.countProducts = 0,
+    required this.entity,
     required this.onTap,
     super.key,
   });
 
-  final String
-      title; // Display title (Substance Clean, e.g. "Ibuprofène 400mg")
-  final String?
-      subtitle; // Display subtitle (Princeps Principal, e.g. "Ref: Advil")
-  final int countProducts; // Number of products in the cluster
+  final ClusterEntity entity;
   final VoidCallback onTap; // Callback when tile is tapped (opens drawer)
 
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      label: Strings.clusterTileSemantics(title, countProducts),
+      label: Strings.clusterTileSemantics(entity.title, entity.productCount),
       hint: Strings.clusterTileHint,
       button: true,
       child: GestureDetector(
@@ -54,17 +49,17 @@ class ClusterTile extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        title,
+                        entity.title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: context.typo.p.copyWith(
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      if (subtitle != null && subtitle!.isNotEmpty) ...[
+                      if (entity.subtitle.isNotEmpty) ...[
                         const Gap(4),
                         Text(
-                          subtitle!,
+                          entity.subtitle,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: context.typo.small.copyWith(
@@ -77,7 +72,7 @@ class ClusterTile extends StatelessWidget {
                 ),
                 const Gap(AppDimens.spacingSm),
                 ShadBadge(
-                  child: Text(Strings.productCount(countProducts)),
+                  child: Text(Strings.productCount(entity.productCount)),
                 ),
                 const Gap(AppDimens.spacingSm),
                 const ExcludeSemantics(

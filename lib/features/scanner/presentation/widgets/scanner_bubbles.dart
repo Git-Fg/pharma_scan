@@ -10,7 +10,6 @@ import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/models/scan_models.dart';
 import 'package:pharma_scan/features/scanner/domain/scanner_mode.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/product_badges.dart';
-// Removed unused import - scanner_bubbles uses only Signals via useScannerLogic
 import 'package:pharma_scan/features/scanner/presentation/widgets/scanner_result_card.dart';
 import 'package:pharma_scan/core/ui/theme/app_theme.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';

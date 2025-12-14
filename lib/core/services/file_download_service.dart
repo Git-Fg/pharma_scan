@@ -4,14 +4,14 @@ import 'package:dart_either/dart_either.dart';
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pharma_scan/core/errors/failures.dart';
-import 'package:pharma_scan/core/services/logger_service.dart';
+
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 
 class FileDownloadService {
-  FileDownloadService({required Dio dio, Talker? talker})
-    : _dio = dio,
-      _talker = talker ?? LoggerService().talker;
+  FileDownloadService({required Dio dio, required Talker talker})
+      : _dio = dio,
+        _talker = talker;
 
   final Dio _dio;
   final Talker _talker;
@@ -40,10 +40,9 @@ class FileDownloadService {
     }
   }
 
-  static String _getDnsErrorMessage(String url) {
+  String _getDnsErrorMessage(String url) {
     final hostname = _extractHostname(url) ?? 'serveur';
-    final technicalAdvice =
-        '''
+    final technicalAdvice = '''
 DNS resolution failed for $hostname. This typically indicates an Android emulator DNS configuration issue.
 
 Possible fixes:
@@ -54,7 +53,7 @@ Possible fixes:
 3. Check emulator network connectivity
 4. Use a physical device instead of emulator
 ''';
-    LoggerService.warning('[FileDownloadService] $technicalAdvice');
+    _talker.warning('[FileDownloadService] $technicalAdvice');
     return Strings.dnsResolutionFailed(hostname);
   }
 
@@ -66,7 +65,7 @@ Possible fixes:
       final addresses = await InternetAddress.lookup(hostname);
       return addresses.isNotEmpty;
     } on Exception catch (e) {
-      LoggerService.debug(
+      _talker.debug(
         '[FileDownloadService] Connectivity check failed for ${_extractHostname(url)}: $e',
       );
       return false;
@@ -179,9 +178,8 @@ Possible fixes:
           final lengthHeader = headResponse.headers.value(
             Headers.contentLengthHeader,
           );
-          plannedSize = lengthHeader != null
-              ? int.tryParse(lengthHeader)
-              : null;
+          plannedSize =
+              lengthHeader != null ? int.tryParse(lengthHeader) : null;
           if (plannedSize != null && plannedSize > _maxInMemoryBytes) {
             _talker.warning(
               '[FileDownloadService] Download size ${plannedSize / (1024 * 1024)} MB exceeds in-memory limit. Use downloadTextFile/downloadToTempFile to stream.',
@@ -224,14 +222,14 @@ Possible fixes:
     return downloadEither.fold(
       ifLeft: (failure) async {
         if (await cacheFile.exists()) {
-          LoggerService.warning(
+          _talker.warning(
             '[FileDownloader] Falling back to cached file ${cacheFile.path} after download failure.',
           );
           try {
             final cachedBytes = await cacheFile.readAsBytes();
             return Either<Failure, List<int>>.right(cachedBytes);
           } on Exception catch (e, stackTrace) {
-            LoggerService.error(
+            _talker.error(
               '[FileDownloader] Failed to read cached file',
               e,
               stackTrace,
@@ -252,7 +250,7 @@ Possible fixes:
           await cacheFile.writeAsBytes(bytes, flush: true);
           return Either<Failure, List<int>>.right(bytes);
         } on Exception catch (e, stackTrace) {
-          LoggerService.error(
+          _talker.error(
             '[FileDownloader] Failed to write cache file',
             e,
             stackTrace,

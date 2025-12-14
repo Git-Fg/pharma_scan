@@ -62,6 +62,7 @@ class ScaffoldShell extends ConsumerWidget {
     final canPop = AutoRouter.of(context).canPop();
 
     return Scaffold(
+      key: const Key(TestTags.mainScaffold),
       resizeToAvoidBottomInset: resizeToAvoidBottomInset,
       backgroundColor: context.colors.background,
       appBar: appBarConfig.isVisible

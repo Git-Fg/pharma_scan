@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:patrol/patrol.dart';
 
@@ -17,18 +18,11 @@ import '../robots/app_robot.dart';
 /// 6. Verify medication detail information
 void main() {
   group('GP1: Scanner Standalone Tests', () {
-    late AppRobot appRobot;
-
-    setUp(() async {
-      appRobot = AppRobot($);
-    });
-
     patrolTest(
       'GP1.1: Complete scanner workflow - Permission → Scan → Bubble → Detail',
-      config: PatrolTesterConfig(
-        reportLogs: true,
-      ),
+      config: PatrolTesterConfig(printLogs: true),
       ($) async {
+        final appRobot = AppRobot($);
         // PHASE 1: Setup and Initialization
         await MockPreferencesHelper.configureForTesting();
         await TestDatabaseHelper.injectTestDatabase();
@@ -46,7 +40,7 @@ void main() {
         appRobot.scanner.expectCameraActive();
 
         // PHASE 3: Scan Known CIP (Doliprane)
-        await $.measureTime(
+        await appRobot.measureTime(
           () async {
             await appRobot.scanner.scanCipCode(TestProducts.doliprane1000Cip);
             await appRobot.scanner.waitForScanResult();
@@ -60,32 +54,35 @@ void main() {
         appRobot.scanner.expectBubbleCount(1);
 
         // PHASE 5: Tap Bubble to Open Detail
-        await appRobot.scanner.tapBubbleByMedicationName(TestProducts.doliprane1000Name);
+        await appRobot.scanner
+            .tapBubbleByMedicationName(TestProducts.doliprane1000Name);
         await appRobot.scanner.waitForModalBottomSheet();
 
         // PHASE 6: Verify Medication Detail Information
         // Check basic medication info
-        await $.waitForTextToAppear(TestProducts.doliprane1000Name);
-        await $.waitForTextToAppear('Paracétamol');
-        await $.waitForTextToAppear('1000 mg');
+        await appRobot.waitForTextToAppear(TestProducts.doliprane1000Name);
+        await appRobot.waitForTextToAppear('Paracétamol');
+        await appRobot.waitForTextToAppear('1000 mg');
 
         // Verify detail sheet elements
-        await $(#medicationDetailSheet).waitUntilVisible();
-        await $(#ficheButton).waitUntilVisible();
-        await $(#rcpButton).waitUntilVisible();
+        await appRobot
+            .waitForWidgetToAppear(const Key('medicationDetailSheet'));
+        await appRobot.waitForWidgetToAppear(const Key('ficheButton'));
+        await appRobot.waitForWidgetToAppear(const Key('rcpButton'));
 
         // Verify additional information
-        await $.waitForTextToAppear(TestProducts.doliprane1000Labo);
-        await $.waitForTextToAppear('Boîte de');
+        await appRobot.waitForTextToAppear(TestProducts.doliprane1000Labo);
+        await appRobot.waitForTextToAppear('Boîte de');
 
-        print('✅ GP1.1: Complete scanner workflow passed');
+        debugPrint('✅ GP1.1: Complete scanner workflow passed');
       },
     );
 
     patrolTest(
       'GP1.2: Scanner with unknown CIP - Error handling',
-      config: PatrolTesterConfig(),
+      config: PatrolTesterConfig(printLogs: true),
       ($) async {
+        final appRobot = AppRobot($);
         // Setup
         await MockPreferencesHelper.configureForTesting();
         await TestDatabaseHelper.injectTestDatabase();
@@ -99,20 +96,22 @@ void main() {
         await appRobot.scanner.waitForScanResult();
 
         // Verify error handling
-        await $.waitForTextToAppear('Médicament non trouvé');
-        await $.waitForTextToAppear('CIP invalide');
+        await appRobot.waitForTextToAppear('Médicament non trouvé');
+        await appRobot.waitForTextToAppear('CIP invalide');
 
         // Verify no bubbles appear
         appRobot.scanner.expectNoBubblesVisible();
 
-        print('✅ GP1.2: Unknown CIP error handling passed');
+        debugPrint('✅ GP1.2: Unknown CIP error handling passed');
       },
+      // Skip this test as per user request if needed, but keeping it compilable
     );
 
     patrolTest(
       'GP1.3: Scanner mode switching - Analysis vs Restock',
-      config: PatrolTesterConfig(),
+      config: PatrolTesterConfig(printLogs: true),
       ($) async {
+        final appRobot = AppRobot($);
         // Setup
         await MockPreferencesHelper.configureForTesting();
         await TestDatabaseHelper.injectTestDatabase();
@@ -139,14 +138,15 @@ void main() {
         await appRobot.scanner.switchToScanMode();
         appRobot.scanner.expectScannerModeActive();
 
-        print('✅ GP1.3: Scanner mode switching passed');
+        debugPrint('✅ GP1.3: Scanner mode switching passed');
       },
     );
 
     patrolTest(
       'GP1.4: Scanner torch functionality',
-      config: PatrolTesterConfig(),
+      config: PatrolTesterConfig(printLogs: true),
       ($) async {
+        final appRobot = AppRobot($);
         // Setup
         await MockPreferencesHelper.configureForTesting();
         await TestDatabaseHelper.injectTestDatabase();
@@ -163,17 +163,18 @@ void main() {
           await appRobot.scanner.toggleTorch();
           appRobot.scanner.expectTorchOff();
 
-          print('✅ GP1.4: Torch functionality available and working');
+          debugPrint('✅ GP1.4: Torch functionality available and working');
         } catch (e) {
-          print('⚠️ GP1.4: Torch not available on this device/emulator');
+          debugPrint('⚠️ GP1.4: Torch not available on this device/emulator');
         }
       },
     );
 
     patrolTest(
       'GP1.5: Scanner manual entry workflow',
-      config: PatrolTesterConfig(),
+      config: PatrolTesterConfig(printLogs: true),
       ($) async {
+        final appRobot = AppRobot($);
         // Setup
         await MockPreferencesHelper.configureForTesting();
         await TestDatabaseHelper.injectTestDatabase();
@@ -198,14 +199,15 @@ void main() {
         await appRobot.scanner.openManualEntry();
         await appRobot.scanner.cancelManualEntry();
 
-        print('✅ GP1.5: Manual entry workflow passed');
+        debugPrint('✅ GP1.5: Manual entry workflow passed');
       },
     );
 
     patrolTest(
       'GP1.6: Scanner with generic medication',
-      config: PatrolTesterConfig(),
+      config: PatrolTesterConfig(printLogs: true),
       ($) async {
+        final appRobot = AppRobot($);
         // Setup
         await MockPreferencesHelper.configureForTesting();
         await TestDatabaseHelper.injectTestDatabase();
@@ -222,25 +224,28 @@ void main() {
         appRobot.scanner.expectBubbleVisible(TestProducts.genericDolipraneName);
 
         // Open details and verify generic badge
-        await appRobot.scanner.tapBubbleByMedicationName(TestProducts.genericDolipraneName);
+        await appRobot.scanner
+            .tapBubbleByMedicationName(TestProducts.genericDolipraneName);
         await appRobot.scanner.waitForModalBottomSheet();
 
         // Look for generic indication
         try {
-          await $.waitForTextToAppear('Générique');
-          print('✅ GP1.6: Generic medication badge visible');
+          await appRobot.waitForTextToAppear('Générique');
+          debugPrint('✅ GP1.6: Generic medication badge visible');
         } catch (e) {
-          print('⚠️ GP1.6: Generic badge not visible but medication loaded');
+          debugPrint(
+              '⚠️ GP1.6: Generic badge not visible but medication loaded');
         }
 
-        print('✅ GP1.6: Scanner with generic medication passed');
+        debugPrint('✅ GP1.6: Scanner with generic medication passed');
       },
     );
 
     patrolTest(
       'GP1.7: Scanner performance and resilience',
-      config: PatrolTesterConfig(),
+      config: PatrolTesterConfig(printLogs: true),
       ($) async {
+        final appRobot = AppRobot($);
         // Setup
         await MockPreferencesHelper.configureForTesting();
         await TestDatabaseHelper.injectTestDatabase();
@@ -255,7 +260,9 @@ void main() {
           final startTime = DateTime.now().millisecondsSinceEpoch;
 
           // Use different CIP codes or same one
-          final cip = i % 2 == 0 ? TestProducts.doliprane1000Cip : TestProducts.doliprane500Cip;
+          final cip = i % 2 == 0
+              ? TestProducts.doliprane1000Cip
+              : TestProducts.doliprane500Cip;
 
           await appRobot.scanner.scanCipCode(cip);
           await appRobot.scanner.waitForScanResult();
@@ -264,11 +271,12 @@ void main() {
           scanTimes.add(endTime - startTime);
 
           // Wait between scans
-          await Future.delayed(const Duration(milliseconds: 500));
+          await Future<void>.delayed(const Duration(milliseconds: 500));
         }
 
-        final averageScanTime = scanTimes.reduce((a, b) => a + b) / scanTimes.length;
-        print('📊 GP1.7: Average scan time: ${averageScanTime.round()}ms');
+        final averageScanTime =
+            scanTimes.reduce((a, b) => a + b) / scanTimes.length;
+        debugPrint('📊 GP1.7: Average scan time: ${averageScanTime.round()}ms');
 
         // Verify app is still responsive
         appRobot.scanner.expectScannerModeActive();
@@ -277,14 +285,15 @@ void main() {
         // Verify bubbles are present
         appRobot.scanner.expectBubbleVisible('DOLIPRANE');
 
-        print('✅ GP1.7: Scanner performance test completed');
+        debugPrint('✅ GP1.7: Scanner performance test completed');
       },
     );
 
     patrolTest(
       'GP1.8: Scanner app lifecycle handling',
-      config: PatrolTesterConfig(),
+      config: PatrolTesterConfig(printLogs: true),
       ($) async {
+        final appRobot = AppRobot($);
         // Setup
         await MockPreferencesHelper.configureForTesting();
         await TestDatabaseHelper.injectTestDatabase();
@@ -300,7 +309,7 @@ void main() {
 
         // Background app
         await appRobot.backgroundApp();
-        await Future.delayed(const Duration(seconds: 2));
+        await Future<void>.delayed(const Duration(seconds: 2));
 
         // Resume app
         await appRobot.resumeApp();
@@ -314,7 +323,7 @@ void main() {
         await appRobot.scanner.scanCipCode(TestProducts.doliprane500Cip);
         await appRobot.scanner.waitForScanResult();
 
-        print('✅ GP1.8: Scanner app lifecycle handling passed');
+        debugPrint('✅ GP1.8: Scanner app lifecycle handling passed');
       },
     );
   });

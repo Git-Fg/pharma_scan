@@ -4,17 +4,13 @@
   "private": true,
   "module": "src/index.ts",
   "scripts": {
-    "test": "bun test",
-    "build": "bun run src/index.ts",
-    "download:bdpm": "bun run scripts/download_bdpm.ts",
-    "export-schema": "bash scripts/dump_schema.sh",
-    "generate": "bun run build && bun run export-schema",
-    "tool": "bun run tool/export_preview.ts && bun run tool/audit_data.ts",
-    "preflight": "bun run download:bdpm && bun test && bun run generate && bun run tool",
-    "preflight:bp": "bun run download:bdpm && bun run generate && bun run tool",
-    "sync": "bun run tool/sync.ts",
-    "update-db": "bun run tool/release.ts",
-    "update-db-force": "bun run tool/release.ts --force"
+    "build": "bun run src/index.ts && bun test",
+    "download": "bun run scripts/download_bdpm.ts",
+    "export": "bash scripts/dump_schema.sh",
+    "tool": "bun run tool/audit_data.ts",
+    "generate": "bun run download && bun run build && bun run export",
+    "export:missing-cis": "bun run tool/export_missing_cis.ts",
+    "preflight": "bun run generate && bun run tool"
   },
   "devDependencies": {
     "@types/bun": "latest"
@@ -27,6 +23,7 @@
     "bun-sqlite-generate": "^0.0.2",
     "cheerio": "^1.1.2",
     "csv-parse": "^6.1.0",
+    "csv-stringify": "^6.6.0",
     "iconv-lite": "^0.7.0",
     "zod": "^4.1.13"
   }

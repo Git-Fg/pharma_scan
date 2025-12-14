@@ -194,9 +194,9 @@ The mobile app's search normalization logic must match the backend's `normalizeF
 4. **Replace:** Atomically replaces local database
 5. **Restart:** Restarts database connections
 
-### 4.3 Fallback Strategy
+### 4.3 Offline Behavior
 
-The legacy Dart parsers in `lib/core/services/ingestion/` have been removed. The mobile app now relies entirely on the backend pipeline (`backend_pipeline/`) for data processing. There is no local fallback parsing strategy - the app operates as a thin client that downloads pre-processed data from the backend.
+The mobile app does not perform local parsing or ETL. It relies entirely on the backend pipeline (`backend_pipeline/`) for data processing. If the backend is unavailable, the app continues to operate using the last downloaded `reference.db` (local read-only cache). The app will not attempt to parse raw BDPM text files locally; legacy parsers have been removed from the codebase.
 
 ---
 
@@ -230,7 +230,7 @@ For mobile-specific UI testing, create scripts in `tool/` using Dart/Flutter tes
 
 **Primary Definition:** `backend_pipeline/src/db.ts`
 
-**Mobile Synchronization:** `lib/core/database/dbschema.drift`
+**Mobile Synchronization:** `lib/core/database/reference_schema.drift`
 
 **Complete Reference:** See `database_schema.md` (generated artifact) for comprehensive schema documentation covering:
 - Core BDPM tables (`specialites`, `medicaments`, `principes_actifs`, `generique_groups`, `group_members`)
@@ -263,7 +263,7 @@ For mobile-specific UI testing, create scripts in `tool/` using Dart/Flutter tes
 
 ### 6.3 Schema Synchronization Rule
 
-**CRITICAL:** Changes to `medicament_summary` schema MUST be done in `backend_pipeline/src/db.ts` first, then synced to `lib/core/database/dbschema.drift`. The mobile app does not modify the database structure.
+**CRITICAL:** Changes to `medicament_summary` schema MUST be done in `backend_pipeline/src/db.ts` first, then synced to `lib/core/database/reference_schema.drift`. The mobile app does not modify the database structure.
 
 ---
 
@@ -306,7 +306,7 @@ Tables managed exclusively by the mobile app:
 
 * **Core Data:** Available offline via `reference.db`
 * **Updates:** Background sync when network available
-* **Fallback:** Legacy parsers for emergency use only
+* **Offline behavior:** Use the last downloaded `reference.db` when offline; the app does not perform local parsing or ETL.
 
 ---
 
@@ -472,7 +472,6 @@ lib/
 │   │   ├── schema.sql   # Synchronized schema
 │   │   └── providers.dart # Database providers
 │   ├── services/
-│   │   ├── ingestion/   # Deprecated fallback only
 │   │   └── data_initialization_service.dart # DB sync
 │   └── logic/           # Mobile-only business logic
 └── features/
@@ -483,19 +482,19 @@ lib/
 
 ### 13.3 BDPM Files
 
-| File | Description | Frequency |
-| :--- | :--- | :--- |
-| `CIS_bdpm.txt` | Specialties (master table) | Daily |
-| `CIS_CIP_bdpm.txt` | Presentations (boxes) | Daily |
-| `CIS_COMPO_bdpm.txt` | Compositions (active principles) | Daily |
-| `CIS_GENER_bdpm.txt` | Generic groups | Daily |
-| `CIS_CPD_bdpm.txt` | Prescription conditions | Daily |
-| `CIS_HAS_SMR_bdpm.txt` | HAS SMR evaluations | Daily |
-| `CIS_HAS_ASMR_bdpm.txt` | HAS ASMR evaluations | Daily |
-| `HAS_LiensPageCT_bdpm.txt` | HAS PDF links | Daily |
-| `CIS_CIP_Dispo_Spec.txt` | Availability status | Real-time |
-| `CIS_MITM.txt` | ATC codes | Irregular |
-| `CIS_InfoImportantes.txt` | Important information | Irregular |
+| File                       | Description                      | Frequency |
+| :------------------------- | :------------------------------- | :-------- |
+| `CIS_bdpm.txt`             | Specialties (master table)       | Daily     |
+| `CIS_CIP_bdpm.txt`         | Presentations (boxes)            | Daily     |
+| `CIS_COMPO_bdpm.txt`       | Compositions (active principles) | Daily     |
+| `CIS_GENER_bdpm.txt`       | Generic groups                   | Daily     |
+| `CIS_CPD_bdpm.txt`         | Prescription conditions          | Daily     |
+| `CIS_HAS_SMR_bdpm.txt`     | HAS SMR evaluations              | Daily     |
+| `CIS_HAS_ASMR_bdpm.txt`    | HAS ASMR evaluations             | Daily     |
+| `HAS_LiensPageCT_bdpm.txt` | HAS PDF links                    | Daily     |
+| `CIS_CIP_Dispo_Spec.txt`   | Availability status              | Real-time |
+| `CIS_MITM.txt`             | ATC codes                        | Irregular |
+| `CIS_InfoImportantes.txt`  | Important information            | Irregular |
 
 ---
 

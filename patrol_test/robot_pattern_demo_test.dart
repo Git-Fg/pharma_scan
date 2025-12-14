@@ -1,5 +1,4 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/foundation.dart';
 import 'package:patrol/patrol.dart';
 import 'package:pharma_scan/main.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -7,7 +6,7 @@ import 'helpers/test_database_helper.dart';
 import 'robots/app_robot.dart';
 
 void main() {
-  final config = PatrolTesterConfig();
+  final config = PatrolTesterConfig(printLogs: true);
 
   patrolTest(
     'Demo: Robot Pattern - Complete multi-screen workflow',
@@ -43,10 +42,10 @@ void main() {
       // 4. Verify scanner result using descriptive verification method
       try {
         await robot.scanner.expectMedicamentNotFound();
-        print('✓ Medicament not found (expected for test data)');
+        debugPrint('✓ Medicament not found (expected for test data)');
       } catch (_) {
         await robot.scanner.expectMedicamentFound();
-        print('✓ Medicament found (CIP exists in test data)');
+        debugPrint('✓ Medicament found (CIP exists in test data)');
       }
 
       // 5. Complete explorer search workflow
@@ -65,7 +64,7 @@ void main() {
       // 8. Native interaction
       await robot.pressHome();
 
-      print('✓ Robot Pattern demo completed successfully!');
+      debugPrint('✓ Robot Pattern demo completed successfully!');
     },
   );
 }

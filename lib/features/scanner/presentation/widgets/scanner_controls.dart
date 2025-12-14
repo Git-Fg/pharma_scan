@@ -7,7 +7,7 @@ import 'package:pharma_scan/core/utils/test_tags.dart';
 import 'package:pharma_scan/core/widgets/adaptive_bottom_panel.dart';
 import 'package:pharma_scan/features/scanner/presentation/models/scanner_ui_state.dart';
 import 'package:pharma_scan/features/scanner/presentation/providers/scanner_provider.dart';
-import 'package:pharma_scan/core/ui/atoms/app_icon.dart';
+
 import 'package:pharma_scan/core/ui/theme/app_spacing.dart';
 import 'package:pharma_scan/core/ui/theme/app_theme.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
@@ -122,7 +122,8 @@ class ScannerControls extends ConsumerWidget {
                                   child: FittedBox(
                                     fit: BoxFit.scaleDown,
                                     child: ShadButton.secondary(
-                                      onPressed: isInitializing ? null : onGallery,
+                                      onPressed:
+                                          isInitializing ? null : onGallery,
                                       leading: const Icon(Icons.image),
                                       child: Text(Strings.gallery),
                                     ),
@@ -137,9 +138,10 @@ class ScannerControls extends ConsumerWidget {
                                       ? Strings.turnOffTorch
                                       : Strings.turnOnTorch,
                                   child: ShadButton.secondary(
-                                    onPressed: isCameraRunning && !isInitializing
-                                        ? onToggleTorch
-                                        : null,
+                                    onPressed:
+                                        isCameraRunning && !isInitializing
+                                            ? onToggleTorch
+                                            : null,
                                     child: const Icon(Icons.flash_on),
                                   ),
                                 ),
@@ -153,10 +155,10 @@ class ScannerControls extends ConsumerWidget {
                                   child: FittedBox(
                                     fit: BoxFit.scaleDown,
                                     child: ShadButton.secondary(
-                                      key: const Key(TestTags.manualEntryButton),
-                                      onPressed: isInitializing
-                                          ? null
-                                          : onManualEntry,
+                                      key:
+                                          const Key(TestTags.manualEntryButton),
+                                      onPressed:
+                                          isInitializing ? null : onManualEntry,
                                       leading: const Icon(Icons.keyboard),
                                       child: Text(Strings.manualEntry),
                                     ),
@@ -202,7 +204,8 @@ class ScannerActionButton extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           color: buttonColor,
-          borderRadius: BorderRadius.circular(44), // Moitié de la taille pour un cercle
+          borderRadius:
+              BorderRadius.circular(44), // Moitié de la taille pour un cercle
           boxShadow: [
             BoxShadow(
               color: buttonColor.withValues(alpha: 0.35),
@@ -241,13 +244,10 @@ class ScannerModeToggle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isRestock = mode == ScannerMode.restock;
-    final color = isRestock
-        ? context.textNegative
-        : context.actionPrimary;
+    final color = isRestock ? context.textNegative : context.actionPrimary;
     final icon = isRestock ? Icons.inventory : Icons.search;
-    final label = isRestock
-        ? Strings.scannerModeRestock
-        : Strings.scannerModeAnalysis;
+    final label =
+        isRestock ? Strings.scannerModeRestock : Strings.scannerModeAnalysis;
 
     return FittedBox(
       child: ConstrainedBox(
@@ -269,11 +269,13 @@ class ScannerModeToggle extends StatelessWidget {
                 key: ValueKey(mode),
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  AppIcon.custom(
+                  Icon(
                     icon,
                     size: AppDimens.iconSm,
                     color: color,
-                  ).animate().fadeIn(duration: const Duration(milliseconds: 180)),
+                  )
+                      .animate()
+                      .fadeIn(duration: const Duration(milliseconds: 180)),
                   const Gap(AppDimens.spacing2xs),
                   Text(
                     label,
@@ -282,7 +284,9 @@ class ScannerModeToggle extends StatelessWidget {
                       fontWeight: FontWeight.w600,
                       fontSize: 14,
                     ),
-                  ).animate().fadeIn(duration: const Duration(milliseconds: 180)),
+                  )
+                      .animate()
+                      .fadeIn(duration: const Duration(milliseconds: 180)),
                 ],
               ),
             ),

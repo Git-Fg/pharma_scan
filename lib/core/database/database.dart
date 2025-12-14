@@ -27,11 +27,12 @@ import 'package:pharma_scan/features/explorer/data/explorer_dao.dart';
   daos: [CatalogDao, DatabaseDao, RestockDao, ExplorerDao, AppSettingsDao],
 )
 class AppDatabase extends $AppDatabase {
-  /// Constructeur principal configurant user.db comme principal et reference.db attaché
-  AppDatabase() : super(_openConnection());
+  AppDatabase(this.logger) : super(_openConnection());
 
   /// Constructeur pour les tests utilisant une base de données en mémoire
-  AppDatabase.forTesting(QueryExecutor executor) : super(executor);
+  AppDatabase.forTesting(QueryExecutor executor, this.logger) : super(executor);
+
+  final LoggerService logger;
 
   static QueryExecutor _openConnection() {
     return LazyDatabase(() async {
@@ -90,8 +91,7 @@ class AppDatabase extends $AppDatabase {
     } catch (e) {
       // Handle missing reference.db (e.g., first launch)
       // You might want to trigger the download service here if it fails
-      LoggerService.warning(
-          '[DB] Reference database not attached or missing: $e');
+      logger.warning('[DB] Reference database not attached or missing: $e');
     }
   }
 
@@ -101,7 +101,7 @@ class AppDatabase extends $AppDatabase {
   /// Lance une exception si le schéma ne correspond pas au fichier téléchargé.
   Future<void> checkDatabaseIntegrity() async {
     try {
-      LoggerService.db('[DB] Vérifying database integrity...');
+      logger.db('[DB] Vérifying database integrity...');
 
       // Vérification des tables critiques dans reference.db
       final criticalTables = [
@@ -116,7 +116,7 @@ class AppDatabase extends $AppDatabase {
       for (final table in criticalTables) {
         await customSelect('SELECT COUNT(*) FROM reference_db.$table LIMIT 1')
             .get();
-        LoggerService.db('[DB] Table reference_db.$table verified');
+        logger.db('[DB] Table reference_db.$table verified');
       }
 
       // Vérification des vues critiques (devraient être définies dans reference_schema.drift)
@@ -124,18 +124,18 @@ class AppDatabase extends $AppDatabase {
 
       for (final view in criticalViews) {
         await customSelect('SELECT COUNT(*) FROM $view LIMIT 1').get();
-        LoggerService.db('[DB] View $view verified');
+        logger.db('[DB] View $view verified');
       }
 
       // Vérification du FTS5 index
       await customSelect(
               'SELECT COUNT(*) FROM reference_db.search_index LIMIT 1')
           .get();
-      LoggerService.db('[DB] FTS5 index verified');
+      logger.db('[DB] FTS5 index verified');
 
-      LoggerService.info('[DB] Database integrity check passed');
+      logger.info('[DB] Database integrity check passed');
     } catch (e) {
-      LoggerService.error('[DB] Database integrity check failed', e, null);
+      logger.error('[DB] Database integrity check failed', e, null);
       throw Exception(
         "Erreur d'intégrité de la base de données: Le schéma ne correspond pas au fichier téléchargé. $e",
       );

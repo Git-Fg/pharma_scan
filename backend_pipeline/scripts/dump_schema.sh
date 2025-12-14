@@ -57,4 +57,23 @@ rm -rf ../lib/core/database/generated_tables.drift
 rm -f ../lib/core/database/backend_tables.drift 2>/dev/null || true
 
 echo "🧹 Cleaned up temporary files"
+
+# --- Synchronize Database Artifacts ---
+echo "📦 Synchronizing Database Artifacts..."
+
+# Source (Backend output)
+SRC_DB="data/reference.db"
+
+# Destination (Flutter Test Assets)
+TEST_ASSET_DEST="../assets/test/reference.db"
+
+if [ -f "$SRC_DB" ]; then
+    echo "   -> Copying to Test Assets: $TEST_ASSET_DEST"
+    cp "$SRC_DB" "$TEST_ASSET_DEST"
+    echo "✅ Database artifact synchronized."
+else
+    echo "❌ Error: $SRC_DB not found. Run 'bun run build' first."
+    exit 1
+fi
+
 echo "🎯 Ready for Flutter build_runner!"

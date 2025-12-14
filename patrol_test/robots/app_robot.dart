@@ -56,21 +56,19 @@ class AppRobot extends BaseRobot {
 
   // --- App-wide Actions ---
   Future<void> goBack() async {
-    await $.native.pressBack();
-    await $.pumpAndSettle();
+    await nav.pressBackButton();
   }
 
   Future<void> pressHome() async {
-    await $.native.pressHome();
+    await $.platform.mobile.pressHome();
     await $.pumpAndSettle();
   }
 
-  Future<void> waitAndSettle({Duration? duration}) async {
+  Future<void> waitAndSettle([Duration? duration]) async {
     if (duration != null) {
-      await $.pumpAndSettle(duration);
-    } else {
-      await $.pumpAndSettle();
+      await Future.delayed(duration);
     }
+    await $.pumpAndSettle();
   }
 
   // --- App-wide Verifications ---
@@ -119,7 +117,8 @@ class AppRobot extends BaseRobot {
   }
 
   /// Search for a medication across scanner and explorer
-  Future<void> searchMedicationAcrossApp(String cip, String medicationName) async {
+  Future<void> searchMedicationAcrossApp(
+      String cip, String medicationName) async {
     // Search via scanner manual entry
     await scanner.completeManualSearchFlow(cip);
     await waitAndSettle();
@@ -362,7 +361,7 @@ class AppRobot extends BaseRobot {
     await expectAppStarted();
 
     // Verify all main navigation elements are present
-    await nav.expectTabBarVisible();
+    nav.expectTabBarVisible();
 
     // Verify no loading indicators are present
     expect(find.byType(CircularProgressIndicator), findsNothing);
@@ -384,8 +383,8 @@ class AppRobot extends BaseRobot {
     await verifyAllTabsAccessible();
 
     // Additional checks for tab functionality
-    await nav.expectTabBarVisible();
-    await nav.expectCurrentTab('scanner');
+    nav.expectTabBarVisible();
+    nav.expectCurrentTab('scanner');
   }
 
   Future<void> expectNoUnexpectedStates() async {

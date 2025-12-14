@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/database/reference_schema.drift.dart';
 import 'package:pharma_scan/core/utils/text_utils.dart';
+import 'package:pharma_scan/features/explorer/domain/entities/cluster_entity.dart';
 
 /// DAO for cluster-based search operations (Cluster-First Architecture)
 ///
@@ -15,7 +16,7 @@ class ExplorerDao extends DatabaseAccessor<AppDatabase> {
 
   /// Search clusters using FTS5 with trigram tokenizer
   /// Returns clusters that match the query conceptually
-  Stream<List<ClusterIndexData>> watchClusters(String query) {
+  Stream<List<ClusterEntity>> watchClusters(String query) {
     if (query.isEmpty) return Stream.value([]);
 
     final cleanQuery = simpleNormalize(query);
@@ -33,19 +34,19 @@ class ExplorerDao extends DatabaseAccessor<AppDatabase> {
       variables: [Variable<String>(cleanQuery)],
       readsFrom: {attachedDatabase.clusterIndex, attachedDatabase.searchIndex},
     ).watch().map((rows) => rows
-        .map((row) => ClusterIndexData(
+        .map((row) => ClusterEntity(ClusterIndexData(
               clusterId: row.read<String>('cluster_id'),
               title: row.read<String>('title'),
               subtitle: row.readNullable<String>('subtitle'),
               countProducts: row.readNullable<int>('count_products'),
               searchVector: row.readNullable<String>('search_vector'),
-            ))
+            )))
         .toList());
   }
 
   /// Get all products within a specific cluster (for drawer content)
   /// This is lazy-loaded when the user opens a cluster
-  Future<List<MedicamentDetailData>> getClusterContent(String clusterId) {
+  Future<List<ClusterProductEntity>> getClusterContent(String clusterId) {
     return customSelect(
       '''
       SELECT *
@@ -56,12 +57,12 @@ class ExplorerDao extends DatabaseAccessor<AppDatabase> {
       variables: [Variable<String>(clusterId)],
       readsFrom: {attachedDatabase.medicamentDetail},
     ).get().then((rows) => rows
-        .map((row) => MedicamentDetailData(
+        .map((row) => ClusterProductEntity(MedicamentDetailData(
               cisCode: row.read<String>('cis_code'),
               clusterId: row.readNullable<String>('cluster_id'),
               nomComplet: row.read<String>('nom_complet'),
               isPrinceps: row.read<int>('is_princeps'),
-            ))
+            )))
         .toList());
   }
 }

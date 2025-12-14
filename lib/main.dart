@@ -22,8 +22,8 @@ void main() async {
 
   unawaited(
     Future.microtask(() {
-      LoggerService().init();
-      LoggerService.info('🚀 App Starting...');
+      final logger = LoggerService()..init();
+      logger.info('🚀 App Starting...');
     }),
   );
 

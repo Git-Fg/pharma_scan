@@ -44,3 +44,16 @@ extension type GroupId(String _value) implements String {
     return value as GroupId;
   }
 }
+
+/// Cluster identifier for cluster-based search architecture.
+extension type ClusterId(String _value) implements String {
+  /// Asserts non-empty in debug mode.
+  factory ClusterId.validated(String value) {
+    assert(
+      value.isNotEmpty,
+      'Cluster ID cannot be empty',
+    );
+    // Use the implicit constructor from implements String
+    return value as ClusterId;
+  }
+}

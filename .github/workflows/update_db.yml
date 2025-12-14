@@ -33,7 +33,7 @@ jobs:
           bun run scripts/download_bdpm.ts -- --force
 
       - name: 🚀 Run ETL Pipeline
-        run: cd backend_pipeline && bun run build:db
+        run: cd backend_pipeline && bun run build
         env:
           DATA_DIR: ./data
           DB_PATH: ./data/reference.db

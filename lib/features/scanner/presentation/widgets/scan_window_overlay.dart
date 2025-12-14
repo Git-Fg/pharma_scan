@@ -165,7 +165,7 @@ class _Reticle extends HookWidget {
               .fade(
                 duration: const Duration(milliseconds: 220),
               )
-              .value(state == _ReticleState.success ? 1.0 : 0.9),
+              ,
         );
       },
       child: SizedBox(

@@ -24,7 +24,7 @@ The `tool/release.ts` script automates the process of updating the medication da
 
 The `tool/sync.ts` script synchronizes backend-generated files to the appropriate Flutter project locations:
 
-- Copies `data/schema.sql` → `lib/core/database/dbschema.drift`
+- Copies `backend_pipeline/src/db.ts` (Source of Truth) → `lib/core/database/reference_schema.drift` (Read-only mirror)
 - Copies `data/reference.db` → `test/assets/golden.db`
 
 ## Requirements
@@ -83,10 +83,7 @@ The script updates the following database files:
 ### Backup files:
 - `data/reference.db.backup` - Backup of previous backend database
 - `../assets/reference.db.backup` - Backup of previous Flutter database
-      "administration_routes": "cutanée",
-      "status": "Autorisation active",
-      "procedure_type": "Procédure nationale",
-      "surveillance": false,
+
 ## Configuration
 
 The script can be configured by modifying the constants at the top of `tool/release.ts`:

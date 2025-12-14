@@ -3,9 +3,6 @@ import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/database/tables/app_settings_table.drift.dart';
-import 'package:pharma_scan/core/database/tables/app_settings_table.dart';
-
-part 'app_settings_dao.g.dart';
 
 /// App setting keys for type-safe access
 class AppSettingKeys {
@@ -56,14 +53,15 @@ extension AppSettingExtension on AppSetting {
 }
 
 /// DAO for managing app settings with type-safe accessors
-@DriftAccessor(tables: [AppSettings])
-class AppSettingsDao extends DatabaseAccessor<AppDatabase>
-    with _$AppSettingsDaoMixin {
+@DriftAccessor()
+class AppSettingsDao extends DatabaseAccessor<AppDatabase> {
   AppSettingsDao(super.db);
+
+  $AppSettingsTable get _appSettings => attachedDatabase.appSettings;
 
   // --- Generic CRUD operations ---
   Future<T?> getSetting<T>(String key) async {
-    final setting = await (select(appSettings)
+    final setting = await (attachedDatabase.select(_appSettings)
           ..where((tbl) => tbl.key.equals(key)))
         .getSingleOrNull();
     return setting?.getValue<T>();
@@ -71,21 +69,23 @@ class AppSettingsDao extends DatabaseAccessor<AppDatabase>
 
   Future<void> setSetting<T>(String key, T value) async {
     final encoded = _encodeValue(value);
-    await into(appSettings).insertOnConflictUpdate(
-      AppSettingsCompanion(
-        key: Value(key),
-        value: Value(encoded),
-      ),
-    );
+    await attachedDatabase.into(_appSettings).insertOnConflictUpdate(
+          AppSettingsCompanion(
+            key: Value(key),
+            value: Value(encoded),
+          ),
+        );
   }
 
   Future<void> removeSetting(String key) async {
-    await (delete(appSettings)..where((tbl) => tbl.key.equals(key))).go();
+    await (attachedDatabase.delete(_appSettings)
+          ..where((tbl) => tbl.key.equals(key)))
+        .go();
   }
 
   Future<bool> hasSetting(String key) async {
-    final result = await (selectOnly(appSettings)
-          ..where(appSettings.key.equals(key)))
+    final result = await (attachedDatabase.selectOnly(_appSettings)
+          ..where(_appSettings.key.equals(key)))
         .get();
     return result.isNotEmpty;
   }
@@ -184,7 +184,7 @@ class AppSettingsDao extends DatabaseAccessor<AppDatabase>
   }
 
   Future<void> clearAll() async {
-    await delete(appSettings).go();
+    await attachedDatabase.delete(_appSettings).go();
   }
 
   // --- Private helper methods ---

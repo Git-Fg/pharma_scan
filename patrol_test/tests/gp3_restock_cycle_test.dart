@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:patrol/patrol.dart';
 
@@ -17,18 +18,11 @@ import '../robots/app_robot.dart';
 /// 6. Delete and undo operations
 void main() {
   group('GP3: Restock Cycle Tests', () {
-    late AppRobot appRobot;
-
-    setUp(() async {
-      appRobot = AppRobot($);
-    });
-
     patrolTest(
       'GP3.1: Complete restock cycle - Scan x3 → Verify → Modify → Delete',
-      config: PatrolTesterConfig(
-        reportLogs: true,
-      ),
+      config: PatrolTesterConfig(printLogs: true),
       ($) async {
+        final appRobot = AppRobot($);
         // PHASE 1: Setup and Initialization
         await MockPreferencesHelper.configureForTesting();
         await TestDatabaseHelper.injectTestDatabase();
@@ -48,10 +42,9 @@ void main() {
 
         // PHASE 3: Scan same product 3 times
         const String targetCip = TestProducts.doliprane1000Cip;
-        const String targetName = 'DOLIPRANE 1000 mg';
 
         for (int i = 0; i < 3; i++) {
-          print('🔄 GP3.1: Scanning product ${i + 1}/3');
+          debugPrint('🔄 GP3.1: Scanning product ${i + 1}/3');
 
           await appRobot.scanner.scanCipCode(targetCip);
           await appRobot.scanner.waitForScanResult();
@@ -61,7 +54,7 @@ void main() {
           appRobot.scanner.expectBubbleVisible('DOLIPRANE');
 
           // Small delay between scans
-          await Future.delayed(const Duration(milliseconds: 500));
+          await Future<void>.delayed(const Duration(milliseconds: 500));
         }
 
         // PHASE 4: Navigate to Restock tab
@@ -70,11 +63,11 @@ void main() {
 
         // PHASE 5: Verify quantity = 3
         await appRobot.waitForNetworkRequests();
-        appRobot.restock.expectItemInRestock('DOLIPRANE');
-        appRobot.restock.expectItemQuantity('DOLIPRANE', 3);
+        await appRobot.restock.expectItemInRestock('DOLIPRANE');
+        await appRobot.restock.expectItemQuantity('DOLIPRANE', 3);
 
         // PHASE 6: Manual quantity modification
-        print('📝 GP3.1: Modifying quantity manually');
+        debugPrint('📝 GP3.1: Modifying quantity manually');
 
         // Tap on the item to edit
         await appRobot.restock.tapItemQuantity('DOLIPRANE');
@@ -89,45 +82,46 @@ void main() {
 
         // PHASE 7: Test increment/decrement buttons
         await appRobot.restock.increaseQuantity('DOLIPRANE');
-        appRobot.restock.expectItemQuantity('DOLIPRANE', 9);
+        await appRobot.restock.expectItemQuantity('DOLIPRANE', 9);
 
         await appRobot.restock.increaseQuantity('DOLIPRANE');
-        appRobot.restock.expectItemQuantity('DOLIPRANE', 10);
+        await appRobot.restock.expectItemQuantity('DOLIPRANE', 10);
 
         await appRobot.restock.decreaseQuantity('DOLIPRANE');
-        appRobot.restock.expectItemQuantity('DOLIPRANE', 9);
+        await appRobot.restock.expectItemQuantity('DOLIPRANE', 9);
 
         // PHASE 8: Delete item with undo
-        print('🗑️ GP3.1: Testing delete and undo');
+        debugPrint('🗑️ GP3.1: Testing delete and undo');
 
         // Swipe to delete
         await appRobot.restock.swipeItemToDelete('DOLIPRANE');
 
         // Verify item is deleted
-        appRobot.restock.expectEmptyStateVisible();
+        await appRobot.restock.expectEmptyStateVisible();
 
         // Test undo functionality
         await appRobot.restock.tapUndoButton();
 
         // Verify item is restored
-        appRobot.restock.expectItemInRestock('DOLIPRANE');
-        appRobot.restock.expectItemQuantity('DOLIPRANE', 9);
+        await appRobot.restock.expectItemInRestock('DOLIPRANE');
+        await appRobot.restock.expectItemQuantity('DOLIPRANE', 9);
 
         // PHASE 9: Clear all items
         await appRobot.restock.tapClearAll();
-        await appRobot.handleAnyDialog(accept: true);
+        // Dialog handling is internal to tapClearAll
 
         // Verify empty state
-        appRobot.restock.expectEmptyStateVisible();
+        await appRobot.restock.expectEmptyStateVisible();
 
-        print('✅ GP3.1: Complete restock cycle passed');
+        debugPrint('✅ GP3.1: Complete restock cycle passed');
       },
     );
 
     patrolTest(
       'GP3.2: Restock with different products and bulk operations',
-      config: PatrolTesterConfig(),
+      config: PatrolTesterConfig(printLogs: true),
       ($) async {
+        final appRobot = AppRobot($);
         // Setup
         await MockPreferencesHelper.configureForTesting();
         await TestDatabaseHelper.injectTestDatabase();
@@ -138,16 +132,28 @@ void main() {
 
         // Add multiple different products
         final products = [
-          {'cip': TestProducts.doliprane1000Cip, 'name': 'DOLIPRANE', 'quantity': 2},
-          {'cip': TestProducts.ibuprofene400Cip, 'name': 'IBUPROFENE', 'quantity': 1},
-          {'cip': TestProducts.aspirine500Cip, 'name': 'ASPIRINE', 'quantity': 3},
+          {
+            'cip': TestProducts.doliprane1000Cip,
+            'name': 'DOLIPRANE',
+            'quantity': 2
+          },
+          {
+            'cip': TestProducts.ibuprofene400Cip,
+            'name': 'IBUPROFENE',
+            'quantity': 1
+          },
+          {
+            'cip': TestProducts.aspirine500Cip,
+            'name': 'ASPIRINE',
+            'quantity': 3
+          },
         ];
 
         for (final product in products) {
-          for (int i = 0; i < product['quantity'] as int; i++) {
+          for (int i = 0; i < (product['quantity'] as int); i++) {
             await appRobot.scanner.scanCipCode(product['cip'] as String);
             await appRobot.scanner.waitForScanResult();
-            await Future.delayed(const Duration(milliseconds: 300));
+            await Future<void>.delayed(const Duration(milliseconds: 300));
           }
         }
 
@@ -156,7 +162,7 @@ void main() {
         await appRobot.waitForNetworkRequests();
 
         // Verify all items are present
-        appRobot.restock.expectItemCount(3);
+        await appRobot.restock.expectItemCount(3);
 
         // Test bulk selection
         await appRobot.restock.tapItemCheckbox('DOLIPRANE');
@@ -165,21 +171,22 @@ void main() {
 
         // Clear selected items
         await appRobot.restock.tapClearSelected();
-        await appRobot.handleAnyDialog(accept: true);
+        // Dialog handling is internal
 
         // Verify only one item remains
-        appRobot.restock.expectItemInRestock('ASPIRINE');
-        appRobot.restock.expectItemNotVisible('DOLIPRANE');
-        appRobot.restock.expectItemNotVisible('IBUPROFENE');
+        await appRobot.restock.expectItemInRestock('ASPIRINE');
+        await appRobot.restock.expectItemNotVisible('DOLIPRANE');
+        await appRobot.restock.expectItemNotVisible('IBUPROFENE');
 
-        print('✅ GP3.2: Multiple products and bulk operations passed');
+        debugPrint('✅ GP3.2: Multiple products and bulk operations passed');
       },
     );
 
     patrolTest(
       'GP3.3: Restock alphabetical sections and scrolling',
-      config: PatrolTesterConfig(),
+      config: PatrolTesterConfig(printLogs: true),
       ($) async {
+        final appRobot = AppRobot($);
         // Setup
         await MockPreferencesHelper.configureForTesting();
         await TestDatabaseHelper.injectTestDatabase();
@@ -208,8 +215,8 @@ void main() {
         await appRobot.waitForNetworkRequests();
 
         // Test alphabetical sections
-        appRobot.restock.expectSectionVisible('A'); // AMOXICILLINE
-        appRobot.restock.expectSectionVisible('D'); // DOLIPRANE
+        await appRobot.restock.expectSectionVisible('A'); // AMOXICILLINE
+        await appRobot.restock.expectSectionVisible('D'); // DOLIPRANE
 
         // Test scrolling
         await appRobot.restock.scrollToBottomOfList();
@@ -217,17 +224,18 @@ void main() {
 
         // Verify all items are still visible
         for (final item in letterItems) {
-          appRobot.restock.expectItemInRestock(item['name'] as String);
+          await appRobot.restock.expectItemInRestock(item['name'] as String);
         }
 
-        print('✅ GP3.3: Alphabetical sections and scrolling passed');
+        debugPrint('✅ GP3.3: Alphabetical sections and scrolling passed');
       },
     );
 
     patrolTest(
       'GP3.4: Restock with zero quantities and validation',
-      config: PatrolTesterConfig(),
+      config: PatrolTesterConfig(printLogs: true),
       ($) async {
+        final appRobot = AppRobot($);
         // Setup
         await MockPreferencesHelper.configureForTesting();
         await TestDatabaseHelper.injectTestDatabase();
@@ -248,25 +256,26 @@ void main() {
         await appRobot.restock.setQuantity('DOLIPRANE', 0);
 
         // Item should still exist with zero quantity
-        appRobot.restock.expectItemInRestock('DOLIPRANE');
-        appRobot.restock.expectItemQuantityZero('DOLIPRANE');
+        await appRobot.restock.expectItemInRestock('DOLIPRANE');
+        await appRobot.restock.expectItemQuantityZero('DOLIPRANE');
 
         // Test negative quantities (should be prevented or handled gracefully)
         try {
           await appRobot.restock.decreaseQuantity('DOLIPRANE');
           // Should either stay at zero or handle gracefully
         } catch (e) {
-          print('⚠️ GP3.4: Negative quantity prevented: $e');
+          debugPrint('⚠️ GP3.4: Negative quantity prevented: $e');
         }
 
-        print('✅ GP3.4: Zero quantities and validation passed');
+        debugPrint('✅ GP3.4: Zero quantities and validation passed');
       },
     );
 
     patrolTest(
       'GP3.5: Restock persistence and app lifecycle',
-      config: PatrolTesterConfig(),
+      config: PatrolTesterConfig(printLogs: true),
       ($) async {
+        final appRobot = AppRobot($);
         // Setup
         await MockPreferencesHelper.configureForTesting();
         await TestDatabaseHelper.injectTestDatabase();
@@ -286,12 +295,12 @@ void main() {
         await appRobot.navigateToTab('restock');
         await appRobot.waitForNetworkRequests();
 
-        appRobot.restock.expectItemQuantity('DOLIPRANE', 1);
-        appRobot.restock.expectItemQuantity('IBUPROFENE', 1);
+        await appRobot.restock.expectItemQuantity('DOLIPRANE', 1);
+        await appRobot.restock.expectItemQuantity('IBUPROFENE', 1);
 
         // Background app
         await appRobot.backgroundApp();
-        await Future.delayed(const Duration(seconds: 3));
+        await Future<void>.delayed(const Duration(seconds: 3));
 
         // Resume app
         await appRobot.resumeApp();
@@ -301,10 +310,10 @@ void main() {
         await appRobot.navigateToTab('restock');
 
         // Verify persistence
-        appRobot.restock.expectItemQuantity('DOLIPRANE', 1);
-        appRobot.restock.expectItemQuantity('IBUPROFENE', 1);
+        await appRobot.restock.expectItemQuantity('DOLIPRANE', 1);
+        await appRobot.restock.expectItemQuantity('IBUPROFENE', 1);
 
-        print('✅ GP3.5: Persistence and app lifecycle passed');
+        debugPrint('✅ GP3.5: Persistence and app lifecycle passed');
       },
     );
 
@@ -312,6 +321,7 @@ void main() {
       'GP3.6: Restock performance with large quantities',
       config: PatrolTesterConfig(),
       ($) async {
+        final appRobot = AppRobot($);
         // Setup
         await MockPreferencesHelper.configureForTesting();
         await TestDatabaseHelper.injectTestDatabase();
@@ -334,15 +344,16 @@ void main() {
           addTimes.add(endTime - startTime);
         }
 
-        final averageAddTime = addTimes.reduce((a, b) => a + b) / addTimes.length;
-        print('📊 GP3.6: Average add time: ${averageAddTime.round()}ms');
+        final averageAddTime =
+            addTimes.reduce((a, b) => a + b) / addTimes.length;
+        debugPrint('📊 GP3.6: Average add time: ${averageAddTime.round()}ms');
 
         // Navigate to restock and verify
         await appRobot.navigateToTab('restock');
         await appRobot.waitForNetworkRequests();
 
         // Verify cumulative quantity
-        appRobot.restock.expectItemQuantity('DOLIPRANE', itemCount);
+        await appRobot.restock.expectItemQuantity('DOLIPRANE', itemCount);
 
         // Test performance of quantity updates
         final updateStartTime = DateTime.now().millisecondsSinceEpoch;
@@ -350,22 +361,24 @@ void main() {
         await appRobot.restock.setQuantity('DOLIPRANE', itemCount + 5);
 
         final updateEndTime = DateTime.now().millisecondsSinceEpoch;
-        print('📊 GP3.6: Quantity update time: ${updateEndTime - updateStartTime}ms');
+        debugPrint(
+            '📊 GP3.6: Quantity update time: ${updateEndTime - updateStartTime}ms');
 
-        appRobot.restock.expectItemQuantity('DOLIPRANE', itemCount + 5);
+        await appRobot.restock.expectItemQuantity('DOLIPRANE', itemCount + 5);
 
         // Test bulk delete performance
         final deleteStartTime = DateTime.now().millisecondsSinceEpoch;
 
         await appRobot.restock.tapClearAll();
-        await appRobot.handleAnyDialog(accept: true);
+        // Dialog handled internally
 
         final deleteEndTime = DateTime.now().millisecondsSinceEpoch;
-        print('📊 GP3.6: Bulk delete time: ${deleteEndTime - deleteStartTime}ms');
+        debugPrint(
+            '📊 GP3.6: Bulk delete time: ${deleteEndTime - deleteStartTime}ms');
 
-        appRobot.restock.expectEmptyStateVisible();
+        await appRobot.restock.expectEmptyStateVisible();
 
-        print('✅ GP3.6: Performance test completed');
+        debugPrint('✅ GP3.6: Performance test completed');
       },
     );
 
@@ -373,6 +386,7 @@ void main() {
       'GP3.7: Restock error handling and edge cases',
       config: PatrolTesterConfig(),
       ($) async {
+        final appRobot = AppRobot($);
         // Setup
         await MockPreferencesHelper.configureForTesting();
         await TestDatabaseHelper.injectTestDatabase();
@@ -387,10 +401,11 @@ void main() {
 
         // Should show error but not crash
         try {
-          await $.waitForTextToAppear('Médicament non trouvé', timeout: const Duration(seconds: 3));
-          print('✅ GP3.7: Unknown CIP error handled correctly');
+          await appRobot.waitForTextToAppear('Médicament non trouvé',
+              timeout: const Duration(seconds: 3));
+          debugPrint('✅ GP3.7: Unknown CIP error handled correctly');
         } catch (e) {
-          print('⚠️ GP3.7: Unknown CIP error message not shown');
+          debugPrint('⚠️ GP3.7: Unknown CIP error message not shown');
         }
 
         // Verify no bubble appeared for invalid CIP
@@ -398,18 +413,19 @@ void main() {
 
         // Navigate to restock and verify empty state
         await appRobot.navigateToTab('restock');
-        appRobot.restock.expectEmptyRestockList();
+        await appRobot.restock.expectEmptyRestockList();
 
         // Test operations on empty list
         try {
           await appRobot.restock.tapSelectAll();
           await appRobot.restock.tapClearSelected();
-          print('✅ GP3.7: Bulk operations on empty list handled gracefully');
+          debugPrint(
+              '✅ GP3.7: Bulk operations on empty list handled gracefully');
         } catch (e) {
-          print('⚠️ GP3.7: Bulk operations failed on empty list: $e');
+          debugPrint('⚠️ GP3.7: Bulk operations failed on empty list: $e');
         }
 
-        print('✅ GP3.7: Error handling and edge cases completed');
+        debugPrint('✅ GP3.7: Error handling and edge cases completed');
       },
     );
   });

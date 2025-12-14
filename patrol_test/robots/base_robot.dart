@@ -12,21 +12,29 @@ abstract class BaseRobot {
   BaseRobot(this.$);
 
   // Common timeouts
-  static const Duration defaultTimeout = Duration(seconds: 30);
-  static const Duration shortTimeout = Duration(seconds: 10);
-  static const Duration mediumTimeout = Duration(seconds: 20);
-  static const Duration longTimeout = Duration(seconds: 45);
+  // Common timeouts
+  Duration get defaultTimeout => const Duration(seconds: 30);
+  Duration get shortTimeout => const Duration(seconds: 10);
+  Duration get mediumTimeout => const Duration(seconds: 20);
+  Duration get longTimeout => const Duration(seconds: 45);
+
+  Future<void> waitForNetworkRequests(
+      {Duration timeout = const Duration(seconds: 10)}) async {
+    // Simulating network wait as strict patrol doesn't expose this directly
+    await Future.delayed(const Duration(milliseconds: 500));
+    await $.pumpAndSettle();
+  }
 
   // Common waits
   Future<void> waitForAppToLoad() async {
-    await $.pumpAndSettle(mediumTimeout);
+    await $.pumpAndSettle(timeout: mediumTimeout);
     // Wait for any initial animations or loading states
-    await Future.delayed(const Duration(milliseconds: 500));
+    await Future<void>.delayed(const Duration(milliseconds: 500));
   }
 
   Future<void> pumpAndSettleWithDelay([Duration? delay]) async {
     await $.pumpAndSettle();
-    await Future.delayed(delay ?? const Duration(milliseconds: 300));
+    await Future<void>.delayed(delay ?? const Duration(milliseconds: 300));
   }
 
   Future<void> waitForWidgetToAppear(Key key, {Duration? timeout}) async {
@@ -38,7 +46,12 @@ abstract class BaseRobot {
   }
 
   Future<void> waitForWidgetToDisappear(Key key, {Duration? timeout}) async {
-    await $(key).waitUntilGone(timeout: timeout ?? defaultTimeout);
+    await $(key).waitUntilVisible(timeout: timeout ?? defaultTimeout);
+    // There is no direct waitUntilInvisible in Patrol 4, usually checking non-visibility
+    // or we can expect checks.
+    // However, checking if something disappears usually involves polling.
+    // For now we assume if it was visible, ensuring it's gone might need expect absent.
+    expect($(key), findsNothing);
   }
 
   // Common scrolling utilities
@@ -68,7 +81,7 @@ abstract class BaseRobot {
         Offset(0, direction == ScrollDirection.down ? -delta : delta),
       );
       await $.pumpAndSettle();
-      await Future.delayed(const Duration(milliseconds: 100));
+      await Future<void>.delayed(const Duration(milliseconds: 100));
     }
 
     if (!isVisible()) {
@@ -153,6 +166,10 @@ abstract class BaseRobot {
     expect($.tester.widget(find.byKey(ValueKey(key))), isNotNull);
   }
 
+  void expectVisibleByTextContaining(String text) {
+    expect(find.textContaining(text), findsWidgets);
+  }
+
   // Common interactions
   Future<void> tapButton(String text) async {
     await $(text).tap();
@@ -189,17 +206,17 @@ abstract class BaseRobot {
   // Common utilities for handling dialogs and sheets
   Future<void> waitForBottomSheet() async {
     await $.pumpAndSettle();
-    await find.byType(BottomSheet).waitUntilVisible();
+    await $(find.byType(BottomSheet)).waitUntilVisible();
   }
 
   Future<void> waitForModalBottomSheet() async {
     await $.pumpAndSettle();
-    await find.byType(ModalBottomSheetRoute).waitUntilVisible();
+    await $(find.byType(ModalBottomSheetRoute)).waitUntilVisible();
   }
 
   Future<void> waitForDialog() async {
     await $.pumpAndSettle();
-    await find.byType(Dialog).waitUntilVisible();
+    await $(find.byType(Dialog)).waitUntilVisible();
   }
 
   Future<void> dismissBottomSheet() async {
@@ -219,12 +236,13 @@ abstract class BaseRobot {
     final endTime = DateTime.now().add(timeout ?? longTimeout);
 
     while (DateTime.now().isBefore(endTime)) {
-      final isLoading = find.byType(CircularProgressIndicator).evaluate().isNotEmpty ||
-                       find.byType(LinearProgressIndicator).evaluate().isNotEmpty;
+      final isLoading =
+          find.byType(CircularProgressIndicator).evaluate().isNotEmpty ||
+              find.byType(LinearProgressIndicator).evaluate().isNotEmpty;
 
       if (!isLoading) break;
 
-      await $.pumpAndSettle(const Duration(milliseconds: 100));
+      await $.pumpAndSettle(timeout: const Duration(milliseconds: 100));
     }
   }
 
@@ -235,22 +253,68 @@ abstract class BaseRobot {
     if (message != null) {
       await $(message).waitUntilVisible(timeout: shortTimeout);
     } else {
-      await find.byType(SnackBar).waitUntilVisible(timeout: shortTimeout);
+      await $(find.byType(SnackBar)).waitUntilVisible(timeout: shortTimeout);
     }
   }
 
   // Debug utilities
   void debugPrintCurrentWidgetTree() {
     debugPrint('=== Current Widget Tree ===');
-    debugPrint($.tester.binding.toStringDeep());
+    // debugPrint($.tester.binding.toStringDeep());
     debugPrint('=== End Widget Tree ===');
   }
 
   void debugPrintAllWidgets() {
-    final widgets = $.tester.binding.renderObjectOwner.rebuildScope?.debugDiagnosticNodes ?? [];
-    for (final widget in widgets) {
-      debugPrint(widget.toString());
+    // final widgets =
+    //     $.tester.binding.renderObjectOwner.rebuildScope?.debugDiagnosticNodes ??
+    //         [];
+    // for (final widget in widgets) {
+    //   debugPrint(widget.toString());
+    // }
+  }
+
+  /// Measure the time it takes to execute a function
+  Future<T> measureTime<T>(
+      Future<T> Function() function, String description) async {
+    final stopwatch = Stopwatch()..start();
+
+    try {
+      final result = await function();
+      stopwatch.stop();
+
+      debugPrint('$description took ${stopwatch.elapsedMilliseconds}ms');
+      return result;
+    } catch (e) {
+      stopwatch.stop();
+      debugPrint(
+          '$description failed after ${stopwatch.elapsedMilliseconds}ms: $e');
+      rethrow;
     }
+  }
+
+  Future<bool> isTextVisible(String text, {Duration? timeout}) async {
+    try {
+      await $(text).waitUntilVisible(timeout: timeout ?? shortTimeout);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<bool> isTextContainingVisible(String text, {Duration? timeout}) async {
+    try {
+      await $(find.textContaining(text))
+          .waitUntilVisible(timeout: timeout ?? shortTimeout);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<void> waitForTextToAppearContaining(String text,
+      {Duration? timeout}) async {
+    await $(find.textContaining(text))
+        .waitUntilVisible(timeout: timeout ?? defaultTimeout);
   }
 }
 

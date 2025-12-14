@@ -1,11 +1,15 @@
+import 'package:riverpod/riverpod.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 
+/// Provider for LoggerService - singleton instance managed by Riverpod
+final loggerProvider = Provider<LoggerService>((ref) {
+  final service = LoggerService();
+  service.init();
+  return service;
+});
+
 class LoggerService {
-
-  factory LoggerService() => _instance;
-  LoggerService._internal();
-
-  static final LoggerService _instance = LoggerService._internal();
+  LoggerService();
 
   Talker? _talker;
 
@@ -24,32 +28,28 @@ class LoggerService {
     }
 
     _talker = TalkerFlutter.init(
-      settings: TalkerSettings(
-        
-      ),
+      settings: TalkerSettings(),
     );
   }
 
-  static Talker get _logger => LoggerService().talker;
-
-  static void debug(String message) {
-    _logger.debug(message);
+  void debug(String message) {
+    talker.debug(message);
   }
 
-  static void info(String message) {
-    _logger.info(message);
+  void info(String message) {
+    talker.info(message);
   }
 
-  static void warning(String message) {
-    _logger.warning(message);
+  void warning(String message) {
+    talker.warning(message);
   }
 
-  static void error(String message, [Object? error, StackTrace? stackTrace]) {
-    _logger.error(message, error, stackTrace);
+  void error(String message, [Object? error, StackTrace? stackTrace]) {
+    talker.error(message, error, stackTrace);
   }
 
-  static void db(String message) {
-    _logger.logCustom(DatabaseLog(message));
+  void db(String message) {
+    talker.logCustom(DatabaseLog(message));
   }
 }
 

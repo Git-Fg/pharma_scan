@@ -125,13 +125,13 @@ class RestockRobot extends BaseRobot {
   Future<void> expectItemChecked(String itemName, bool isChecked) async {
     await tapItem(itemName);
 
-    if (isChecked) {
-      await $(#checkbox).matches(find.byWidgetPredicate((widget) =>
-          widget is Checkbox && widget.value == true));
-    } else {
-      await $(#checkbox).matches(find.byWidgetPredicate((widget) =>
-          widget is Checkbox && widget.value == false));
-    }
+    final checkboxFinder = $(#checkbox);
+    await checkboxFinder.waitUntilVisible();
+
+    // Verify checkbox value
+    final checkbox = checkboxFinder.evaluate().first.widget as Checkbox;
+    expect(checkbox.value, isChecked);
+
     await $.pumpAndSettle();
   }
 
@@ -186,7 +186,8 @@ class RestockRobot extends BaseRobot {
     try {
       // Look for checkbox in the item row
       final checkbox = find.byWidgetPredicate((widget) =>
-          widget is Checkbox && widget.key?.toString().contains(itemName) == true);
+          widget is Checkbox &&
+          widget.key?.toString().contains(itemName) == true);
 
       if (checkbox.evaluate().isNotEmpty) {
         await $.tester.tap(checkbox);
@@ -439,118 +440,41 @@ class RestockRobot extends BaseRobot {
     }
   }
 
-  // --- Enhanced Assertions ---
-  void expectItemCount(int count) {
+  // --- Additional Verifications ---
+  Future<void> expectItemCount(int count) async {
     // Look for restock items or check empty state
     final itemRows = find.byType(ListTile);
     if (count == 0) {
-      expectEmptyRestockList();
+      await expectEmptyRestockList();
     } else {
       expect(itemRows, findsNWidgets(count));
     }
   }
 
-  void expectItemQuantity(String itemName, int quantity) {
-    expectItemInRestock(itemName);
-    // Look for quantity display near the item
-    final quantityText = find.textContaining(quantity.toString());
-    if (quantityText.evaluate().isNotEmpty) {
-      expect(quantityText, findsWidgets);
-    }
+  Future<void> expectItemSelected(String itemName) async {
+    await expectItemChecked(itemName, true);
   }
 
-  void expectItemSelected(String itemName) {
-    // Check if item has selected indicator
-    final itemRow = find.text(itemName);
-    if (itemRow.evaluate().isNotEmpty) {
-      // Look for selected state indicator
-      final selectedIndicator = find.descendant(
-        of: itemRow.first,
-        matching: find.byWidgetPredicate((widget) =>
-            widget is Checkbox && widget.value == true),
-      );
-      expect(selectedIndicator, findsOneWidget);
-    }
+  Future<void> expectEmptyStateVisible() async {
+    await expectEmptyRestockList();
   }
 
-  void expectEmptyStateVisible() {
-    expectEmptyRestockList();
-  }
-
-  void expectTotalItemsCount(int count) {
-    // Look for total count indicator in the app bar or summary
+  Future<void> expectTotalItemsCount(int count) async {
     final countText = find.textContaining('$count');
     if (countText.evaluate().isNotEmpty) {
       expect(countText, findsWidgets);
     }
   }
 
-  void expectUndoButtonVisible() {
-    expectVisibleByText('Annuler');
+  Future<void> expectSectionVisible(String letter) async {
+    await $(letter).waitUntilVisible();
   }
 
-  void expectUndoButtonNotVisible() {
-    expectNotVisibleByText('Annuler');
+  Future<void> expectItemNotVisible(String itemName) async {
+    expect($(itemName), findsNothing);
   }
 
-  void expectSectionVisible(String letter) {
-    // Look for alphabetical section headers
-    expectVisibleByText(letter);
-  }
-
-  void expectItemNotVisible(String itemName) {
-    expectNotVisibleByText(itemName);
-  }
-
-  void expectQuantityInputVisible() {
-    // Check if quantity input field is visible
-    final quantityInput = find.byType(TextField);
-    expect(quantityInput, findsOneWidget);
-  }
-
-  void expectSortDialogVisible() {
-    // Check if sort options dialog is visible
-    expect(find.byType(Dialog), findsOneWidget);
-  }
-
-  void expectBulkActionsVisible() {
-    // Check if bulk action buttons are visible
-    expectVisibleByText('Tout sélectionner');
-    expectVisibleByText('Supprimer la sélection');
-  }
-
-  void expectBulkActionsNotVisible() {
-    expectNotVisibleByText('Tout sélectionner');
-    expectNotVisibleByText('Supprimer la sélection');
-  }
-
-  void expectSelectionModeActive() {
-    expectBulkActionsVisible();
-  }
-
-  void expectNormalModeActive() {
-    expectBulkActionsNotVisible();
-  }
-
-  void expectItemQuantityZero(String itemName) {
-    expectItemQuantity(itemName, 0);
-  }
-
-  void expectItemWithNotes(String itemName, String notes) {
-    expectItemInRestock(itemName);
-    // Look for notes indicator or text
-    final notesText = find.text(notes);
-    if (notesText.evaluate().isNotEmpty) {
-      expect(notesText, findsOneWidget);
-    }
-  }
-
-  void expectItemWithExpirationDate(String itemName, String expirationDate) {
-    expectItemInRestock(itemName);
-    // Look for expiration date indicator
-    final dateText = find.text(expirationDate);
-    if (dateText.evaluate().isNotEmpty) {
-      expect(dateText, findsOneWidget);
-    }
+  Future<void> expectItemQuantityZero(String itemName) async {
+    await expectItemQuantity(itemName, 0);
   }
 }

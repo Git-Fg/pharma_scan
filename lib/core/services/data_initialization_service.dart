@@ -35,7 +35,10 @@ class DataInitializationService {
   final FileDownloadService _downloadService;
   final Dio _dio;
 
-  AppSettingsDao get _appSettings => _ref.read(databaseProvider()).appSettingsDao;
+  LoggerService get _logger => _ref.read(loggerProvider);
+
+  AppSettingsDao get _appSettings =>
+      _ref.read(databaseProvider()).appSettingsDao;
   final _stepController = StreamController<InitializationStep>.broadcast();
   final _detailController = StreamController<String>.broadcast();
 
@@ -55,18 +58,17 @@ class DataInitializationService {
       final needsDownload = forceRefresh || currentVersion != dataVersion;
 
       if (!needsDownload) {
-        LoggerService.info(
-            '[DataInit] Database is up to date, verifying integrity...');
+        _logger
+            .info('[DataInit] Database is up to date, verifying integrity...');
         // 2. Verify existing database integrity
         final db = _ref.read(databaseProvider());
         await db.checkDatabaseIntegrity();
-        LoggerService.info('[DataInit] Database ready with existing data.');
+        _logger.info('[DataInit] Database ready with existing data.');
         _emit(InitializationStep.ready, Strings.initializationReady);
         return;
       }
 
-      LoggerService.info(
-          '[DataInit] Downloading fresh database from backend...');
+      _logger.info('[DataInit] Downloading fresh database from backend...');
       _emit(InitializationStep.downloading, 'Téléchargement de la base...');
 
       // 3. Build download URL from GitHub latest release
@@ -92,13 +94,13 @@ class DataInitializationService {
       // 7. Save version tag
       await _appSettings.setBdpmVersion(dataVersion);
 
-      LoggerService.info('[DataInit] Database initialization complete.');
+      _logger.info('[DataInit] Database initialization complete.');
       _emit(InitializationStep.ready, Strings.initializationReady);
 
       // Trigger sync after successful initialization
       _triggerPostInitializationSync();
     } catch (e, stackTrace) {
-      LoggerService.error(
+      _logger.error(
         '[DataInit] Error during initialization',
         e,
         stackTrace,
@@ -118,8 +120,8 @@ class DataInitializationService {
       final currentDb = _ref.read(databaseProvider());
       await currentDb.close();
     } catch (e) {
-      LoggerService.warning(
-          '[DataInit] Error closing current database connection: $e');
+      _logger
+          .warning('[DataInit] Error closing current database connection: $e');
     }
 
     // 3. Invalider le provider pour forcer une nouvelle instance
@@ -127,25 +129,25 @@ class DataInitializationService {
     await Future<void>.delayed(const Duration(milliseconds: 100));
 
     // 4. Décompresser et écrire le nouveau fichier
-    LoggerService.info('[DataInit] Writing new database file...');
+    _logger.info('[DataInit] Writing new database file...');
     final decompressed = GZipCodec().decode(compressedBytes);
     final dbFile = File(dbPath);
 
     // Supprimer l'ancien fichier
     if (await dbFile.exists()) {
       await dbFile.delete();
-      LoggerService.info('[DataInit] Removed old database file');
+      _logger.info('[DataInit] Removed old database file');
     }
 
     // Écrire le nouveau fichier
     await dbFile.writeAsBytes(decompressed, flush: true);
-    LoggerService.info('[DataInit] Database file written successfully');
+    _logger.info('[DataInit] Database file written successfully');
 
     // 5. Nettoyer WAL/SHM pour éviter les conflits
     await _cleanupWalFiles(dbPath);
 
     // 6. La nouvelle instance sera créée automatiquement lors du prochain accès
-    LoggerService.info('[DataInit] Database file replacement complete');
+    _logger.info('[DataInit] Database file replacement complete');
   }
 
   Future<String?> _resolveDownloadUrl() async {
@@ -177,7 +179,7 @@ class DataInitializationService {
   /// or any other service that needs to trigger a database update.
   Future<bool> updateDatabase({bool force = false}) async {
     try {
-      LoggerService.info('[DataInit] Checking for database updates...');
+      _logger.info('[DataInit] Checking for database updates...');
 
       // 1. Get latest release info from GitHub API
       final response = await _dio.get<Map<String, dynamic>>(
@@ -186,7 +188,7 @@ class DataInitializationService {
       );
 
       if (response.statusCode != 200 || response.data == null) {
-        LoggerService.warning(
+        _logger.warning(
           '[DataInit] GitHub API error: ${response.statusCode}',
         );
         return false;
@@ -205,7 +207,7 @@ class DataInitializationService {
       );
 
       if (asset == null) {
-        LoggerService.warning(
+        _logger.warning(
           '[DataInit] Asset ${DatabaseConfig.compressedDbFilename} not found in release',
         );
         return false;
@@ -219,19 +221,19 @@ class DataInitializationService {
         final currentTag = await _appSettings.bdpmVersion;
 
         if (currentTag == latestTag) {
-          LoggerService.info(
+          _logger.info(
             '[DataInit] Database is up to date ($currentTag)',
           );
           return false;
         }
 
-        LoggerService.info(
+        _logger.info(
           '[DataInit] New version available: $latestTag (current: $currentTag)',
         );
       }
 
       // 4. Perform the update
-      LoggerService.info('[DataInit] Starting database update...');
+      _logger.info('[DataInit] Starting database update...');
       _emit(InitializationStep.downloading, 'Mise à jour de la base...');
 
       // Download compressed file using FileDownloadService
@@ -250,7 +252,7 @@ class DataInitializationService {
       // Save the new version tag
       await _appSettings.setBdpmVersion(latestTag);
 
-      LoggerService.info('[DataInit] Database update completed successfully');
+      _logger.info('[DataInit] Database update completed successfully');
       _emit(InitializationStep.ready, Strings.initializationReady);
 
       // Trigger sync after successful update
@@ -258,10 +260,10 @@ class DataInitializationService {
 
       return true;
     } on TimeoutException catch (e) {
-      LoggerService.warning('[DataInit] Timeout during update: $e');
+      _logger.warning('[DataInit] Timeout during update: $e');
       return false;
     } on Exception catch (e, stackTrace) {
-      LoggerService.error(
+      _logger.error(
         '[DataInit] Error during database update',
         e,
         stackTrace,
@@ -276,12 +278,12 @@ class DataInitializationService {
     // Trigger sync asynchronously to avoid blocking the initialization flow
     Future.microtask(() async {
       try {
-        LoggerService.info('[DataInit] Triggering post-initialization sync...');
+        _logger.info('[DataInit] Triggering post-initialization sync...');
         final syncController = _ref.read(syncControllerProvider.notifier);
         await syncController.startSync();
-        LoggerService.info('[DataInit] Post-initialization sync completed');
+        _logger.info('[DataInit] Post-initialization sync completed');
       } catch (e, stackTrace) {
-        LoggerService.error(
+        _logger.error(
           '[DataInit] Error during post-initialization sync',
           e,
           stackTrace,

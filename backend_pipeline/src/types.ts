@@ -12,7 +12,7 @@ export const GroupIdSchema = z.string().min(1).brand("GroupId");
 export type GroupId = z.infer<typeof GroupIdSchema>;
 
 // --- 2. Raw Input Schemas (BDPM Text Files) ---
-// Matches columns in: lib/core/services/ingestion/schema/file_validator.dart
+// Matches expected BDPM file columns (Specialite / Presentation / Group files)
 export const RawSpecialiteSchema = z
   .tuple([
     CisIdSchema, // 0: CIS

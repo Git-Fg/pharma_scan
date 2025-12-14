@@ -17,7 +17,6 @@ import {
   type SmrEvaluation,
   type AsmrEvaluation,
 } from "./parsing";
-import { downloadBdpm } from "../scripts/download_bdpm";
 import { computeClusters, type ClusteringInput, findCommonWordPrefix, buildSearchVector } from "./clustering";
 import { applyPharmacologicalMask, formatPrinciples, isPureGalenicDescription } from "./sanitizer";
 import { extractForms, extractRoutes } from "./normalization";
@@ -45,13 +44,8 @@ async function main() {
   console.log(`📂 Data Directory: ${DATA_DIR}`);
   console.log(`💾 Database Path: ${DB_PATH}`);
 
-  // Ensure BDPM source files are present (downloads only missing files by default)
-  try {
-    const force = process.argv.includes("--force-bdpm") || process.env.FORCE_BDPM === '1';
-    await downloadBdpm({ force });
-  } catch (e: any) {
-    console.warn(`⚠️ BDPM download step failed: ${e?.message ?? e}`);
-  }
+  // Note: BDPM files are expected to be present before running the pipeline.
+  // Use `bun run download:bdpm` to fetch them (this is handled via package.json scripts).
 
   // Supprimer la base de données existante si elle existe (pour garantir une reconstruction complète)
   // Cela évite les problèmes de schéma obsolète et garantit que les vues sont toujours à jour
@@ -1793,7 +1787,7 @@ async function main() {
 
 async function readBdpmFile(filePath: string): Promise<string[][]> {
   const content = await fs.promises.readFile(filePath);
-  const decoded = iconv.decode(content, "latin1"); // ISO-8859-1
+  const decoded = iconv.decode(content, "utf-8"); // UTF-8 (converti depuis Windows-1252 au téléchargement)
   return new Promise((resolve, reject) => {
     parse(decoded, {
       delimiter: "\t",
@@ -1811,7 +1805,7 @@ async function readBdpmFile(filePath: string): Promise<string[][]> {
 // Stream version for generators
 async function* streamBdpmFile(filePath: string): AsyncIterable<string[]> {
   const stream = fs.createReadStream(filePath)
-    .pipe(iconv.decodeStream("latin1"))
+    .pipe(iconv.decodeStream("utf-8"))
     .pipe(parse({
       delimiter: "\t",
       relax_quotes: true,

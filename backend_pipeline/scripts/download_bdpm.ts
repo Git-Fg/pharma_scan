@@ -1,6 +1,7 @@
 import { write } from "bun";
 import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
+import iconv from "iconv-lite";
 
 // Configuration
 const BASE_URL = "https://base-donnees-publique.medicaments.gouv.fr";
@@ -62,9 +63,13 @@ export async function downloadBdpm(opts: { force?: boolean } = {}): Promise<void
         const contentLength = response.headers.get?.('content-length') || 'unknown';
         process.stdout.write(`(from: ${finalUrl}, size: ${contentLength}) `);
 
-        // Use arrayBuffer to avoid issues with streaming responses that might hang
+        // IMPORTANT: Les fichiers BDPM sont encodés en Windows-1252 (aka CP1252)
+        // On doit les décoder puis les ré-encoder en UTF-8 pour éviter les problèmes d'encodage
         const buffer = await response.arrayBuffer();
-        const bytesWritten = await write(localPath, new Uint8Array(buffer));
+        const decodedText = iconv.decode(Buffer.from(buffer), 'windows-1252');
+        const utf8Buffer = iconv.encode(decodedText, 'utf-8');
+
+        const bytesWritten = await write(localPath, utf8Buffer);
         const sizeKo = (bytesWritten / 1024).toFixed(1);
         console.log(`✅ Done (${sizeKo} Ko)`);
         success = true;

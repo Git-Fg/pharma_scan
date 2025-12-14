@@ -21,9 +21,14 @@ void main() {
     // Créer les tables de référence nécessaires pour les tests dans le schéma reference_db
     await database.customStatement('''
       CREATE TABLE IF NOT EXISTS reference_db.medicaments (
-        cip_code TEXT NOT NULL PRIMARY KEY,
+        cip_code TEXT PRIMARY KEY NOT NULL,
         cis_code TEXT NOT NULL,
-        presentation_label TEXT
+        presentation_label TEXT NOT NULL DEFAULT '',
+        commercialisation_statut TEXT,
+        taux_remboursement TEXT,
+        prix_public REAL,
+        agrement_collectivites TEXT,
+        is_hospital INTEGER NOT NULL DEFAULT 0
       )
     ''');
 
@@ -48,6 +53,9 @@ void main() {
         forme_pharmaceutique TEXT
       )
     ''');
+
+    // Ensure the unique index on scanned_boxes exists for duplicate detection
+    await database.customStatement('CREATE UNIQUE INDEX IF NOT EXISTS idx_scanned_boxes_unique ON scanned_boxes(cip_code, box_label)');
 
     // Insérer des données de référence pour les tests
     await database.into(database.medicaments).insert(
@@ -169,4 +177,17 @@ void main() {
         .getSingleOrNull();
     expect(item2?.notes, '{"checked":false}');
   });
+
+  test('recordScan should detect duplicate scans', () async {
+    final cip = Cip13.validated('3400934056781');
+
+    // First insertion should be added
+    final outcome1 = await dao.recordScan(cip: cip, serial: 'ABC123');
+    expect(outcome1, ScanOutcome.added);
+
+    // Second insertion with same serial should be detected as duplicate
+    final outcome2 = await dao.recordScan(cip: cip, serial: 'ABC123');
+    expect(outcome2, ScanOutcome.duplicate);
+  });
 }
+

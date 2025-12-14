@@ -4,7 +4,8 @@ import 'package:flutter/material.dart';
 extension SemanticColors on BuildContext {
   // Couleurs de fond
   Color get surfacePrimary => Theme.of(this).colorScheme.surface;
-  Color get surfaceSecondary => Theme.of(this).colorScheme.surfaceContainerHighest;
+  Color get surfaceSecondary =>
+      Theme.of(this).colorScheme.surfaceContainerHighest;
   Color get surfaceTertiary => Theme.of(this).colorScheme.inverseSurface;
   Color get surfacePositive => const Color(0xFFE6F4EA); // Vert pâle
   Color get surfaceWarning => const Color(0xFFFFF4E6); // Orange pâle
@@ -14,7 +15,8 @@ extension SemanticColors on BuildContext {
   // Couleurs de texte
   Color get textPrimary => Theme.of(this).colorScheme.onSurface;
   Color get textSecondary => Theme.of(this).colorScheme.onSurfaceVariant;
-  Color get textMuted => Theme.of(this).colorScheme.onSurface.withValues(alpha: 0.6);
+  Color get textMuted =>
+      Theme.of(this).colorScheme.onSurface.withValues(alpha: 0.6);
   Color get textPositive => const Color(0xFF137333); // Vert foncé
   Color get textWarning => const Color(0xFFBF5700); // Orange foncé
   Color get textNegative => const Color(0xFFC5221F); // Rouge foncé
@@ -23,7 +25,8 @@ extension SemanticColors on BuildContext {
 
   // Couleurs d'action
   Color get actionPrimary => Theme.of(this).colorScheme.primary;
-  Color get actionPrimaryContainer => Theme.of(this).colorScheme.primaryContainer;
+  Color get actionPrimaryContainer =>
+      Theme.of(this).colorScheme.primaryContainer;
   Color get actionSecondary => Theme.of(this).colorScheme.secondary;
   Color get actionOnPrimary => Theme.of(this).colorScheme.onPrimary;
   Color get actionOnSecondary => Theme.of(this).colorScheme.onSecondary;
@@ -44,21 +47,21 @@ extension BorderRadiusTokens on BuildContext {
 extension ShadowTokens on BuildContext {
   List<BoxShadow> get shadowLight => [
         BoxShadow(
-          color: Colors.black.withOpacity(0.05),
+          color: Colors.black.withValues(alpha: 0.05),
           blurRadius: 4,
           offset: const Offset(0, 2),
         ),
       ];
   List<BoxShadow> get shadowMedium => [
         BoxShadow(
-          color: Colors.black.withOpacity(0.1),
+          color: Colors.black.withValues(alpha: 0.1),
           blurRadius: 8,
           offset: const Offset(0, 4),
         ),
       ];
   List<BoxShadow> get shadowHeavy => [
         BoxShadow(
-          color: Colors.black.withOpacity(0.15),
+          color: Colors.black.withValues(alpha: 0.15),
           blurRadius: 16,
           offset: const Offset(0, 8),
         ),

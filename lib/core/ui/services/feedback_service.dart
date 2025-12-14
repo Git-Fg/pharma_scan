@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../atoms/app_icon.dart';
 import '../theme/app_spacing.dart';
-import '../theme/app_theme.dart';
 import '../../theme/theme_extensions.dart';
 import '../../services/haptic_service.dart'; // Assumant que ce service existe
 import 'package:shadcn_ui/shadcn_ui.dart';
@@ -20,7 +18,7 @@ class FeedbackService {
       context,
       title: title ?? 'Succès',
       message: message,
-      icon: const AppIcon(AppIconData.success, color: Color(0xFF137333)),
+      icon: const Icon(Icons.check_circle, color: Color(0xFF137333)),
       backgroundColor: const Color(0xFFE6F4EA),
       borderColor: const Color(0xFF137333),
       duration: duration,
@@ -42,7 +40,7 @@ class FeedbackService {
       context,
       title: title ?? 'Erreur',
       message: message,
-      icon: const AppIcon(AppIconData.error, color: Color(0xFFC5221F)),
+      icon: const Icon(Icons.error, color: Color(0xFFC5221F)),
       backgroundColor: const Color(0xFFFCE8E6),
       borderColor: const Color(0xFFC5221F),
       duration: duration,
@@ -64,7 +62,7 @@ class FeedbackService {
       context,
       title: title ?? 'Attention',
       message: message,
-      icon: const AppIcon(AppIconData.warning, color: Color(0xFFBF5700)),
+      icon: const Icon(Icons.warning, color: Color(0xFFBF5700)),
       backgroundColor: const Color(0xFFFFF4E6),
       borderColor: const Color(0xFFBF5700),
       duration: duration,
@@ -86,7 +84,7 @@ class FeedbackService {
       context,
       title: title ?? 'Information',
       message: message,
-      icon: const AppIcon(AppIconData.info, color: Color(0xFF1A73E8)),
+      icon: const Icon(Icons.info, color: Color(0xFF1A73E8)),
       backgroundColor: const Color(0xFFE8F0FE),
       borderColor: const Color(0xFF1A73E8),
       duration: duration,
@@ -178,7 +176,7 @@ class FeedbackService {
           ),
           content: Text(
             content,
-            style: context.typo.large?.copyWith(
+            style: context.typo.large.copyWith(
               color: context.colors.mutedForeground,
             ),
           ),
@@ -234,7 +232,7 @@ class FeedbackService {
           ),
           content: Text(
             content,
-            style: context.typo.large?.copyWith(
+            style: context.typo.large.copyWith(
               color: context.colors.mutedForeground,
             ),
           ),

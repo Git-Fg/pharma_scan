@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
-import 'package:pharma_scan/core/services/logger_service.dart';
+import 'package:pharma_scan/core/providers/core_providers.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/features/scanner/presentation/providers/scanner_provider.dart';
 import 'package:pharma_scan/core/ui/services/feedback_service.dart';
@@ -32,9 +32,7 @@ class ScannerUtils {
 
         if (capture != null && capture.barcodes.isNotEmpty) {
           unawaited(
-            ref
-                .read(scannerProvider.notifier)
-                .processBarcodeCapture(
+            ref.read(scannerProvider.notifier).processBarcodeCapture(
                   capture,
                   force: true,
                 ),
@@ -49,11 +47,11 @@ class ScannerUtils {
           }
         }
       } on Exception catch (e, stackTrace) {
-        LoggerService.error(
-          '[ScannerUtils] Error during image analysis',
-          e,
-          stackTrace,
-        );
+        ref.read(loggerProvider).error(
+              '[ScannerUtils] Error during image analysis',
+              e,
+              stackTrace,
+            );
         if (context.mounted) {
           FeedbackService.showError(
             context,
@@ -63,11 +61,11 @@ class ScannerUtils {
         }
       }
     } on Exception catch (e, stackTrace) {
-      LoggerService.error(
-        '[ScannerUtils] Error during image pick',
-        e,
-        stackTrace,
-      );
+      ref.read(loggerProvider).error(
+            '[ScannerUtils] Error during image pick',
+            e,
+            stackTrace,
+          );
       if (context.mounted) {
         FeedbackService.showError(
           context,

@@ -1,16 +1,28 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:pharma_scan/core/config/database_config.dart';
 import 'package:drift/native.dart';
 import 'package:pharma_scan/core/database/database.dart';
+import 'package:pharma_scan/core/services/logger_service.dart';
 
 class TestDatabaseHelper {
   /// Copie la DB de référence des assets vers le dossier documents de l'app
   /// et configure les préférences (via user.db) pour simuler une DB à jour.
   static Future<void> injectTestDatabase() async {
-    final docsDir = await getApplicationDocumentsDirectory();
+    Directory docsDir;
+    try {
+      docsDir = await getApplicationDocumentsDirectory();
+    } on MissingPluginException catch (_) {
+      // Running in a pure Dart/unit test environment without the Flutter
+      // engine. Fall back to a temp directory to avoid MissingPluginException.
+      docsDir = await Directory.systemTemp.createTemp('pharma_scan_test_');
+    } on PlatformException catch (_) {
+      // Another platform-related error; also fallback to temp directory.
+      docsDir = await Directory.systemTemp.createTemp('pharma_scan_test_');
+    }
 
     // 1. Nettoyage préventif (supprimer user.db pour un état vierge, et l'ancienne ref)
     final userDbFile = File(p.join(docsDir.path, 'user.db'));
@@ -31,7 +43,8 @@ class TestDatabaseHelper {
 
     // 3. Configuration des préférences via AppSettings dans user.db
     // On utilise AppDatabase pour initialiser correctement la structure si nécessaire
-    final db = AppDatabase.forTesting(NativeDatabase(userDbFile));
+    final db =
+        AppDatabase.forTesting(NativeDatabase(userDbFile), LoggerService());
 
     try {
       // Force creation of tables (including app_settings)
@@ -45,7 +58,7 @@ class TestDatabaseHelper {
       await db.close();
     }
 
-    print(
+    debugPrint(
         '✅ Test Database injected at: ${refDbFile.path} with settings in ${userDbFile.path}');
   }
 }

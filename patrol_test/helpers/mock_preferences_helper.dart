@@ -1,5 +1,4 @@
-import 'dart:io';
-import 'package:path/path.dart';
+import 'package:flutter/foundation.dart';
 
 /// Helper for managing mock preferences using SQLite during E2E testing
 ///
@@ -7,14 +6,16 @@ import 'package:path/path.dart';
 /// test configurations, and simulate various app states for reliable testing.
 /// Uses SQLite database for persistent storage instead of SharedPreferences.
 class MockPreferencesHelper {
-  static String? _dbPath;
-  static const String _dbName = 'test_preferences.db';
+  // _dbPath removed as unused
+  // _dbName removed as unused
   static Map<String, dynamic> _memoryPreferences = {};
 
   // --- Preference Keys (matching your app's keys) ---
   static const String _onboardingCompletedKey = 'onboarding_completed';
-  static const String _cameraPermissionsGrantedKey = 'camera_permissions_granted';
-  static const String _storagePermissionsGrantedKey = 'storage_permissions_granted';
+  static const String _cameraPermissionsGrantedKey =
+      'camera_permissions_granted';
+  static const String _storagePermissionsGrantedKey =
+      'storage_permissions_granted';
   static const String _initialTutorialShownKey = 'initial_tutorial_shown';
   static const String _firstLaunchKey = 'is_first_launch';
   static const String _termsAcceptedKey = 'terms_accepted';
@@ -33,7 +34,7 @@ class MockPreferencesHelper {
   static const String _crashReportingEnabledKey = 'crash_reporting_enabled';
   static const String _autoUpdateEnabledKey = 'auto_update_enabled';
   static const String _darkModeKey = 'dark_mode';
-  static const String _notificationsEnabledKey = 'notifications_enabled';
+  // _notificationsEnabledKey removed as unused
 
   // --- User Preferences Keys ---
   static const String _preferredLanguageKey = 'preferred_language';
@@ -44,12 +45,8 @@ class MockPreferencesHelper {
 
   /// Initialize the preferences database path
   static Future<void> initialize() async {
-    final tempDir = Directory.systemTemp;
-    _dbPath = join(tempDir.path, _dbName);
-
     // For testing, we'll use memory preferences for simplicity
-    // In a real implementation, you would set up SQLite here
-    print('MockPreferencesHelper initialized (using memory storage)');
+    debugPrint('MockPreferencesHelper initialized (using memory storage)');
   }
 
   /// Complete onboarding bypass - sets all flags to skip onboarding flows
@@ -62,7 +59,7 @@ class MockPreferencesHelper {
     _memoryPreferences[_privacyPolicyAcceptedKey] = true;
     _memoryPreferences[_userProfileSetupKey] = true;
 
-    print('Onboarding bypass completed');
+    debugPrint('Onboarding bypass completed');
   }
 
   /// Bypass specific onboarding steps
@@ -87,7 +84,7 @@ class MockPreferencesHelper {
       _memoryPreferences[_userProfileSetupKey] = true;
     }
 
-    print('Specific onboarding steps bypassed');
+    debugPrint('Specific onboarding steps bypassed');
   }
 
   /// Simulate first launch state
@@ -101,7 +98,7 @@ class MockPreferencesHelper {
       _memoryPreferences[_onboardingCompletedKey] = true;
     }
 
-    print('First launch set to: $isFirstLaunch');
+    debugPrint('First launch set to: $isFirstLaunch');
   }
 
   // --- Permission Management ---
@@ -113,7 +110,7 @@ class MockPreferencesHelper {
     _memoryPreferences[_cameraPermissionsGrantedKey] = true;
     _memoryPreferences[_storagePermissionsGrantedKey] = true;
 
-    print('All permissions granted for testing');
+    debugPrint('All permissions granted for testing');
   }
 
   /// Set specific permissions
@@ -137,15 +134,17 @@ class MockPreferencesHelper {
     _memoryPreferences[_bdpmVersionKey] = 'test-version-local';
 
     // Set last sync epoch to indicate sync is complete
-    _memoryPreferences[_lastSyncEpochKey] = DateTime.now().millisecondsSinceEpoch;
+    _memoryPreferences[_lastSyncEpochKey] =
+        DateTime.now().millisecondsSinceEpoch;
 
     // Mark database as initialized
     _memoryPreferences[_databaseInitializedKey] = true;
 
     // Set recent database update time
-    _memoryPreferences[_lastDatabaseUpdateKey] = DateTime.now().toIso8601String();
+    _memoryPreferences[_lastDatabaseUpdateKey] =
+        DateTime.now().toIso8601String();
 
-    print('Database configured for testing');
+    debugPrint('Database configured for testing');
   }
 
   /// Simulate database sync state
@@ -167,7 +166,7 @@ class MockPreferencesHelper {
       _memoryPreferences[_lastSyncEpochKey] = lastSync.millisecondsSinceEpoch;
     }
 
-    print('Database sync state set: synced=$synced');
+    debugPrint('Database sync state set: synced=$synced');
   }
 
   /// Simulate database needs update
@@ -181,7 +180,7 @@ class MockPreferencesHelper {
     // Set an old version
     _memoryPreferences[_bdpmVersionKey] = 'old-version';
 
-    print('Database set to need update');
+    debugPrint('Database set to need update');
   }
 
   // --- App Configuration for Testing ---
@@ -210,7 +209,7 @@ class MockPreferencesHelper {
     _memoryPreferences[_showTutorialHintsKey] = false;
     _memoryPreferences[_defaultScanModeKey] = 'analysis';
 
-    print('Complete test configuration applied');
+    debugPrint('Complete test configuration applied');
   }
 
   /// Reset all preferences to default state
@@ -218,7 +217,7 @@ class MockPreferencesHelper {
     await initialize();
     _memoryPreferences.clear();
 
-    print('All preferences reset');
+    debugPrint('All preferences reset');
   }
 
   /// Reset only app-specific preferences (leaving system preferences)
@@ -250,7 +249,7 @@ class MockPreferencesHelper {
       _memoryPreferences[key] = value;
     }
 
-    print('App preferences reset');
+    debugPrint('App preferences reset');
   }
 
   // --- Analytics and Tracking ---
@@ -262,7 +261,7 @@ class MockPreferencesHelper {
     _memoryPreferences[_analyticsEnabledKey] = false;
     _memoryPreferences[_crashReportingEnabledKey] = false;
 
-    print('Analytics and crash reporting disabled');
+    debugPrint('Analytics and crash reporting disabled');
   }
 
   /// Enable analytics for testing analytics flows
@@ -272,7 +271,7 @@ class MockPreferencesHelper {
     _memoryPreferences[_analyticsEnabledKey] = true;
     _memoryPreferences[_crashReportingEnabledKey] = true;
 
-    print('Analytics and crash reporting enabled');
+    debugPrint('Analytics and crash reporting enabled');
   }
 
   // --- User Preferences Configuration ---
@@ -295,7 +294,7 @@ class MockPreferencesHelper {
     _memoryPreferences[_soundEnabledKey] = soundEnabled;
     _memoryPreferences[_showTutorialHintsKey] = showTutorialHints;
 
-    print('User preferences configured');
+    debugPrint('User preferences configured');
   }
 
   // --- Special Test Scenarios ---
@@ -320,7 +319,7 @@ class MockPreferencesHelper {
     // Enable tutorial hints
     _memoryPreferences[_showTutorialHintsKey] = true;
 
-    print('Configured for new user experience');
+    debugPrint('Configured for new user experience');
   }
 
   /// Configure for returning user experience
@@ -339,7 +338,7 @@ class MockPreferencesHelper {
     final pastSyncTime = DateTime.now().subtract(const Duration(days: 1));
     _memoryPreferences[_lastSyncEpochKey] = pastSyncTime.millisecondsSinceEpoch;
 
-    print('Configured for returning user experience');
+    debugPrint('Configured for returning user experience');
   }
 
   /// Configure for offline testing
@@ -353,7 +352,7 @@ class MockPreferencesHelper {
     // Disable auto-update
     _memoryPreferences[_autoUpdateEnabledKey] = false;
 
-    print('Configured for offline testing');
+    debugPrint('Configured for offline testing');
   }
 
   // --- Utility Methods ---
@@ -368,17 +367,17 @@ class MockPreferencesHelper {
   static Future<void> debugPrintPreferences() async {
     final currentPrefs = await getCurrentPreferences();
 
-    print('=== Current MockPreferences ===');
+    debugPrint('=== Current MockPreferences ===');
     for (final entry in currentPrefs.entries) {
-      print('${entry.key}: ${entry.value}');
+      debugPrint('${entry.key}: ${entry.value}');
     }
-    print('=== End MockPreferences ===');
+    debugPrint('=== End MockPreferences ===');
   }
 
   /// Check if onboarding is completed
   static Future<bool> isOnboardingCompleted() async {
     await initialize();
-    return _memoryPreferences[_onboardingCompletedKey] ?? false;
+    return (_memoryPreferences[_onboardingCompletedKey] as bool?) ?? false;
   }
 
   /// Check if database is configured for testing
@@ -395,14 +394,17 @@ class MockPreferencesHelper {
     await initialize();
 
     // Check essential test configuration
-    final onboardingCompleted = _memoryPreferences[_onboardingCompletedKey] ?? false;
-    final databaseInitialized = _memoryPreferences[_databaseInitializedKey] ?? false;
+    final onboardingCompleted =
+        (_memoryPreferences[_onboardingCompletedKey] as bool?) ?? false;
+    final databaseInitialized =
+        (_memoryPreferences[_databaseInitializedKey] as bool?) ?? false;
     final bdpmVersion = _memoryPreferences[_bdpmVersionKey];
-    final cameraPermissions = _memoryPreferences[_cameraPermissionsGrantedKey] ?? false;
+    final cameraPermissions =
+        (_memoryPreferences[_cameraPermissionsGrantedKey] as bool?) ?? false;
 
     return onboardingCompleted &&
-           databaseInitialized &&
-           bdpmVersion != null &&
-           cameraPermissions;
+        databaseInitialized &&
+        bdpmVersion != null &&
+        cameraPermissions;
   }
 }

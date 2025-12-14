@@ -54,7 +54,7 @@ class NavRobot extends BaseRobot {
     try {
       // This would typically involve using the Patrol deep linking capabilities
       // In a real implementation, you might use:
-      // await $.native.openUrl(deepLink);
+      // await $.platform.mobile.openUrl(deepLink);
       // or integrate with your app's deep linking system
 
       // For now, we'll simulate deep linking by triggering the navigation
@@ -83,6 +83,14 @@ class NavRobot extends BaseRobot {
   // --- System Navigation ---
   Future<void> pressBackButton() async {
     try {
+      // Platform specific back button
+      // Patrol 4.0: pressBack is inconsistent across platforms in MobileAutomator
+      // defaulting to native acting or android specific
+      if (await $.platform.android.isPermissionDialogVisible()) {
+        // just a check to see if android is available
+      }
+      // using native for now as it is the most reliable for back button across both
+      // ignore: deprecated_member_use
       await $.native.pressBack();
       await pumpAndSettleWithDelay();
     } catch (e) {
@@ -94,7 +102,7 @@ class NavRobot extends BaseRobot {
 
   Future<void> pressHomeButton() async {
     try {
-      await $.native.pressHome();
+      await $.platform.mobile.pressHome();
       // Don't pump and settle here as app goes to background
       await Future.delayed(const Duration(milliseconds: 500));
     } catch (e) {
@@ -104,7 +112,7 @@ class NavRobot extends BaseRobot {
 
   Future<void> pressOverviewButton() async {
     try {
-      await $.native.pressRecentApps();
+      await $.platform.mobile.pressRecentApps();
       await pumpAndSettleWithDelay();
     } catch (e) {
       debugPrint('Failed to press overview button: $e');
@@ -162,7 +170,7 @@ class NavRobot extends BaseRobot {
   // --- App Lifecycle ---
   Future<void> backgroundApp() async {
     try {
-      await $.native.pressHome();
+      await $.platform.mobile.pressHome();
       await Future.delayed(const Duration(seconds: 1));
     } catch (e) {
       debugPrint('Failed to background app: $e');
@@ -191,10 +199,11 @@ class NavRobot extends BaseRobot {
   }
 
   // --- Screen Navigation ---
-  Future<void> scrollToTop() async {
-    final scrollable = find.byType(Scrollable).first;
+  @override
+  Future<void> scrollToTop({Finder? customScrollable}) async {
+    final scrollable = customScrollable ?? find.byType(Scrollable).first;
     if (scrollable.evaluate().isNotEmpty) {
-      await scrollToTop();
+      await super.scrollToTop(customScrollable: scrollable);
       await pumpAndSettleWithDelay();
     }
   }
@@ -223,7 +232,9 @@ class NavRobot extends BaseRobot {
       final start = Offset(0, size.height / 2);
       final end = Offset(size.width * 0.3, size.height / 2);
 
-      await $.tester.dragFromPoint(start, end);
+      final gesture = await $.tester.startGesture(start);
+      await gesture.moveTo(end);
+      await gesture.up();
       await pumpAndSettleWithDelay();
     } catch (e) {
       debugPrint('Failed to swipe from left edge: $e');
@@ -236,7 +247,9 @@ class NavRobot extends BaseRobot {
       final start = Offset(size.width, size.height / 2);
       final end = Offset(size.width * 0.7, size.height / 2);
 
-      await $.tester.dragFromPoint(start, end);
+      final gesture = await $.tester.startGesture(start);
+      await gesture.moveTo(end);
+      await gesture.up();
       await pumpAndSettleWithDelay();
     } catch (e) {
       debugPrint('Failed to swipe from right edge: $e');
@@ -258,7 +271,7 @@ class NavRobot extends BaseRobot {
       expect(tabBar, findsOneWidget);
     } else {
       // Alternative: Look for custom tab bar implementation
-      expectVisibleByKey(Key('bottom_navigation'));
+      expectVisibleByKeyWidget(const Key('bottom_navigation'));
     }
   }
 
@@ -266,15 +279,15 @@ class NavRobot extends BaseRobot {
     switch (tabName.toLowerCase()) {
       case 'scanner':
       case 'scan':
-        expectVisibleByKey(Key(TestTags.navScanner));
+        expectVisibleByKeyWidget(Key(TestTags.navScanner));
         break;
       case 'explorer':
       case 'search':
-        expectVisibleByKey(Key(TestTags.navExplorer));
+        expectVisibleByKeyWidget(Key(TestTags.navExplorer));
         break;
       case 'restock':
       case 'inventory':
-        expectVisibleByKey(Key(TestTags.navRestock));
+        expectVisibleByKeyWidget(Key(TestTags.navRestock));
         break;
       default:
         throw Exception('Unknown tab for assertion: $tabName');
@@ -295,8 +308,7 @@ class NavRobot extends BaseRobot {
 
       // Look for selected indicator
       final selectedTab = find.byWidgetPredicate((widget) =>
-          widget.key == Key(tabKey) &&
-          widget.toString().contains('selected'));
+          widget.key == Key(tabKey) && widget.toString().contains('selected'));
 
       if (selectedTab.evaluate().isEmpty) {
         // Tab exists but might not have selected indicator in current implementation
@@ -310,13 +322,13 @@ class NavRobot extends BaseRobot {
   void expectOnScreen(String screenName) {
     switch (screenName.toLowerCase()) {
       case 'scanner':
-        expectVisibleByKey(Key(TestTags.scannerScreen));
+        expectVisibleByKeyWidget(Key(TestTags.scannerScreen));
         break;
       case 'explorer':
-        expectVisibleByKey(Key(TestTags.explorerScreen));
+        expectVisibleByKeyWidget(Key(TestTags.explorerScreen));
         break;
       case 'restock':
-        expectVisibleByKey(Key(TestTags.restockList));
+        expectVisibleByKeyWidget(Key(TestTags.restockList));
         break;
       default:
         expectVisibleByText(screenName);

@@ -92,7 +92,8 @@ class ExplorerRobot extends BaseRobot {
   }
 
   /// Verify search results for a query
-  Future<void> verifySearchResults(String query, {bool shouldFindResults = true}) async {
+  Future<void> verifySearchResults(String query,
+      {bool shouldFindResults = true}) async {
     await completeSearchFlow(query);
 
     if (shouldFindResults) {
@@ -110,7 +111,8 @@ class ExplorerRobot extends BaseRobot {
 
   Future<void> enterSearchQuery(String query) async {
     await $(Key(TestTags.searchField)).enterText(query);
-    await pumpAndSettleWithDelay(const Duration(milliseconds: 500)); // Wait for debouncing
+    await pumpAndSettleWithDelay(
+        const Duration(milliseconds: 500)); // Wait for debouncing
   }
 
   Future<void> submitSearch() async {
@@ -477,5 +479,64 @@ class ExplorerRobot extends BaseRobot {
     // Check that no active filter indicators are present
     final activeFilters = find.byType(InputChip);
     expect(activeFilters, findsNothing);
+  }
+
+  // --- Aliases for consistent API ---
+  Future<void> expectMedicationGroupVisible(String groupName) async {
+    final groupTile = find.text(groupName);
+    if (groupTile.evaluate().isEmpty) {
+      final groupContainingText = find.textContaining(groupName);
+      if (groupContainingText.evaluate().isNotEmpty) {
+        await scrollUntilVisible(groupContainingText);
+        return;
+      }
+      // If not found immediately, try scrolling down a bit or fail
+      await scrollUntilVisible(groupTile);
+    } else {
+      await scrollUntilVisible(groupTile);
+    }
+  }
+
+  Future<void> waitForDrawer() async {
+    await $(find.byType(ModalBottomSheetRoute)).waitUntilVisible();
+  }
+
+  Future<void> tapMedicationCard(String medicationName) async {
+    await tapMedicamentCard(medicationName);
+  }
+
+  Future<void> expectSearchResultsVisible({String? query}) async {
+    if (query != null) {
+      await verifySearchResults(query, shouldFindResults: true);
+    } else {
+      await expectMedicamentCardVisible();
+    }
+  }
+
+  void expectEmptySearchState() {
+    expectNoResultsVisible();
+  }
+
+  Future<void> waitForDetailSheet() async {
+    await $(find.byType(ModalBottomSheetRoute)).waitUntilVisible();
+  }
+
+  // --- Strict Robot Pattern Additions ---
+  Future<void> expectTextVisible(String text, {Duration? timeout}) async {
+    await $(find.text(text))
+        .waitUntilVisible(timeout: timeout ?? defaultTimeout);
+  }
+
+  void expectPartialTextVisible(String text) {
+    expect(find.textContaining(text), findsWidgets);
+  }
+
+  Future<void> expectDetailSheetVisibleEx() async {
+    await $(const Key('medicationDetailSheet')).waitUntilVisible();
+  }
+
+  Future<void> expectActionButtonsVisible() async {
+    await $(const Key('ficheButton')).waitUntilVisible();
+    await $(const Key('rcpButton')).waitUntilVisible();
   }
 }

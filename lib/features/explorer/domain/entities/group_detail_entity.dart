@@ -35,15 +35,15 @@ extension type GroupDetailEntity(ViewGroupDetail _data)
   bool get isOtc => _convertToBool(_data.isOtc);
 
   // Convert String field to int with default fallback
-  int get memberType => int.tryParse(_data.memberType.toString() ?? '0') ?? 0;
+  int get memberType => int.tryParse(_data.memberType.toString()) ?? 0;
 
   // Convert String field to double?
   double? get prixPublic => _data.prixPublic != null
       ? double.tryParse(_data.prixPublic!.toString())
       : null;
 
-  // Getters pour les propriétés nullable avec valeurs par défaut
-  String get cipCode => _data.cipCode ?? '';
+  // Getters pour les propriétés (DB view provides non-nullable values where applicable)
+  String get cipCode => _data.cipCode;
 
   String get parsedTitulaire {
     final summary = _data.summaryTitulaire;

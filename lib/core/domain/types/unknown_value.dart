@@ -1,3 +1,5 @@
+import '../../utils/strings.dart';
+
 /// Extension Type for handling potentially unknown string values
 ///
 /// Provides type safety for values that might be "Unknown" or empty.
@@ -15,12 +17,21 @@ extension type UnknownAwareString(String _value) {
 
     // Check for common "unknown" variations
     final normalized = trimmed.toLowerCase();
-    if (normalized == 'unknown' ||
-        normalized == 'inconnu' ||
-        normalized == 'non spécifié' ||
-        normalized == 'non renseigné' ||
-        normalized == 'n/a' ||
-        normalized == 'nd') {
+
+    // List of values considered as "unknown"
+    const unknownSynonyms = [
+      'unknown',
+      'inconnu',
+      'non spécifié',
+      'non renseigné',
+      'n/a',
+      'nd',
+      '-',
+    ];
+
+    // Also check against localized "Unknown" string
+    if (unknownSynonyms.contains(normalized) ||
+        normalized == Strings.unknown.toLowerCase()) {
       return UnknownAwareString.empty();
     }
 
@@ -70,7 +81,4 @@ extension type UnknownAwareString(String _value) {
 
     return haystack.contains(needle);
   }
-
-
-
 }

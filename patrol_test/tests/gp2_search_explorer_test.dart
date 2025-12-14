@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:patrol/patrol.dart';
 
@@ -17,18 +18,11 @@ import '../robots/app_robot.dart';
 /// 6. Test filters and navigation
 void main() {
   group('GP2: Search Explorer Tests', () {
-    late AppRobot appRobot;
-
-    setUp(() async {
-      appRobot = AppRobot($);
-    });
-
     patrolTest(
       'GP2.1: Complete search workflow - Navigate → Search → Results → Detail',
-      config: PatrolTesterConfig(
-        reportLogs: true,
-      ),
+      config: const PatrolTesterConfig(printLogs: true),
       ($) async {
+        final appRobot = AppRobot($);
         // PHASE 1: Setup and Initialization
         await MockPreferencesHelper.configureForTesting();
         await TestDatabaseHelper.injectTestDatabase();
@@ -41,7 +35,7 @@ void main() {
         await appRobot.explorer.expectSearchFieldVisible();
 
         // PHASE 3: Search for "Amoxicilline"
-        await $.measureTime(
+        await appRobot.measureTime(
           () async {
             await appRobot.explorer.tapSearchField();
             await appRobot.explorer.enterSearchQuery('Amoxicilline');
@@ -55,10 +49,10 @@ void main() {
         await appRobot.explorer.expectSearchResultsVisible();
 
         // PHASE 5: Verify filtered results
-        await $.waitForTextToAppear('AMOXICILLINE');
+        await appRobot.explorer.expectTextVisible('AMOXICILLINE');
 
         // Look for multiple Amoxicilline variants
-        expect(find.textContaining('AMOXICILLINE'), findsWidgets);
+        appRobot.explorer.expectPartialTextVisible('AMOXICILLINE');
 
         // Verify search results contain expected information
         await appRobot.explorer.expectMedicationGroupVisible('AMOXICILLINE');
@@ -66,34 +60,35 @@ void main() {
         // PHASE 6: Tap on medication group
         await appRobot.explorer.tapMedicationGroup('AMOXICILLINE');
         await appRobot.explorer.waitForDrawer();
-        await appRobot.explorer.expectDrawerOpen();
+        appRobot.explorer.expectDrawerOpen();
 
         // PHASE 7: Verify group detail information
-        await $.waitForTextToAppear('AMOXICILLINE');
-        await $.waitForTextToAppear('500 mg'); // Common dosage
-        await $.waitForTextToAppear('Antibiotique');
+        await appRobot.explorer.expectTextVisible('AMOXICILLINE');
+        await appRobot.explorer.expectTextVisible('500 mg'); // Common dosage
+        await appRobot.explorer.expectTextVisible('Antibiotique');
 
         // PHASE 8: Tap on specific medication
         await appRobot.explorer.tapMedicationCard('AMOXICILLINE 500 mg');
         await appRobot.explorer.waitForDetailSheet();
 
         // PHASE 9: Verify medication detail
-        await $(#medicationDetailSheet).waitUntilVisible();
-        await $.waitForTextToAppear('AMOXICILLINE 500 mg');
-        await $.waitForTextToAppear(TestProducts.amoxicilline500Labo);
+        await appRobot.explorer.expectDetailSheetVisibleEx();
+        await appRobot.explorer.expectTextVisible('AMOXICILLINE 500 mg');
+        await appRobot.explorer
+            .expectTextVisible(TestProducts.amoxicilline500Labo);
 
         // Verify action buttons
-        await $(#ficheButton).waitUntilVisible();
-        await $(#rcpButton).waitUntilVisible();
+        await appRobot.explorer.expectActionButtonsVisible();
 
-        print('✅ GP2.1: Complete search workflow passed');
+        debugPrint('✅ GP2.1: Complete search workflow passed');
       },
     );
 
     patrolTest(
       'GP2.2: Explorer filters - Route administration',
-      config: PatrolTesterConfig(),
+      config: const PatrolTesterConfig(printLogs: true),
       ($) async {
+        final appRobot = AppRobot($);
         // Setup
         await MockPreferencesHelper.configureForTesting();
         await TestDatabaseHelper.injectTestDatabase();
@@ -103,7 +98,7 @@ void main() {
 
         // Open filters
         await appRobot.explorer.openFilters();
-        await appRobot.explorer.expectFilterVisible('Voie orale');
+        appRobot.explorer.expectFilterVisible('Voie orale');
 
         // Select "Voie Orale" filter
         await appRobot.explorer.selectRouteFilter('Voie orale');
@@ -118,17 +113,18 @@ void main() {
         await appRobot.explorer.submitSearch();
 
         // Verify oral medications are shown
-        await $.waitForTextToAppear('DOLIPRANE');
-        expect(find.textContaining('orale'), findsWidgets);
+        await appRobot.explorer.expectTextVisible('DOLIPRANE');
+        appRobot.explorer.expectPartialTextVisible('orale');
 
-        print('✅ GP2.2: Route administration filter passed');
+        debugPrint('✅ GP2.2: Route administration filter passed');
       },
     );
 
     patrolTest(
       'GP2.3: Explorer alphabetical navigation',
-      config: PatrolTesterConfig(),
+      config: const PatrolTesterConfig(printLogs: true),
       ($) async {
+        final appRobot = AppRobot($);
         // Setup
         await MockPreferencesHelper.configureForTesting();
         await TestDatabaseHelper.injectTestDatabase();
@@ -141,7 +137,7 @@ void main() {
 
         // Navigate to 'D' section
         await appRobot.explorer.tapAlphabeticalIndex('D');
-        await $.pumpAndSettle();
+        await appRobot.waitAndSettle();
 
         // Scroll to section containing Doliprane
         await appRobot.explorer.scrollToSection('D');
@@ -159,14 +155,15 @@ void main() {
         // Verify IBUPROFENE appears
         await appRobot.explorer.expectMedicationGroupVisible('IBUPROFENE');
 
-        print('✅ GP2.3: Alphabetical navigation passed');
+        debugPrint('✅ GP2.3: Alphabetical navigation passed');
       },
     );
 
     patrolTest(
       'GP2.4: Explorer search debouncing and performance',
-      config: PatrolTesterConfig(),
+      config: const PatrolTesterConfig(printLogs: true),
       ($) async {
+        final appRobot = AppRobot($);
         // Setup
         await MockPreferencesHelper.configureForTesting();
         await TestDatabaseHelper.injectTestDatabase();
@@ -182,8 +179,9 @@ void main() {
 
           await appRobot.explorer.tapSearchField();
           await appRobot.explorer.enterSearchQuery('A'); // Single letter
-          await Future.delayed(const Duration(milliseconds: 300)); // Wait for debouncing
-          await $.pumpAndSettle();
+          await Future<void>.delayed(
+              const Duration(milliseconds: 300)); // Wait for debouncing
+          await appRobot.waitAndSettle();
 
           final endTime = DateTime.now().millisecondsSinceEpoch;
           searchTimes.add(endTime - startTime);
@@ -192,25 +190,28 @@ void main() {
           await appRobot.explorer.clearSearch();
         }
 
-        final averageSearchTime = searchTimes.reduce((a, b) => a + b) / searchTimes.length;
-        print('📊 GP2.4: Average search time: ${averageSearchTime.round()}ms');
+        final averageSearchTime =
+            searchTimes.reduce((a, b) => a + b) / searchTimes.length;
+        debugPrint(
+            '📊 GP2.4: Average search time: ${averageSearchTime.round()}ms');
 
         // Test longer search
         await appRobot.explorer.enterSearchQuery('Paracétamol');
-        await Future.delayed(const Duration(milliseconds: 500));
-        await $.pumpAndSettle();
+        await Future<void>.delayed(const Duration(milliseconds: 500));
+        await appRobot.waitAndSettle();
 
         // Verify results
         appRobot.explorer.expectMedicationGroupVisible('DOLIPRANE');
 
-        print('✅ GP2.4: Search debouncing and performance test completed');
+        debugPrint('✅ GP2.4: Search debouncing and performance test completed');
       },
     );
 
     patrolTest(
       'GP2.5: Explorer generic vs princeps identification',
-      config: PatrolTesterConfig(),
+      config: const PatrolTesterConfig(printLogs: true),
       ($) async {
+        final appRobot = AppRobot($);
         // Setup
         await MockPreferencesHelper.configureForTesting();
         await TestDatabaseHelper.injectTestDatabase();
@@ -230,10 +231,12 @@ void main() {
         // Look for princeps indication or generic equivalents
         try {
           // Check if there are generic badges
-          await $.waitForTextToAppear('Générique', timeout: const Duration(seconds: 2));
-          print('✅ GP2.5: Generic badge found for Doliprane');
+          await appRobot.explorer.expectTextVisible('Générique',
+              timeout: const Duration(seconds: 2));
+          debugPrint('✅ GP2.5: Generic badge found for Doliprane');
         } catch (e) {
-          print('⚠️ GP2.5: Generic badges not visible, checking other indicators');
+          debugPrint(
+              '⚠️ GP2.5: Generic badges not visible, checking other indicators');
         }
 
         // Search for generic specifically
@@ -244,14 +247,15 @@ void main() {
         // Should find generic equivalent
         await appRobot.explorer.expectMedicationGroupVisible('PARACETAMOL');
 
-        print('✅ GP2.5: Generic vs princeps identification completed');
+        debugPrint('✅ GP2.5: Generic vs princeps identification completed');
       },
     );
 
     patrolTest(
       'GP2.6: Explorer empty search and no results handling',
-      config: PatrolTesterConfig(),
+      config: const PatrolTesterConfig(printLogs: true),
       ($) async {
+        final appRobot = AppRobot($);
         // Setup
         await MockPreferencesHelper.configureForTesting();
         await TestDatabaseHelper.injectTestDatabase();
@@ -272,22 +276,23 @@ void main() {
         await appRobot.explorer.submitSearch();
 
         // Verify no results state
-        expect(find.textContaining('Aucun résultat'), findsWidgets);
+        appRobot.explorer.expectPartialTextVisible('Aucun résultat');
 
         // Clear search and verify normal state returns
         await appRobot.explorer.clearSearch();
-        await $.pumpAndSettle();
+        await appRobot.waitAndSettle();
 
         appRobot.explorer.expectSearchResultsVisible();
 
-        print('✅ GP2.6: Empty search and no results handling passed');
+        debugPrint('✅ GP2.6: Empty search and no results handling passed');
       },
     );
 
     patrolTest(
       'GP2.7: Explorer detail sheet actions',
-      config: PatrolTesterConfig(),
+      config: const PatrolTesterConfig(printLogs: true),
       ($) async {
+        final appRobot = AppRobot($);
         // Setup
         await MockPreferencesHelper.configureForTesting();
         await TestDatabaseHelper.injectTestDatabase();
@@ -307,63 +312,64 @@ void main() {
 
         // Test Fiche button
         await appRobot.explorer.tapFicheButton();
-        await Future.delayed(const Duration(milliseconds: 500));
-        await appRobot.handleAnyDialog();
+        await Future<void>.delayed(const Duration(milliseconds: 500));
+        await appRobot.handleUnexpectedDialogs();
 
         // Test RCP button
-        await app_robot.explorer.tapRcpButton();
-        await Future.delayed(const Duration(milliseconds: 500));
-        await app_robot.handleAnyDialog();
+        await appRobot.explorer.tapRcpButton();
+        await Future<void>.delayed(const Duration(milliseconds: 500));
+        await appRobot.handleUnexpectedDialogs();
 
         // Test "View in Explorer" button
         try {
-          await app_robot.explorer.tapViewInExplorer();
-          await $.pumpAndSettle();
+          await appRobot.explorer.tapViewInExplorer();
+          await appRobot.waitAndSettle();
         } catch (e) {
-          print('⚠️ GP2.7: View in Explorer button not found');
+          debugPrint('⚠️ GP2.7: View in Explorer button not found');
         }
 
         // Test closing detail sheet
-        await app_robot.explorer.closeDetailSheet();
+        await appRobot.explorer.closeDetailSheet();
 
-        print('✅ GP2.7: Detail sheet actions completed');
+        debugPrint('✅ GP2.7: Detail sheet actions completed');
       },
     );
 
     patrolTest(
       'GP2.8: Explorer pull-to-refresh and cache',
-      config: PatrolTesterConfig(),
+      config: const PatrolTesterConfig(printLogs: true),
       ($) async {
+        final appRobot = AppRobot($);
         // Setup
         await MockPreferencesHelper.configureForTesting();
         await TestDatabaseHelper.injectTestDatabase();
 
-        await app_robot.completeAppInitialization();
-        await app_robot.navigateToTab('explorer');
+        await appRobot.completeAppInitialization();
+        await appRobot.navigateToTab('explorer');
 
         // Perform initial search
-        await app_robot.explorer.enterSearchQuery('Amoxicilline');
-        await app_robot.explorer.submitSearch();
-        await app_robot.waitForNetworkRequests();
+        await appRobot.explorer.enterSearchQuery('Amoxicilline');
+        await appRobot.explorer.submitSearch();
+        await appRobot.waitForNetworkRequests();
 
         // Verify results
-        app_robot.explorer.expectMedicationGroupVisible('AMOXICILLINE');
+        appRobot.explorer.expectMedicationGroupVisible('AMOXICILLINE');
 
         // Pull to refresh
-        await app_robot.explorer.pullToRefresh();
-        await app_robot.waitForNetworkRequests();
+        await appRobot.explorer.pullToRefresh();
+        await appRobot.waitForNetworkRequests();
 
         // Verify results are still there (cached or refreshed)
-        app_robot.explorer.expectMedicationGroupVisible('AMOXICILLINE');
+        await appRobot.explorer.expectMedicationGroupVisible('AMOXICILLINE');
 
         // Test navigation with back button
-        await app_robot.navigateBack();
-        await $.pumpAndSettle();
+        await appRobot.navigateBack();
+        await appRobot.waitAndSettle();
 
         // Verify we're still in explorer with search field focused
-        app_robot.explorer.expectSearchFieldVisible();
+        await appRobot.explorer.expectSearchFieldVisible();
 
-        print('✅ GP2.8: Pull-to-refresh and navigation completed');
+        debugPrint('✅ GP2.8: Pull-to-refresh and navigation completed');
       },
     );
   });

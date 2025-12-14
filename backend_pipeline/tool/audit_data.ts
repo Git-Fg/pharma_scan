@@ -12,7 +12,7 @@ function main() {
 
   // 1. Setup
   mkdirSync(OUT_DIR, { recursive: true });
-  
+
   if (!existsSync(DB_PATH)) {
     console.error(`❌ Base de données introuvable : ${DB_PATH}`);
     console.error("   Veuillez d'abord exécuter 'bun run build:db' pour générer la base de données.");
@@ -27,26 +27,28 @@ function main() {
   console.log("📊 Génération du catalogue des clusters...");
 
   // Utiliser directement la vue SQL qui fait tout le travail
+  // Échantillonnage aléatoire limité à 500 clusters pour revue
   const clustersQuery = db.query(`
     SELECT * FROM v_clusters_audit
-    ORDER BY cis_count DESC
+    ORDER BY RANDOM()
+    LIMIT 500
   `);
 
   // Les données sont déjà formatées dans la vue (JSON arrays, substance_label formaté)
   // Il suffit de parser les JSON arrays en objets JavaScript
   const clusters = clustersQuery.all().map((row: any) => {
     const cleaned: any = { ...row };
-    
+
     // Convertir les chaînes séparées par '|' en tableaux JavaScript
     const parsePipeSeparated = (str: string | null): string[] => {
       if (!str) return [];
       return str.split('|').filter(s => s.length > 0);
     };
-    
+
     cleaned.dosages_available = parsePipeSeparated(cleaned.dosages_available);
     cleaned.all_princeps_names = parsePipeSeparated(cleaned.all_princeps_names);
     cleaned.all_brand_names = parsePipeSeparated(cleaned.all_brand_names);
-    
+
     // Parser substance_label depuis JSON array
     if (cleaned.substance_label_json) {
       try {
@@ -57,7 +59,7 @@ function main() {
       }
     }
     delete cleaned.substance_label_json;
-    
+
     // Parser secondary_princeps depuis JSON array
     if (cleaned.secondary_princeps) {
       try {
@@ -69,17 +71,17 @@ function main() {
     } else {
       cleaned.secondary_princeps = [];
     }
-    
+
     // Renommer unified_name en cluster_name pour cohérence avec l'ancien format
     // et remplacer cluster_princeps par le nom unifié
     cleaned.cluster_name = cleaned.unified_name || cleaned.cluster_name;
     delete cleaned.unified_name;
-    
+
     return cleaned;
   });
-  
+
   writeFileSync(
-    join(OUT_DIR, "1_clusters_catalog.json"), 
+    join(OUT_DIR, "1_clusters_catalog.json"),
     JSON.stringify(clusters, null, 2)
   );
   console.log(`✅ ${clusters.length} clusters exportés dans '1_clusters_catalog.json'`);
@@ -90,23 +92,25 @@ function main() {
   console.log("📋 Génération du catalogue des groupes génériques...");
 
   // Utiliser directement la vue SQL qui fait tout le travail
+  // Échantillonnage aléatoire limité à 500 groupes pour revue
   const groupsQuery = db.query(`
     SELECT * FROM v_groups_audit
-    ORDER BY member_count DESC, princeps_label
+    ORDER BY RANDOM()
+    LIMIT 500
   `);
 
   // Les données sont déjà formatées dans la vue (JSON arrays)
   const groups = groupsQuery.all().map((row: any) => {
     const cleaned: any = { ...row };
-    
+
     // Convertir les chaînes séparées par '|' en tableaux JavaScript
     const parsePipeSeparated = (str: string | null): string[] => {
       if (!str) return [];
       return str.split('|').filter(s => s.length > 0);
     };
-    
+
     cleaned.forms_available = parsePipeSeparated(cleaned.forms_available);
-    
+
     // Parser principes_actifs_communs si c'est une string JSON
     if (typeof cleaned.principes_actifs_communs === 'string') {
       try {
@@ -116,40 +120,28 @@ function main() {
         // Garder la valeur originale si parsing échoue
       }
     }
-    
+
     return cleaned;
   });
-  
+
   writeFileSync(
-    join(OUT_DIR, "2_group_catalog.json"), 
+    join(OUT_DIR, "2_group_catalog.json"),
     JSON.stringify(groups, null, 2)
   );
   console.log(`✅ ${groups.length} groupes exportés dans '2_group_catalog.json'`);
 
   // ---------------------------------------------------------
-  // PARTIE 3 : Échantillonnage Stratifié (200 Exemples)
+  // PARTIE 3 : Échantillonnage Aléatoire (200 Exemples)
   // ---------------------------------------------------------
-  console.log("🧪 Sélection des 200 exemples stratifiés...");
+  console.log("🧪 Sélection de 200 exemples aléatoires...");
 
-  // On veut 4 catégories de 50 items pour être sûr de tout voir
-  const samples: any[] = [];
-
-  // A. Les "Vrais" Princeps (Pour vérifier qu'ils commandent bien le nom du cluster)
-  const qPrinceps = db.query(`SELECT * FROM v_samples_audit WHERE is_princeps = 1 LIMIT 50`);
-  samples.push(...qPrinceps.all().map((r: any) => ({ ...r, _audit_tag: "STRATE_PRINCEPS" })));
-
-  // B. Les Génériques purs (Pour vérifier qu'ils sont bien attachés au bon cluster)
-  const qGenerics = db.query(`SELECT * FROM v_samples_audit WHERE is_princeps = 0 AND group_id IS NOT NULL LIMIT 50`);
-  samples.push(...qGenerics.all().map((r: any) => ({ ...r, _audit_tag: "STRATE_GENERIQUE" })));
-
-  // C. Les Cas Complexes (Poly-médication ou noms longs)
-  // On cherche des noms avec "/" (souvent des associations)
-  const qComplex = db.query(`SELECT * FROM v_samples_audit WHERE nom_canonique LIKE '%/%' LIMIT 50`);
-  samples.push(...qComplex.all().map((r: any) => ({ ...r, _audit_tag: "STRATE_COMPLEXE" })));
-
-  // D. Les "Orphelins" (Sans groupe officiel, clusterisés par substance uniquement)
-  const qOrphans = db.query(`SELECT * FROM v_samples_audit WHERE group_id IS NULL LIMIT 50`);
-  samples.push(...qOrphans.all().map((r: any) => ({ ...r, _audit_tag: "STRATE_ORPHELIN" })));
+  // Échantillonnage aléatoire simple de 200 médicaments
+  const qSamples = db.query(`
+    SELECT * FROM v_samples_audit 
+    ORDER BY RANDOM() 
+    LIMIT 100
+  `);
+  const samples = qSamples.all();
 
   // Parser principes_actifs_communs_json si présent (déjà validé dans la vue)
   // Les nouveaux champs (smr_niveau, url_notice, has_safety_alert) sont déjà inclus via ms.*
@@ -163,19 +155,19 @@ function main() {
     }
     // Supprimer la colonne temporaire
     delete row.principes_actifs_communs_json;
-    
+
     // Normaliser les nouveaux champs pour l'audit
     // smr_niveau, url_notice, has_safety_alert sont déjà présents via ms.*
     // Convertir has_safety_alert en boolean si c'est un nombre (SQLite retourne 0/1)
     if (typeof row.has_safety_alert === 'number') {
       row.has_safety_alert = Boolean(row.has_safety_alert);
     }
-    
+
     return row;
   });
 
   writeFileSync(
-    join(OUT_DIR, "3_samples_detailed.json"), 
+    join(OUT_DIR, "3_samples_detailed.json"),
     JSON.stringify(cleanSamples, null, 2)
   );
 

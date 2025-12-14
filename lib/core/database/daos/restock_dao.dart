@@ -7,16 +7,9 @@ import 'package:pharma_scan/core/domain/types/ids.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/features/history/domain/entities/scan_history_entry.dart';
 import 'package:pharma_scan/features/restock/domain/entities/restock_item_entity.dart';
+import 'package:pharma_scan/core/database/utils/sql_error_x.dart';
 
-/// Helper function to check if an exception is a UNIQUE constraint violation.
-/// Works across both native SQLite and web platforms.
-bool _isUniqueConstraintViolation(Object e) {
-  final message = e.toString().toLowerCase();
-  return message.contains('unique constraint failed') ||
-      message.contains('constraint failed') ||
-      message.contains('2067') ||
-      message.contains('sqlite3_result_code: 19');
-}
+// Centralized detection moved to `lib/core/database/utils/sql_error_x.dart`.
 
 enum ScanOutcome { added, duplicate }
 
@@ -297,7 +290,7 @@ class RestockDao extends DatabaseAccessor<AppDatabase> with $RestockDaoMixin {
       );
       return ScanOutcome.added;
     } catch (e) {
-      if (_isUniqueConstraintViolation(e)) {
+      if (e.isUniqueConstraintViolation()) {
         return ScanOutcome.duplicate;
       }
       rethrow;
@@ -339,7 +332,7 @@ class RestockDao extends DatabaseAccessor<AppDatabase> with $RestockDaoMixin {
       });
       return ScanOutcome.added;
     } catch (e) {
-      if (_isUniqueConstraintViolation(e)) {
+      if (e.isUniqueConstraintViolation()) {
         return ScanOutcome.duplicate;
       }
       rethrow;

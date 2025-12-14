@@ -4,7 +4,6 @@ import 'package:dart_mappable/dart_mappable.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:pharma_scan/core/models/scan_models.dart';
 import 'package:pharma_scan/core/providers/core_providers.dart';
-import 'package:pharma_scan/core/services/logger_service.dart';
 import 'package:pharma_scan/features/scanner/domain/logic/scan_orchestrator.dart';
 import 'package:pharma_scan/features/scanner/domain/logic/scan_traffic_control.dart';
 import 'package:pharma_scan/features/scanner/domain/scanner_mode.dart';
@@ -156,10 +155,10 @@ class ScannerNotifier extends _$ScannerNotifier {
       try {
         final rawValuePreview =
             rawValue.length > 50 ? '${rawValue.substring(0, 50)}...' : rawValue;
-        LoggerService.debug(
-          '[ScannerNotifier] Barcode detected - Format: ${barcode.format}, '
-          'RawValue: $rawValuePreview, Force: $force',
-        );
+        ref.read(loggerProvider).debug(
+              '[ScannerNotifier] Barcode detected - Format: ${barcode.format}, '
+              'RawValue: $rawValuePreview, Force: $force',
+            );
 
         final decision = await _scanOrchestrator.decide(
           rawValue,
@@ -170,11 +169,11 @@ class ScannerNotifier extends _$ScannerNotifier {
         if (!ref.mounted) return;
         _applyDecision(decision);
       } on Object catch (error, stackTrace) {
-        LoggerService.error(
-          '[ScannerNotifier] Failed to process scan for value: $rawValue',
-          error,
-          stackTrace,
-        );
+        ref.read(loggerProvider).error(
+              '[ScannerNotifier] Failed to process scan for value: $rawValue',
+              error,
+              stackTrace,
+            );
         if (ref.mounted) {
           state = AsyncError(error, stackTrace);
           _emit(const ScannerHaptic(ScannerHapticType.error));
@@ -188,7 +187,9 @@ class ScannerNotifier extends _$ScannerNotifier {
     bool force = false,
     DateTime? expDate,
   }) async {
-    LoggerService.db('[ScannerNotifier] Querying database for CIP: $codeCip');
+    ref
+        .read(loggerProvider)
+        .db('[ScannerNotifier] Querying database for CIP: $codeCip');
 
     try {
       final decision = await _scanOrchestrator.decide(
@@ -201,11 +202,11 @@ class ScannerNotifier extends _$ScannerNotifier {
       _applyDecision(decision);
       return decision is AnalysisSuccess;
     } on Object catch (error, stackTrace) {
-      LoggerService.error(
-        '[ScannerNotifier] Failed to query medicament for CIP: $codeCip',
-        error,
-        stackTrace,
-      );
+      ref.read(loggerProvider).error(
+            '[ScannerNotifier] Failed to query medicament for CIP: $codeCip',
+            error,
+            stackTrace,
+          );
       if (ref.mounted) {
         state = AsyncError(error, stackTrace);
         _emit(const ScannerHaptic(ScannerHapticType.error));

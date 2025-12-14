@@ -156,10 +156,10 @@ bun run preflight:bp
 # Exécuter les tests unitaires
 bun test
 
-# Télécharger automatiquement les fichiers BDPM manquants
+# Télécharger les fichiers BDPM (manuellement ou via CI)
 bun run download:bdpm
 
-# Note: `download:bdpm` est exécuté automatiquement au démarrage du pipeline (appelé depuis `src/index.ts`)
+# Note: The pipeline does not download BDPM files automatically anymore. Run `bun run download:bdpm` locally or configure your CI to run it before the pipeline.
 ```
 
 ### Outils d'Audit (`tool/`)

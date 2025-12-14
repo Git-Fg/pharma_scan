@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:pharma_scan/core/providers/core_providers.dart';
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
-import 'package:pharma_scan/core/services/logger_service.dart';
 import 'package:pharma_scan/core/mixins/safe_async_notifier_mixin.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -18,7 +17,8 @@ enum InitializationState {
 }
 
 @Riverpod(keepAlive: true)
-class InitializationNotifier extends _$InitializationNotifier with SafeAsyncNotifierMixin {
+class InitializationNotifier extends _$InitializationNotifier
+    with SafeAsyncNotifierMixin {
   @override
   FutureOr<void> build() async {
     ref.onDispose(() {
@@ -49,19 +49,24 @@ class InitializationNotifier extends _$InitializationNotifier with SafeAsyncNoti
     const currentVersion = DataInitializationService.dataVersion;
 
     if (hasData && version == currentVersion) {
-      LoggerService.info(
-          '[InitializationProvider] Database already initialized');
+      ref
+          .read(loggerProvider)
+          .info('[InitializationProvider] Database already initialized');
       return;
     }
 
     if (!isMounted()) return;
 
-    LoggerService.info('[InitializationProvider] initialize() - start');
+    ref
+        .read(loggerProvider)
+        .info('[InitializationProvider] initialize() - start');
     await ref.read(dataInitializationServiceProvider).initializeDatabase();
 
     if (!isMounted()) return;
 
-    LoggerService.info('[InitializationProvider] initialize() - success');
+    ref
+        .read(loggerProvider)
+        .info('[InitializationProvider] initialize() - success');
   }
 
   Future<void> retry() async {
@@ -74,8 +79,9 @@ class InitializationNotifier extends _$InitializationNotifier with SafeAsyncNoti
 Stream<InitializationStep> initializationStep(Ref ref) async* {
   final service = ref.watch(dataInitializationServiceProvider);
   final initState = ref.watch(initializationProvider);
-  LoggerService.info(
-      '[InitializationStepProvider] listening (state: $initState)');
+  ref
+      .read(loggerProvider)
+      .info('[InitializationStepProvider] listening (state: $initState)');
 
   try {
     final db = ref.read(databaseProvider());
@@ -90,7 +96,7 @@ Stream<InitializationStep> initializationStep(Ref ref) async* {
       return;
     }
   } on Exception catch (e) {
-    LoggerService.info(
+    ref.read(loggerProvider).info(
         '[InitializationStepProvider] Database check failed, using stream: $e');
   }
 
@@ -107,7 +113,7 @@ Stream<InitializationStep> initializationStep(Ref ref) async* {
     final currentInitState = ref.read(initializationProvider);
     if (currentInitState is AsyncData<void> &&
         step != InitializationStep.ready) {
-      LoggerService.info(
+      ref.read(loggerProvider).info(
           '[InitializationStepProvider] forcing ready after init success');
       yield InitializationStep.ready;
     }

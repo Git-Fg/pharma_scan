@@ -25,13 +25,13 @@ extension GroupDetailPresentation on GroupDetailEntity {
   String get displayName {
     if (isPrinceps) {
       // Correction: n'utilise princepsBrandName que s'il est non vide ET différent de 'BRAND'
-      final brandName = princepsBrandName.trim() ?? '';
+      final brandName = princepsBrandName.trim();
       if (brandName.isNotEmpty && brandName.toUpperCase() != 'BRAND') {
         return brandName;
       }
-      return princepsDeReference.trim() ?? '';
+      return princepsDeReference.trim();
     }
-    final nom = nomCanonique ?? '';
+    final nom = nomCanonique;
     final parts = nom.split(' - ');
     return parts.first.trim();
   }
@@ -104,10 +104,10 @@ extension GroupDetailListExtensions on List<GroupDetailEntity> {
       }
     }
 
-    final princepsRef = first.princepsDeReference ?? '';
-    final nomCanon = first.nomCanonique ?? '';
+    final princepsRef = first.princepsDeReference;
+    final nomCanon = first.nomCanonique;
     // Use princepsBrandName from DB if available, otherwise fallback to princepsDeReference
-    final brandName = first.princepsBrandName.trim() ?? '';
+    final brandName = first.princepsBrandName.trim();
     final title = (brandName.isNotEmpty)
         ? brandName
         : (princepsRef.isNotEmpty ? princepsRef : nomCanon);

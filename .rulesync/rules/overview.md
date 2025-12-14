@@ -278,11 +278,15 @@ A task is ONLY complete when:
 ## Schema Synchronization
 - **Backend-Driven Architecture:**
   - **Source of Truth:** `backend_pipeline/src/db.ts`.
-  - **Mobile Consumer:** `lib/core/database/dbschema.drift` (mirrors backend, read-only).
+  - **Mobile Consumer:** `lib/core/database/reference_schema.drift` (mirrors backend, read-only).
   - **Mobile App Role:** "Smart Viewer". It consumes `reference.db` pre-processed by the backend.
 - **SCHEMA SYNC RULE:** Changes to `medicament_summary` or core tables MUST be done in the backend first.
 - **Forbidden:** Modifying database structure in the mobile app without corresponding backend changes.
 - **Key Tables:** `medicament_summary` (single source of truth), `cluster_names`, `search_index`.
+
+## Performance Optimization
+- **Performance Optimization:**
+  - For Scanner/Quick-Lookup: Query the `product_scan_cache` table directly. Do **not** perform joins on `medicament_summary` for critical path lookups.
 
 ---
 
@@ -502,6 +506,11 @@ To avoid confusion between `ref.watch()` (Riverpod) and `signal.watch()` (Signal
 - **Core Authority:** Only `lib/core/ui/` is allowed to import `shadcn_ui`.
 - **Migration:** Prefer `AppButton`, `AppBadge`, `AppCard` over raw Shadcn widgets.
 
+## The "Hoisted Header" Mandate
+- **Feature Screens:** Do **NOT** use `Scaffold` or `AppBar`. The root widget of feature screens must be a `Column` or `CustomScrollView` to avoid duplicated headers.
+- **Configuration:** Use the `useAppHeader(title: ...)` hook at the top of `build()` to configure the global shell header.
+- **Immersive Mode:** To hide the header (e.g., Scanner), call `useAppHeader(isVisible: false)`.
+
 ## The "No Dumb Wrapper" Rule
 - **Do Not:** Wrap Shadcn components just to add static padding or styling.
 - **Do:** Create specialized "Semantic Components" (e.g., `AppPrimaryButton`) IF AND ONLY IF you need to enforce logic across the entire app.
@@ -638,6 +647,11 @@ LoggerService.error('Failed to load', error, stackTrace);
   - Run all: `patrol test`.
   - Run specific: `patrol test --target <file_path>`.
 
+### Patrol 4.0 Syntax
+- **Patrol 4.0 Syntax:**
+  - Use `$.platform.mobile` instead of `$.native` for system interactions (permissions, home button).
+  - Use `await $.pumpAndSettle()` aggressively to handle animations.
+
 ## Test Hygiene
 - **Zero Redundancy:** If a Patrol E2E test covers a flow (e.g., "Scan Product → View Details → Add to Favorites"), **DELETE** any overlapping Widget/Unit tests that only mock the UI without adding value.
 - **Unit Scope:** Keep Unit tests ONLY for:
@@ -659,11 +673,11 @@ E2E tests are prone to flakiness due to timing issues, animations, and system di
 3. **Check for overlaying widgets** - Dialogs, toasts, or bottom sheets may block taps:
    - Look for `ShadToast`, `ShadDialog`, `ShadSheet` covering the target widget.
    - Wait for them to dismiss or explicitly close them in the Robot.
-4. **Use `$.native` for system dialogs** - Platform permission dialogs aren't part of the Flutter widget tree:
-   ```dart
-   // Clear system dialogs (permissions, etc.)
-   await $.native.grantPermissionWhenInUse();
-   ```
+4. **Use `$.platform.mobile` for system dialogs** - Platform permission dialogs aren't part of the Flutter widget tree:
+  ```dart
+  // Clear system dialogs (permissions, etc.)
+  await $.platform.mobile.grantPermissionWhenInUse();
+  ```
 5. **Verify widget visibility** - Use `$.waitUntilVisible()` instead of `$.tap()` if the widget may be scrolled offscreen.
 6. **Check for race conditions** - If state changes rapidly (e.g., loading → loaded), add explicit `.waitUntilVisible()` on the expected state.
 

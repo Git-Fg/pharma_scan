@@ -10,15 +10,7 @@ import 'package:patrol/src/platform/contracts/contracts.dart';
 import 'package:test_api/src/backend/invoker.dart';
 
 // START: GENERATED TEST IMPORTS
-import 'minimal_test.dart' as minimal_test;
-import 'robot_pattern_demo_test.dart' as robot_pattern_demo_test;
-import 'scanner_e2e_test.dart' as scanner_e2e_test;
-import 'simple_e2e_test.dart' as simple_e2e_test;
 import 'tests/gp1_scanner_standalone_test.dart' as tests__gp1_scanner_standalone_test;
-import 'tests/gp2_search_explorer_test.dart' as tests__gp2_search_explorer_test;
-import 'tests/gp3_restock_cycle_test.dart' as tests__gp3_restock_cycle_test;
-import 'tests/gp4_explorer_deep_dive_test.dart' as tests__gp4_explorer_deep_dive_test;
-import 'tests/gp5_full_app_cycle_test.dart' as tests__gp5_full_app_cycle_test;
 // END: GENERATED TEST IMPORTS
 
 Future<void> main() async {
@@ -78,15 +70,7 @@ Future<void> main() async {
   });
 
   // START: GENERATED TEST GROUPS
-  group('minimal_test', minimal_test.main);
-  group('robot_pattern_demo_test', robot_pattern_demo_test.main);
-  group('scanner_e2e_test', scanner_e2e_test.main);
-  group('simple_e2e_test', simple_e2e_test.main);
   group('tests.gp1_scanner_standalone_test', tests__gp1_scanner_standalone_test.main);
-  group('tests.gp2_search_explorer_test', tests__gp2_search_explorer_test.main);
-  group('tests.gp3_restock_cycle_test', tests__gp3_restock_cycle_test.main);
-  group('tests.gp4_explorer_deep_dive_test', tests__gp4_explorer_deep_dive_test.main);
-  group('tests.gp5_full_app_cycle_test', tests__gp5_full_app_cycle_test.main);
   // END: GENERATED TEST GROUPS
 
   final dartTestGroup = await testExplorationCompleter.future;

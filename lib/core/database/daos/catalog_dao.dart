@@ -2,12 +2,10 @@ import 'dart:convert';
 
 import 'package:drift/drift.dart';
 import 'package:pharma_scan/core/database/database.dart';
-import 'package:pharma_scan/core/database/reference_schema.drift.dart';
 import 'package:pharma_scan/core/domain/types/ids.dart';
-import 'package:pharma_scan/core/domain/types/semantic_types.dart';
 // semantic types are not used directly here; keep imports minimal
 import 'package:pharma_scan/core/models/scan_models.dart';
-import 'package:pharma_scan/core/services/logger_service.dart';
+
 // views.drift is not directly referenced; remove to avoid unused import
 import 'package:pharma_scan/features/explorer/domain/entities/group_detail_entity.dart';
 import 'package:pharma_scan/features/explorer/domain/entities/medicament_entity.dart';
@@ -43,7 +41,7 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> {
     Cip13 codeCip, {
     DateTime? expDate,
   }) async {
-    LoggerService.db('Lookup product for CIP $codeCip');
+    attachedDatabase.logger.db('Lookup product for CIP $codeCip');
 
     final cipString = codeCip.toString();
 
@@ -54,7 +52,8 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> {
         .getSingleOrNull();
 
     if (cache == null) {
-      LoggerService.db('No medicament found in cache for CIP $cipString');
+      attachedDatabase.logger
+          .db('No medicament found in cache for CIP $cipString');
       return null;
     }
 
@@ -78,7 +77,7 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> {
   Stream<List<GroupDetailEntity>> watchGroupDetails(
     String groupId,
   ) {
-    LoggerService.db(
+    attachedDatabase.logger.db(
       'Watching group $groupId via view_group_details',
     );
 
@@ -97,7 +96,7 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> {
   Future<List<GroupDetailEntity>> getGroupDetails(
     String groupId,
   ) async {
-    LoggerService.db(
+    attachedDatabase.logger.db(
       'Fetching snapshot for group $groupId via view_group_details',
     );
 
@@ -118,7 +117,7 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> {
   Future<List<GroupDetailEntity>> fetchRelatedPrinceps(
     String groupId,
   ) async {
-    LoggerService.db('Fetching related princeps for $groupId');
+    attachedDatabase.logger.db('Fetching related princeps for $groupId');
 
     // Fetch target group's principles (single fast select)
     final targetSummaries = await customSelect(
@@ -164,79 +163,9 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> {
     return results.map(GroupDetailEntity.fromData).toList();
   }
 
-  /// Search medicaments using FTS5 with trigram tokenizer for fuzzy matching
-  /// Returns Future directly - exceptions bubble up to Riverpod's AsyncValue
-  Future<List<MedicamentEntity>> searchMedicaments(
-    NormalizedQuery query, {
-    int limit = 50,
-  }) async {
-    LoggerService.db('Searching medicaments for query: ${query.toFtsQuery()}');
-
-    final ftsQuery = query.toFtsQuery();
-    if (ftsQuery.isEmpty) {
-      return [];
-    }
-
-    // Use FTS5 search index - direct query using medicament_summary table
-    final results = await customSelect(
-      'SELECT '
-      'ms.* '
-      'FROM search_index si '
-      'INNER JOIN medicament_summary ms ON ms.group_id = si.rowid '
-      'WHERE search_index MATCH ? '
-      'ORDER BY ms.nom_canonique '
-      'LIMIT ?',
-      variables: [
-        Variable<String>(ftsQuery),
-        Variable<int>(limit),
-      ],
-    ).get();
-
-    // Map results to MedicamentEntity using the existing fromData constructor
-    return results
-        .map((row) => MedicamentEntity.fromData(
-              MedicamentSummaryData(
-                groupId: row.read<String>('group_id'),
-                cisCode: row.read<String>('cis_code'),
-                nomCanonique: row.read<String>('nom_canonique'),
-                princepsDeReference: row.read<String>('princeps_de_reference'),
-                princepsBrandName: row.read<String>('princeps_brand_name'),
-                isPrinceps: row.read<int>('is_princeps'),
-                memberType: 0, // Default for search results
-                status: row.read<String>('status'),
-                formePharmaceutique: row.read<String>('forme_pharmaceutique'),
-                voiesAdministration: row.read<String>('voies_administration'),
-                principesActifsCommuns:
-                    row.read<String>('principes_actifs_communs'),
-                formattedDosage: row.read<String>('formatted_dosage'),
-                titulaireId: row.read<int>('titulaire_id'),
-                procedureType: row.read<String>('procedure_type'),
-                conditionsPrescription:
-                    row.read<String>('conditions_prescription'),
-                isSurveillance: row.read<int>('is_surveillance'),
-                atcCode: row.read<String>('atc_code'),
-                dateAmm: row.read<String>('date_amm'),
-                aggregatedConditions: row.read<String>('aggregated_conditions'),
-                ansmAlertUrl: row.read<String>('ansm_alert_url'),
-                representativeCip: row.read<String>('representative_cip'),
-                // Required boolean flags are now INT (0/1) for Strict Mode
-                isHospital: 0,
-                isDental: 0,
-                isList1: 0,
-                isList2: 0,
-                isNarcotic: 0,
-                isException: 0,
-                isRestricted: 0,
-                isOtc: 0,
-                // Phase 2 & 4 fields
-                parentPrincepsCis: row.read<String?>('parent_princeps_cis'),
-                formId: row.read<int?>('form_id'),
-                isFormInferred: row.read<int>('is_form_inferred'),
-              ),
-              labName: null, // Lab name would need separate join if needed
-            ))
-        .toList();
-  }
+  // REMOVED: searchMedicaments method - migrated to cluster-based search
+// Use ExplorerDao.watchClusters() with clusterSearchProvider instead
+// Migration to cluster-first architecture completed
 
   Future<DatabaseStats> getDatabaseStats() async {
     final totalMedicamentsRow = await customSelect(
@@ -349,50 +278,42 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> {
   }
 
   Future<bool> hasExistingData() async {
-    final result = await attachedDatabase.queriesDrift
-        .getMedicamentSummaryCount()
-        .getSingle();
-    return result > 0;
+    final count = await attachedDatabase.managers.medicamentSummary.count();
+    return count > 0;
   }
 
   Future<List<String>> getDistinctProcedureTypes() async {
-    final query = attachedDatabase.customSelect(
-      'SELECT DISTINCT procedure_type ' +
-          'FROM medicament_summary ' +
-          "WHERE procedure_type IS NOT NULL AND procedure_type != '' " +
-          'ORDER BY procedure_type',
-      readsFrom: {},
-    );
+    final ms = attachedDatabase.medicamentSummary;
+    final query = attachedDatabase.selectOnly(ms, distinct: true)
+      ..addColumns([ms.procedureType])
+      ..where(ms.procedureType.isNotNull() & ms.procedureType.equals('').not())
+      ..orderBy([OrderingTerm.asc(ms.procedureType)]);
     final results = await query.get();
-    final procedureTypes = results
-        .map((row) => row.readNullable<String>('procedure_type'))
+    return results
+        .map((row) => row.read(ms.procedureType))
         .whereType<String>()
         .toList();
-    return procedureTypes;
   }
 
   Future<List<String>> getDistinctRoutes() async {
-    final query = attachedDatabase.customSelect(
-      'SELECT DISTINCT voies_administration ' +
-          'FROM medicament_summary ' +
-          "WHERE voies_administration IS NOT NULL AND voies_administration != '' " +
-          'ORDER BY voies_administration',
-      readsFrom: {},
-    );
+    final ms = attachedDatabase.medicamentSummary;
+    final query = attachedDatabase.selectOnly(ms, distinct: true)
+      ..addColumns([ms.voiesAdministration])
+      ..where(ms.voiesAdministration.isNotNull() &
+          ms.voiesAdministration.equals('').not())
+      ..orderBy([OrderingTerm.asc(ms.voiesAdministration)]);
     final results = await query.get();
+
+    // Post-process: split semicolon-separated routes into unique values
     final routes = <String>{};
     for (final row in results) {
-      final raw = row.readNullable<String>('voies_administration');
+      final raw = row.read(ms.voiesAdministration);
       if (raw == null || raw.isEmpty) continue;
-      final segments = raw.split(';');
-      for (final segment in segments) {
+      for (final segment in raw.split(';')) {
         final trimmed = segment.trim();
-        if (trimmed.isNotEmpty) {
-          routes.add(trimmed);
-        }
+        if (trimmed.isNotEmpty) routes.add(trimmed);
       }
     }
-    final sorted = routes.toList()..sort((a, b) => a.compareTo(b));
-    return sorted;
+    return routes.toList()..sort();
   }
 }

@@ -46,23 +46,23 @@ const SALT_MINERAL_TERMS = [
  */
 function normalizeToBaseSubstance(label: string): string {
   if (!label) return label;
-  
+
   let clean = label.toUpperCase();
-  
+
   // 1. Suppression des suffixes d'hydratation
   for (const term of HYDRATION_TERMS) {
     // Regex pour remplacer "TERME" en fin de mot ou suivi d'espace
     const regex = new RegExp(`\\b${term}\\b`, 'gi');
     clean = clean.replace(regex, '');
   }
-  
+
   // 2. Suppression des variantes de sels minéraux
   for (const term of SALT_MINERAL_TERMS) {
     // Regex pour remplacer "TERME" en fin de mot ou suivi d'espace
     const regex = new RegExp(`\\b${term}\\b`, 'gi');
     clean = clean.replace(regex, '');
   }
-  
+
   // 3. Nettoyage final des espaces multiples et trim
   return clean.replace(/\s+/g, ' ').trim();
 }
@@ -73,23 +73,23 @@ function normalizeToBaseSubstance(label: string): string {
  */
 function removeHydrationAndSaltTermsPreservingCase(label: string): string {
   if (!label) return label;
-  
+
   let clean = label;
-  
+
   // 1. Suppression des suffixes d'hydratation (insensible à la casse)
   for (const term of HYDRATION_TERMS) {
     // Regex insensible à la casse pour préserver la casse originale
     const regex = new RegExp(`\\b${term}\\b`, 'gi');
     clean = clean.replace(regex, '');
   }
-  
+
   // 2. Suppression des variantes de sels minéraux (insensible à la casse)
   for (const term of SALT_MINERAL_TERMS) {
     // Regex insensible à la casse pour préserver la casse originale
     const regex = new RegExp(`\\b${term}\\b`, 'gi');
     clean = clean.replace(regex, '');
   }
-  
+
   // 3. Nettoyage final des espaces multiples et trim
   return clean.replace(/\s+/g, ' ').trim();
 }
@@ -118,7 +118,7 @@ function removeSaltSuffixes(label: string): string {
  */
 function smartSplitLabel(rawLabel: string): { title: string; subtitle: string; method: string } {
   let clean = rawLabel.replace(/\u00a0/g, ' ');
-  
+
   // Normalize various dash types
   const dashTypes = ['–', '—', '−', '‑', '‒', '―', '–'];
   for (const dash of dashTypes) {
@@ -165,7 +165,7 @@ export function parseDosage(dosageStr: string): { value: number | null; unit: st
   if (!dosageStr) return { value: null, unit: null };
 
   const cleanStr = dosageStr.trim();
-  
+
   // Regex pour capturer le nombre (y compris décimales à virgule) au début
   // ^(\d+(?:[.,]\d+)?) -> Capture "100", "1,5", "0.5", "6.94"
   // \s*(.*)$           -> Capture tout le reste comme unité ("mg", "mg/5ml", "%")
@@ -178,17 +178,17 @@ export function parseDosage(dosageStr: string): { value: number | null; unit: st
 
   const rawValue = match[1].replace(',', '.'); // Normalisation JS (virgule -> point)
   const unit = match[2].trim();
-  
+
   const value = parseFloat(rawValue);
 
-  return { 
-    value: Number.isFinite(value) ? value : null, 
-    unit: unit || null 
+  return {
+    value: Number.isFinite(value) ? value : null,
+    unit: unit || null
   };
 }
 
 // --- 1. Compositions Parser (Yields Flattened Composition Strings) ---
-// Port of CompositionsParser from lib/core/services/ingestion/parsers/compositions_parser.dart
+// Compositions parsing logic (derived from earlier implementation);
 // Improved version using linkId to group related components (SA/FT pairs)
 
 interface CompositionRow {
@@ -244,7 +244,7 @@ function normalizeSaltPrefix(label: string): string {
  */
 function selectBestComponentForLink(rows: CompositionRow[]): CompositionRow | null {
   if (rows.length === 0) return null;
-  
+
   // 1. Priorité absolue au FT (Fraction Thérapeutique)
   // Le FT représente la forme thérapeutique active, c'est la référence clinique
   const ft = rows.find(r => r.nature.toUpperCase() === 'FT');
@@ -294,7 +294,7 @@ export async function parseCompositions(
       buffer.set(cis, new Map());
     }
     const cisLinks = buffer.get(cis)!;
-    
+
     if (!cisLinks.has(linkId)) {
       cisLinks.set(linkId, []);
     }
@@ -320,7 +320,7 @@ export async function parseCompositions(
       // On nettoie le nom pour la comparaison (ex: "AMOXICILLINE ANHYDRE" -> "AMOXICILLINE", 
       // "X POTASSIQUE" -> "X", "X SODIQUE" -> "X")
       const baseNameKey = normalizeToBaseSubstance(comp.denomination);
-      
+
       if (!consolidatedComponents.has(baseNameKey)) {
         // Nouveau composant unique
         // On nettoie le nom pour qu'il soit "propre" (sans anhydre) en préservant la casse
@@ -333,17 +333,17 @@ export async function parseCompositions(
         // Doublon détecté (ex: on a déjà Amox et on reçoit Amox Anhydre)
         // Stratégie de fusion : On garde celui qui a un dosage défini, 
         // ou on garde le premier (souvent le FT est déjà passé).
-        
+
         const existing = consolidatedComponents.get(baseNameKey)!;
-        
+
         // Si l'existant n'a pas de dosage mais le nouveau oui, on remplace
         // (C'est rare avec la logique FT > SA, mais prudent)
         if ((!existing.dosage || existing.dosage.trim() === '') && (comp.dosage && comp.dosage.trim() !== '')) {
-           const cleanedName = removeHydrationAndSaltTermsPreservingCase(comp.denomination);
-           consolidatedComponents.set(baseNameKey, {
-             ...comp,
-             denomination: cleanedName
-           });
+          const cleanedName = removeHydrationAndSaltTermsPreservingCase(comp.denomination);
+          consolidatedComponents.set(baseNameKey, {
+            ...comp,
+            denomination: cleanedName
+          });
         }
       }
     }
@@ -353,10 +353,10 @@ export async function parseCompositions(
 
     // 4. Tri par LinkID (pour stabilité)
     finalComponents.sort((a, b) => {
-        const linkA = parseInt(a.linkId);
-        const linkB = parseInt(b.linkId);
-        if (!isNaN(linkA) && !isNaN(linkB)) return linkA - linkB;
-        return a.denomination.localeCompare(b.denomination);
+      const linkA = parseInt(a.linkId);
+      const linkB = parseInt(b.linkId);
+      if (!isNaN(linkA) && !isNaN(linkB)) return linkA - linkB;
+      return a.denomination.localeCompare(b.denomination);
     });
 
     // 5. Formatage final
@@ -375,7 +375,7 @@ export async function parseCompositions(
 }
 
 // --- 2. Principes Actifs Parser (Yields PrincipesActifs Rows) ---
-// Port of PrincipesActifsParser from lib/core/services/ingestion/parsers/compositions_parser.dart
+// Principes actifs parsing logic (derived from earlier implementation)
 // Improved version using linkId to group related components (SA/FT pairs)
 
 /**
@@ -444,7 +444,7 @@ export async function parsePrincipesActifs(
       // On nettoie le nom pour la comparaison (ex: "AMOXICILLINE ANHYDRE" -> "AMOXICILLINE", 
       // "X POTASSIQUE" -> "X", "X SODIQUE" -> "X")
       const baseNameKey = normalizeToBaseSubstance(comp.denomination);
-      
+
       if (!consolidatedComponents.has(baseNameKey)) {
         // Nouveau composant unique
         // On nettoie le nom pour qu'il soit "propre" (sans anhydre/sels) en préservant la casse
@@ -457,17 +457,17 @@ export async function parsePrincipesActifs(
         // Doublon détecté (ex: on a déjà Amox et on reçoit Amox Anhydre)
         // Stratégie de fusion : On garde celui qui a un dosage défini, 
         // ou on garde le premier (souvent le FT est déjà passé).
-        
+
         const existing = consolidatedComponents.get(baseNameKey)!;
-        
+
         // Si l'existant n'a pas de dosage mais le nouveau oui, on remplace
         // (C'est rare avec la logique FT > SA, mais prudent)
         if ((!existing.dosage || existing.dosage.trim() === '') && (comp.dosage && comp.dosage.trim() !== '')) {
-           const cleanedName = removeHydrationAndSaltTermsPreservingCase(comp.denomination);
-           consolidatedComponents.set(baseNameKey, {
-             ...comp,
-             denomination: cleanedName
-           });
+          const cleanedName = removeHydrationAndSaltTermsPreservingCase(comp.denomination);
+          consolidatedComponents.set(baseNameKey, {
+            ...comp,
+            denomination: cleanedName
+          });
         }
       }
     }
@@ -479,7 +479,7 @@ export async function parsePrincipesActifs(
       // Cela évite les incohérences comme "Amlodipine 6.94 mg" (nom FT + dosage SA)
       // au lieu de "Amlodipine 5 mg" (nom FT + dosage FT).
       const { value: dosageVal, unit: dosageUnit } = parseDosage(winner.dosage);
-      
+
       // Nettoyage final du nom (suppression suffixe BASE si présent dans FT)
       const principle = stripBaseSuffix(winner.denomination);
       const normalizedPrinciple = principle
@@ -503,7 +503,7 @@ export async function parsePrincipesActifs(
 }
 
 // --- 3. Generiques Parser (Yields Groups and Members) ---
-// Port of GeneriquesParser from lib/core/services/ingestion/parsers/generiques_parser.dart
+// Generique group parsing logic (derived from earlier implementation)
 // Logic: 3-Tier parsing (relational > text_split > smart_split)
 
 interface GroupAccumulator {
@@ -580,7 +580,7 @@ export async function parseGeneriques(
   // 2. Process Groups (3-Tiers: relational > text_split > smart_split)
   for (const [groupId, acc] of groupMeta.entries()) {
     const rawLabel = acc.rawLabel.trim();
-    
+
     // Find princeps member (type 0)
     let princepsMember: { cis: string; type: number } | undefined;
     for (const member of acc.members) {
@@ -677,7 +677,7 @@ export async function parseConditions(
   rows: Iterable<string[]> | AsyncIterable<string[]>
 ): Promise<Map<string, string>> {
   const map = new Map<string, string[]>();
-  
+
   for await (const row of rows) {
     if (row.length >= 2) {
       const cis = row[0]?.trim();
@@ -736,7 +736,7 @@ export async function parseAvailability(
           lien
         });
       }
-    } 
+    }
     // Case 2: CIP13 is empty -> alert applies to ALL CIPs of the CIS
     else {
       const cipsForCis = cisToCip13.get(cis);
@@ -766,7 +766,7 @@ export async function parseAvailability(
  */
 function compareBdpmDates(d1: string, d2: string): number {
   if (!d1 || !d2) return 0;
-  
+
   // Convert DD/MM/YYYY to YYYYMMDD for string comparison
   const toIso = (d: string): string => {
     if (d.includes('-')) {
@@ -781,11 +781,11 @@ function compareBdpmDates(d1: string, d2: string): number {
     const year = parts[2];
     return `${year}${month}${day}`;
   };
-  
+
   const iso1 = toIso(d1);
   const iso2 = toIso(d2);
   if (!iso1 || !iso2) return 0;
-  
+
   return iso1.localeCompare(iso2);
 }
 
@@ -806,7 +806,7 @@ export async function parseSafetyAlerts(
       const dateDebut = row[1]?.trim();
       const dateFin = row[2]?.trim();
       const texte = row[3]?.trim();
-      
+
       if (cis && texte) {
         // On ne garde que les alertes en cours ou futures (pas celles périmées)
         // Si dateFin est vide, l'alerte est toujours active
@@ -923,7 +923,7 @@ export async function parseSMR(
       const cis = row[0]?.trim();
       const dateAvis = row[3]?.trim(); // Format YYYYMMDD
       const niveau = row[4]?.trim(); // NiveauSMR (ex: "Important", "Modéré", "Faible", "Insuffisant")
-      
+
       if (cis && niveau) {
         if (!tempMap.has(cis)) {
           tempMap.set(cis, { date: dateAvis || '', niveau });
@@ -971,7 +971,7 @@ export async function parseASMR(
       const cis = row[0]?.trim();
       const dateAvis = row[3]?.trim(); // Format YYYYMMDD
       const niveau = row[4]?.trim(); // NiveauASMR (ex: "I", "II", "III", "IV", "V")
-      
+
       if (cis && niveau) {
         if (!tempMap.has(cis)) {
           tempMap.set(cis, { date: dateAvis || '', niveau });
