@@ -29,19 +29,12 @@ ScannerLogic useScannerLogic(WidgetRef ref) {
   // Watch notifier for persistence and read the provider once for initial state
   final scannerNotifier = ref.read(scannerProvider.notifier);
 
-  // One-time initial sync: populate Signals from Riverpod at mount
+  // One-time initialization: ScannerStore is the sole source of truth for UI state
   useEffect(() {
-    unawaited(Future.microtask(() {
-      final current = ref.read(scannerProvider);
-      if (current is AsyncData<ScannerState>) {
-        final state = current.value;
-        // Initial sync from Riverpod to Signals
-        store.bubbles.value = state.bubbles;
-        store.setMode(state.mode);
-      }
-    }));
+    // No initial sync needed - ScannerStore manages all UI state independently
+    // ScannerNotifier only handles business logic and persistence
     return null;
-  }, [ref]);
+  }, []);
 
   // Cleanup when hook is disposed
   useEffect(() {
@@ -73,9 +66,10 @@ ScannerLogic useScannerLogic(WidgetRef ref) {
   }
 
   void setMode(ScannerMode mode) {
+    // ScannerStore is the sole source of truth for UI state
     store.setMode(mode);
-    // Fire-and-forget persistence
-    scannerNotifier.setMode(mode);
+    // Note: We don't sync mode to Riverpod since it's high-frequency UI state
+    // ScannerNotifier remains focused on business logic only
   }
 
   // Computed properties for easy access

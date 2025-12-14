@@ -3,26 +3,14 @@ import 'dart:io';
 import 'package:dart_either/dart_either.dart';
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:pharma_scan/core/config/app_config.dart';
 import 'package:pharma_scan/core/errors/failures.dart';
 import 'package:pharma_scan/core/services/logger_service.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 
 class FileDownloadService {
-  FileDownloadService({Dio? dio, Talker? talker})
-    : _dio =
-          dio ??
-          Dio(
-            BaseOptions(
-              connectTimeout: AppConfig.connectTimeout,
-              receiveTimeout: AppConfig.downloadReceiveTimeout,
-              headers: const {
-                'Accept': '*/*',
-                'User-Agent': 'PharmaScan/1.0 (Android; Offline-First)',
-              },
-            ),
-          ),
+  FileDownloadService({required Dio dio, Talker? talker})
+    : _dio = dio,
       _talker = talker ?? LoggerService().talker;
 
   final Dio _dio;

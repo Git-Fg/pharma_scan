@@ -96,3 +96,12 @@ reports
 coverage
 
 assets/test/reference.db
+
+# AI
+
+.agent
+.geminiignore
+.mcp.json
+AGENTS.md
+CLAUDE.md
+QWEN.md

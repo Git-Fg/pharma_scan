@@ -9,7 +9,9 @@ import 'package:pharma_scan/features/explorer/domain/entities/group_detail_entit
 import 'package:pharma_scan/features/explorer/domain/extensions/medication_status_extensions.dart';
 import 'package:pharma_scan/features/explorer/domain/extensions/view_group_detail_extensions.dart';
 import 'package:pharma_scan/features/explorer/presentation/widgets/status_badges.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
+import 'package:pharma_scan/core/ui/molecules/app_card.dart';
+import 'package:pharma_scan/core/ui/atoms/app_badge.dart';
+import 'package:pharma_scan/core/ui/molecules/app_button.dart';
 
 class PrincepsHeroCard extends StatelessWidget {
   const PrincepsHeroCard({
@@ -43,17 +45,15 @@ class PrincepsHeroCard extends StatelessWidget {
         color: theme.colorScheme.primary.withValues(alpha: 0.05),
         borderRadius: theme.radius,
       ),
-      child: ShadCard(
+      child: AppCard(
         padding: const EdgeInsets.all(AppDimens.spacingMd),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (isFallbackGeneric) ...[
-              ShadBadge.secondary(
-                child: Text(
-                  Strings.heroFallbackGeneric,
-                  style: theme.textTheme.small,
-                ),
+              AppBadge(
+                label: Strings.heroFallbackGeneric,
+                variant: BadgeVariant.secondary,
               ),
               const Gap(AppDimens.spacing2xs),
             ],
@@ -85,11 +85,12 @@ class PrincepsHeroCard extends StatelessWidget {
                   softWrap: true,
                 ),
                 const Gap(AppDimens.spacingSm),
-                ShadButton.outline(
-                  size: ShadButtonSize.sm,
+                AppButton.icon(
                   onPressed: onViewDetails,
-                  leading: const Icon(LucideIcons.info, size: 16),
-                  child: const Text(Strings.showMedicamentDetails),
+                  variant: ButtonVariant.outline,
+                  size: ButtonSize.small,
+                  icon: LucideIcons.info,
+                  label: Strings.showMedicamentDetails,
                 ),
               ],
             ),

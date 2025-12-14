@@ -1,5 +1,6 @@
-import 'package:pharma_scan/core/database/reference_schema.drift.dart';
+import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/domain/types/ids.dart';
+import 'package:pharma_scan/core/utils/strings.dart';
 
 /// Extension Type wrapping [MedicamentSummaryData] to decouple UI from database schema.
 ///
@@ -94,4 +95,108 @@ extension type MedicamentEntity(
 
   /// AMM date (normalized to non-empty string)
   String get dateAmm => data.dateAmm ?? '';
+
+  // ============================================================================
+  // Display Logic Getters (Zero-Cost Abstraction for UI)
+  // ============================================================================
+
+  /// Compact subtitle for UI display (form + dosage)
+  /// Used in scanner bubbles and result cards for space-efficient display
+  String get compactSubtitle {
+    final form = formePharmaceutique.trim();
+    final dosage = formattedDosage.trim();
+
+    if (form.isNotEmpty && dosage.isNotEmpty) {
+      return '$form • $dosage';
+    } else if (form.isNotEmpty) {
+      return form;
+    } else if (dosage.isNotEmpty) {
+      return dosage;
+    }
+    return '';
+  }
+
+  /// Hero label for prominent display in cards and lists
+  /// Prioritizes brand names over generic names for better UX
+  String get heroLabel {
+    final isGenericWithPrinceps =
+        !data.isPrinceps &&
+        groupId != null &&
+        data.princepsDeReference.isNotEmpty &&
+        data.princepsDeReference != 'Inconnu';
+
+    if (isGenericWithPrinceps) {
+      return data.princepsBrandName.isNotEmpty
+          ? data.princepsBrandName
+          : data.princepsDeReference;
+    }
+
+    if (data.isPrinceps) {
+      return data.princepsBrandName.isNotEmpty
+          ? data.princepsBrandName
+          : data.princepsDeReference;
+    }
+
+    if (groupId != null) {
+      // For generics, use the first part of canonical name
+      final parts = data.nomCanonique.split(' - ');
+      return parts.isNotEmpty ? parts.first.trim() : data.nomCanonique;
+    }
+
+    return data.nomCanonique;
+  }
+
+  /// Status flags for UI badges and indicators
+  /// Returns a map of status types to their boolean values
+  Map<String, bool> get statusFlags => {
+        'narcotic': data.isNarcotic,
+        'list1': data.isList1,
+        'list2': data.isList2,
+        'exception': data.isException,
+        'restricted': data.isRestricted,
+        'otc': data.isOtc,
+        'dental': data.isDental,
+        'hospital': data.isHospital,
+        'surveillance': data.isSurveillance,
+        'revoked': isRevoked,
+        'notMarketed': isNotMarketed,
+        'princeps': data.isPrinceps,
+      };
+
+  /// Check if medication is a generic with associated princeps information
+  bool get isGenericWithPrinceps =>
+      !data.isPrinceps &&
+      groupId != null &&
+      data.princepsDeReference.isNotEmpty &&
+      data.princepsDeReference != 'Inconnu';
+
+  /// Full subtitle lines for detailed display (including CIP line)
+  /// Returns a list of subtitle lines ordered by importance
+  List<String> get fullSubtitleLines {
+    final lines = <String>[];
+
+    // Add canonical name for generics with princeps
+    if (isGenericWithPrinceps &&
+        data.nomCanonique.isNotEmpty &&
+        data.nomCanonique.trim().isNotEmpty) {
+      lines.add(data.nomCanonique.trim());
+    }
+
+    // Add form and dosage
+    final compactSubtitle = this.compactSubtitle;
+    if (compactSubtitle.isNotEmpty) {
+      lines.add(compactSubtitle);
+    }
+
+    return lines;
+  }
+
+  /// CIP line display format (titulaire • CIP code)
+  String cipLineDisplay(String cipString) {
+    final titular = titulaire;
+    if (titular != null && titular.isNotEmpty) {
+      return '${titular.trim()} • ${Strings.cip} $cipString';
+    }
+    return '${Strings.cip} $cipString';
+  }
 }

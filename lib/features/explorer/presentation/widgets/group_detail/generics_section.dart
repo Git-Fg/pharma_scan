@@ -8,11 +8,14 @@ import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/product_badges.dart';
 import 'package:pharma_scan/features/explorer/domain/entities/group_detail_entity.dart';
 import 'package:pharma_scan/features/explorer/domain/extensions/view_group_detail_extensions.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
+import 'package:pharma_scan/core/ui/atoms/app_badge.dart';
+import 'package:pharma_scan/core/ui/molecules/app_button.dart';
 
 class GenericsSection extends HookWidget {
   const GenericsSection({
-    required this.generics, required this.onViewDetail, super.key,
+    required this.generics,
+    required this.onViewDetail,
+    super.key,
   });
 
   final List<GroupDetailEntity> generics;
@@ -58,11 +61,8 @@ class GenericsSection extends HookWidget {
                   ),
                 ),
                 const Gap(AppDimens.spacingXs),
-                ShadBadge(
-                  child: Text(
-                    '${filteredGenerics.length}',
-                    style: context.typo.small,
-                  ),
+                AppBadge(
+                  label: '${filteredGenerics.length}',
                 ),
               ],
             ),
@@ -84,13 +84,11 @@ class GenericsSection extends HookWidget {
                       color: context.colors.mutedForeground,
                     ),
                     trailing: filterController.text.isNotEmpty
-                        ? ShadButton.ghost(
-                            size: ShadButtonSize.sm,
+                        ? AppButton.icon(
                             onPressed: filterController.clear,
-                            child: const Icon(
-                              LucideIcons.x,
-                              size: AppDimens.iconSm,
-                            ),
+                            variant: ButtonVariant.ghost,
+                            size: ButtonSize.small,
+                            icon: LucideIcons.x,
                           )
                         : null,
                   ),
@@ -113,7 +111,10 @@ class GenericsSection extends HookWidget {
 
 class MedicationListTile extends StatelessWidget {
   const MedicationListTile({
-    required this.item, required this.onTap, required this.showNavigationIndicator, super.key,
+    required this.item,
+    required this.onTap,
+    required this.showNavigationIndicator,
+    super.key,
   });
 
   final GroupDetailEntity item;
@@ -124,9 +125,8 @@ class MedicationListTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = context.shadTheme;
     final name = item.displayName;
-    final cipText = item.codeCip.isNotEmpty
-        ? '${Strings.cip} ${item.codeCip}'
-        : '';
+    final cipText =
+        item.codeCip.isNotEmpty ? '${Strings.cip} ${item.codeCip}' : '';
     final lab = item.parsedTitulaire.isEmpty
         ? Strings.unknownHolder
         : item.parsedTitulaire;
@@ -135,18 +135,17 @@ class MedicationListTile extends StatelessWidget {
       lab,
     ].where((value) => value.isNotEmpty).join(' • ');
 
-    final priceText = item.prixPublic != null
-        ? formatEuro(item.prixPublic!)
-        : null;
+    final priceText =
+        item.prixPublic != null ? formatEuro(item.prixPublic!) : null;
     final refundText = item.trimmedRefundRate;
 
     final statusBadge = item.isList1
         ? Strings.badgeList1
         : item.isList2
-        ? Strings.badgeList2
-        : item.isHospitalOnly
-        ? Strings.hospitalBadge
-        : null;
+            ? Strings.badgeList2
+            : item.isHospitalOnly
+                ? Strings.hospitalBadge
+                : null;
     final stockBadge = item.trimmedAvailabilityStatus != null
         ? Strings.stockAlert(item.trimmedAvailabilityStatus!)
         : null;
@@ -164,8 +163,8 @@ class MedicationListTile extends StatelessWidget {
         builder: (context, constraints) {
           final itemWidth =
               constraints.hasBoundedWidth && constraints.maxWidth.isFinite
-              ? constraints.maxWidth
-              : MediaQuery.sizeOf(context).width;
+                  ? constraints.maxWidth
+                  : MediaQuery.sizeOf(context).width;
 
           return SizedBox(
             width: itemWidth,
@@ -219,20 +218,15 @@ class MedicationListTile extends StatelessWidget {
                           Row(
                             children: [
                               if (priceText != null) ...[
-                                ShadBadge(
-                                  child: Text(
-                                    priceText,
-                                    style: theme.textTheme.small,
-                                  ),
+                                AppBadge(
+                                  label: priceText,
                                 ),
                                 const Gap(AppDimens.spacing2xs),
                               ],
                               if (refundText != null) ...[
-                                ShadBadge.outline(
-                                  child: Text(
-                                    refundText,
-                                    style: theme.textTheme.small,
-                                  ),
+                                AppBadge(
+                                  label: refundText,
+                                  variant: BadgeVariant.outline,
                                 ),
                                 const Gap(AppDimens.spacing2xs),
                               ],
@@ -254,11 +248,9 @@ class MedicationListTile extends StatelessWidget {
                               child: Row(
                                 children: [
                                   if (statusBadge != null)
-                                    ShadBadge.destructive(
-                                      child: Text(
-                                        statusBadge,
-                                        style: theme.textTheme.small,
-                                      ),
+                                    AppBadge(
+                                      label: statusBadge,
+                                      variant: BadgeVariant.destructive,
                                     ),
                                   if (statusBadge != null &&
                                       (stockBadge != null ||
@@ -267,12 +259,9 @@ class MedicationListTile extends StatelessWidget {
                                       width: AppDimens.spacing2xs,
                                     ),
                                   if (stockBadge != null)
-                                    ShadBadge.outline(
-                                      child: Text(
-                                        stockBadge,
-                                        style: theme.textTheme.small,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
+                                    AppBadge(
+                                      label: stockBadge,
+                                      variant: BadgeVariant.outline,
                                     ),
                                   if (stockBadge != null &&
                                       showNavigationIndicator)
@@ -304,7 +293,9 @@ class MedicationListTile extends StatelessWidget {
 
 class CompactGenericTile extends StatelessWidget {
   const CompactGenericTile({
-    required this.item, required this.onTap, super.key,
+    required this.item,
+    required this.onTap,
+    super.key,
   });
 
   final GroupDetailEntity item;

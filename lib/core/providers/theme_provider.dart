@@ -1,8 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:pharma_scan/core/services/preferences_service.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'app_settings_provider.dart';
 
 part 'theme_provider.g.dart';
 
@@ -44,8 +44,7 @@ extension ThemeSettingMapper on ThemeSetting {
 
 @riverpod
 ThemeMode theme(Ref ref) {
-  final prefs = ref.watch(preferencesServiceProvider);
-  final raw = prefs.getString(PrefKeys.themeMode);
+  final raw = ref.watch(themeModeNotifierProvider);
   return themeSettingFromStorage(raw).asThemeMode;
 }
 
@@ -57,8 +56,7 @@ class ThemeMutation extends _$ThemeMutation {
   Future<void> setTheme(ThemeSetting setting) async {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
-      final prefs = ref.read(preferencesServiceProvider);
-      await prefs.setString(PrefKeys.themeMode, setting.name);
+      await ref.read(themeModeNotifierProvider.notifier).update(setting.name);
       ref.invalidate(themeProvider);
     });
   }

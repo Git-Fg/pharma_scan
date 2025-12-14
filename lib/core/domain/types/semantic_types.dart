@@ -1,38 +1,35 @@
-import 'package:diacritic/diacritic.dart';
+import '../../../core/logic/sanitizer.dart';
 
 /// Semantic type for normalized search queries.
 ///
 /// This Extension Type guarantees that any instance is normalized according to
-/// the FTS5 index normalization strategy (linguistic normalization only).
+/// the FTS5 index normalization strategy using the canonical sanitizer.
 ///
 /// **Invariant Guarantee:** The factory constructor ensures normalization happens
-/// once at construction, eliminating redundant normalization calls throughout the codebase.
+/// once at construction using Sanitizer.normalizeForSearch(), eliminating
+/// redundant normalization calls throughout the codebase.
 ///
 /// **2025 Standard:** All search queries must use `NormalizedQuery` to ensure
 /// consistent normalization. See `.cursor/rules/domain-modeling.mdc` for details.
 ///
-/// **Normalization Strategy:** Uses linguistic normalization only (removeDiacritics + lowercase + trim)
-/// to align with the FTS5 `normalize_text` SQL function. This preserves salts (e.g., "Chlorhydrate")
-/// unlike `normalizePrincipleOptimal` which strips them.
+/// **Thin Client Architecture:** This type delegates normalization to
+/// Sanitizer.normalizeForSearch() to maintain perfect synchronization with
+/// backend_pipeline/src/sanitizer.ts
 extension type NormalizedQuery(String _value) implements String {
   /// Factory constructor that normalizes and creates a [NormalizedQuery].
   ///
-  /// **Normalization:** Performs linguistic normalization only:
+  /// **Normalization:** Delegates to Sanitizer.normalizeForSearch() which:
   /// - Removes diacritics (accents)
   /// - Converts to lowercase
+  /// - Replaces non-alphanumeric characters with spaces
+  /// - Collapses multiple spaces
   /// - Trims whitespace
   ///
-  /// This aligns with the FTS5 `normalize_text` SQL function behavior, ensuring
-  /// queries match indexed content. Salts and other pharmaceutical terms are preserved.
+  /// This ensures perfect synchronization with backend FTS5 normalization.
   ///
   /// **Empty Input:** If the input is empty or only whitespace, returns an empty normalized query.
   factory NormalizedQuery.fromString(String input) {
-    if (input.trim().isEmpty) {
-      return '' as NormalizedQuery;
-    }
-    final normalized = removeDiacritics(
-      input,
-    ).toLowerCase().replaceAll(RegExp(r'\s+'), ' ').trim();
+    final normalized = Sanitizer.normalizeForSearch(input);
     return normalized as NormalizedQuery;
   }
 

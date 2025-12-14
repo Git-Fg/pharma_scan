@@ -8,6 +8,7 @@ import 'package:pharma_scan/core/presentation/hooks/use_scanner_input.dart';
 import 'package:pharma_scan/core/services/haptic_service.dart';
 import 'package:pharma_scan/features/scanner/domain/logic/scan_orchestrator.dart';
 import 'package:pharma_scan/features/scanner/presentation/providers/scanner_provider.dart';
+import 'package:pharma_scan/core/ui/organisms/app_sheet.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 /// Hook that handles all scanner side effects (toasts, haptics, dialogs).
@@ -51,19 +52,19 @@ void useScannerSideEffects({
           case ScannerDuplicateDetected(:final duplicate):
             final event = duplicate;
             unawaited(
-              showShadSheet<void>(
+              AppSheet.show<void>(
                 context: context,
-                side: ShadSheetSide.bottom,
-                builder: (dialogContext) => _DuplicateQuantitySheet(
+                title: 'Médicament déjà scanné',
+                child: _DuplicateQuantitySheet(
                   event: event,
-                  onCancel: () => Navigator.of(dialogContext).pop(),
+                  onCancel: () => Navigator.of(context).pop(),
                   onConfirm: (newQty) async {
                     await scannerNotifier.updateQuantityFromDuplicate(
                       event.cip,
                       newQty,
                     );
-                    if (dialogContext.mounted) {
-                      Navigator.of(dialogContext).pop();
+                    if (context.mounted) {
+                      Navigator.of(context).pop();
                     }
                   },
                 ),
@@ -129,7 +130,8 @@ class _DuplicateQuantitySheet extends HookWidget {
           height: 4,
           margin: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
+            color:
+                Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
             borderRadius: BorderRadius.circular(2),
           ),
         ),
@@ -148,8 +150,11 @@ class _DuplicateQuantitySheet extends HookWidget {
               Text(
                 'Quantité actuelle: ${event.currentQuantity}',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
-                ),
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withValues(alpha: 0.7),
+                    ),
               ),
               const Gap(16),
               Text(
@@ -192,7 +197,8 @@ class _DuplicateQuantitySheet extends HookWidget {
                   const Gap(8),
                   FilledButton(
                     onPressed: () {
-                      final newQuantity = int.tryParse(scannerInput.controller.text) ?? 0;
+                      final newQuantity =
+                          int.tryParse(scannerInput.controller.text) ?? 0;
                       onConfirm(newQuantity);
                     },
                     child: const Text('Mettre à jour'),

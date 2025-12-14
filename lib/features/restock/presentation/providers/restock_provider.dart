@@ -2,6 +2,7 @@ import 'package:pharma_scan/core/providers/core_providers.dart';
 import 'package:pharma_scan/core/providers/preferences_provider.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/mixins/safe_async_notifier_mixin.dart';
+import 'package:pharma_scan/core/domain/types/unknown_value.dart';
 import 'package:pharma_scan/features/restock/domain/entities/restock_item_entity.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -15,13 +16,10 @@ class RestockNotifier extends _$RestockNotifier with SafeAsyncNotifierMixin {
   }
 
   Future<void> increment(RestockItemEntity item) async {
-    final result = await safeExecute(
-      () async {
-        final db = ref.read(databaseProvider());
-        await db.restockDao.updateQuantity(item.cip, 1);
-      },
-      operationName: 'RestockNotifier.increment',
-    );
+    final result = await safeExecute(() async {
+      final db = ref.read(databaseProvider());
+      await db.restockDao.updateQuantity(item.cip, 1);
+    });
 
     if (!isMounted()) return;
 
@@ -35,21 +33,18 @@ class RestockNotifier extends _$RestockNotifier with SafeAsyncNotifierMixin {
   }
 
   Future<void> decrement(RestockItemEntity item) async {
-    final result = await safeExecute(
-      () async {
-        final db = ref.read(databaseProvider());
-        if (item.quantity == 0) {
-          await deleteItem(item);
-          return;
-        }
-        await db.restockDao.updateQuantity(
-          item.cip,
-          -1,
-          allowZero: true,
-        );
-      },
-      operationName: 'RestockNotifier.decrement',
-    );
+    final result = await safeExecute(() async {
+      final db = ref.read(databaseProvider());
+      if (item.quantity == 0) {
+        await deleteItem(item);
+        return;
+      }
+      await db.restockDao.updateQuantity(
+        item.cip,
+        -1,
+        allowZero: true,
+      );
+    });
 
     if (!isMounted()) return;
 
@@ -63,13 +58,10 @@ class RestockNotifier extends _$RestockNotifier with SafeAsyncNotifierMixin {
   }
 
   Future<void> addBulk(RestockItemEntity item, int amount) async {
-    final result = await safeExecute(
-      () async {
-        final db = ref.read(databaseProvider());
-        await db.restockDao.updateQuantity(item.cip, amount);
-      },
-      operationName: 'RestockNotifier.addBulk',
-    );
+    final result = await safeExecute(() async {
+      final db = ref.read(databaseProvider());
+      await db.restockDao.updateQuantity(item.cip, amount);
+    });
 
     if (!isMounted()) return;
 
@@ -88,16 +80,13 @@ class RestockNotifier extends _$RestockNotifier with SafeAsyncNotifierMixin {
   ) async {
     if (quantity < 0) return;
 
-    final result = await safeExecute(
-      () async {
-        final db = ref.read(databaseProvider());
-        await db.restockDao.forceUpdateQuantity(
-          cip: item.cip,
-          newQuantity: quantity,
-        );
-      },
-      operationName: 'RestockNotifier.setQuantity',
-    );
+    final result = await safeExecute(() async {
+      final db = ref.read(databaseProvider());
+      await db.restockDao.forceUpdateQuantity(
+        cip: item.cip,
+        newQuantity: quantity,
+      );
+    });
 
     if (!isMounted()) return;
 
@@ -111,13 +100,10 @@ class RestockNotifier extends _$RestockNotifier with SafeAsyncNotifierMixin {
   }
 
   Future<void> toggleChecked(RestockItemEntity item) async {
-    final result = await safeExecute(
-      () async {
-        final db = ref.read(databaseProvider());
-        await db.restockDao.toggleCheck(item.cip);
-      },
-      operationName: 'RestockNotifier.toggleChecked',
-    );
+    final result = await safeExecute(() async {
+      final db = ref.read(databaseProvider());
+      await db.restockDao.toggleCheck(item.cip);
+    });
 
     if (!isMounted()) return;
 
@@ -131,13 +117,10 @@ class RestockNotifier extends _$RestockNotifier with SafeAsyncNotifierMixin {
   }
 
   Future<void> deleteItem(RestockItemEntity item) async {
-    final result = await safeExecute(
-      () async {
-        final db = ref.read(databaseProvider());
-        await db.restockDao.deleteRestockItemFully(item.cip);
-      },
-      operationName: 'RestockNotifier.deleteItem',
-    );
+    final result = await safeExecute(() async {
+      final db = ref.read(databaseProvider());
+      await db.restockDao.deleteRestockItemFully(item.cip);
+    });
 
     if (!isMounted()) return;
 
@@ -151,16 +134,13 @@ class RestockNotifier extends _$RestockNotifier with SafeAsyncNotifierMixin {
   }
 
   Future<void> restoreItem(RestockItemEntity item) async {
-    final result = await safeExecute(
-      () async {
-        final db = ref.read(databaseProvider());
-        await db.restockDao.forceUpdateQuantity(
-          cip: item.cip,
-          newQuantity: item.quantity,
-        );
-      },
-      operationName: 'RestockNotifier.restoreItem',
-    );
+    final result = await safeExecute(() async {
+      final db = ref.read(databaseProvider());
+      await db.restockDao.forceUpdateQuantity(
+        cip: item.cip,
+        newQuantity: item.quantity,
+      );
+    });
 
     if (!isMounted()) return;
 
@@ -174,13 +154,10 @@ class RestockNotifier extends _$RestockNotifier with SafeAsyncNotifierMixin {
   }
 
   Future<void> clearChecked() async {
-    final result = await safeExecute(
-      () async {
-        final db = ref.read(databaseProvider());
-        await db.restockDao.clearChecked();
-      },
-      operationName: 'RestockNotifier.clearChecked',
-    );
+    final result = await safeExecute(() async {
+      final db = ref.read(databaseProvider());
+      await db.restockDao.clearChecked();
+    });
 
     if (!isMounted()) return;
 
@@ -194,13 +171,10 @@ class RestockNotifier extends _$RestockNotifier with SafeAsyncNotifierMixin {
   }
 
   Future<void> clearAll() async {
-    final result = await safeExecute(
-      () async {
-        final db = ref.read(databaseProvider());
-        await db.restockDao.clearAll();
-      },
-      operationName: 'RestockNotifier.clearAll',
-    );
+    final result = await safeExecute(() async {
+      final db = ref.read(databaseProvider());
+      await db.restockDao.clearAll();
+    });
 
     if (!isMounted()) return;
 
@@ -233,26 +207,28 @@ List<RestockItemEntity> _sortRestockItems(
   SortingPreference preference,
 ) {
   bool hasValidPrinceps(RestockItemEntity item) {
-    final label = item.princepsLabel?.trim();
-    if (label == null || label.isEmpty) return false;
-    return label.toUpperCase() != Strings.unknown.toUpperCase();
+    final princepsValue = UnknownAwareString.fromDatabase(item.princepsLabel);
+    return princepsValue.hasContent;
   }
 
   String keyFor(RestockItemEntity item) {
     switch (preference) {
       case SortingPreference.princeps:
-        if (hasValidPrinceps(item)) {
-          return item.princepsLabel!.trim().toUpperCase();
+        final princepsValue = UnknownAwareString.fromDatabase(item.princepsLabel);
+        if (princepsValue.hasContent) {
+          return princepsValue.value.toUpperCase();
         }
-        return item.label.trim().toUpperCase();
+        final labelValue = UnknownAwareString.fromDatabase(item.label);
+        return labelValue.value.toUpperCase();
       case SortingPreference.form:
-        final form = item.form?.trim();
-        if (form != null && form.isNotEmpty) {
-          return form.toUpperCase();
+        final formValue = UnknownAwareString.fromDatabase(item.form);
+        if (formValue.hasContent) {
+          return formValue.value.toUpperCase();
         }
         return Strings.restockFormUnknown;
       case SortingPreference.generic:
-        return item.label.trim().toUpperCase();
+        final labelValue = UnknownAwareString.fromDatabase(item.label);
+        return labelValue.value.toUpperCase();
     }
   }
 
@@ -273,24 +249,25 @@ Map<String, List<RestockItemEntity>> _groupByInitial(
   final groups = <String, List<RestockItemEntity>>{};
 
   bool hasValidPrinceps(RestockItemEntity item) {
-    final label = item.princepsLabel?.trim();
-    if (label == null || label.isEmpty) return false;
-    return label.toUpperCase() != Strings.unknown.toUpperCase();
+    final princepsValue = UnknownAwareString.fromDatabase(item.princepsLabel);
+    return princepsValue.hasContent;
   }
 
   String letterFor(RestockItemEntity item) {
     if (preference == SortingPreference.form) {
-      final form = item.form?.trim();
-      if (form == null || form.isEmpty) return Strings.restockFormUnknown;
-      return form.trim().toUpperCase();
+      final formValue = UnknownAwareString.fromDatabase(item.form);
+      if (!formValue.hasContent) return Strings.restockFormUnknown;
+      return formValue.value.trim().toUpperCase();
     }
-    final base =
-        preference == SortingPreference.princeps && hasValidPrinceps(item)
-            ? item.princepsLabel!
-            : item.label;
-    final trimmed = base.trim();
-    if (trimmed.isEmpty) return '#';
-    final first = trimmed[0].toUpperCase();
+
+    final base = preference == SortingPreference.princeps && hasValidPrinceps(item)
+        ? item.princepsLabel!
+        : item.label;
+
+    final baseValue = UnknownAwareString.fromDatabase(base);
+    if (!baseValue.hasContent) return '#';
+
+    final first = baseValue.value[0].toUpperCase();
     final isAlpha = RegExp('[A-ZÀ-ÖØ-Ý]').hasMatch(first);
     return isAlpha ? first : '#';
   }

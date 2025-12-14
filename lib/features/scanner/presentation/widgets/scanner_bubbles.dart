@@ -8,10 +8,12 @@ import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/models/scan_models.dart';
+import 'package:pharma_scan/features/scanner/domain/scanner_mode.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/product_badges.dart';
-import 'package:pharma_scan/features/scanner/presentation/providers/scanner_provider.dart';
+// Removed unused import - scanner_bubbles uses only Signals via useScannerLogic
 import 'package:pharma_scan/features/scanner/presentation/widgets/scanner_result_card.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
+import 'package:pharma_scan/core/ui/atoms/app_text.dart';
+import 'package:pharma_scan/core/ui/theme/app_theme.dart';
 
 /// Widget that displays the stack of scan result bubbles at the top of the camera screen.
 ///
@@ -28,7 +30,7 @@ class ScannerBubbles extends HookConsumerWidget {
 
     return Watch((_) {
       final scannerBubbles = logic.bubbles.value as List<ScanResult>;
-      final mode = logic.mode.value as ScannerMode;
+      final mode = logic.mode.value;
 
       if (scannerBubbles.isEmpty) return const SizedBox.shrink();
 
@@ -109,10 +111,15 @@ class ScannerBubbles extends HookConsumerWidget {
 
     if (summary.conditionsPrescription.isNotEmpty) {
       badges.add(
-        ShadBadge.outline(
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          decoration: BoxDecoration(
+            border: Border.all(color: context.actionSurface),
+            borderRadius: context.radiusSmall,
+          ),
           child: Text(
             summary.conditionsPrescription,
-            style: context.typo.small,
+            style: context.bodySmall,
           ),
         ),
       );

@@ -4,32 +4,14 @@ import 'package:drift/drift.dart';
 import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/domain/types/ids.dart';
 import 'package:pharma_scan/core/domain/types/semantic_types.dart';
-import 'package:pharma_scan/core/logic/sanitizer.dart';
+// semantic types are not used directly here; keep imports minimal
 import 'package:pharma_scan/core/models/scan_models.dart';
 import 'package:pharma_scan/core/services/logger_service.dart';
-import 'package:pharma_scan/core/database/views.drift.dart';
+// views.drift is not directly referenced; remove to avoid unused import
 import 'package:pharma_scan/features/explorer/domain/entities/group_detail_entity.dart';
 import 'package:pharma_scan/features/explorer/domain/entities/medicament_entity.dart';
 import 'package:pharma_scan/features/explorer/domain/models/database_stats.dart';
 import 'package:pharma_scan/features/explorer/domain/models/generic_group_entity.dart';
-import 'package:pharma_scan/features/explorer/domain/models/search_filters_model.dart';
-import 'package:pharma_scan/core/database/queries.drift.dart';
-
-/// Builds an FTS5 query string for trigram tokenizer.
-///
-/// For trigram FTS5, queries work best as quoted phrases.
-/// The trigram tokenizer handles fuzzy matching internally by breaking text
-/// into 3-character chunks (e.g., "dol", "oli", "lip"...).
-///
-/// This means searching "dolipprane" will still match "doliprane" because
-/// many trigrams overlap.
-///
-/// Query strategy:
-/// - Normalize the input using [normalizeForSearch] for accent/case consistency
-/// - Split into individual terms
-/// - Wrap each term in quotes for exact substring matching
-/// - Join terms with AND for all-term matching
-// FTS formatting is handled by `NormalizedQuery.toFtsQuery()`.
 
 /// DAO pour les opérations sur le catalogue de médicaments.
 ///
@@ -60,141 +42,71 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> {
 
     final cipString = codeCip.toString();
 
-    // Use generated query from queries.drift - no more manual mapping needed
-    final result = await attachedDatabase.queriesDrift
-        .getProductByCip(cipCode: cipString)
-        .getSingleOrNull();
+    // Fallback: execute a custom select to ensure we get the medicament_summary row
+    final rows = await customSelect(
+      '''
+      SELECT ms.*, ls.name AS labName, m.prix_public, m.taux_remboursement,
+             m.is_hospital AS is_hospital, commercialisation_statut AS commercialisationStatut,
+             ma.statut AS availabilityStatut
+      FROM reference_db.medicament_summary ms
+      INNER JOIN reference_db.medicaments m ON ms.cis_code = m.cis_code
+      LEFT JOIN reference_db.laboratories ls ON ls.id = ms.titulaire_id
+      LEFT JOIN reference_db.medicament_availability ma ON ma.code_cip = m.code_cip
+      WHERE m.code_cip = ?1
+      LIMIT 1
+      ''',
+      variables: [Variable<String>(cipString)],
+      readsFrom: {},
+    ).get();
 
-    if (result == null) {
+    if (rows.isEmpty) {
       LoggerService.db('No medicament row found for CIP $cipString');
       return null;
     }
 
-    // The result already contains all the data mapped directly
+    final row = rows.first;
+
+    final summary = MedicamentSummaryData(
+      groupId: row.read<String>('group_id'),
+      cisCode: row.read<String>('cis_code'),
+      nomCanonique: row.read<String>('nom_canonique'),
+      princepsDeReference: row.read<String>('princeps_de_reference'),
+      princepsBrandName: row.read<String>('princeps_brand_name'),
+      isPrinceps: row.read<int>('is_princeps') == 1,
+      status: row.read<String>('status'),
+      formePharmaceutique: row.read<String>('forme_pharmaceutique'),
+      voiesAdministration: row.read<String>('voies_administration'),
+      principesActifsCommuns: row.read<String>('principes_actifs_communs'),
+      formattedDosage: row.read<String>('formatted_dosage'),
+      titulaireId: row.read<int>('titulaire_id'),
+      procedureType: row.read<String>('procedure_type'),
+      conditionsPrescription: row.read<String>('conditions_prescription'),
+      isSurveillance: row.read<int>('is_surveillance') == 1,
+      atcCode: row.read<String>('atc_code'),
+      dateAmm: row.read<String>('date_amm'),
+      aggregatedConditions: row.read<String>('aggregated_conditions'),
+      ansmAlertUrl: row.read<String>('ansm_alert_url'),
+      representativeCip: row.read<String>('representative_cip'),
+    );
+
+    double? price;
+    final prix = row.readNullable<String>('prix_public');
+    if (prix != null && prix.isNotEmpty) {
+      price = double.tryParse(prix.replaceAll(',', '.'));
+    }
+
     return (
-      summary: MedicamentEntity.fromData(result.ms, labName: result.labName),
+      summary: MedicamentEntity.fromData(summary,
+          labName: row.readNullable<String>('labName')),
       cip: codeCip,
-      price: result.prixPublic,
-      refundRate: result.tauxRemboursement,
-      boxStatus: result.commercialisationStatut,
-      availabilityStatus: result.availabilityStatut,
-      isHospitalOnly: result.ms.isHospital,
-      libellePresentation: result.presentationLabel,
+      price: price,
+      refundRate: row.readNullable<String>('taux_remboursement'),
+      boxStatus: row.readNullable<String>('commercialisationStatut'),
+      availabilityStatus: row.readNullable<String>('availabilityStatut'),
+      isHospitalOnly: row.read<int>('is_hospital') == 1,
+      libellePresentation: null,
       expDate: expDate,
     );
-  }
-
-  // ============================================================================
-  // Search Methods
-  // ============================================================================
-
-  Future<List<MedicamentEntity>> searchMedicaments(
-    NormalizedQuery query, {
-    SearchFilters? filters,
-  }) async {
-    final sanitizedQuery = query.toFtsQuery();
-    if (sanitizedQuery.isEmpty) {
-      LoggerService.db('Empty search query, returning empty results');
-      return <MedicamentEntity>[];
-    }
-
-    LoggerService.db(
-      'Searching medicaments with FTS5 query: $sanitizedQuery',
-    );
-
-    final routeFilter = filters?.voieAdministration ?? '';
-    final atcFilter = filters?.atcClass?.code ?? '';
-    final labFilter = filters?.titulaireId ?? -1;
-
-    // Use Drift-generated query from queries.drift - no manual mapping needed
-    final results = await attachedDatabase.queriesDrift
-        .searchMedicaments(
-          fts: sanitizedQuery,
-          routeFilter: routeFilter,
-          atcFilter: atcFilter,
-          labFilter: labFilter,
-        )
-        .get();
-
-    return results.map((row) {
-      return MedicamentEntity.fromData(row.ms, labName: row.labName);
-    }).toList();
-  }
-
-  Stream<List<MedicamentEntity>> watchMedicaments(
-    NormalizedQuery query, {
-    SearchFilters? filters,
-  }) {
-    final sanitizedQuery = query.toFtsQuery();
-    if (sanitizedQuery.isEmpty) {
-      LoggerService.db('Empty search query, emitting empty stream');
-      return Stream<List<MedicamentEntity>>.value(const <MedicamentEntity>[]);
-    }
-
-    LoggerService.db('Watching medicament search for query: $sanitizedQuery');
-
-    final routeFilter = filters?.voieAdministration ?? '';
-    final atcFilter = filters?.atcClass?.code ?? '';
-    final labFilter = filters?.titulaireId ?? -1;
-
-    return attachedDatabase.queriesDrift
-        .watchMedicaments(
-          fts: sanitizedQuery,
-          routeFilter: routeFilter,
-          atcFilter: atcFilter,
-          labFilter: labFilter,
-        )
-        .watch()
-        .map(
-          (results) => results.map((row) {
-            return MedicamentEntity.fromData(row.ms, labName: row.labName);
-          }).toList(),
-        );
-  }
-
-  // ============================================================================
-  // SQL-First Mapping Examples: Using the ** operator for automatic mapping
-  // ============================================================================
-  // NOTE: Older helper methods that relied on LIKE-based `searchProducts`
-  // and `watchSearchProducts` were removed in favor of `searchMedicaments`
-  // which performs normalized FTS5 searches and supports filters.
-
-  /// Returns clustered search results for UI display
-  /// Uses view_search_results to provide cluster, group, and standalone results
-  Stream<List<ViewSearchResult>> watchSearchResults(NormalizedQuery query) {
-    final sanitizedQuery = query.toFtsQuery();
-    if (sanitizedQuery.isEmpty) {
-      LoggerService.db('Empty search query, emitting empty stream');
-      return Stream<List<ViewSearchResult>>.value(const []);
-    }
-
-    LoggerService.db(
-        'Watching clustered search results for query: $sanitizedQuery');
-
-    // Filter view_search_results based on display_name and common_principes
-    // Use FTS5 MATCH for efficient text search
-    return attachedDatabase
-        .select(attachedDatabase.viewSearchResults)
-        .watch()
-        .map((rows) {
-      // Apply client-side filtering since FTS5 on views can be complex
-      final normalizedSearchTerms =
-          query.split(' ').where((term) => term.isNotEmpty).toList();
-
-      if (normalizedSearchTerms.isEmpty) return <ViewSearchResult>[];
-
-      return rows.where((row) {
-        final displayName = (row.displayName ?? '').toLowerCase();
-        final commonPrincipes = (row.commonPrincipes ?? '').toLowerCase();
-        final nomCanonique = (row.nomCanonique ?? '').toLowerCase();
-
-        // Check if all search terms are present in any of the relevant fields
-        return normalizedSearchTerms.every((term) =>
-            displayName.contains(term) ||
-            commonPrincipes.contains(term) ||
-            nomCanonique.contains(term));
-      }).toList();
-    });
   }
 
   // ============================================================================
@@ -288,6 +200,66 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> {
         .get();
 
     return results.map(GroupDetailEntity.fromData).toList();
+  }
+
+  /// Search medicaments using FTS5 with trigram tokenizer for fuzzy matching
+  /// Returns Future directly - exceptions bubble up to Riverpod's AsyncValue
+  Future<List<MedicamentEntity>> searchMedicaments(
+    NormalizedQuery query, {
+    int limit = 50,
+  }) async {
+    LoggerService.db('Searching medicaments for query: ${query.toFtsQuery()}');
+
+    final ftsQuery = query.toFtsQuery();
+    if (ftsQuery.isEmpty) {
+      return [];
+    }
+
+    // Use FTS5 search index - direct query using medicament_summary table
+    final results = await customSelect(
+      'SELECT '
+      'ms.* '
+      'FROM search_index si '
+      'INNER JOIN medicament_summary ms ON ms.group_id = si.rowid '
+      'WHERE search_index MATCH ? '
+      'ORDER BY ms.nom_canonique '
+      'LIMIT ?',
+      variables: [
+        Variable<String>(ftsQuery),
+        Variable<int>(limit),
+      ],
+    ).get();
+
+    // Map results to MedicamentEntity using the existing fromData constructor
+    return results
+        .map((row) => MedicamentEntity.fromData(
+              MedicamentSummaryData(
+                groupId: row.read<String>('group_id'),
+                cisCode: row.read<String>('cis_code'),
+                nomCanonique: row.read<String>('nom_canonique'),
+                princepsDeReference: row.read<String>('princeps_de_reference'),
+                princepsBrandName: row.read<String>('princeps_brand_name'),
+                isPrinceps: row.read<int>('is_princeps') == 1,
+                status: row.read<String>('status'),
+                formePharmaceutique: row.read<String>('forme_pharmaceutique'),
+                voiesAdministration: row.read<String>('voies_administration'),
+                principesActifsCommuns:
+                    row.read<String>('principes_actifs_communs'),
+                formattedDosage: row.read<String>('formatted_dosage'),
+                titulaireId: row.read<int>('titulaire_id'),
+                procedureType: row.read<String>('procedure_type'),
+                conditionsPrescription:
+                    row.read<String>('conditions_prescription'),
+                isSurveillance: row.read<int>('is_surveillance') == 1,
+                atcCode: row.read<String>('atc_code'),
+                dateAmm: row.read<String>('date_amm'),
+                aggregatedConditions: row.read<String>('aggregated_conditions'),
+                ansmAlertUrl: row.read<String>('ansm_alert_url'),
+                representativeCip: row.read<String>('representative_cip'),
+              ),
+              labName: null, // Lab name would need separate join if needed
+            ))
+        .toList();
   }
 
   Future<DatabaseStats> getDatabaseStats() async {
@@ -446,49 +418,5 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> {
     }
     final sorted = routes.toList()..sort((a, b) => a.compareTo(b));
     return sorted;
-  }
-
-  // ============================================================================
-  // Additional SQL-First Mapping Examples
-  // ============================================================================
-
-  /// Get detailed product information using the ** operator for automatic mapping
-  /// Returns a strongly-typed result class with all columns from joined tables
-  Future<GetProductDetailsByCipResult?> getProductDetailsByCip(
-      String cipCode) async {
-    LoggerService.db('Fetching detailed product info for CIP: $cipCode');
-
-    // Use the generated query with automatic mapping via ** operator
-    final result = await attachedDatabase.queriesDrift
-        .getProductDetailsByCip(cipCode: cipCode)
-        .getSingleOrNull();
-
-    return result;
-  }
-
-  /// Get all products by laboratory with automatic mapping
-  Future<List<GetProductsByLaboratoryResult>> getProductsByLaboratory(
-      int labId) async {
-    LoggerService.db('Fetching products for laboratory ID: $labId');
-
-    // Use the generated query with automatic mapping via ** operator
-    final results = await attachedDatabase.queriesDrift
-        .getProductsByLaboratory(labId: labId)
-        .get();
-
-    return results;
-  }
-
-  /// Get product availability information using the ** operator for automatic mapping
-  Future<GetProductAvailabilityResult?> getProductAvailability(
-      String cipCode) async {
-    LoggerService.db('Fetching availability info for CIP: $cipCode');
-
-    // Use the generated query with automatic mapping via ** operator
-    final result = await attachedDatabase.queriesDrift
-        .getProductAvailability(cipCode: cipCode)
-        .getSingleOrNull();
-
-    return result;
   }
 }

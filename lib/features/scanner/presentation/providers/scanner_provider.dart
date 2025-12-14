@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:dart_mappable/dart_mappable.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
-import 'package:pharma_scan/core/config/app_config.dart';
 import 'package:pharma_scan/core/models/scan_models.dart';
 import 'package:pharma_scan/core/providers/core_providers.dart';
 import 'package:pharma_scan/core/services/logger_service.dart';
@@ -79,7 +78,7 @@ ScanTrafficControl scanTrafficControl(Ref ref) {
 ScanOrchestrator scanOrchestrator(Ref ref) {
   return ScanOrchestrator(
     catalogDao: ref.read(catalogDaoProvider),
-    restockDao: ref.read(databaseProvider()).restockDao,
+    restockDao: ref.read(restockDaoProvider),
     trafficControl: ref.read(scanTrafficControlProvider),
   );
 }
@@ -87,38 +86,22 @@ ScanOrchestrator scanOrchestrator(Ref ref) {
 @MappableClass()
 class ScannerState with ScannerStateMappable {
   const ScannerState({
-    required this.bubbles,
-    required this.scannedCodes,
     required this.mode,
   });
 
-  final List<ScanBubble> bubbles;
-  final Set<String> scannedCodes;
+  // Only mode is persisted globally - bubbles are high-frequency UI state
+  // managed by Dart Signals for optimal performance
   final ScannerMode mode;
 }
 
 @Riverpod(keepAlive: true)
 class ScannerNotifier extends _$ScannerNotifier {
-  static const int _maxBubbles = AppConfig.scannerHistoryLimit;
-  static const Duration _bubbleLifetime = AppConfig.scannerBubbleLifetime;
-  static const Duration _codeCleanupDelay = AppConfig.scannerCodeCleanupDelay;
-  static const Duration _codeRemovalDelay = Duration(seconds: 3);
-
   final _sideEffects = StreamController<ScannerSideEffect>.broadcast(
     sync: true,
   );
 
-  ScannerRuntime? _cachedRuntime;
   ScanTrafficControl? _cachedTrafficControl;
   ScanOrchestrator? _cachedOrchestrator;
-
-  ScannerRuntime get _runtime {
-    final runtime = _cachedRuntime;
-    if (runtime != null) return runtime;
-    final created = ref.read(scannerRuntimeProvider);
-    _cachedRuntime = created;
-    return created;
-  }
 
   ScanTrafficControl get _trafficControl {
     final cached = _cachedTrafficControl;
@@ -137,8 +120,6 @@ class ScannerNotifier extends _$ScannerNotifier {
   }
 
   static const ScannerState _initialState = ScannerState(
-    bubbles: [],
-    scannedCodes: {},
     mode: ScannerMode.analysis,
   );
 
@@ -148,20 +129,11 @@ class ScannerNotifier extends _$ScannerNotifier {
   @override
   FutureOr<ScannerState> build() async {
     ref.onDispose(() {
-      final runtime = _cachedRuntime;
-      runtime?.dispose();
       _cachedTrafficControl?.reset();
       unawaited(_sideEffects.close());
     });
 
-    await _checkDeviceCapabilities(); // We still call this to maintain async pattern
-
     return _initialState;
-  }
-
-  Future<bool> _checkDeviceCapabilities() async {
-    // Device capability detection removed
-    return false;
   }
 
   Stream<ScannerSideEffect> get sideEffects => _sideEffects.stream;
@@ -193,8 +165,6 @@ class ScannerNotifier extends _$ScannerNotifier {
           rawValue,
           mode,
           force: force,
-          scannedCodes: _currentState.scannedCodes,
-          existingBubbles: _currentState.bubbles,
         );
 
         if (!ref.mounted) return;
@@ -225,8 +195,6 @@ class ScannerNotifier extends _$ScannerNotifier {
         _buildGs1FromCip(codeCip, expDate: expDate),
         ScannerMode.analysis,
         force: force,
-        scannedCodes: _currentState.scannedCodes,
-        existingBubbles: _currentState.bubbles,
       );
 
       if (!ref.mounted) return false;
@@ -251,10 +219,8 @@ class ScannerNotifier extends _$ScannerNotifier {
       case Ignore():
         return;
       case AnalysisSuccess(:final result, :final replacedExisting):
-        if (replacedExisting) {
-          removeBubble(result.cip.toString());
-        }
-        addBubble(result);
+        // Note: result is handled by Signals store for UI updates
+        // We only emit side effects here
         final hasAvailabilityWarning =
             (result.availabilityStatus ?? '').isNotEmpty;
         _emit(
@@ -268,7 +234,6 @@ class ScannerNotifier extends _$ScannerNotifier {
           :final scanResult,
           :final toastMessage,
         ):
-        addBubble(scanResult);
         _emit(const ScannerHaptic(ScannerHapticType.restockSuccess));
         _emit(ScannerToast(toastMessage));
       case RestockDuplicate(:final event, :final toastMessage):
@@ -283,96 +248,6 @@ class ScannerNotifier extends _$ScannerNotifier {
         state = AsyncError(error, stackTrace ?? StackTrace.current);
         _emit(const ScannerHaptic(ScannerHapticType.error));
     }
-  }
-
-  void addBubble(ScanBubble bubble) {
-    final codeCip = bubble.cip.toString();
-    final currentState = _currentState;
-
-    final existingIndex = currentState.bubbles.indexWhere(
-      (b) => b.cip.toString() == codeCip,
-    );
-    final updatedBubbles = List<ScanBubble>.from(currentState.bubbles);
-
-    if (existingIndex != -1) {
-      _runtime.dismissTimers[codeCip]?.cancel();
-      updatedBubbles.removeAt(existingIndex);
-    }
-
-    final updatedCodes = Set<String>.from(currentState.scannedCodes)
-      ..add(codeCip);
-    if (updatedBubbles.length >= _maxBubbles) {
-      final oldest = updatedBubbles.removeLast();
-      final oldestCode = oldest.cip.toString();
-      _runtime.dismissTimers[oldestCode]?.cancel();
-      _runtime.dismissTimers.remove(oldestCode);
-
-      _runtime.cleanupTimer?.cancel();
-      _runtime.pendingCleanupCode = oldestCode;
-      _runtime.cleanupTimer = Timer(_codeCleanupDelay, () {
-        if (_runtime.pendingCleanupCode == oldestCode) {
-          final latestState = _currentState;
-          final currentCodes = Set<String>.from(latestState.scannedCodes)
-            ..remove(oldestCode);
-          state = AsyncData(
-            latestState.copyWith(scannedCodes: currentCodes),
-          );
-          _runtime.pendingCleanupCode = null;
-        }
-      });
-    }
-
-    final timer = Timer(_bubbleLifetime, () => removeBubble(codeCip));
-    _runtime.dismissTimers[codeCip] = timer;
-
-    updatedBubbles.insert(0, bubble);
-
-    state = AsyncData(
-      currentState.copyWith(
-        bubbles: updatedBubbles,
-        scannedCodes: updatedCodes,
-      ),
-    );
-  }
-
-  void removeBubble(String codeCip) {
-    final currentState = _currentState;
-    final index = currentState.bubbles.indexWhere(
-      (bubble) => bubble.cip.toString() == codeCip,
-    );
-    if (index == -1) return;
-
-    final updatedBubbles = List<ScanBubble>.from(currentState.bubbles)
-      ..removeAt(index);
-
-    _runtime.dismissTimers[codeCip]?.cancel();
-    _runtime.dismissTimers.remove(codeCip);
-
-    state = AsyncData(
-      currentState.copyWith(bubbles: updatedBubbles),
-    );
-
-    Timer(_codeRemovalDelay, () {
-      if (!ref.mounted) return;
-      final latestState = _currentState;
-      final currentCodes = Set<String>.from(latestState.scannedCodes)
-        ..remove(codeCip);
-      state = AsyncData(
-        latestState.copyWith(scannedCodes: currentCodes),
-      );
-    });
-  }
-
-  void clearAllBubbles() {
-    for (final timer in _runtime.dismissTimers.values) {
-      timer.cancel();
-    }
-    _runtime.dismissTimers.clear();
-    _runtime.cleanupTimer?.cancel();
-    _runtime.pendingCleanupCode = null;
-    _trafficControl.reset();
-
-    state = const AsyncData(_initialState);
   }
 
   Future<void> updateQuantityFromDuplicate(String cip, int newQuantity) async {
@@ -396,5 +271,17 @@ class ScannerNotifier extends _$ScannerNotifier {
   void _emit(ScannerSideEffect effect) {
     if (_sideEffects.isClosed) return;
     _sideEffects.add(effect);
+  }
+
+  /// Remove bubble (signals are the source of truth, this is for persistence only)
+  void removeBubble(String cip) {
+    // Signals store handles UI state - this is for any persistent cleanup if needed
+    // Currently no persistent storage for individual bubbles, so this is a no-op
+  }
+
+  /// Clear all bubbles (signals are the source of truth, this is for persistence only)
+  void clearAllBubbles() {
+    // Signals store handles UI state - this is for any persistent cleanup if needed
+    // Currently no persistent storage for bubble history, so this is a no-op
   }
 }

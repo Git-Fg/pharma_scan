@@ -13,7 +13,9 @@ import 'package:pharma_scan/features/explorer/domain/models/explorer_enums.dart'
 import 'package:pharma_scan/features/explorer/domain/models/search_filters_model.dart';
 import 'package:pharma_scan/features/explorer/presentation/providers/search_provider.dart';
 import 'package:pharma_scan/features/explorer/presentation/widgets/filters/administration_route_filter_tile.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
+import 'package:pharma_scan/core/ui/atoms/app_badge.dart';
+import 'package:pharma_scan/core/ui/organisms/app_sheet.dart';
+import 'package:pharma_scan/core/ui/molecules/app_button.dart';
 
 class ExplorerSearchBar extends HookConsumerWidget {
   const ExplorerSearchBar({required this.onSearchChanged, super.key});
@@ -26,28 +28,33 @@ class ExplorerSearchBar extends HookConsumerWidget {
     final searchFocusNode = useFocusNode();
     final onSearchChangedRef = useRef(onSearchChanged);
 
-    useEffect(() {
-      onSearchChangedRef.value = onSearchChanged;
-      return null;
-    }, [onSearchChanged],);
+    useEffect(
+      () {
+        onSearchChangedRef.value = onSearchChanged;
+        return null;
+      },
+      [onSearchChanged],
+    );
 
     useListenable(search.debouncedText);
-    useEffect(() {
-      void handleDebounced() {
-        final trimmed = search.debouncedText.value.trim();
-        onSearchChangedRef.value(trimmed);
-      }
+    useEffect(
+      () {
+        void handleDebounced() {
+          final trimmed = search.debouncedText.value.trim();
+          onSearchChangedRef.value(trimmed);
+        }
 
-      handleDebounced();
-      search.debouncedText.addListener(handleDebounced);
-      return () => search.debouncedText.removeListener(handleDebounced);
-    }, [search.debouncedText],);
+        handleDebounced();
+        search.debouncedText.addListener(handleDebounced);
+        return () => search.debouncedText.removeListener(handleDebounced);
+      },
+      [search.debouncedText],
+    );
 
     final debouncedQuery = search.debouncedText.value;
 
-    final isFetching = ref
-        .watch(searchResultsProvider(debouncedQuery))
-        .isLoading;
+    final isFetching =
+        ref.watch(searchResultsProvider(debouncedQuery)).isLoading;
 
     return Container(
       decoration: BoxDecoration(
@@ -89,8 +96,10 @@ class ExplorerSearchBar extends HookConsumerWidget {
   Widget _buildSearchInput(
     BuildContext context,
     WidgetRef ref,
-    ({TextEditingController controller, ValueNotifier<String> debouncedText})
-    search,
+    ({
+      TextEditingController controller,
+      ValueNotifier<String> debouncedText
+    }) search,
     FocusNode focusNode,
     bool isFetching,
     ObjectRef<ValueChanged<String>> onSearchChangedRef,
@@ -126,19 +135,19 @@ class ExplorerSearchBar extends HookConsumerWidget {
                   ),
                 )
               : (search.controller.text.isNotEmpty && !isFetching
-                    ? ShadButton.ghost(
-                        size: ShadButtonSize.sm,
-                        onPressed: () {
-                          search.controller.clear();
-                          _commitSearchQuery(
-                            '',
-                            search,
-                            onSearchChangedRef,
-                          );
-                        },
-                        child: const Icon(LucideIcons.x, size: 16),
-                      )
-                    : null),
+                  ? ShadButton.ghost(
+                      size: ShadButtonSize.sm,
+                      onPressed: () {
+                        search.controller.clear();
+                        _commitSearchQuery(
+                          '',
+                          search,
+                          onSearchChangedRef,
+                        );
+                      },
+                      child: const Icon(LucideIcons.x, size: 16),
+                    )
+                  : null),
           onSubmitted: (_) => _commitSearchQuery(
             search.controller.text,
             search,
@@ -152,15 +161,12 @@ class ExplorerSearchBar extends HookConsumerWidget {
   Widget _buildFiltersButton(BuildContext context, WidgetRef ref) {
     final filters = ref.watch(searchFiltersProvider);
     final hasActiveFilters = filters.hasActiveFilters;
-    final filterCount =
-        (filters.voieAdministration != null ? 1 : 0) +
+    final filterCount = (filters.voieAdministration != null ? 1 : 0) +
         (filters.atcClass != null ? 1 : 0);
-    final filterLabel = hasActiveFilters
-        ? Strings.editFilters
-        : Strings.openFilters;
-    final filterValue = hasActiveFilters
-        ? Strings.activeFilterCount(filterCount)
-        : null;
+    final filterLabel =
+        hasActiveFilters ? Strings.editFilters : Strings.openFilters;
+    final filterValue =
+        hasActiveFilters ? Strings.activeFilterCount(filterCount) : null;
 
     return Semantics(
       button: true,
@@ -182,11 +188,9 @@ class ExplorerSearchBar extends HookConsumerWidget {
               child: IgnorePointer(
                 child: Semantics(
                   label: Strings.activeFilterCount(filterCount),
-                  child: ShadBadge(
-                    child: Text(
-                      '$filterCount',
-                      style: context.typo.small,
-                    ),
+                  child: AppBadge(
+                    label: '$filterCount',
+                    variant: BadgeVariant.primary,
                   ),
                 ),
               ),
@@ -198,8 +202,10 @@ class ExplorerSearchBar extends HookConsumerWidget {
 
   void _commitSearchQuery(
     String rawValue,
-    ({TextEditingController controller, ValueNotifier<String> debouncedText})
-    search,
+    ({
+      TextEditingController controller,
+      ValueNotifier<String> debouncedText
+    }) search,
     ObjectRef<ValueChanged<String>> onSearchChangedRef,
   ) {
     final trimmed = rawValue.trim();
@@ -212,11 +218,11 @@ class ExplorerSearchBar extends HookConsumerWidget {
     SearchFilters currentFilters,
     WidgetRef ref,
   ) {
-    return showShadSheet(
+    return AppSheet.show(
       context: context,
-      side: ShadSheetSide.bottom,
-      builder: (overlayContext) => _buildFiltersPanel(
-        overlayContext,
+      title: Strings.filters,
+      child: _buildFiltersPanel(
+        context,
         currentFilters,
         ref,
       ),
@@ -229,14 +235,15 @@ class ExplorerSearchBar extends HookConsumerWidget {
     WidgetRef ref,
   ) {
     final theme = context.shadTheme;
-    return ShadSheet(
+    return AppSheetWidget(
       title: const Text(Strings.filters),
       actions: [
-        ShadButton.ghost(
+        AppButton(
+          label: Strings.resetFilters,
           onPressed: currentFilters.hasActiveFilters
               ? ref.read(searchFiltersProvider.notifier).clearFilters
               : null,
-          child: const Text(Strings.resetFilters),
+          variant: ButtonVariant.ghost,
         ),
       ],
       child: SingleChildScrollView(
@@ -319,8 +326,8 @@ class ExplorerSearchBar extends HookConsumerWidget {
           ],
         ),
         onChanged: (value) {
-          ref.read(searchFiltersProvider.notifier).filters = currentFilters
-              .copyWith(atcClass: value);
+          ref.read(searchFiltersProvider.notifier).filters =
+              currentFilters.copyWith(atcClass: value);
           unawaited(Navigator.of(context).maybePop());
         },
       ),

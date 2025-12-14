@@ -1,6 +1,7 @@
 import 'package:pharma_scan/features/explorer/domain/entities/group_detail_entity.dart';
 import 'package:pharma_scan/features/explorer/domain/entities/medicament_entity.dart';
 import 'package:dart_mappable/dart_mappable.dart';
+import 'package:pharma_scan/core/domain/types/commercialization_status.dart';
 
 enum MedicationStatusFlag { revoked, notMarketed, shortage, expired }
 
@@ -13,16 +14,19 @@ extension MedicamentStatusFlags on MedicamentEntity {
     DateTime? expDate,
   }) {
     final flags = <MedicationStatusFlag>{};
-    final normalizedStatus =
-        (commercializationStatus ?? data.status)?.toLowerCase().trim();
 
-    if (isRevoked || (normalizedStatus?.contains('abrog') ?? false)) {
+    // Use the Extension Type for parsing commercialization status
+    final status = CommercializationStatus.fromDatabase(commercializationStatus ?? data.status);
+
+    // Set flags based on the parsed status
+    if (status.isRevoked) {
       flags.add(MedicationStatusFlag.revoked);
     }
-    if (isNotMarketed ||
-        (normalizedStatus?.contains('non commercialis') ?? false)) {
+    if (status.isNotMarketed) {
       flags.add(MedicationStatusFlag.notMarketed);
     }
+
+    // Check for shortage (availability status is not null and not empty)
     if (availabilityStatus != null && availabilityStatus.trim().isNotEmpty) {
       flags.add(MedicationStatusFlag.shortage);
     }
@@ -38,17 +42,21 @@ extension MedicamentStatusFlags on MedicamentEntity {
 }
 
 extension GroupDetailStatusFlags on GroupDetailEntity {
-  Set<MedicationStatusFlag> statusFlags({String? availabilityStatus}) {
+  Set<MedicationStatusFlag> statusFlags({String? commercializationStatus, String? availabilityStatus}) {
     final flags = <MedicationStatusFlag>{};
-    final normalizedStatus = status?.toLowerCase().trim();
 
-    if (isRevoked || (normalizedStatus?.contains('abrog') ?? false)) {
+    // Use the Extension Type for parsing commercialization status
+    final status = CommercializationStatus.fromDatabase(commercializationStatus);
+
+    // Set flags based on the parsed status
+    if (status.isRevoked) {
       flags.add(MedicationStatusFlag.revoked);
     }
-    if (isNotMarketed ||
-        (normalizedStatus?.contains('non commercialis') ?? false)) {
+    if (status.isNotMarketed) {
       flags.add(MedicationStatusFlag.notMarketed);
     }
+
+    // Check for shortage (availability status is not null and not empty)
     if (availabilityStatus != null && availabilityStatus.trim().isNotEmpty) {
       flags.add(MedicationStatusFlag.shortage);
     }

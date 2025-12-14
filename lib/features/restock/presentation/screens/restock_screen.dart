@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:pharma_scan/core/hooks/use_app_header.dart';
+import 'package:pharma_scan/core/hooks/use_tab_reselection.dart';
 import 'package:pharma_scan/core/providers/navigation_provider.dart';
 import 'package:pharma_scan/core/providers/preferences_provider.dart';
 import 'package:pharma_scan/core/services/haptic_service.dart';
@@ -84,23 +85,14 @@ class RestockScreen extends HookConsumerWidget {
       await notifier.clearAll();
     }
 
-    useEffect(() {
-      ref.listen<TabReselectionSignal>(
-        tabReselectionProvider,
-        (previous, next) {
-          if (next.tabIndex == 2 && scrollController.hasClients) {
-            unawaited(
-              scrollController.animateTo(
-                0,
-                duration: const Duration(milliseconds: 250),
-                curve: Curves.easeOut,
-              ),
-            );
-          }
-        },
-      );
-      return null;
-    }, [scrollController]);
+    // Setup tab reselection for restock tab (index 2)
+    useTabReselection(
+      ref: ref,
+      controller: scrollController,
+      tabIndex: 2,
+      animationDuration: const Duration(milliseconds: 250),
+      animationCurve: Curves.easeOut,
+    );
 
     useAppHeader(
       title: Text(

@@ -1,23 +1,20 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:gap/gap.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:pharma_scan/core/hooks/use_app_header.dart';
-import 'package:pharma_scan/core/providers/navigation_provider.dart';
+import 'package:pharma_scan/core/hooks/use_tab_reselection.dart';
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/status_view.dart';
-import 'package:pharma_scan/features/explorer/domain/models/generic_group_entity.dart';
-import 'package:pharma_scan/features/explorer/presentation/providers/generic_groups_provider.dart';
-import 'package:pharma_scan/features/explorer/presentation/providers/grouped_content_provider.dart';
-import 'package:pharma_scan/features/explorer/presentation/providers/search_provider.dart';
-import 'package:pharma_scan/features/explorer/presentation/widgets/explorer_content_list.dart';
-import 'package:pharma_scan/features/explorer/presentation/widgets/explorer_search_bar.dart';
+import 'package:pharma_scan/features/explorer/presentation/providers/cluster_provider.dart';
+import 'package:pharma_scan/features/explorer/presentation/widgets/cluster_tile.dart'
+    hide Strings;
+import 'package:pharma_scan/features/explorer/presentation/widgets/medication_drawer.dart'
+    hide Strings;
 import 'package:pharma_scan/features/home/providers/initialization_provider.dart';
-import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 class DatabaseSearchView extends HookConsumerWidget {
@@ -26,14 +23,6 @@ class DatabaseSearchView extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     useAutomaticKeepAlive();
-    final itemScrollController = useMemoized(
-      ItemScrollController.new,
-      const [],
-    );
-    final itemPositionsListener = useMemoized(
-      ItemPositionsListener.create,
-      const [],
-    );
     final debouncedQuery = useState('');
     final viewInsetsBottom = MediaQuery.viewInsetsOf(context).bottom;
     final safeBottomPadding = MediaQuery.paddingOf(context).bottom;
@@ -42,40 +31,17 @@ class DatabaseSearchView extends HookConsumerWidget {
     final listBottomPadding =
         AppDimens.searchBarHeaderHeight + bottomSpace + AppDimens.spacingSm;
 
-    useEffect(
-      () {
-        final cancel = ref.listenManual<TabReselectionSignal>(
-          tabReselectionProvider,
-          (previous, next) {
-            if (next.tabIndex == 1 && itemScrollController.isAttached) {
-              unawaited(
-                itemScrollController.scrollTo(
-                  index: 0,
-                  duration: const Duration(milliseconds: 250),
-                  curve: Curves.easeOut,
-                ),
-              );
-            }
-          },
-        );
-        return cancel.close;
-      },
-      [itemScrollController],
+    // Setup tab reselection with standard ScrollController for explorer tab (index 1)
+    final scrollController = useScrollController();
+    useTabReselection(
+      ref: ref,
+      controller: scrollController,
+      tabIndex: 1,
     );
 
-    final groups = ref.watch(genericGroupsProvider);
     final currentQuery = debouncedQuery.value;
-    final searchResults = ref.watch(searchResultsProvider(currentQuery));
-    final hasSearchText = currentQuery.isNotEmpty;
-    final isSearching = hasSearchText;
+    final clusterResults = ref.watch(clusterSearchProvider(currentQuery));
     final initStepAsync = ref.watch(initializationStepProvider);
-
-    final groupedContent = ref.watch(groupedExplorerContentProvider);
-    final isIndexing = groupedContent.isLoading || groupedContent.isRefreshing;
-    final groupedData = switch (groupedContent) {
-      AsyncData(:final value) => value,
-      _ => (groupedItems: <GenericGroupEntity>[], letterIndex: <String, int>{}),
-    };
 
     final initStep = initStepAsync.value;
     if (initStep != null &&
@@ -100,27 +66,50 @@ class DatabaseSearchView extends HookConsumerWidget {
 
     return Column(
       children: [
-        if (isIndexing)
-          PreferredSize(
-            preferredSize: const Size.fromHeight(2),
-            child: LinearProgressIndicator(
-              value: 1,
-              minHeight: 2,
-              backgroundColor: context.colors.border,
-              color: context.colors.primary,
-            ),
-          ),
         Expanded(
-          child: ExplorerContentList(
-            groups: groups,
-            groupedItems: groupedData.groupedItems,
-            searchResults: searchResults,
-            hasSearchText: hasSearchText,
-            isSearching: isSearching,
-            currentQuery: currentQuery,
-            bottomPadding: listBottomPadding,
-            itemScrollController: itemScrollController,
-            itemPositionsListener: itemPositionsListener,
+          child: clusterResults.when(
+            loading: () => const Center(
+              child: CircularProgressIndicator(),
+            ),
+            error: (error, stack) => Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    LucideIcons.triangleAlert,
+                    color: Colors.red,
+                    size: 48,
+                  ),
+                  const Gap(AppDimens.spacingSm),
+                  Text(
+                    'Erreur de chargement',
+                    style: context.typo.p,
+                  ),
+                  const Gap(AppDimens.spacingXs),
+                  Text(
+                    error.toString(),
+                    style: context.typo.small.copyWith(
+                      color: context.colors.mutedForeground,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            data: (clusters) => ListView.builder(
+              itemCount: clusters.length,
+              padding: EdgeInsets.only(bottom: listBottomPadding),
+              controller: scrollController,
+              itemBuilder: (context, index) {
+                final cluster = clusters[index];
+                return ClusterTile(
+                  title: cluster.title, // Display title (Substance Clean)
+                  subtitle:
+                      cluster.subtitle, // Display subtitle (Princeps Principal)
+                  countProducts: cluster.countProducts ?? 0,
+                  onTap: () => _openDrawer(context, cluster.clusterId),
+                );
+              },
+            ),
           ),
         ),
         SafeArea(
@@ -132,13 +121,22 @@ class DatabaseSearchView extends HookConsumerWidget {
               bottom:
                   viewInsetsBottom > 0 ? viewInsetsBottom : AppDimens.spacingSm,
             ),
-            child: ExplorerSearchBar(
-              key: const ValueKey('searchBar'),
-              onSearchChanged: (query) => debouncedQuery.value = query,
+            child: ShadInput(
+              placeholder: const Text('Rechercher...'),
+              onChanged: (String query) => debouncedQuery.value = query,
             ),
           ),
         ),
       ],
     );
   }
+}
+
+/// Utility function to open medication drawer
+void _openDrawer(BuildContext context, String clusterId) {
+  showShadSheet(
+    context: context,
+    side: ShadSheetSide.bottom,
+    builder: (context) => MedicationDrawer(clusterId: clusterId),
+  );
 }

@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pharma_scan/features/scanner/logic/scanner_store.dart';
 import 'package:pharma_scan/features/explorer/domain/entities/medicament_entity.dart';
-import 'package:pharma_scan/core/database/reference_schema.drift.dart' as db;
+import 'package:pharma_scan/core/database/database.dart' as db;
 import 'package:pharma_scan/core/domain/types/ids.dart';
 
 // Helper to create a minimal MedicamentSummaryData

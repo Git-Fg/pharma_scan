@@ -3,10 +3,10 @@ import 'dart:async';
 import 'package:pharma_scan/core/models/update_frequency.dart';
 import 'package:pharma_scan/core/providers/capability_providers.dart';
 import 'package:pharma_scan/core/providers/core_providers.dart';
-import 'package:pharma_scan/core/providers/preferences_provider.dart';
 import 'package:pharma_scan/core/services/logger_service.dart';
 import 'package:pharma_scan/features/home/models/sync_state.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:pharma_scan/core/utils/async_utils.dart';
 
 part 'sync_provider.g.dart';
 
@@ -27,7 +27,11 @@ class SyncController extends _$SyncController {
       return false;
     }
 
-    final frequency = ref.read(appPreferencesProvider);
+    final frequencyRaw = ref.read(updateFrequencyProvider);
+    final frequency = UpdateFrequency.values.firstWhere(
+      (f) => f.name == frequencyRaw,
+      orElse: () => UpdateFrequency.daily,
+    );
     if (!force && frequency == UpdateFrequency.none) {
       LoggerService.info('Sync skipped: disabled by user preference');
       return false;
@@ -35,8 +39,8 @@ class SyncController extends _$SyncController {
 
     final clock = ref.read(clockProvider);
     final now = clock();
-    final prefs = ref.read(preferencesServiceProvider);
-    final lastCheck = prefs.getLastSyncTime();
+    final appSettings = ref.read(appSettingsDaoProvider);
+    final lastCheck = await appSettings.lastSyncTime;
     if (!ref.mounted) return false;
 
     if (!force &&
@@ -106,11 +110,9 @@ class SyncController extends _$SyncController {
     } finally {
       if (ref.mounted) {
         final clock = ref.read(clockProvider);
-        final prefsService = ref.read(preferencesServiceProvider);
+        final appSettings = ref.read(appSettingsDaoProvider);
         try {
-          await prefsService.setLastSyncTime(
-            clock().millisecondsSinceEpoch,
-          );
+          await appSettings.setLastSyncTime(clock());
         } on Exception catch (e, s) {
           LoggerService.error(
             '[SyncController] Failed to update sync timestamp',

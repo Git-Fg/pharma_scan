@@ -10,13 +10,11 @@ import 'package:pharma_scan/core/router/app_router.dart';
 import 'package:pharma_scan/core/router/router_provider.dart';
 // import 'package:pharma_scan/core/services/data_initialization_service.dart';
 import 'package:pharma_scan/core/services/logger_service.dart';
-import 'package:pharma_scan/core/services/preferences_service.dart';
 import 'package:pharma_scan/core/utils/navigation_helpers.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/features/home/providers/initialization_provider.dart';
 import 'package:quick_actions/quick_actions.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:talker_riverpod_logger/talker_riverpod_logger.dart';
 
 void main() async {
@@ -29,15 +27,8 @@ void main() async {
     }),
   );
 
-  // Initialize SharedPreferences synchronously before app startup
-  final prefs = await SharedPreferences.getInstance();
-  final preferencesService = PreferencesService(prefs);
-
   runApp(
     ProviderScope(
-      overrides: [
-        preferencesServiceProvider.overrideWithValue(preferencesService),
-      ],
       retry: (retryCount, error) {
         if (retryCount >= 5) return null;
         return Duration(milliseconds: 200 * (1 << retryCount));

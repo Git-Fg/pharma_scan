@@ -2,42 +2,40 @@ import 'package:pharma_scan/core/database/daos/catalog_dao.dart';
 import 'package:pharma_scan/core/database/daos/restock_dao.dart';
 import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/database/providers.dart';
+import 'package:pharma_scan/core/network/dio_provider.dart';
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
 import 'package:pharma_scan/core/services/file_download_service.dart';
-import 'package:pharma_scan/core/services/preferences_service.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 // Export databaseProvider pour faciliter les imports
 export 'package:pharma_scan/core/database/providers.dart' show databaseProvider;
 export 'package:pharma_scan/core/services/haptic_service.dart'
     show hapticServiceProvider;
-export 'package:pharma_scan/core/services/preferences_service.dart'
-    show preferencesServiceProvider;
+export 'app_settings_provider.dart';
 
 part 'core_providers.g.dart';
 
 @Riverpod(keepAlive: true)
 FileDownloadService fileDownloadService(Ref ref) {
-  return FileDownloadService();
+  final dio = ref.watch(downloadDioProvider);
+  return FileDownloadService(dio: dio);
 }
 
 @Riverpod(keepAlive: true)
 DataInitializationService dataInitializationService(Ref ref) {
-  // On ne watch PLUS la database ici pour éviter les boucles de reconstruction
   final fileDownloadService = ref.watch(fileDownloadServiceProvider);
-  final preferencesService = ref.watch(preferencesServiceProvider);
+  final dio = ref.watch(dioProvider);
 
   return DataInitializationService(
     ref: ref,
     fileDownloadService: fileDownloadService,
-    preferencesService: preferencesService,
+    dio: dio,
   );
 }
 
 @riverpod
 int? lastSyncEpoch(Ref ref) {
-  final prefs = ref.watch(preferencesServiceProvider);
-  return prefs.getInt(PrefKeys.lastSyncEpoch);
+  return ref.read(appSettingsDaoProvider).lastSyncEpoch;
 }
 
 @Riverpod(keepAlive: true)

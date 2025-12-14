@@ -1,9 +1,6 @@
 -- User-specific tables that should be stored in user.db
 
-CREATE TABLE app_settings (
-        key TEXT PRIMARY KEY,
-        value BLOB NOT NULL
-      );
+-- AppSettings is now declared as a typed Dart table in tables/app_settings_table.dart
 
 CREATE TABLE restock_items (
         cip_code TEXT PRIMARY KEY NOT NULL,

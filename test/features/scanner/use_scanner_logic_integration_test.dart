@@ -7,7 +7,7 @@ import 'package:pharma_scan/core/models/scan_models.dart';
 import 'package:pharma_scan/core/hooks/use_scanner_logic.dart';
 import 'package:pharma_scan/features/scanner/presentation/providers/scanner_provider.dart';
 import 'package:pharma_scan/features/scanner/domain/logic/scan_orchestrator.dart';
-import 'package:pharma_scan/core/database/reference_schema.drift.dart' as db;
+import 'package:pharma_scan/core/database/database.dart' as db;
 import 'package:pharma_scan/features/explorer/domain/entities/medicament_entity.dart';
 import 'package:pharma_scan/core/domain/types/ids.dart';
 
@@ -74,27 +74,15 @@ db.MedicamentSummaryData _makeSummary() {
 }
 
 void main() {
-  testWidgets('useScannerLogic performs one-time initial sync from Riverpod',
+  testWidgets(
+      'useScannerLogic performs one-time initial sync of mode from Riverpod',
       (tester) async {
-    // Arrange: add an initial bubble into the notifier state
-    final summaryEntity = MedicamentEntity.fromData(_makeSummary());
-    final scan = (
-      summary: summaryEntity,
-      cip: Cip13.validated('1234567890123'),
-      price: null,
-      refundRate: null,
-      boxStatus: null,
-      availabilityStatus: null,
-      isHospitalOnly: false,
-      libellePresentation: null,
-      expDate: null,
-    );
-
+    // Arrange: set initial mode in the notifier
     await tester.pumpWidget(
       ProviderScope(
         child: MaterialApp(
-          home: _PrepopulateNotifier(
-            scan: scan,
+          home: _SetModeNotifier(
+            mode: ScannerMode.restock,
             child: const SizedBox.shrink(),
           ),
         ),
@@ -104,22 +92,23 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    // Act: mount a widget that uses the hook and displays counts
+    // Act: mount a widget that uses the hook and displays mode
     await tester.pumpWidget(
       ProviderScope(
-        child: MaterialApp(home: _ProbeWidget()),
+        child: MaterialApp(home: _ModeProbeWidget()),
       ),
     );
 
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
 
-    // Assert: signals were initialized from notifier state (one-time sync)
-    expect(find.text('local:1'), findsOneWidget);
-    expect(find.text('remote:1'), findsOneWidget);
+    // Assert: signals mode was initialized from notifier state (one-time sync)
+    expect(find.text('local:restock'), findsOneWidget);
+    expect(find.text('remote:restock'), findsOneWidget);
   });
 
-  testWidgets('useScannerLogic handleScanResult updates Signals immediately and triggers persistence',
+  testWidgets(
+      'useScannerLogic handleScanResult updates Signals immediately and triggers business logic',
       (tester) async {
     // Arrange: fake orchestrator that returns AnalysisSuccess
     final summaryEntity = MedicamentEntity.fromData(_makeSummary());
@@ -140,7 +129,9 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [scanOrchestratorProvider.overrideWithValue(fakeOrchestrator)],
+        overrides: [
+          scanOrchestratorProvider.overrideWithValue(fakeOrchestrator)
+        ],
         child: MaterialApp(home: _ProbeScanWidget(result: result)),
       ),
     );
@@ -148,33 +139,50 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
 
-    // Initially empty
+    // Initially empty signals
     expect(find.text('local:0'), findsOneWidget);
-    expect(find.text('remote:0'), findsOneWidget);
 
     // Act: trigger scan via the hook
     await tester.tap(find.text('scan'));
     await tester.pump();
 
-    // Signals should update immediately
+    // Signals should update immediately (high-frequency UI state)
     expect(find.text('local:1'), findsOneWidget);
 
-    // After async persistence, Riverpod state should be updated
+    // Business logic is triggered via Riverpod (fire-and-forget)
     await tester.pump(const Duration(milliseconds: 100));
-    expect(find.text('remote:1'), findsOneWidget);
+  });
+
+  testWidgets('ScannerNotifier only manages mode, not bubbles', (tester) async {
+    // This test verifies the Triad architecture separation:
+    // - Riverpod (ScannerNotifier): business logic + mode persistence
+    // - Signals (ScannerStore): high-frequency UI state (bubbles)
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(home: _ModeOnlyProbeWidget()),
+      ),
+    );
+
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    // ScannerNotifier only has mode, no bubbles
+    expect(find.text('mode:analysis'), findsOneWidget);
+    expect(find.text('bubbles:not managed by Riverpod'), findsOneWidget);
   });
 }
 
-class _PrepopulateNotifier extends HookConsumerWidget {
-  const _PrepopulateNotifier({required this.scan, required this.child});
+class _SetModeNotifier extends HookConsumerWidget {
+  const _SetModeNotifier({required this.mode, required this.child});
   final Widget child;
-  final ScanResult scan;
+  final ScannerMode mode;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     useEffect(() {
       unawaited(Future.microtask(() {
-        ref.read(scannerProvider.notifier).addBubble(scan);
+        ref.read(scannerProvider.notifier).setMode(mode);
       }));
       return null;
     }, []);
@@ -189,10 +197,26 @@ class _ProbeWidget extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final logic = useScannerLogic(ref);
     final remote = ref.watch(scannerProvider).value;
-      return Column(
-        children: <Widget>[
+    return Column(
+      children: <Widget>[
         Text('local:${logic.bubbleCount.value}'),
-        Text('remote:${remote?.bubbles.length ?? 0}'),
+        Text('remote:0'), // Riverpod no longer manages bubbles
+      ],
+    );
+  }
+}
+
+class _ModeProbeWidget extends HookConsumerWidget {
+  const _ModeProbeWidget();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final logic = useScannerLogic(ref);
+    final remote = ref.watch(scannerProvider).value;
+    return Column(
+      children: <Widget>[
+        Text('local:${logic.mode.value}'),
+        Text('remote:${remote?.mode}'),
       ],
     );
   }
@@ -205,15 +229,28 @@ class _ProbeScanWidget extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final logic = useScannerLogic(ref);
-    final remote = ref.watch(scannerProvider).value;
-      return Column(
-        children: <Widget>[
+    return Column(
+      children: <Widget>[
         Text('local:${logic.bubbleCount.value}'),
-        Text('remote:${remote?.bubbles.length ?? 0}'),
         ElevatedButton(
           onPressed: () => logic.handleScanResult(result),
           child: const Text('scan'),
         ),
+      ],
+    );
+  }
+}
+
+class _ModeOnlyProbeWidget extends HookConsumerWidget {
+  const _ModeOnlyProbeWidget();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final remote = ref.watch(scannerProvider).value;
+    return Column(
+      children: <Widget>[
+        Text('mode:${remote?.mode}'),
+        Text('bubbles:not managed by Riverpod'),
       ],
     );
   }

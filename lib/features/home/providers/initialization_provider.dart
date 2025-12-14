@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:pharma_scan/core/providers/core_providers.dart';
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
 import 'package:pharma_scan/core/services/logger_service.dart';
-import 'package:pharma_scan/core/utils/async_notifier_helper.dart';
 import 'package:pharma_scan/core/mixins/safe_async_notifier_mixin.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -26,10 +25,7 @@ class InitializationNotifier extends _$InitializationNotifier with SafeAsyncNoti
       // Cleanup if needed
     });
 
-    final result = await AsyncNotifierHelper.safeExecute(
-      _runInitialization,
-      operationName: 'InitializationNotifier.build',
-    );
+    final result = await safeExecute(_runInitialization);
 
     if (!isMounted()) return;
 
@@ -43,17 +39,13 @@ class InitializationNotifier extends _$InitializationNotifier with SafeAsyncNoti
   }
 
   Future<void> _runInitialization() async {
-    if (!isMounted(context: 'InitializationNotifier._runInitialization')) {
-      return;
-    }
-
     final db = ref.read(databaseProvider());
     final hasData = await db.catalogDao.hasExistingData();
 
     if (!isMounted()) return;
 
-    final prefs = ref.read(preferencesServiceProvider);
-    final version = prefs.getBdpmVersion();
+    final appSettings = ref.read(appSettingsDaoProvider);
+    final version = await appSettings.bdpmVersion;
     const currentVersion = DataInitializationService.dataVersion;
 
     if (hasData && version == currentVersion) {
@@ -73,10 +65,6 @@ class InitializationNotifier extends _$InitializationNotifier with SafeAsyncNoti
   }
 
   Future<void> retry() async {
-    if (!isMounted(context: 'InitializationNotifier.retry')) {
-      return;
-    }
-
     ref.invalidateSelf();
     await future;
   }
@@ -91,9 +79,9 @@ Stream<InitializationStep> initializationStep(Ref ref) async* {
 
   try {
     final db = ref.read(databaseProvider());
-    final prefs = ref.read(preferencesServiceProvider);
+    final appSettings = ref.read(appSettingsDaoProvider);
     final hasData = await db.catalogDao.hasExistingData();
-    final version = prefs.getBdpmVersion();
+    final version = await appSettings.bdpmVersion;
     const currentVersion = DataInitializationService.dataVersion;
 
     if (hasData && version == currentVersion) {

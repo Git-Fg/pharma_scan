@@ -7,7 +7,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:pharma_scan/core/services/logger_service.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/features/scanner/presentation/providers/scanner_provider.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
+import 'package:pharma_scan/core/ui/services/feedback_service.dart';
 
 class ScannerUtils {
   ScannerUtils._();
@@ -41,11 +41,10 @@ class ScannerUtils {
           );
         } else {
           if (context.mounted) {
-            ShadToaster.of(context).show(
-              const ShadToast.destructive(
-                title: Text(Strings.noBarcodeDetected),
-                description: Text(Strings.imageContainsNoValidBarcode),
-              ),
+            FeedbackService.showError(
+              context,
+              Strings.imageContainsNoValidBarcode,
+              title: Strings.noBarcodeDetected,
             );
           }
         }
@@ -56,13 +55,10 @@ class ScannerUtils {
           stackTrace,
         );
         if (context.mounted) {
-          ShadToaster.of(context).show(
-            ShadToast.destructive(
-              title: const Text(Strings.analysisError),
-              description: Text(
-                '${Strings.unableToAnalyzeImage} $e',
-              ),
-            ),
+          FeedbackService.showError(
+            context,
+            '${Strings.unableToAnalyzeImage} $e',
+            title: Strings.analysisError,
           );
         }
       }
@@ -73,11 +69,10 @@ class ScannerUtils {
         stackTrace,
       );
       if (context.mounted) {
-        ShadToaster.of(context).show(
-          ShadToast.destructive(
-            title: const Text(Strings.error),
-            description: Text('${Strings.unableToSelectImage} $e'),
-          ),
+        FeedbackService.showError(
+          context,
+          '${Strings.unableToSelectImage} $e',
+          title: Strings.error,
         );
       }
     }

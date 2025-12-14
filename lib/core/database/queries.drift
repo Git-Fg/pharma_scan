@@ -6,48 +6,16 @@ import 'views.drift';
 -- Queries for MedicamentSummary table - using traditional SELECT * (for compatibility)
 -- New modern approach uses ** operator for automatic mapping, see examples below
 
--- FTS search with optional filters for route and ATC class.
--- UPDATE: Utilisation de ms.** pour mapper automatiquement vers MedicamentSummaryData
-searchMedicaments:
-SELECT ms.**, l.name AS lab_name
-FROM medicament_summary ms
-LEFT JOIN laboratories l ON l.id = ms.titulaire_id
-INNER JOIN search_index si ON ms.cis_code = si.cis_code
-WHERE search_index MATCH :fts
-  AND (:routeFilter = '' OR ms.voies_administration LIKE '%' || :routeFilter || '%')
-  AND (:atcFilter = '' OR ms.atc_code LIKE :atcFilter || '%')
-  AND (:labFilter = -1 OR ms.titulaire_id = :labFilter)
-ORDER BY bm25(search_index) ASC, ms.nom_canonique
-LIMIT 50;
-
--- FTS search for streaming.
--- UPDATE: Utilisation de ms.**
-watchMedicaments:
-SELECT ms.**, l.name AS lab_name
-FROM medicament_summary ms
-LEFT JOIN laboratories l ON l.id = ms.titulaire_id
-INNER JOIN search_index si ON ms.cis_code = si.cis_code
-WHERE search_index MATCH :fts
-  AND (:routeFilter = '' OR ms.voies_administration LIKE '%' || :routeFilter || '%')
-  AND (:atcFilter = '' OR ms.atc_code LIKE :atcFilter || '%')
-  AND (:labFilter = -1 OR ms.titulaire_id = :labFilter)
-ORDER BY bm25(search_index) ASC, ms.nom_canonique
-LIMIT 50;
-
--- Scan query
--- UPDATE: Utilisation de ms.**
+-- Scan query using modern ** operator for automatic mapping
 getProductByCip:
 SELECT
-  m.code_cip,
-  m.cis_code,
+  m.** AS m,                    -- All medicaments columns
+  ms.** AS ms,                  -- All medicament_summary columns
+  ls.name AS labName,           -- Laboratory name
+  ma.statut AS availabilityStatut,
   m.prix_public,
   m.taux_remboursement,
-  m.commercialisation_statut,
-  m.agrement_collectivites,
-  m.presentation_label,
-  ma.statut AS availability_statut,
-  ms.**, -- Mappe automatiquement toutes les colonnes de ms vers MedicamentSummaryData
-  ls.name AS lab_name
+  commercialisation_statut AS commercialisationStatut
 FROM medicaments m
 INNER JOIN medicament_summary ms ON ms.cis_code = m.cis_code
 LEFT JOIN laboratories ls ON ls.id = ms.titulaire_id
@@ -72,20 +40,10 @@ ORDER BY sb.scan_timestamp DESC
 LIMIT :limit;
 
 -- Helpers to manage the search index directly from SQL
--- Note: search_index table is defined in dbschema.drift
+-- Note: search_index table is defined in dbschema.drift - DEPRECATED with cluster-first architecture
 deleteSearchIndex: DELETE FROM search_index;
 
-insertSearchIndexFromSummary:
-INSERT INTO search_index (
-  cis_code,
-  molecule_name,
-  brand_name
-)
-SELECT
-  ms.cis_code,
-  normalize_text(COALESCE(ms.nom_canonique, '')) AS molecule_name,
-  normalize_text(COALESCE(ms.princeps_de_reference, '')) AS brand_name
-FROM medicament_summary ms;
+-- Deprecated: insertSearchIndexFromSummary - replaced by cluster-based indexing in backend pipeline
 
 -- SIMPLIFIED: medicament_summary already contains all specialite data
 -- No need to join with specialites table
@@ -225,9 +183,10 @@ SET
 -- Get detailed product information by CIP code with all joined data automatically mapped
 getProductDetailsByCip:
 SELECT
-    m.**,         -- All medicament columns
-    s.**,         -- All specialite columns
+  m.** AS m,         -- All medicament columns
+  s.** AS s,         -- All specialite columns
     l.name AS laboratory_name,  -- Laboratory name
+    ms.** AS ms,
     ms.nom_canonique AS summary_nom_canonique,
     ms.princeps_de_reference AS summary_princeps_ref,
     ms.principes_actifs_communs AS summary_principes
@@ -240,9 +199,9 @@ WHERE m.code_cip = :cipCode;
 -- Get all products by laboratory with automatic mapping of all related data
 getProductsByLaboratory:
 SELECT
-    m.**,         -- All medicament columns
-    s.**,         -- All specialite columns
-    ms.**         -- All medicament_summary columns
+  m.** AS m,         -- All medicament columns
+  s.** AS s,         -- All specialite columns
+  ms.** AS ms         -- All medicament_summary columns
 FROM medicaments m
 INNER JOIN specialites s ON m.cis_code = s.cis_code
 INNER JOIN medicament_summary ms ON m.cis_code = ms.cis_code
@@ -252,7 +211,7 @@ ORDER BY s.nom_specialite;
 -- Get availability information for products with automatic mapping
 getProductAvailability:
 SELECT
-    m.**,         -- All medicament columns
+  m.** AS m,         -- All medicament columns
     s.nom_specialite,
     ma.statut AS availability_status,
     ma.date_debut,

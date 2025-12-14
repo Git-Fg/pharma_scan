@@ -1,4 +1,3 @@
-import 'package:azlistview/azlistview.dart';
 import 'package:characters/characters.dart';
 import 'package:dart_mappable/dart_mappable.dart';
 import 'package:pharma_scan/core/domain/types/ids.dart';
@@ -6,9 +5,7 @@ import 'package:pharma_scan/core/domain/types/ids.dart';
 part 'generic_group_entity.mapper.dart';
 
 @MappableClass()
-class GenericGroupEntity
-    with GenericGroupEntityMappable
-    implements ISuspensionBean {
+class GenericGroupEntity with GenericGroupEntityMappable {
   GenericGroupEntity({
     required this.groupId,
     required this.commonPrincipes,
@@ -21,11 +18,8 @@ class GenericGroupEntity
   final String princepsReferenceName;
   final CisCode? princepsCisCode;
 
-  @override
-  bool isShowSuspension = false;
-
-  @override
-  String getSuspensionTag() {
+  /// Get the sorting tag for this group (first letter of princepsReferenceName)
+  String getSortTag() {
     final normalized = princepsReferenceName.trimLeft();
     if (normalized.isEmpty) {
       return '#';

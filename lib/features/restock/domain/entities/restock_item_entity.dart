@@ -18,8 +18,30 @@ extension type RestockItemEntity(ViewRestockItem _data) {
 
   bool get isChecked => _data.notes?.contains('"checked":true') ?? false;
 
-  // Handle nullable boolean from Drift view
-  bool get isPrinceps => _data.isPrinceps ?? false;
+  // Handle potentially non-boolean representation from Drift view
+  bool get isPrinceps => _convertToBool(_data.isPrinceps);
+
+  // Helper to convert potentially string/int values to boolean
+  // Handles various database representations: 1/0, '1'/'0', 'true'/'false', 't'/'f', etc.
+  static bool _convertToBool(dynamic value) {
+    if (value == null) return false;
+
+    if (value is bool) return value;
+
+    if (value is int) return value != 0;
+
+    if (value is String) {
+      final lower = value.toLowerCase().trim();
+      if (lower == '1' || lower == 'true' || lower == 't' || lower == 'yes' || lower == 'y') {
+        return true;
+      } else if (lower == '0' || lower == 'false' || lower == 'f' || lower == 'no' || lower == 'n') {
+        return false;
+      }
+    }
+
+    // If conversion isn't straightforward, treat non-empty as true
+    return value.toString().isNotEmpty && value.toString() != '0';
+  }
 
   String? get form => _data.formePharmaceutique;
 

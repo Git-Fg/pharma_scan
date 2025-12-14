@@ -5,7 +5,8 @@ import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/features/explorer/domain/models/generic_group_entity.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
+import 'package:pharma_scan/core/ui/atoms/app_badge.dart';
+import 'package:pharma_scan/core/ui/organisms/app_sheet.dart';
 
 const double _groupHeaderHeight = 108;
 
@@ -32,33 +33,23 @@ class MoleculeGroupTile extends HookWidget {
       );
 
     Future<void> openSheet() async {
-      await showShadSheet<void>(
+      await AppSheet.show<void>(
         context: context,
-        side: ShadSheetSide.bottom,
-        builder: (sheetContext) {
-          return ShadSheet(
-            title: Text(
-              moleculeName,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: sheetContext.typo.h4,
+        title: moleculeName,
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppDimens.spacingMd,
+              vertical: AppDimens.spacingMd,
             ),
-            child: SingleChildScrollView(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppDimens.spacingMd,
-                  vertical: AppDimens.spacingMd,
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: sortedGroups
-                      .map((group) => itemBuilder(sheetContext, group))
-                      .toList(),
-                ),
-              ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: sortedGroups
+                  .map((group) => itemBuilder(context, group))
+                  .toList(),
             ),
-          );
-        },
+          ),
+        ),
       );
     }
 
@@ -79,11 +70,9 @@ class MoleculeGroupTile extends HookWidget {
             ),
             child: Row(
               children: [
-                ShadBadge.outline(
-                  child: Text(
-                    Strings.generics.substring(0, 1),
-                    style: context.typo.small,
-                  ),
+                AppBadge(
+                  label: Strings.generics.substring(0, 1),
+                  variant: BadgeVariant.outline,
                 ),
                 const Gap(AppDimens.spacingSm),
                 Expanded(
@@ -141,9 +130,8 @@ class MoleculeGroupTile extends HookWidget {
   int _naturalCompare(String a, String b) {
     final aParts = _splitNatural(a);
     final bParts = _splitNatural(b);
-    final minLength = aParts.length < bParts.length
-        ? aParts.length
-        : bParts.length;
+    final minLength =
+        aParts.length < bParts.length ? aParts.length : bParts.length;
 
     for (var i = 0; i < minLength; i++) {
       final aPart = aParts[i];

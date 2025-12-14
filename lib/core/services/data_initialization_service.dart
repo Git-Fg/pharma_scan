@@ -8,10 +8,11 @@ import 'package:pharma_scan/core/config/database_config.dart';
 // import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/services/file_download_service.dart';
 import 'package:pharma_scan/core/services/logger_service.dart';
-import 'package:pharma_scan/core/services/preferences_service.dart';
+import 'package:pharma_scan/core/database/daos/app_settings_dao.dart';
 import 'package:riverpod/riverpod.dart';
 import 'package:pharma_scan/core/database/providers.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
+import 'package:pharma_scan/features/home/providers/sync_provider.dart';
 
 enum InitializationStep { idle, downloading, ready, error }
 
@@ -23,19 +24,18 @@ class DataInitializationService {
   DataInitializationService({
     required Ref ref,
     required FileDownloadService fileDownloadService,
-    required PreferencesService preferencesService,
-    Dio? dio,
+    required Dio dio,
   })  : _ref = ref,
         _downloadService = fileDownloadService,
-        _prefs = preferencesService,
-        _dio = dio ?? _createDefaultDio();
+        _dio = dio;
 
   static const String dataVersion = 'remote-database';
 
   final Ref _ref;
   final FileDownloadService _downloadService;
-  final PreferencesService _prefs;
   final Dio _dio;
+
+  AppSettingsDao get _appSettings => _ref.read(databaseProvider()).appSettingsDao;
   final _stepController = StreamController<InitializationStep>.broadcast();
   final _detailController = StreamController<String>.broadcast();
 
@@ -51,7 +51,7 @@ class DataInitializationService {
   Future<void> initializeDatabase({bool forceRefresh = false}) async {
     try {
       // 1. Check if database needs to be downloaded/updated
-      final currentVersion = _prefs.getDbVersionTag();
+      final currentVersion = await _appSettings.bdpmVersion;
       final needsDownload = forceRefresh || currentVersion != dataVersion;
 
       if (!needsDownload) {
@@ -90,10 +90,13 @@ class DataInitializationService {
       await newDb.checkDatabaseIntegrity();
 
       // 7. Save version tag
-      await _prefs.setDbVersionTag(dataVersion);
+      await _appSettings.setBdpmVersion(dataVersion);
 
       LoggerService.info('[DataInit] Database initialization complete.');
       _emit(InitializationStep.ready, Strings.initializationReady);
+
+      // Trigger sync after successful initialization
+      _triggerPostInitializationSync();
     } catch (e, stackTrace) {
       LoggerService.error(
         '[DataInit] Error during initialization',
@@ -167,16 +170,6 @@ class DataInitializationService {
     if (!_detailController.isClosed) _detailController.add(detail);
   }
 
-  /// Creates a default Dio instance for GitHub API calls
-  static Dio _createDefaultDio() {
-    return Dio(
-      BaseOptions(
-        connectTimeout: const Duration(seconds: 10),
-        receiveTimeout: const Duration(minutes: 5),
-      ),
-    );
-  }
-
   /// Public method to update the database from GitHub Releases
   ///
   /// Returns `true` if an update was performed, `false` if no update was needed
@@ -223,7 +216,7 @@ class DataInitializationService {
 
       // 3. Check if update is needed
       if (!force) {
-        final currentTag = _prefs.getDbVersionTag();
+        final currentTag = await _appSettings.bdpmVersion;
 
         if (currentTag == latestTag) {
           LoggerService.info(
@@ -255,10 +248,14 @@ class DataInitializationService {
       // plus d'appel à _db ici, tout passe par _ref.read(databaseProvider)
 
       // Save the new version tag
-      await _prefs.setDbVersionTag(latestTag);
+      await _appSettings.setBdpmVersion(latestTag);
 
       LoggerService.info('[DataInit] Database update completed successfully');
       _emit(InitializationStep.ready, Strings.initializationReady);
+
+      // Trigger sync after successful update
+      _triggerPostInitializationSync();
+
       return true;
     } on TimeoutException catch (e) {
       LoggerService.warning('[DataInit] Timeout during update: $e');
@@ -272,5 +269,24 @@ class DataInitializationService {
       _emit(InitializationStep.error, Strings.initializationError);
       return false;
     }
+  }
+
+  /// Triggers sync after successful database initialization or update
+  void _triggerPostInitializationSync() {
+    // Trigger sync asynchronously to avoid blocking the initialization flow
+    Future.microtask(() async {
+      try {
+        LoggerService.info('[DataInit] Triggering post-initialization sync...');
+        final syncController = _ref.read(syncControllerProvider.notifier);
+        await syncController.startSync();
+        LoggerService.info('[DataInit] Post-initialization sync completed');
+      } catch (e, stackTrace) {
+        LoggerService.error(
+          '[DataInit] Error during post-initialization sync',
+          e,
+          stackTrace,
+        );
+      }
+    });
   }
 }

@@ -21,4 +21,17 @@ class TestTags {
   static const String explorerScreen = 'explorer_screen';
   static const String searchField = 'search_field';
   static const String medicamentCard = 'medicament_card';
+
+  // Common UI elements
+  static const String mainScaffold = 'main_scaffold';
+  static const String increment = 'increment';
+  static const String decrement = 'decrement';
+  static const String quantityInput = 'quantity_input';
+  static const String quantityDisplay = 'quantity_display';
+  static const String confirmQuantity = 'confirm_quantity';
+  static const String checkbox = 'checkbox';
+  static const String delete = 'delete';
+  static const String clearChecked = 'clear_checked';
+  static const String clearAll = 'clear_all';
+  static const String sortButton = 'sort_button';
 }

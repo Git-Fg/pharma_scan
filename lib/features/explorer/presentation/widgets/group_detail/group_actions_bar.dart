@@ -4,12 +4,14 @@ import 'package:pharma_scan/core/services/logger_service.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
+import 'package:pharma_scan/core/ui/molecules/app_button.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class GroupActionsBar extends StatelessWidget {
   const GroupActionsBar({
-    required this.cisCode, required this.ansmAlertUrl, super.key,
+    required this.cisCode,
+    required this.ansmAlertUrl,
+    super.key,
   });
 
   final String? cisCode;
@@ -38,40 +40,32 @@ class GroupActionsBar extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (ansmAlertUrl != null && ansmAlertUrl!.isNotEmpty) ...[
-            ShadButton.destructive(
-              width: double.infinity,
+            AppButton.icon(
               onPressed: () => _launchUrl(context, ansmAlertUrl!),
-              leading: const Icon(
-                LucideIcons.triangleAlert,
-                size: AppDimens.iconSm,
-              ),
-              child: const Text(Strings.shortageAlert),
+              variant: ButtonVariant.destructive,
+              size: ButtonSize.medium,
+              icon: LucideIcons.triangleAlert,
+              label: Strings.shortageAlert,
             ),
             const Gap(AppDimens.spacingSm),
           ],
           LayoutBuilder(
             builder: (context, constraints) {
               final isNarrow = constraints.maxWidth < 420;
-              final ficheButton = ShadButton.secondary(
-                width: double.infinity,
+              final ficheButton = AppButton.icon(
                 onPressed: () => _launchUrl(context, ficheUrl),
-                leading: Icon(
-                  LucideIcons.info,
-                  size: AppDimens.iconSm,
-                  color: context.colors.secondaryForeground,
-                ),
-                child: const Text(Strings.ficheInfo),
+                variant: ButtonVariant.secondary,
+                size: ButtonSize.medium,
+                icon: LucideIcons.info,
+                label: Strings.ficheInfo,
               );
 
-              final rcpButton = ShadButton.outline(
-                width: double.infinity,
+              final rcpButton = AppButton.icon(
                 onPressed: () => _launchUrl(context, rcpUrl),
-                leading: Icon(
-                  LucideIcons.fileText,
-                  size: AppDimens.iconSm,
-                  color: context.colors.foreground,
-                ),
-                child: const Text(Strings.rcpDocument),
+                variant: ButtonVariant.outline,
+                size: ButtonSize.medium,
+                icon: LucideIcons.fileText,
+                label: Strings.rcpDocument,
               );
 
               if (!isNarrow) {
@@ -105,10 +99,10 @@ class GroupActionsBar extends StatelessWidget {
       await launchUrl(uri);
     } on Exception catch (e) {
       if (context.mounted) {
-        ShadToaster.of(context).show(
-          ShadToast.destructive(
-            title: const Text(Strings.error),
-            description: Text('${Strings.unableToOpenUrl}: $url'),
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: Theme.of(context).colorScheme.error,
+            content: Text('${Strings.unableToOpenUrl}: $url'),
           ),
         );
       }

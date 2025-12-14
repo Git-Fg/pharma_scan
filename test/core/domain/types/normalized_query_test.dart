@@ -39,18 +39,25 @@ void main() {
       expect(result2, '');
     });
 
+    test('Replaces non-alphanumeric characters with spaces', () {
+      const input = 'DOLIPRANE®';
+      final result = NormalizedQuery.fromString(input);
+
+      expect(result, 'doliprane');
+    });
+
+    test('Handles complex pharmaceutical names with accents and symbols', () {
+      const input = 'Amoxicilline/Acide clavulanique';
+      final result = NormalizedQuery.fromString(input);
+
+      expect(result, 'amoxicilline acide clavulanique');
+    });
+
     test('Preserves pharmaceutical terms with salts', () {
       const input = 'Chlorhydrate de Paracétamol';
       final result = NormalizedQuery.fromString(input);
 
       expect(result, 'chlorhydrate de paracetamol');
-    });
-
-    test('Handles complex pharmaceutical names with accents', () {
-      const input = 'Amoxicilline / Acide Clavulanique';
-      final result = NormalizedQuery.fromString(input);
-
-      expect(result, 'amoxicilline / acide clavulanique');
     });
 
     test('Converts normalized query to FTS query string', () {
@@ -61,6 +68,15 @@ void main() {
     test('Empty normalized query returns empty FTS string', () {
       final q = NormalizedQuery.fromString('   ');
       expect(q.toFtsQuery(), '');
+    });
+
+    test('Uses canonical sanitizer normalization', () {
+      // Test that NormalizedQuery delegates to Sanitizer.normalizeForSearch
+      // These are the exact same test cases that should be in the sanitizer test
+      const input = 'DOLIPRANE® 500mg';
+      final result = NormalizedQuery.fromString(input);
+
+      expect(result, 'doliprane 500mg');
     });
   });
 }

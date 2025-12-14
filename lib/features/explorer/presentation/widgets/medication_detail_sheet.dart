@@ -9,7 +9,7 @@ import 'package:pharma_scan/features/explorer/domain/entities/group_detail_entit
 import 'package:pharma_scan/features/explorer/domain/extensions/medication_status_extensions.dart';
 import 'package:pharma_scan/features/explorer/domain/extensions/view_group_detail_extensions.dart';
 import 'package:pharma_scan/features/explorer/presentation/widgets/status_badges.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
+import 'package:pharma_scan/core/ui/organisms/app_sheet.dart';
 
 class MedicationDetailSheet extends StatelessWidget {
   const MedicationDetailSheet({required this.item, super.key});
@@ -23,15 +23,14 @@ class MedicationDetailSheet extends StatelessWidget {
         ? Strings.unknownHolder
         : item.parsedTitulaire;
     final availability = item.trimmedAvailabilityStatus;
-    final priceText = item.prixPublic != null
-        ? formatEuro(item.prixPublic!)
-        : null;
+    final priceText =
+        item.prixPublic != null ? formatEuro(item.prixPublic!) : null;
     final conditions = item.trimmedConditions;
     final statusFlags = item.statusFlags(
       availabilityStatus: item.trimmedAvailabilityStatus,
     );
 
-    return ShadSheet(
+    return AppSheetWidget(
       title: Text(
         Strings.medicationDetails,
         style: theme.textTheme.h4,
@@ -67,11 +66,9 @@ class MedicationDetailSheet extends StatelessWidget {
                     availabilityStatus: availability,
                   ),
                   if (item.isHospitalOnly)
-                    ShadBadge.secondary(
-                      child: Text(
-                        Strings.hospitalBadge,
-                        style: theme.textTheme.small,
-                      ),
+                    const AppBadge(
+                      label: Strings.hospitalBadge,
+                      variant: BadgeVariant.secondary,
                     ),
                 ],
               ),

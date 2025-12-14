@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:gap/gap.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
-import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/utils/test_tags.dart';
 import 'package:pharma_scan/core/widgets/adaptive_bottom_panel.dart';
 import 'package:pharma_scan/features/scanner/presentation/models/scanner_ui_state.dart';
 import 'package:pharma_scan/features/scanner/presentation/providers/scanner_provider.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
+import 'package:pharma_scan/core/ui/atoms/app_icon.dart';
+import 'package:pharma_scan/core/ui/molecules/app_button.dart';
+import 'package:pharma_scan/core/ui/theme/app_spacing.dart';
+import 'package:pharma_scan/core/ui/theme/app_theme.dart';
 
 /// Widget that displays the bottom control panel for the scanner screen.
 ///
@@ -63,8 +64,8 @@ class ScannerControls extends ConsumerWidget {
         ),
     };
     final buttonColor = mode == ScannerMode.restock
-        ? context.colors.destructive
-        : context.colors.primary;
+        ? context.textNegative
+        : context.actionPrimary;
     final bottomInset = MediaQuery.paddingOf(context).bottom;
 
     return Positioned(
@@ -77,16 +78,12 @@ class ScannerControls extends ConsumerWidget {
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 600),
               child: ClipRRect(
-                borderRadius: context.shadTheme.radius,
+                borderRadius: context.radiusMedium,
                 child: DecoratedBox(
                   decoration: BoxDecoration(
-                    color: ShadTheme.of(
-                      context,
-                    ).colorScheme.background.withValues(alpha: 0.9),
+                    color: context.surfacePrimary.withValues(alpha: 0.9),
                     border: Border.all(
-                      color: ShadTheme.of(
-                        context,
-                      ).colorScheme.border.withValues(alpha: 0.5),
+                      color: context.actionSurface.withValues(alpha: 0.5),
                     ),
                   ),
                   child: Padding(
@@ -116,7 +113,7 @@ class ScannerControls extends ConsumerWidget {
                           padding:
                               const EdgeInsets.only(top: AppDimens.spacingSm),
                           child: Row(
-                            spacing: AppDimens.spacingSm,
+                            spacing: AppSpacing.small,
                             children: [
                               Expanded(
                                 child: Semantics(
@@ -124,18 +121,11 @@ class ScannerControls extends ConsumerWidget {
                                   label: Strings.importBarcodeFromGallery,
                                   child: FittedBox(
                                     fit: BoxFit.scaleDown,
-                                    child: ShadButton.secondary(
-                                      onPressed:
-                                          isInitializing ? null : onGallery,
-                                      leading: const Icon(
-                                        LucideIcons.image,
-                                        size: AppDimens.iconSm,
-                                      ),
-                                      child: const Text(
-                                        Strings.gallery,
-                                        overflow: TextOverflow.ellipsis,
-                                        maxLines: 1,
-                                      ),
+                                    child: AppButton(
+                                      label: Strings.gallery,
+                                      variant: ButtonVariant.secondary,
+                                      onPressed: isInitializing ? null : onGallery,
+                                      icon: Icons.image,
                                     ),
                                   ),
                                 ),
@@ -147,18 +137,13 @@ class ScannerControls extends ConsumerWidget {
                                   label: torchState == TorchState.on
                                       ? Strings.turnOffTorch
                                       : Strings.turnOnTorch,
-                                  child: ShadIconButton.secondary(
-                                    onPressed:
-                                        isCameraRunning && !isInitializing
-                                            ? onToggleTorch
-                                            : null,
-                                    icon: Icon(
-                                      LucideIcons.zap,
-                                      size: AppDimens.iconLg,
-                                      color: torchState == TorchState.on
-                                          ? context.colors.primary
-                                          : null,
-                                    ),
+                                  child: AppButton.icon(
+                                    variant: ButtonVariant.secondary,
+                                    icon: Icons.flash_on,
+                                    size: ButtonSize.large,
+                                    onPressed: isCameraRunning && !isInitializing
+                                        ? onToggleTorch
+                                        : null,
                                   ),
                                 ),
                                 const Gap(AppDimens.spacingSm),
@@ -170,20 +155,14 @@ class ScannerControls extends ConsumerWidget {
                                   label: Strings.manuallyEnterCipCode,
                                   child: FittedBox(
                                     fit: BoxFit.scaleDown,
-                                    child: ShadButton.secondary(
+                                    child: AppButton(
                                       key: const Key(TestTags.manualEntryButton),
+                                      label: Strings.manualEntry,
+                                      variant: ButtonVariant.secondary,
                                       onPressed: isInitializing
                                           ? null
                                           : onManualEntry,
-                                      leading: const Icon(
-                                        LucideIcons.keyboard,
-                                        size: AppDimens.iconSm,
-                                      ),
-                                      child: const Text(
-                                        Strings.manualEntry,
-                                        overflow: TextOverflow.ellipsis,
-                                        maxLines: 1,
-                                      ),
+                                      icon: Icons.keyboard,
                                     ),
                                   ),
                                 ),
@@ -199,10 +178,7 @@ class ScannerControls extends ConsumerWidget {
             ),
           ),
         ],
-      )
-          .animate()
-          .fadeIn(delay: 200.ms)
-          .slideY(begin: 0.2, end: 0, curve: Curves.easeOutBack),
+      ),
     );
   }
 }
@@ -227,26 +203,30 @@ class ScannerActionButton extends StatelessWidget {
     return SizedBox(
       width: 88,
       height: 88,
-      child: ShadIconButton(
-        onPressed: isInitializing ? null : onPressed,
-        icon: Icon(
-          isCameraRunning ? LucideIcons.cameraOff : LucideIcons.scanLine,
-          size: AppDimens.iconXl,
-          color: context.colors.primaryForeground,
-        ),
-        gradient: LinearGradient(
-          colors: [
-            buttonColor,
-            buttonColor.withValues(alpha: 0.85),
+      child: Container(
+        decoration: BoxDecoration(
+          color: buttonColor,
+          borderRadius: BorderRadius.circular(44), // Moitié de la taille pour un cercle
+          boxShadow: [
+            BoxShadow(
+              color: buttonColor.withValues(alpha: 0.35),
+              blurRadius: 20,
+              offset: const Offset(0, 12),
+            ),
           ],
         ),
-        shadows: [
-          BoxShadow(
-            color: buttonColor.withValues(alpha: 0.35),
-            blurRadius: 20,
-            offset: const Offset(0, 12),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: isInitializing ? null : onPressed,
+            borderRadius: BorderRadius.circular(44),
+            child: Icon(
+              isCameraRunning ? Icons.camera_alt : Icons.qr_code_scanner,
+              size: AppDimens.iconXl,
+              color: context.actionOnPrimary,
+            ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -264,21 +244,20 @@ class ScannerModeToggle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = context.shadTheme;
     final isRestock = mode == ScannerMode.restock;
-    final color =
-        isRestock ? theme.colorScheme.destructive : theme.colorScheme.primary;
-    final icon = isRestock ? LucideIcons.box : LucideIcons.scanSearch;
-    final label =
-        isRestock ? Strings.scannerModeRestock : Strings.scannerModeAnalysis;
+    final color = isRestock
+        ? context.textNegative
+        : context.actionPrimary;
+    final icon = isRestock ? Icons.inventory : Icons.search;
+    final label = isRestock
+        ? Strings.scannerModeRestock
+        : Strings.scannerModeAnalysis;
 
     return FittedBox(
       child: ConstrainedBox(
         constraints: const BoxConstraints(minHeight: 32),
-        child: ShadButton.raw(
-          onPressed: onToggle,
-          variant: ShadButtonVariant.secondary,
-          padding: EdgeInsets.zero,
+        child: GestureDetector(
+          onTap: onToggle,
           child: DecoratedBox(
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.08),
@@ -298,7 +277,7 @@ class ScannerModeToggle extends StatelessWidget {
                   key: ValueKey(mode),
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
+                    AppIcon.custom(
                       icon,
                       size: AppDimens.iconSm,
                       color: color,
@@ -306,9 +285,10 @@ class ScannerModeToggle extends StatelessWidget {
                     const Gap(AppDimens.spacing2xs),
                     Text(
                       label,
-                      style: theme.textTheme.small.copyWith(
+                      style: TextStyle(
                         color: color,
                         fontWeight: FontWeight.w600,
+                        fontSize: 14,
                       ),
                     ),
                   ],

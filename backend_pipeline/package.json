@@ -5,6 +5,7 @@
   "module": "src/index.ts",
   "scripts": {
     "test": "bun test",
+    "build:db": "bun run build",
     "build": "bun run src/index.ts",
     "export-schema": "bun run tool/export_schema.ts",
     "generate": "bun run build && bun run export-schema",

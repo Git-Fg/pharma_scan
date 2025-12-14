@@ -23,5 +23,27 @@ extension type ScanHistoryEntry(GetScanHistoryResult _row) {
 
   String get label => _row.label;
   String? get princepsDeReference => _row.princepsDeReference;
-  bool get isPrinceps => _row.isPrinceps;
+  bool get isPrinceps => _convertToBool(_row.isPrinceps);
+
+  // Helper to convert potentially string/int values to boolean
+  // Handles various database representations: 1/0, '1'/'0', 'true'/'false', 't'/'f', etc.
+  static bool _convertToBool(dynamic value) {
+    if (value == null) return false;
+
+    if (value is bool) return value;
+
+    if (value is int) return value != 0;
+
+    if (value is String) {
+      final lower = value.toLowerCase().trim();
+      if (lower == '1' || lower == 'true' || lower == 't' || lower == 'yes' || lower == 'y') {
+        return true;
+      } else if (lower == '0' || lower == 'false' || lower == 'f' || lower == 'no' || lower == 'n') {
+        return false;
+      }
+    }
+
+    // If conversion isn't straightforward, treat non-empty as true
+    return value.toString().isNotEmpty && value.toString() != '0';
+  }
 }

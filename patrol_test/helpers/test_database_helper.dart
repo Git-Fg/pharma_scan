@@ -3,8 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:pharma_scan/core/config/database_config.dart';
-import 'package:pharma_scan/core/services/preferences_service.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+
+
 
 class TestDatabaseHelper {
   /// Copie la DB de référence des assets vers le dossier documents de l'app

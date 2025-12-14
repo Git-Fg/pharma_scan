@@ -13,7 +13,8 @@ import 'package:pharma_scan/features/explorer/domain/entities/medicament_entity.
 import 'package:pharma_scan/features/explorer/domain/extensions/medication_status_extensions.dart';
 import 'package:pharma_scan/features/explorer/presentation/widgets/status_badges.dart';
 import 'package:pharma_scan/features/scanner/presentation/providers/scanner_provider.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
+import 'package:pharma_scan/core/ui/theme/app_theme.dart';
+import 'package:pharma_scan/core/ui/atoms/app_icon.dart';
 
 /// Card widget for scanner result bubbles.
 ///
@@ -57,13 +58,10 @@ class ScannerResultCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = context.shadTheme;
     final isRestockMode = mode == ScannerMode.restock;
-    final backgroundColor = theme.colorScheme.background.withValues(
-      alpha: 0.7,
-    );
-    final restockBorder = theme.colorScheme.secondary.withValues(alpha: 0.6);
-    final radius = theme.radius;
+    final backgroundColor = context.surfacePrimary.withValues(alpha: 0.7);
+    final restockBorder = context.actionSecondary.withValues(alpha: 0.6);
+    final radius = context.radiusMedium;
 
     final isGenericWithPrinceps =
         !summary.data.isPrinceps &&
@@ -165,7 +163,7 @@ class ScannerResultCard extends StatelessWidget {
       shape: RoundedRectangleBorder(
         borderRadius: radius,
         side: BorderSide(
-          color: isRestockMode ? restockBorder : context.colors.border,
+          color: isRestockMode ? restockBorder : context.actionSurface,
         ),
       ),
       child: InkWell(
@@ -186,7 +184,7 @@ class ScannerResultCard extends StatelessWidget {
                       children: [
                         Text(
                           displayTitle,
-                          style: context.typo.p.copyWith(
+                          style: context.bodyLarge.copyWith(
                             fontWeight: FontWeight.w700,
                             fontSize: 15,
                           ),
@@ -197,8 +195,8 @@ class ScannerResultCard extends StatelessWidget {
                           const Gap(AppDimens.spacing2xs),
                           Text(
                             summary.data.princepsDeReference,
-                            style: context.typo.small.copyWith(
-                              color: context.colors.mutedForeground,
+                            style: context.bodySmall.copyWith(
+                              color: context.textSecondary,
                               fontWeight: FontWeight.w600,
                             ),
                             maxLines: 1,
@@ -209,8 +207,8 @@ class ScannerResultCard extends StatelessWidget {
                           const Gap(AppDimens.spacing2xs),
                           Text(
                             combinedMetadata,
-                            style: context.typo.small.copyWith(
-                              color: context.colors.mutedForeground,
+                            style: context.bodySmall.copyWith(
+                              color: context.textSecondary,
                               fontSize: 12,
                             ),
                             maxLines: 2,
@@ -242,9 +240,9 @@ class ScannerResultCard extends StatelessWidget {
                             onTap: onClose,
                             radius: 24,
                             child: Icon(
-                              LucideIcons.x,
+                              Icons.close,
                               size: 18,
-                              color: context.colors.mutedForeground,
+                              color: context.textSecondary,
                             ),
                           ),
                         ),
@@ -330,10 +328,10 @@ class ScannerResultCard extends StatelessWidget {
       card = DecoratedBox(
         decoration: BoxDecoration(
           border: Border.all(
-            color: context.colors.destructive,
+            color: context.textNegative,
             width: 2,
           ),
-          borderRadius: context.shadTheme.radius,
+          borderRadius: context.radiusMedium,
         ),
         child: card,
       );
@@ -378,7 +376,6 @@ class ScannerResultCard extends StatelessWidget {
     required String value,
     required IconData icon,
   }) {
-    final theme = context.shadTheme;
     return Semantics(
       label: label,
       child: Container(
@@ -387,21 +384,21 @@ class ScannerResultCard extends StatelessWidget {
           vertical: AppDimens.spacing2xs,
         ),
         decoration: BoxDecoration(
-          borderRadius: theme.radius,
-          border: Border.all(color: theme.colorScheme.border),
+          borderRadius: context.radiusMedium,
+          border: Border.all(color: context.actionSurface),
         ),
         child: Row(
           children: [
             Icon(
               icon,
               size: 14,
-              color: theme.colorScheme.mutedForeground,
+              color: context.textSecondary,
             ),
             const Gap(6),
             Expanded(
               child: Text(
                 value,
-                style: theme.textTheme.small.copyWith(
+                style: context.bodySmall.copyWith(
                   fontWeight: FontWeight.w600,
                 ),
                 maxLines: 1,
@@ -415,33 +412,26 @@ class ScannerResultCard extends StatelessWidget {
   }
 
   Widget _buildStatusIcons(BuildContext context) {
-    final theme = context.shadTheme;
-    final primaryColor = theme.colorScheme.primary;
-    final destructiveColor = theme.colorScheme.destructive;
+    final primaryColor = context.actionPrimary;
+    final destructiveColor = context.textNegative;
     final icons = <Widget>[];
-
-    Widget buildTooltip(String message, Icon icon) {
-      return ShadTooltip(
-        builder: (BuildContext tooltipContext) =>
-            Text(message, style: theme.textTheme.small),
-        child: icon,
-      );
-    }
 
     if (isHospitalOnly) {
       icons.add(
-        buildTooltip(
-          Strings.hospitalTooltip,
-          Icon(LucideIcons.building2, size: 16, color: primaryColor),
+        Icon(
+          Icons.local_hospital,
+          size: 16,
+          color: primaryColor,
         ),
       );
     }
 
     if (availabilityStatus != null && availabilityStatus!.isNotEmpty) {
       icons.add(
-        buildTooltip(
-          availabilityStatus!,
-          Icon(LucideIcons.triangleAlert, size: 16, color: destructiveColor),
+        Icon(
+          Icons.warning_amber,
+          size: 16,
+          color: destructiveColor,
         ),
       );
     }
@@ -452,9 +442,10 @@ class ScannerResultCard extends StatelessWidget {
           normalized.contains('arret') || normalized.contains('abroge');
       if (isStopped) {
         icons.add(
-          buildTooltip(
-            Strings.stoppedTooltip,
-            Icon(LucideIcons.ban, size: 16, color: destructiveColor),
+          Icon(
+            Icons.block,
+            size: 16,
+            color: destructiveColor,
           ),
         );
       }
@@ -477,10 +468,9 @@ class ScannerResultCard extends StatelessWidget {
     if (exactMatchLabel == null || exactMatchLabel!.isEmpty) {
       return null;
     }
-    final theme = context.shadTheme;
-    final mutedColor = theme.colorScheme.muted;
-    final mutedForeground = theme.colorScheme.mutedForeground;
-    final smallRadius = theme.radius.topLeft.x;
+    final mutedColor = context.surfaceSecondary;
+    final mutedForeground = context.textSecondary;
+    final smallRadius = context.radiusSmall.topLeft.x;
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: 6,
@@ -494,7 +484,7 @@ class ScannerResultCard extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            LucideIcons.scanBarcode,
+            Icons.qr_code_scanner,
             size: AppDimens.iconXs,
             color: mutedForeground,
           ),
@@ -502,7 +492,7 @@ class ScannerResultCard extends StatelessWidget {
           Flexible(
             child: Text(
               exactMatchLabel!,
-              style: theme.textTheme.small.copyWith(color: mutedForeground),
+              style: context.bodySmall.copyWith(color: mutedForeground),
               overflow: TextOverflow.ellipsis,
               maxLines: 1,
             ),

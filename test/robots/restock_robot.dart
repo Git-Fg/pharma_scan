@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pharma_scan/core/providers/app_bar_provider.dart';
-import 'package:pharma_scan/core/services/preferences_service.dart';
+
 import 'package:pharma_scan/features/restock/presentation/screens/restock_screen.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+
 
 /// Test wrapper that simulates the app shell with AppBar.
 ///

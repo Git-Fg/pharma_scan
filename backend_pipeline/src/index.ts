@@ -16,7 +16,7 @@ import {
   type SmrEvaluation,
   type AsmrEvaluation,
 } from "./parsing";
-import { computeClusters, type ClusteringInput, findCommonWordPrefix } from "./clustering";
+import { computeClusters, type ClusteringInput, findCommonWordPrefix, buildSearchVector } from "./clustering";
 import { applyPharmacologicalMask, formatPrinciples, isPureGalenicDescription } from "./sanitizer";
 import type { Specialite, MedicamentAvailability, GeneriqueGroup, GroupMember, PrincipeActif, MedicamentSummary } from "./types";
 
@@ -1436,7 +1436,7 @@ async function main() {
     JOIN group_members gm ON ms.group_id = gm.group_id
     JOIN medicaments m ON gm.code_cip = m.code_cip
     JOIN principes_actifs pa ON m.code_cip = pa.code_cip
-    WHERE ms.cluster_id IS NOT NULL 
+    WHERE ms.cluster_id IS NOT NULL
       AND ms.group_id IS NOT NULL
       AND pa.principe_normalized IS NOT NULL
   `);
@@ -1450,15 +1450,15 @@ async function main() {
       clusterStructure.set(row.cluster_id, new Map());
     }
     const groups = clusterStructure.get(row.cluster_id)!;
-    
+
     if (!groups.has(row.group_id)) {
       groups.set(row.group_id, []);
     }
-    
+
     // Formatage "Title Case" pour un affichage propre dans l'application
     // "PARACETAMOL" devient "Paracétamol"
     const prettyPrincipe = formatPrinciples(row.principe);
-    
+
     groups.get(row.group_id)!.push(prettyPrincipe);
   }
 
@@ -1468,18 +1468,18 @@ async function main() {
 
   for (const [clusterId, groups] of clusterStructure.entries()) {
     const voteCounts = new Map<string, number>();
-    
+
     // Pour chaque groupe du cluster
     for (const [groupId, substances] of groups.entries()) {
       // On trie pour que ["Amox", "Acide"] soit égal à ["Acide", "Amox"]
       substances.sort((a, b) => a.localeCompare(b));
-      
+
       // Dédupliquer les substances (au cas où un groupe aurait plusieurs CIS avec la même substance)
       const uniqueSubstances = Array.from(new Set(substances));
-      
+
       // Signature unique de la substance (sans dosage !)
       const signature = JSON.stringify(uniqueSubstances);
-      
+
       voteCounts.set(signature, (voteCounts.get(signature) || 0) + 1);
     }
 
@@ -1509,12 +1509,12 @@ async function main() {
   // 4. Injection Finale (Mise à jour de la colonne display)
   // ATTENTION : On écrase ce qui a été mis à l'étape 5bis pour les groupes membres d'un cluster.
   // C'est voulu : dans l'Explorer, on veut voir "PARACETAMOL", pas "PARACETAMOL 500 MG".
-  
+
   console.log("💉 Injecting CLUSTER compositions (Substances Only) into Summary...");
-  
+
   const updateClusterCompoStmt = db['db'].prepare(`
-    UPDATE medicament_summary 
-    SET principes_actifs_communs = ? 
+    UPDATE medicament_summary
+    SET principes_actifs_communs = ?
     WHERE cluster_id = ?
   `);
 
@@ -1527,10 +1527,10 @@ async function main() {
   // 5. Mettre à jour cluster_names avec les substances harmonisées (cluster_name)
   // Le cluster_name devient la substance clean (ex: "Paracétamol"), cluster_princeps reste le princeps (ex: "DOLIPRANE")
   console.log("📝 Updating cluster_names with harmonized substances...");
-  
+
   const updateClusterNameStmt = db['db'].prepare(`
-    UPDATE cluster_names 
-    SET cluster_name = ? 
+    UPDATE cluster_names
+    SET cluster_name = ?
     WHERE cluster_id = ?
   `);
 
@@ -1555,8 +1555,96 @@ async function main() {
       }
     }
   })();
-  
+
   console.log(`✅ Updated ${updatedCount} cluster_names with harmonized substances (cluster_name)`);
+
+  // --- CLUSTER-FIRST ARCHITECTURE: Populate cluster_index and medicament_detail tables ---
+  console.log("🏗️  Populating cluster-indexed tables for Cluster-First Architecture...");
+
+  // 1. Populate cluster_index table with search vectors
+  // Get cluster information to build search vectors
+  const clusterInfo = db.runQuery<{
+    cluster_id: string;
+    cluster_name: string;
+    cluster_princeps: string | null;
+    secondary_princeps: string | null;
+  }>(`
+    SELECT
+      cluster_id,
+      cluster_name,
+      cluster_princeps,
+      secondary_princeps
+    FROM cluster_names
+  `);
+
+  // Prepare cluster data for insertion
+  const clusterDataToInsert = clusterInfo.map(row => {
+    // Extract substance (from cluster_name)
+    const substance = row.cluster_name || '';
+
+    // Extract primary princeps
+    const primaryPrinceps = row.cluster_princeps || '';
+
+    // Extract secondary princeps as array
+    let secondaryPrincepsList: string[] = [];
+    if (row.secondary_princeps) {
+      try {
+        const parsed = JSON.parse(row.secondary_princeps);
+        if (Array.isArray(parsed)) {
+          secondaryPrincepsList = parsed.map((s: any) => String(s));
+        }
+      } catch (e) {
+        console.warn(`⚠️  Failed to parse secondary_princeps for cluster ${row.cluster_id}:`, e);
+      }
+    }
+
+    // Build search vector
+    const searchVector = buildSearchVector(substance, primaryPrinceps, secondaryPrincepsList);
+
+    // Get count of products in cluster
+    const countProductsRow = db.runQuery<{ count: number }>(
+      'SELECT COUNT(*) AS count FROM medicament_summary WHERE cluster_id = ?',
+      [row.cluster_id]
+    )[0];
+
+    return {
+      cluster_id: row.cluster_id,
+      title: substance,  // Display title (Substance Clean)
+      subtitle: row.cluster_princeps ? `Ref: ${row.cluster_princeps}` : null,  // Subtitle (Princeps Principal)
+      count_products: countProductsRow.count,
+      search_vector: searchVector  // The search vector for FTS5
+    };
+  });
+
+  db.insertClusterData(clusterDataToInsert);
+
+  // 2. Populate medicament_detail table with cluster content
+  const medicamentDetailData = db.runQuery<{
+    cis_code: string;
+    cluster_id: string;
+    nom_canonique: string;
+    is_princeps: number;
+  }>(`
+    SELECT
+      cis_code,
+      cluster_id,
+      nom_canonique,
+      is_princeps
+    FROM medicament_summary
+    WHERE cluster_id IS NOT NULL
+  `);
+
+  const detailDataToInsert = medicamentDetailData.map(row => ({
+    cis_code: row.cis_code,
+    cluster_id: row.cluster_id,
+    nom_complet: row.nom_canonique,
+    is_princeps: row.is_princeps === 1
+  }));
+
+  db.insertClusterMedicamentDetails(detailDataToInsert);
+
+  console.log(`✅ Populated cluster_index with ${clusterDataToInsert.length} entries`);
+  console.log(`✅ Populated medicament_detail with ${detailDataToInsert.length} entries`);
 
   // --- 7. Index (FTS5) ---
   console.log("📇 Populating search index...");
@@ -1567,7 +1655,7 @@ async function main() {
   console.log("💾 Switching to WAL mode and flushing checkpoint...");
   db.db.exec("PRAGMA journal_mode = WAL;");
   db.db.exec("PRAGMA wal_checkpoint(TRUNCATE);");
-  
+
   console.log("✨ Pipeline Completed Successfully!");
 }
 

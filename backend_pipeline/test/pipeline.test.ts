@@ -1,4 +1,5 @@
 import { describe, expect, test, beforeAll } from "bun:test";
+import { spawnSync } from "child_process";
 import { Database } from "bun:sqlite";
 import { existsSync } from "fs";
 import { join } from "path";
@@ -8,9 +9,16 @@ describe("Pipeline Integrity", () => {
     let db: Database;
 
     beforeAll(() => {
-        if (!existsSync(DEFAULT_DB_PATH)) {
-            throw new Error(`Database not found at ${DEFAULT_DB_PATH}. Run 'bun run build:db' first.`);
-        }
+            if (!existsSync(DEFAULT_DB_PATH)) {
+                // Attempt to build database automatically if missing
+                const result = spawnSync("bun", ["src/index.ts"], { stdio: "inherit", cwd: join(__dirname, '..') });
+                if (result.status !== 0) {
+                    throw new Error(`Failed to build database at ${DEFAULT_DB_PATH}. Run 'bun run build:db' first.`);
+                }
+                if (!existsSync(DEFAULT_DB_PATH)) {
+                    throw new Error(`Database still not found at ${DEFAULT_DB_PATH} after build. Run 'bun run build:db' first.`);
+                }
+            }
         db = new Database(DEFAULT_DB_PATH, { readonly: true });
     });
 

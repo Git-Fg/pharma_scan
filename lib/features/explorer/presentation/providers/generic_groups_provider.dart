@@ -29,35 +29,28 @@ class GenericGroupsNotifier extends _$GenericGroupsNotifier with SafeAsyncNotifi
   }
 
   Future<GenericGroupsState> _fetchAllGroups(SearchFilters filters) async {
-    final result = await safeExecute(
-      () async {
-        if (!isMounted(context: 'GenericGroupsNotifier._fetchAllGroups')) {
-          return GenericGroupsState(items: []);
-        }
+    final result = await safeExecute(() async {
+      final catalogDao = ref.read(catalogDaoProvider);
 
-        final catalogDao = ref.read(catalogDaoProvider);
+      final routeKeywords = filters.voieAdministration != null
+          ? [filters.voieAdministration!]
+          : null;
 
-        final routeKeywords = filters.voieAdministration != null
-            ? [filters.voieAdministration!]
-            : null;
+      final atcClassCode = filters.atcClass?.code;
 
-        final atcClassCode = filters.atcClass?.code;
+      final groups = await catalogDao.getGenericGroupSummaries(
+        routeKeywords: routeKeywords,
+        atcClass: atcClassCode,
+        limit: 10000,
+      );
 
-        final groups = await catalogDao.getGenericGroupSummaries(
-          routeKeywords: routeKeywords,
-          atcClass: atcClassCode,
-          limit: 10000,
-        );
+      if (!isMounted()) {
+        return GenericGroupsState(items: []);
+      }
 
-        if (!isMounted()) {
-          return GenericGroupsState(items: []);
-        }
-
-        // Ensure downstream listeners receive a fresh list instance on each fetch.
-        return GenericGroupsState(items: List<GenericGroupEntity>.of(groups));
-      },
-      operationName: 'GenericGroupsNotifier._fetchAllGroups',
-    );
+      // Ensure downstream listeners receive a fresh list instance on each fetch.
+      return GenericGroupsState(items: List<GenericGroupEntity>.of(groups));
+    });
 
     if (!isMounted()) {
       return const GenericGroupsState(items: []);

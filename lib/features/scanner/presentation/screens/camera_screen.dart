@@ -4,7 +4,6 @@ import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:gap/gap.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart' hide ScanWindowOverlay;
@@ -14,7 +13,6 @@ import 'package:pharma_scan/core/presentation/hooks/use_scanner_input.dart';
 import 'package:pharma_scan/core/router/app_router.dart';
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
 import 'package:pharma_scan/core/services/haptic_service.dart';
-import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/hooks/use_async_feedback.dart';
 import 'package:pharma_scan/features/scanner/presentation/providers/scanner_controller_provider.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
@@ -27,7 +25,11 @@ import 'package:pharma_scan/features/scanner/presentation/utils/scanner_utils.da
 import 'package:pharma_scan/features/scanner/presentation/widgets/scan_window_overlay.dart';
 import 'package:pharma_scan/features/scanner/presentation/widgets/scanner_bubbles.dart';
 import 'package:pharma_scan/features/scanner/presentation/widgets/scanner_controls.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
+import 'package:pharma_scan/core/ui/atoms/app_text.dart';
+import 'package:pharma_scan/core/ui/theme/app_theme.dart';
+import 'package:pharma_scan/core/ui/theme/app_spacing.dart';
+import 'package:pharma_scan/core/ui/molecules/app_button.dart';
+import 'package:pharma_scan/core/ui/services/feedback_service.dart';
 
 @RoutePage(name: 'ScannerRoute')
 class CameraScreen extends HookConsumerWidget {
@@ -80,9 +82,9 @@ class CameraScreen extends HookConsumerWidget {
 
     Future<void> openManualEntrySheet() async {
       final rootContext = Navigator.of(context, rootNavigator: true).context;
-      await showShadSheet<void>(
+      await showModalBottomSheet<void>(
         context: rootContext,
-        side: ShadSheetSide.bottom,
+        isScrollControlled: true,
         builder: (sheetContext) => _ManualCipSheet(
           onSubmit: (codeCip) =>
               ref.read(scannerProvider.notifier).findMedicament(codeCip),
@@ -91,9 +93,9 @@ class CameraScreen extends HookConsumerWidget {
     }
 
     Future<void> openGallerySheet() async {
-      final action = await showShadSheet<_GallerySheetResult>(
+      final action = await showModalBottomSheet<_GallerySheetResult>(
         context: context,
-        side: ShadSheetSide.bottom,
+        isScrollControlled: true,
         builder: (sheetContext) => const _GallerySheet(),
       );
 
@@ -169,7 +171,7 @@ class CameraScreen extends HookConsumerWidget {
                 child: Center(
                   child: StatusView(
                     type: StatusType.error,
-                    icon: LucideIcons.videoOff,
+                    icon: Icons.videocam_off,
                     title: Strings.cameraUnavailable,
                     description: Strings.checkPermissionsMessage,
                   ),
@@ -180,7 +182,7 @@ class CameraScreen extends HookConsumerWidget {
             const Center(
               child: StatusView(
                 type: StatusType.loading,
-                icon: LucideIcons.loader,
+                icon: Icons.hourglass_empty,
                 title: Strings.initializationInProgress,
                 description: Strings.initializationDescription,
               ),
@@ -192,15 +194,15 @@ class CameraScreen extends HookConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
-                    LucideIcons.scan,
+                    Icons.qr_code_scanner,
                     size: 80,
-                    color: context.colors.muted,
+                    color: context.textMuted,
                   ),
                   const Gap(20),
                   Text(
                     Strings.readyToScan,
-                    style: context.typo.h4.copyWith(
-                      color: context.colors.mutedForeground,
+                    style: context.headlineMedium.copyWith(
+                      color: context.textSecondary,
                     ),
                   ),
                 ],
@@ -213,29 +215,30 @@ class CameraScreen extends HookConsumerWidget {
             top: MediaQuery.paddingOf(context).top + 16,
             left: 16,
             child: ClipRRect(
-              borderRadius: context.shadTheme.radius,
+              borderRadius: context.radiusMedium,
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  color: ShadTheme.of(
-                    context,
-                  ).colorScheme.background.withValues(alpha: 0.82),
+                  color: context.surfacePrimary.withValues(alpha: 0.82),
                   border: Border.all(
-                    color: ShadTheme.of(
-                      context,
-                    ).colorScheme.border.withValues(alpha: 0.3),
+                    color: context.actionSurface.withValues(alpha: 0.3),
                   ),
-                  borderRadius: context.shadTheme.radius,
+                  borderRadius: context.radiusMedium,
                 ),
                 child: Semantics(
                   button: true,
                   label: Strings.historyTitle,
-                  child: ShadIconButton.ghost(
-                    icon: const Icon(LucideIcons.history),
-                    onPressed: () => showShadSheet<void>(
-                      context: context,
-                      side: ShadSheetSide.left,
-                      builder: (sheetContext) => const HistorySheet(),
-                    ),
+                  child: AppButton.icon(
+                    variant: ButtonVariant.ghost,
+                    icon: Icons.history,
+                    onPressed: () {
+                      // Pour l'instant, nous ouvrons un panneau latéral simple
+                      // La migration complète du ShadSheet nécessiterait une implémentation personnalisée
+                      showModalBottomSheet<void>(
+                        context: context,
+                        isScrollControlled: true,
+                        builder: (sheetContext) => const HistorySheet(),
+                      );
+                    },
                   ),
                 ),
               ),
@@ -245,24 +248,21 @@ class CameraScreen extends HookConsumerWidget {
             top: MediaQuery.paddingOf(context).top + 16,
             right: 16,
             child: ClipRRect(
-              borderRadius: context.shadTheme.radius,
+              borderRadius: context.radiusMedium,
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  color: ShadTheme.of(
-                    context,
-                  ).colorScheme.background.withValues(alpha: 0.82),
+                  color: context.surfacePrimary.withValues(alpha: 0.82),
                   border: Border.all(
-                    color: ShadTheme.of(
-                      context,
-                    ).colorScheme.border.withValues(alpha: 0.3),
+                    color: context.actionSurface.withValues(alpha: 0.3),
                   ),
-                  borderRadius: context.shadTheme.radius,
+                  borderRadius: context.radiusMedium,
                 ),
                 child: Semantics(
                   button: true,
                   label: Strings.settings,
-                  child: ShadIconButton.ghost(
-                    icon: const Icon(LucideIcons.settings),
+                  child: AppButton.icon(
+                    variant: ButtonVariant.ghost,
+                    icon: Icons.settings,
                     onPressed: () =>
                         AutoRouter.of(context).push(const SettingsRoute()),
                   ),
@@ -291,27 +291,35 @@ class _GallerySheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = context.shadTheme;
-    return ShadSheet(
-      title: const Text(Strings.importFromGallery),
-      description: const Text(Strings.pharmascanAnalyzesOnly),
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          Text(
+            Strings.importFromGallery,
+            style: context.headlineSmall,
+          ),
+          const Gap(8),
+          Text(
+            Strings.pharmascanAnalyzesOnly,
+            style: context.bodySmall.copyWith(color: context.textSecondary),
+          ),
+          const Gap(16),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Icon(
-                LucideIcons.shieldCheck,
-                color: theme.colorScheme.primary,
+                Icons.shield,
+                color: context.actionPrimary,
                 size: 20,
               ),
               const Gap(12),
               Expanded(
                 child: Text(
                   Strings.noPhotoStoredMessage,
-                  style: theme.textTheme.small,
+                  style: context.bodySmall,
                 ),
               ),
             ],
@@ -320,19 +328,21 @@ class _GallerySheet extends StatelessWidget {
           Semantics(
             button: true,
             label: Strings.choosePhotoFromGallery,
-            child: ShadButton(
+            child: AppButton(
+              label: Strings.choosePhoto,
+              variant: ButtonVariant.primary,
               onPressed: () =>
                   Navigator.of(context).pop(_GallerySheetResult.pick),
-              child: const Text(Strings.choosePhoto),
             ),
           ),
           const Gap(8),
           Semantics(
             button: true,
             label: Strings.cancelPhotoSelection,
-            child: ShadButton.outline(
+            child: AppButton(
+              label: Strings.cancel,
+              variant: ButtonVariant.outline,
               onPressed: () => Navigator.of(context).maybePop(),
-              child: const Text(Strings.cancel),
             ),
           ),
         ],
@@ -363,11 +373,10 @@ class _ManualCipSheet extends HookConsumerWidget {
       final trimmed = code.trim();
       if (trimmed.length != 13) {
         if (!context.mounted) return;
-        ShadToaster.of(context).show(
-          const ShadToast.destructive(
-            title: Text(Strings.cipMustBe13Digits),
-            description: Text(Strings.cipMustBe13Digits),
-          ),
+        FeedbackService.showError(
+          context,
+          Strings.cipMustBe13Digits,
+          title: Strings.cipMustBe13Digits,
         );
         scanner.focusNode.requestFocus();
         return;
@@ -384,20 +393,19 @@ class _ManualCipSheet extends HookConsumerWidget {
       isSubmitting.value = false;
 
       if (!success) {
-        ShadToaster.of(context).show(
-          ShadToast.destructive(
-            title: const Text(Strings.medicamentNotFound),
-            description: Text('${Strings.noMedicamentFoundForCipCode} $code'),
-          ),
+        FeedbackService.showError(
+          context,
+          '${Strings.noMedicamentFoundForCipCode} $code',
+          title: Strings.medicamentNotFound,
         );
       } else if (context.mounted) {
         unawaited(Navigator.of(context).maybePop());
       }
     };
 
-    return ShadResponsiveBuilder(
-      builder: (context, breakpoint) {
-        final maxWidth = breakpoint >= context.shadTheme.breakpoints.md
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxWidth = constraints.maxWidth >= 768.0
             ? 512.0
             : screenWidth;
 
@@ -407,57 +415,67 @@ class _ManualCipSheet extends HookConsumerWidget {
             alignment: Alignment.topCenter,
             child: SizedBox(
               width: maxWidth,
-              child: ShadSheet(
+              child: Container(
                 constraints: BoxConstraints(maxWidth: maxWidth),
-                title: const Text(Strings.manualCipEntry),
-                description: const Text(Strings.manualCipDescription),
-                actions: [
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      Strings.manualCipEntry,
+                      style: context.headlineMedium,
+                    ),
+                    const Gap(8),
+                    Text(
+                      Strings.manualCipDescription,
+                      style: context.bodyMedium.copyWith(color: context.textSecondary),
+                    ),
+                    const Gap(16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
                   Semantics(
                     button: true,
                     label: isSubmitting.value
                         ? Strings.searchingInProgress
                         : Strings.searchMedicamentWithCip,
                     enabled: !isSubmitting.value,
-                    child: ShadButton(
+                    child: AppButton(
+                      label: Strings.search,
+                      variant: ButtonVariant.primary,
                       onPressed: isSubmitting.value
                           ? null
                           : () => scanner.submit(scanner.controller.text),
-                      leading: isSubmitting.value
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                              ),
-                            )
-                          : null,
-                      child: const Text(Strings.search),
+                      isLoading: isSubmitting.value,
                     ),
                   ),
                 ],
-                child: ShadForm(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Text(
-                          Strings.manualEntryFieldLabel,
-                          style: context.typo.small.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        Strings.manualEntryFieldLabel,
+                        style: context.bodySmall.copyWith(
+                          fontWeight: FontWeight.w600,
                         ),
-                        const Gap(4),
-                        Semantics(
-                          textField: true,
-                          label: Strings.manualEntryFieldLabel,
-                          hint: Strings.cipPlaceholder,
-                          value: scanner.controller.text,
-                          child: ShadInput(
-                            controller: scanner.controller,
-                            focusNode: scanner.focusNode,
-                            placeholder: const Text(Strings.cipPlaceholder),
+                      ),
+                      const Gap(4),
+                      Semantics(
+                        textField: true,
+                        label: Strings.manualEntryFieldLabel,
+                        hint: Strings.cipPlaceholder,
+                        value: scanner.controller.text,
+                        child: TextField(
+                          controller: scanner.controller,
+                          focusNode: scanner.focusNode,
+                          decoration: InputDecoration(
+                            hintText: Strings.cipPlaceholder,
+                            border: OutlineInputBorder(
+                              borderRadius: context.radiusMedium,
+                            ),
+                          ),
                             autofocus: true,
                             keyboardType: TextInputType.number,
                             textInputAction: TextInputAction.search,
@@ -472,7 +490,7 @@ class _ManualCipSheet extends HookConsumerWidget {
                         const Gap(16),
                         Text(
                           Strings.searchStartsAutomatically,
-                          style: context.typo.small,
+                          style: context.bodySmall,
                         ),
                       ],
                     ),

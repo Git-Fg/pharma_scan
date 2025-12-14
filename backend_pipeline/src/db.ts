@@ -197,7 +197,8 @@ export class ReferenceDatabase {
         cluster_id TEXT PRIMARY KEY,
         title TEXT NOT NULL,              -- Ex: "Ibuprofène 400mg" (Substance Clean)
         subtitle TEXT,                    -- Ex: "Réf: Advil" (Princeps Principal)
-        count_products INTEGER DEFAULT 0
+        count_products INTEGER DEFAULT 0,
+        search_vector TEXT                -- The search vector for FTS5
       );
     `);
 
@@ -315,14 +316,10 @@ export class ReferenceDatabase {
       }
     }
 
-    // App settings table (from Flutter)
+    // NOTE: App settings are intentionally managed by the Flutter app
+    // and are not created by the backend pipeline. The FTS5 virtual
+    // table for full-text search follows.
     this.db.run(`
-      CREATE TABLE IF NOT EXISTS app_settings (
-        key TEXT PRIMARY KEY,
-        value BLOB NOT NULL
-      );
-
-
       -- FTS5 virtual table for full-text search with TRIGRAM tokenizer
       -- TRIGRAM enables powerful fuzzy matching (e.g., "dolipprane" finds "doliprane")
       -- This tokenizer breaks text into 3-character chunks for substring/typo tolerance
@@ -813,99 +810,103 @@ export class ReferenceDatabase {
    * Drops and recreates the index to avoid rowid synchronization issues.
    */
   public populateSearchIndex() {
-    console.log("📇 Populating search_index from medicament_summary...");
+    console.log("📇 Populating search_index from cluster data...");
 
-    // Drop triggers first
+    // Drop triggers for the old search_index first
     this.db.run("DROP TRIGGER IF EXISTS search_index_ai");
     this.db.run("DROP TRIGGER IF EXISTS search_index_au");
     this.db.run("DROP TRIGGER IF EXISTS search_index_ad");
 
-    // Drop and recreate the FTS5 table to avoid rowid issues
-    // IMPORTANT: Use trigram tokenizer for fuzzy search support
+    // Drop and recreate the FTS5 table to use cluster-based search with trigram tokenizer
     this.db.run("DROP TABLE IF EXISTS search_index");
     this.db.run(`
       CREATE VIRTUAL TABLE search_index USING fts5(
-        cis_code UNINDEXED,
-        molecule_name,
-        brand_name,
-        tokenize='trigram'
+        cluster_id UNINDEXED,
+        search_vector,
+        tokenize='trigram'                -- The magic for fuzzy matching
       )
     `);
 
-    // Fetch all summaries and insert with normalized text (using TypeScript normalization)
-    const summaries = this.db.query<{
-      cis_code: string;
-      nom_canonique: string | null;
-      princeps_de_reference: string | null;
+    // Fetch cluster data and populate the search index with search vectors
+    const clusters = this.db.query<{
+      cluster_id: string;
+      search_vector: string;
     }, []>(`
-      SELECT cis_code, nom_canonique, princeps_de_reference
-      FROM medicament_summary
+      SELECT cluster_id, search_vector
+      FROM cluster_index
     `).all();
 
     const stmt = this.db.prepare(`
-      INSERT INTO search_index (cis_code, molecule_name, brand_name)
-      VALUES (?, ?, ?)
+      INSERT INTO search_index (cluster_id, search_vector)
+      VALUES (?, ?)
     `);
 
-    for (const summary of summaries) {
-      const moleculeName = normalizeForSearch(summary.nom_canonique || '');
-      const brandName = normalizeForSearch(summary.princeps_de_reference || '');
-      stmt.run(summary.cis_code, moleculeName, brandName);
+    for (const cluster of clusters) {
+      stmt.run(cluster.cluster_id, cluster.search_vector);
     }
 
-    // Recreate triggers for future updates
-    this.db.run(`
-      CREATE TRIGGER search_index_ai AFTER INSERT ON medicament_summary BEGIN
-        INSERT INTO search_index(
-          cis_code,
-          molecule_name,
-          brand_name
-        ) VALUES (
-          new.cis_code,
-          normalize_text(COALESCE(new.nom_canonique, '')),
-          normalize_text(COALESCE(new.princeps_de_reference, ''))
-        );
-      END;
+    console.log("✅ Search index populated with cluster data");
+  }
 
-      CREATE TRIGGER search_index_ad AFTER DELETE ON medicament_summary BEGIN
-        INSERT INTO search_index(
-          search_index,
-          cis_code,
-          molecule_name,
-          brand_name
-        ) VALUES (
-          'delete',
-          old.cis_code,
-          normalize_text(COALESCE(old.nom_canonique, '')),
-          normalize_text(COALESCE(old.princeps_de_reference, ''))
-        );
-      END;
+  public insertClusterData(rows: Array<{
+    cluster_id: string;
+    title: string;
+    subtitle: string;
+    count_products: number;
+    search_vector: string;
+  }>) {
+    console.log(`📊 Inserting ${rows.length} cluster entries...`);
 
-      CREATE TRIGGER search_index_au AFTER UPDATE ON medicament_summary BEGIN
-        INSERT INTO search_index(
-          search_index,
-          cis_code,
-          molecule_name,
-          brand_name
-        ) VALUES (
-          'delete',
-          old.cis_code,
-          normalize_text(COALESCE(old.nom_canonique, '')),
-          normalize_text(COALESCE(old.princeps_de_reference, ''))
-        );
-        INSERT INTO search_index(
-          cis_code,
-          molecule_name,
-          brand_name
-        ) VALUES (
-          new.cis_code,
-          normalize_text(COALESCE(new.nom_canonique, '')),
-          normalize_text(COALESCE(new.princeps_de_reference, ''))
-        );
-      END;
+    const stmt = this.db.prepare(`
+      INSERT OR REPLACE INTO cluster_index (
+        cluster_id,
+        title,
+        subtitle,
+        count_products,
+        search_vector
+      ) VALUES (?, ?, ?, ?, ?)
     `);
 
-    console.log("✅ Search index populated");
+    for (const row of rows) {
+      stmt.run(
+        row.cluster_id,
+        row.title,
+        row.subtitle,
+        row.count_products,
+        row.search_vector
+      );
+    }
+
+    console.log(`✅ Inserted ${rows.length} cluster entries`);
+  }
+
+  public insertClusterMedicamentDetails(rows: Array<{
+    cis_code: string;
+    cluster_id: string;
+    nom_complet: string;
+    is_princeps: boolean;
+  }>) {
+    console.log(`📊 Inserting ${rows.length} cluster medicament details...`);
+
+    const stmt = this.db.prepare(`
+      INSERT OR REPLACE INTO medicament_detail (
+        cis_code,
+        cluster_id,
+        nom_complet,
+        is_princeps
+      ) VALUES (?, ?, ?, ?)
+    `);
+
+    for (const row of rows) {
+      stmt.run(
+        row.cis_code,
+        row.cluster_id,
+        row.nom_complet,
+        row.is_princeps ? 1 : 0
+      );
+    }
+
+    console.log(`✅ Inserted ${rows.length} cluster medicament details`);
   }
 
   public runQuery<T = any>(sql: string, params: any[] = []): T[] {

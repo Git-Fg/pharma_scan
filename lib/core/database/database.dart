@@ -5,11 +5,14 @@ import 'package:drift/native.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 
+import 'package:pharma_scan/core/database/daos/app_settings_dao.dart';
+import 'package:pharma_scan/core/database/tables/app_settings_table.dart';
 import 'package:pharma_scan/core/database/daos/catalog_dao.dart';
 import 'package:pharma_scan/core/database/daos/database_dao.dart';
 import 'package:pharma_scan/core/database/daos/restock_dao.dart';
 import 'package:pharma_scan/core/database/database.drift.dart';
 import 'package:pharma_scan/core/services/logger_service.dart';
+import 'package:pharma_scan/features/explorer/data/explorer_dao.dart';
 
 @DriftDatabase(
   // Include BOTH schema files so Drift knows about all tables for query generation
@@ -19,7 +22,8 @@ import 'package:pharma_scan/core/services/logger_service.dart';
     'queries.drift',
     'views.drift'
   },
-  daos: [CatalogDao, DatabaseDao, RestockDao],
+  tables: [AppSettings],
+  daos: [CatalogDao, DatabaseDao, RestockDao, ExplorerDao, AppSettingsDao],
 )
 class AppDatabase extends $AppDatabase {
   /// Constructeur principal configurant user.db comme principal et reference.db attaché

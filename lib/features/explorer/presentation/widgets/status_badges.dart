@@ -2,7 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/features/explorer/domain/extensions/medication_status_extensions.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
+import 'package:pharma_scan/core/ui/atoms/app_badge.dart';
 
 List<Widget> buildStatusBadges(
   BuildContext context,
@@ -14,16 +14,18 @@ List<Widget> buildStatusBadges(
 
   if (flags.contains(MedicationStatusFlag.revoked)) {
     badges.add(
-      ShadBadge.destructive(
-        child: Text(Strings.revokedStatusTitle, style: theme.textTheme.small),
+      AppBadge(
+        label: Strings.revokedStatusTitle,
+        variant: BadgeVariant.destructive,
       ),
     );
   }
 
   if (flags.contains(MedicationStatusFlag.notMarketed)) {
     badges.add(
-      ShadBadge.secondary(
-        child: Text(Strings.nonCommercialise, style: theme.textTheme.small),
+      AppBadge(
+        label: Strings.nonCommercialise,
+        variant: BadgeVariant.secondary,
       ),
     );
   }
@@ -31,19 +33,18 @@ List<Widget> buildStatusBadges(
   if (flags.contains(MedicationStatusFlag.shortage)) {
     final label = availabilityStatus?.trim();
     badges.add(
-      ShadBadge.destructive(
-        child: Text(
-          Strings.stockAlert(label ?? Strings.unknown),
-          style: theme.textTheme.small,
-        ),
+      AppBadge(
+        label: Strings.stockAlert(label ?? Strings.unknown),
+        variant: BadgeVariant.destructive,
       ),
     );
   }
 
   if (flags.contains(MedicationStatusFlag.expired)) {
     badges.add(
-      ShadBadge.destructive(
-        child: Text(Strings.expiredProductTitle, style: theme.textTheme.small),
+      AppBadge(
+        label: Strings.expiredProductTitle,
+        variant: BadgeVariant.destructive,
       ),
     );
   }
