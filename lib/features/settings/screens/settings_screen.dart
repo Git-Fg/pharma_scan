@@ -38,7 +38,8 @@ class SettingsScreen extends HookConsumerWidget {
     final hapticSettingsState = ref.watch(hapticSettingsProvider);
     final sortingState = ref.watch(sortingPreferenceProvider);
     final databaseStats = ref.watch(databaseStatsProvider);
-    final lastSyncEpoch = ref.watch(lastSyncEpochProvider);
+    final lastSyncEpochAsync = ref.watch(lastSyncEpochProvider);
+    final lastSyncEpoch = lastSyncEpochAsync.value;
     final syncDate = lastSyncEpoch != null
         ? DateTime.fromMillisecondsSinceEpoch(lastSyncEpoch)
         : null;
@@ -96,9 +97,9 @@ class SettingsScreen extends HookConsumerWidget {
       });
 
     final themeModeValue = themeState;
-    final selectedFrequency = frequencyState;
-    final hapticEnabled = hapticSettingsState;
-    final sortingPreference = sortingState;
+    final selectedFrequency = frequencyState.value;
+    final hapticEnabled = hapticSettingsState.value ?? true;
+    final sortingPreference = sortingState.value;
 
     useEffect(
       () {

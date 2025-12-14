@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
+import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
-import 'package:pharma_scan/core/ui/atoms/app_badge.dart';
 
 /// A tile representing a cluster (conceptual group) in search results
 /// Displays cluster information and opens a drawer when tapped
@@ -76,8 +76,8 @@ class ClusterTile extends StatelessWidget {
                   ),
                 ),
                 const Gap(AppDimens.spacingSm),
-                AppBadge(
-                  label: Strings.productCount(countProducts),
+                ShadBadge(
+                  child: Text(Strings.productCount(countProducts)),
                 ),
                 const Gap(AppDimens.spacingSm),
                 const ExcludeSemantics(

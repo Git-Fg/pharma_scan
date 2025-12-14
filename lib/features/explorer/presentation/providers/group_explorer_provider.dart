@@ -81,12 +81,12 @@ Future<List<T>> _firstNonEmpty<T>(Stream<List<T>> stream) async {
 
 String _buildPrincepsDisplayTitle(GroupDetailEntity princeps) {
   // Use princepsBrandName from DB if available
-  final brand = princeps.princepsBrandName?.trim() ?? '';
+  final brand = princeps.princepsBrandName.trim() ?? '';
   if (brand.isNotEmpty) {
     return brand;
   }
 
-  final nomSpecialite = princeps.nomSpecialite?.trim() ?? '';
+  final nomSpecialite = princeps.nomSpecialite.trim() ?? '';
   if (nomSpecialite.isNotEmpty) {
     return nomSpecialite;
   }

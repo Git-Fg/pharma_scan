@@ -38,6 +38,7 @@ targets:
           include:
             - lib/core/providers/**.dart
             - lib/core/services/**.dart
+            - lib/core/network/**.dart
             - lib/core/database/providers.dart
             - lib/core/router/router_provider.dart
             - lib/features/**/providers/**.dart

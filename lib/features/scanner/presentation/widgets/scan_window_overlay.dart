@@ -8,6 +8,7 @@ import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/hooks/use_scanner_logic.dart';
 import 'package:pharma_scan/features/scanner/presentation/providers/scanner_provider.dart';
 import 'package:pharma_scan/core/ui/theme/app_theme.dart';
+import 'package:shadcn_ui/shadcn_ui.dart';
 
 enum _ReticleState { idle, detecting, success }
 
@@ -18,9 +19,10 @@ class ScanWindowOverlay extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final windowSize = (constraints.maxWidth * 0.7).clamp(250.0, 350.0);
+    return ShadResponsiveBuilder(
+      builder: (context, breakpoint) {
+        final windowSize =
+            (MediaQuery.sizeOf(context).width * 0.7).clamp(250.0, 350.0);
         final borderRadius = context.radiusMedium.topLeft.x;
         final scrimColor = Colors.black.withValues(alpha: 0.3);
 
@@ -155,13 +157,15 @@ class _Reticle extends HookWidget {
       duration: const Duration(milliseconds: 260),
       curve: Curves.easeOut,
       builder: (context, scale, child) {
-        return AnimatedOpacity(
-          opacity: state == _ReticleState.success ? 1 : 0.9,
-          duration: const Duration(milliseconds: 220),
-          child: Transform.scale(
-            scale: scale,
-            child: child,
-          ),
+        return Transform.scale(
+          scale: scale,
+          // ignore: unchecked_use_of_nullable_value
+          child: (child ?? const SizedBox())
+              .animate()
+              .fade(
+                duration: const Duration(milliseconds: 220),
+              )
+              .value(state == _ReticleState.success ? 1.0 : 0.9),
         );
       },
       child: SizedBox(

@@ -11,13 +11,16 @@ import {
   parseConditions,
   parseAvailability,
   parseSafetyAlerts,
+  parseSafetyAlertsOptimized,
   parseSMR,
   parseASMR,
   type SmrEvaluation,
   type AsmrEvaluation,
 } from "./parsing";
+import { downloadBdpm } from "../scripts/download_bdpm";
 import { computeClusters, type ClusteringInput, findCommonWordPrefix, buildSearchVector } from "./clustering";
 import { applyPharmacologicalMask, formatPrinciples, isPureGalenicDescription } from "./sanitizer";
+import { extractForms, extractRoutes } from "./normalization";
 import type { Specialite, MedicamentAvailability, GeneriqueGroup, GroupMember, PrincipeActif, MedicamentSummary } from "./types";
 
 const DATA_DIR = process.env.DATA_DIR || "./data";
@@ -41,6 +44,14 @@ async function main() {
   console.log("🚀 Starting PharmaScan Backend Pipeline");
   console.log(`📂 Data Directory: ${DATA_DIR}`);
   console.log(`💾 Database Path: ${DB_PATH}`);
+
+  // Ensure BDPM source files are present (downloads only missing files by default)
+  try {
+    const force = process.argv.includes("--force-bdpm") || process.env.FORCE_BDPM === '1';
+    await downloadBdpm({ force });
+  } catch (e: any) {
+    console.warn(`⚠️ BDPM download step failed: ${e?.message ?? e}`);
+  }
 
   // Supprimer la base de données existante si elle existe (pour garantir une reconstruction complète)
   // Cela évite les problèmes de schéma obsolète et garantit que les vues sont toujours à jour
@@ -73,12 +84,12 @@ async function main() {
 
   // --- 0. Truncate Tables ---
   console.log("🗑️  Truncating staging tables...");
-  
+
   // Disable triggers before truncating to avoid normalize_text issues
   db.db.run("DROP TRIGGER IF EXISTS search_index_ai");
   db.db.run("DROP TRIGGER IF EXISTS search_index_au");
   db.db.run("DROP TRIGGER IF EXISTS search_index_ad");
-  
+
   db.db.run("DELETE FROM group_members");
   db.db.run("DELETE FROM generique_groups");
   db.db.run("DELETE FROM principes_actifs");
@@ -88,12 +99,15 @@ async function main() {
   db.db.run("DELETE FROM specialites");
   db.db.run("DELETE FROM medicament_summary");
   db.db.run("DELETE FROM search_index");
-  
+
   console.log("✅ Tables truncated");
+
+  // Disable FK constraints during bulk insert (enables out-of-order ETL)
+  db.disableForeignKeys();
 
   // --- 0b. Pre-load Enrichment Data (ATC & Conditions & SMR) ---
   console.log("📥 Pre-loading enrichment data (ATC & Conditions & SMR)...");
-  
+
   let atcMap = new Map<string, string>();
   const mitmPath = path.join(DATA_DIR, FILES.CIS_MITM);
   if (fs.existsSync(mitmPath)) {
@@ -182,15 +196,55 @@ async function main() {
         dateAmm: row[7],
         statutBdm: row[8],
         numeroEuropeen: row[9],
-        titulaireId: labMap.get(titulaireName) || 0,
-        isSurveillance: row[11]?.trim().toUpperCase() === "OUI",
+        titulaireId: titulaireName ? (labMap.get(titulaireName) || undefined) : undefined,
+        isSurveillance: (row[11]?.trim().toUpperCase() === 'OUI'),
         // ENRICHISSEMENT ICI
-        atcCode: atcMap.get(cis) || null,
-        conditionsPrescription: conditionsMap.get(cis) || null,
-      }
+        atcCode: atcMap.get(cis) ?? undefined,
+        conditionsPrescription: conditionsMap.get(cis) ?? undefined,
+      };
     });
     db.insertSpecialites(specialites);
     console.log(`✅ Inserted ${specialites.length} specialites (with ATC & Conditions)`);
+
+    // --- PHASE 2: CONTROLLED VOCABULARY ---
+    console.log("📚 extracting Controlled Vocabulary (Forms & Routes)...");
+
+    // 1. Forms
+    const formSet = extractForms(specialites);
+    const formList = Array.from(formSet).sort().map((label, idx) => ({ id: idx + 1, label }));
+    db.insertRefForms(formList);
+
+    // 2. Routes
+    const routeSet = extractRoutes(specialites);
+    const routeList = Array.from(routeSet).sort().map((label, idx) => ({ id: idx + 1, label }));
+    db.insertRefRoutes(routeList);
+
+    // Maps for lookup
+    const routeMap = new Map<string, number>();
+    routeList.forEach(r => routeMap.set(r.label, r.id));
+
+    // 3. Populate cis_routes
+    const cisRoutesInputs: { cis_code: string; route_id: number; is_inferred: number }[] = [];
+
+    for (const s of specialites) {
+      if (s.voiesAdministration) {
+        const parts = s.voiesAdministration.split(';');
+        for (const part of parts) {
+          const trimmed = part.trim();
+          if (trimmed && routeMap.has(trimmed)) {
+            cisRoutesInputs.push({
+              cis_code: s.cisCode,
+              route_id: routeMap.get(trimmed)!,
+              is_inferred: 0
+            });
+          }
+        }
+      }
+    }
+
+    if (cisRoutesInputs.length > 0) {
+      db.insertCisRoutes(cisRoutesInputs);
+    }
   } else {
     console.warn(`⚠️ File not found: ${specialitesPath}`);
   }
@@ -200,6 +254,7 @@ async function main() {
   const availabilityPath = path.join(DATA_DIR, FILES.CIS_CIP);
   // Map CIS -> CIP13s for later stages
   const cisToCip13 = new Map<string, string[]>();
+  const cipToCis = new Map<string, string>(); // NEW: CIP -> CIS map for composition linking
   const activeCips = new Set<string>();
 
   if (fs.existsSync(availabilityPath)) {
@@ -229,7 +284,7 @@ async function main() {
       };
     });
 
-    // Note: The `medicament_availability` table in `db.ts` expects { code_cip, statut, date_debut, date_fin, lien }.
+    // Note: The `medicament_availability` table in `db.ts` expects { cip_code, statut, date_debut, date_fin, lien }.
     // CIS_CIP_bdpm.txt provides CIS, CIP, Label, Statut, Etat, Date, CIP13.
     // Ideally we should also populate `medicaments` table here using CIP info, but `db.ts` `insertMedicaments` expects `Medicament` interface.
     // `Medicament` interface: { codeCip, cisCode, presentationLabel, commercialisationStatut... }
@@ -240,12 +295,18 @@ async function main() {
     const validCisSet = new Set(validCisRows.map(s => s.cis_code));
 
     // Map to Medicament interface for `medicaments` table
-    const medicamentsInput = rows.map(row => ({
-      codeCip: row[6] || row[1], // CIP13 or CIP7
-      cisCode: row[0],
-      presentationLabel: row[2],
-      commercialisationStatut: row[4], // Etat commercialisation
-    }))
+    const medicamentsInput = rows.map(row => {
+      const cip = row[6] || row[1];
+      const cis = row[0];
+      if (cip && cis) cipToCis.set(cip, cis); // Populate map
+
+      return {
+        codeCip: cip, // CIP13 or CIP7
+        cisCode: cis,
+        presentationLabel: row[2],
+        commercialisationStatut: row[4], // Etat commercialisation
+      };
+    })
       .filter(m => m.codeCip && m.cisCode && validCisSet.has(m.cisCode));
 
     db.insertMedicaments(medicamentsInput);
@@ -294,6 +355,54 @@ async function main() {
     const principes = await parsePrincipesActifs(streamBdpmFile(compoPath), cisToCip13);
     db.insertPrincipesActifs(principes);
     console.log(`✅ Inserted ${principes.length} principes actifs`);
+
+    // --- PHASE 3: SUBSTANCES NORMALIZATION ---
+    console.log("🧪 Normalizing Substances...");
+
+    // 1. Extract unique substances
+    const substSet = new Set<string>();
+    for (const p of principes) {
+      if (p.principeNormalized) substSet.add(p.principeNormalized);
+    }
+    const substList = Array.from(substSet).sort().map((label, idx) => ({ id: idx + 1, label }));
+    db.insertRefSubstances(substList);
+
+    // 2. Map Label -> ID
+    const substMap = new Map<string, number>();
+    substList.forEach(s => substMap.set(s.label, s.id));
+
+    // 3. Create Composition Links (CIS-based)
+    // We aggregate unique (CIS, Substance, Dosage) tuples to avoid duplicates from multiple CIPs
+    const compoLinkSet = new Set<string>(); // Key: "CIS|SubstID|Dosage"
+    const compoLinksParams: { cis_code: string; substance_id: number; dosage: string; nature: string }[] = [];
+
+    for (const p of principes) {
+      if (!p.principeNormalized || !p.codeCip) continue;
+
+      const cis = cipToCis.get(p.codeCip);
+      const subId = substMap.get(p.principeNormalized);
+
+      if (cis && subId) {
+        const dosageStr = (p.dosage && p.dosageUnit)
+          ? `${p.dosage} ${p.dosageUnit}`
+          : (p.dosage || '');
+
+        const key = `${cis}|${subId}|${dosageStr}`;
+        if (!compoLinkSet.has(key)) {
+          compoLinkSet.add(key);
+          compoLinksParams.push({
+            cis_code: cis,
+            substance_id: subId,
+            dosage: dosageStr,
+            nature: 'SA' // Logic to determine SA vs FT? Typically principes_actifs are SA.
+          });
+        }
+      }
+    }
+
+    if (compoLinksParams.length > 0) {
+      db.insertCompositionLinks(compoLinksParams);
+    }
   } else {
     console.warn(`⚠️ File not found: ${compoPath}`);
   }
@@ -329,7 +438,7 @@ async function main() {
 
   // --- 4. Refine Group Metadata (TS + Relational Masking) ---
   console.log("🔧 Refining group metadata with Relational Masking...");
-  
+
   // 1. Récupérer les infos nécessaires : GroupID + Info du Princeps (Nom & Forme)
   // TRI CRITIQUE : On trie par ordre décroissant de sort_order pour prioriser le princeps le plus récent/primaire
   const groupsToRefine = db.runQuery<{
@@ -345,12 +454,12 @@ async function main() {
       s.forme_pharmaceutique as princeps_forme
     FROM generique_groups gg
     JOIN (
-       SELECT group_id, code_cip 
+       SELECT group_id, cip_code 
        FROM group_members 
        WHERE type = 0 
-       ORDER BY sort_order DESC, code_cip
+       ORDER BY sort_order DESC, cip_code
     ) sorted_gm ON gg.group_id = sorted_gm.group_id
-    JOIN medicaments m ON sorted_gm.code_cip = m.code_cip
+    JOIN medicaments m ON sorted_gm.cip_code = m.cip_code
     JOIN specialites s ON m.cis_code = s.cis_code
     GROUP BY gg.group_id
     -- SQLite prendra le premier du groupe (donc le max sort_order grâce à la sous-requête)
@@ -366,11 +475,11 @@ async function main() {
     for (const row of groupsToRefine) {
       // C'est ici que la magie opère : Dénomination - Forme = Nom Clean
       const cleanLabel = applyPharmacologicalMask(row.princeps_nom, row.princeps_forme);
-      
+
       updateStmt.run(cleanLabel, row.group_id);
     }
   })();
-  
+
   // Mise à jour du molecule_label (inchangée)
   db.db.run(`
     UPDATE generique_groups
@@ -379,7 +488,7 @@ async function main() {
       NULLIF(TRIM(libelle), '')
     )
   `);
-  
+
   console.log(`✅ Refined names for ${groupsToRefine.length} groups using mask logic`);
 
   // Créer une table unifiée pour stocker tous les noms nettoyés (princeps ET génériques) par CIS
@@ -392,7 +501,7 @@ async function main() {
       PRIMARY KEY (cis_code, nom_clean)
     )
   `);
-  
+
   // Récupérer tous les noms de médicaments (princeps ET génériques) et appliquer le masque
   const allMedicationNames = db.runQuery<{
     cis_code: string;
@@ -424,7 +533,7 @@ async function main() {
       }
     }
   })();
-  
+
   console.log(`✅ Created clean medication names for ${allMedicationNames.length} CIS entries`);
 
   // Créer également la table group_princeps_clean pour compatibilité avec audit_data.ts
@@ -437,7 +546,7 @@ async function main() {
       PRIMARY KEY (group_id, princeps_name_clean)
     )
   `);
-  
+
   // Remplir group_princeps_clean depuis medicament_names_clean
   db.db.run(`
     INSERT OR REPLACE INTO group_princeps_clean (group_id, princeps_name_clean)
@@ -445,16 +554,16 @@ async function main() {
       gm.group_id,
       mnc.nom_clean
     FROM group_members gm
-    JOIN medicaments m ON gm.code_cip = m.code_cip
+    JOIN medicaments m ON gm.cip_code = m.cip_code
     JOIN medicament_names_clean mnc ON m.cis_code = mnc.cis_code
     WHERE gm.type = 0 -- Seulement les princeps
   `);
-  
+
   console.log(`✅ Populated group_princeps_clean from medicament_names_clean`);
 
   // Créer des vues SQL pour simplifier audit_data.ts (toute la logique dans la DB)
   console.log("📊 Creating SQL views for audit reports...");
-  
+
   // Vue 1: Clusters avec toutes les données formatées (JSON arrays au lieu de GROUP_CONCAT)
   // Supprimer puis recréer pour que les modifications soient toujours appliquées
   db.db.run(`DROP VIEW IF EXISTS v_clusters_audit`);
@@ -512,13 +621,13 @@ async function main() {
         WHERE ms_cluster.group_id = gg.group_id
         LIMIT 1
       ) as cluster_id,
-      (SELECT COUNT(*) FROM (SELECT DISTINCT gm2.code_cip FROM group_members gm2 WHERE gm2.group_id = gg.group_id)) as member_count,
-      (SELECT COUNT(*) FROM (SELECT DISTINCT gm2.code_cip FROM group_members gm2 WHERE gm2.group_id = gg.group_id AND gm2.type = 0)) as princeps_count,
-      (SELECT COUNT(*) FROM (SELECT DISTINCT gm2.code_cip FROM group_members gm2 WHERE gm2.group_id = gg.group_id AND gm2.type > 0)) as generic_count,
+      (SELECT COUNT(*) FROM (SELECT DISTINCT gm2.cip_code FROM group_members gm2 WHERE gm2.group_id = gg.group_id)) as member_count,
+      (SELECT COUNT(*) FROM (SELECT DISTINCT gm2.cip_code FROM group_members gm2 WHERE gm2.group_id = gg.group_id AND gm2.type = 0)) as princeps_count,
+      (SELECT COUNT(*) FROM (SELECT DISTINCT gm2.cip_code FROM group_members gm2 WHERE gm2.group_id = gg.group_id AND gm2.type > 0)) as generic_count,
       (SELECT GROUP_CONCAT(value, '|') 
        FROM (SELECT DISTINCT s2.forme_pharmaceutique as value 
              FROM group_members gm2
-             JOIN medicaments m2 ON gm2.code_cip = m2.code_cip
+             JOIN medicaments m2 ON gm2.cip_code = m2.cip_code
              JOIN specialites s2 ON m2.cis_code = s2.cis_code
              WHERE gm2.group_id = gg.group_id AND s2.forme_pharmaceutique IS NOT NULL)) as forms_available,
       (
@@ -554,7 +663,7 @@ async function main() {
       END as principes_actifs_communs_json
     FROM medicament_summary ms
   `);
-  
+
   console.log(`✅ Created 3 SQL views for audit reports`);
 
   // --- 5. Compute Clusters (TS) ---
@@ -572,7 +681,7 @@ async function main() {
     group_cip_counts AS (
       SELECT
         gm.group_id,
-        COUNT(DISTINCT gm.code_cip) AS total_cips
+        COUNT(DISTINCT gm.cip_code) AS total_cips
       FROM group_members gm
       GROUP BY gm.group_id
     ),
@@ -580,20 +689,20 @@ async function main() {
       SELECT
         gm.group_id,
         pa.principe_normalized,
-        COUNT(DISTINCT m.code_cip) AS cip_count
+        COUNT(DISTINCT m.cip_code) AS cip_count
       FROM principes_actifs pa
-      INNER JOIN medicaments m ON pa.code_cip = m.code_cip
-      INNER JOIN group_members gm ON m.code_cip = gm.code_cip
+      INNER JOIN medicaments m ON pa.cip_code = m.cip_code
+      INNER JOIN group_members gm ON m.cip_code = gm.cip_code
       WHERE pa.principe_normalized IS NOT NULL AND pa.principe_normalized != ''
       GROUP BY gm.group_id, pa.principe_normalized
     ),
     group_cips_with_principles AS (
       SELECT
         gm.group_id,
-        COUNT(DISTINCT m.code_cip) AS cips_with_principles
+        COUNT(DISTINCT m.cip_code) AS cips_with_principles
       FROM principes_actifs pa
-      INNER JOIN medicaments m ON pa.code_cip = m.code_cip
-      INNER JOIN group_members gm ON m.code_cip = gm.code_cip
+      INNER JOIN medicaments m ON pa.cip_code = m.cip_code
+      INNER JOIN group_members gm ON m.cip_code = gm.cip_code
       WHERE pa.principe_normalized IS NOT NULL AND pa.principe_normalized != ''
       GROUP BY gm.group_id
     ),
@@ -613,7 +722,7 @@ async function main() {
         s.forme_pharmaceutique AS princeps_forme,
         1 AS is_type_0
       FROM group_members gm
-      INNER JOIN medicaments m ON gm.code_cip = m.code_cip
+      INNER JOIN medicaments m ON gm.cip_code = m.cip_code
       INNER JOIN specialites s ON m.cis_code = s.cis_code
       WHERE gm.type = 0
       GROUP BY gm.group_id
@@ -668,8 +777,8 @@ async function main() {
       pa.dosage,
       pa.dosage_unit
     FROM group_members gm
-    JOIN medicaments m ON gm.code_cip = m.code_cip
-    JOIN principes_actifs pa ON m.code_cip = pa.code_cip
+    JOIN medicaments m ON gm.cip_code = m.cip_code
+    JOIN principes_actifs pa ON m.cip_code = pa.cip_code
     WHERE gm.group_id IS NOT NULL 
       AND pa.principe_normalized IS NOT NULL
       AND pa.principe_normalized != ''
@@ -678,25 +787,25 @@ async function main() {
   // B. Construire la Map de vote
   // Structure : Map<GroupId, Map<SignatureString, Count>>
   const groupVotes = new Map<string, Map<string, number>>();
-  
+
   // Map temporaire pour stocker la composition structurée associée à une signature
   // Map<SignatureString, StructuredComposition[]>
   const signatureToData = new Map<string, Array<{ p: string; d: string | null }>>();
 
   // Regroupement par CIS d'abord
   const cisCompoBuffer = new Map<string, Array<{ p: string; d: string | null }>>();
-  
+
   for (const row of rawCompositions) {
     // Clé unique par CIS dans le scope du traitement
     const key = `${row.group_id}|${row.cis_code}`;
     if (!cisCompoBuffer.has(key)) {
       cisCompoBuffer.set(key, []);
     }
-    
-    const dosageStr = row.dosage && row.dosage_unit 
+
+    const dosageStr = row.dosage && row.dosage_unit
       ? `${row.dosage} ${row.dosage_unit}`.trim()
       : row.dosage || null;
-    
+
     cisCompoBuffer.get(key)!.push({
       p: row.principe,
       d: dosageStr
@@ -706,7 +815,7 @@ async function main() {
   // C. Dépouillement du vote
   for (const [key, ingredients] of cisCompoBuffer.entries()) {
     const groupId = key.split('|')[0];
-    
+
     // 1. Trier les ingrédients pour garantir l'unicité de la signature
     // (A + B doit être égal à B + A)
     ingredients.sort((a, b) => {
@@ -720,7 +829,7 @@ async function main() {
 
     // 2. Créer la signature (JSON string)
     const signature = JSON.stringify(ingredients);
-    
+
     // 3. Sauvegarder la donnée réelle pour plus tard
     if (!signatureToData.has(signature)) {
       signatureToData.set(signature, ingredients);
@@ -757,7 +866,7 @@ async function main() {
         const displayStrings = winnerData.map((i) => {
           return i.d ? `${i.p} ${i.d}`.trim() : i.p;
         });
-        
+
         groupCanonicalCompo.set(groupId, JSON.stringify(displayStrings));
       }
     }
@@ -768,17 +877,15 @@ async function main() {
   // --- 5ter. Load Safety Alerts (BEFORE aggregation so table exists) ---
   console.log("🚨 Processing Safety Alerts (Info Importante)...");
   const safetyAlertsCis = new Set<string>(); // Pour mettre à jour le flag has_safety_alert
-  
+
   const infoPath = path.join(DATA_DIR, FILES.CIS_INFO);
   if (fs.existsSync(infoPath)) {
-    const alerts = await parseSafetyAlerts(streamBdpmFile(infoPath));
-    
+    const { alerts, links } = await parseSafetyAlertsOptimized(streamBdpmFile(infoPath));
+
     if (alerts.length > 0) {
-      db.insertSafetyAlerts(alerts);
-      for (const alert of alerts) {
-        safetyAlertsCis.add(alert.cisCode);
-      }
-      console.log(`✅ Inserted ${alerts.length} safety alerts`);
+      db.insertSafetyAlerts(alerts.map(a => ({ message: a.message, url: a.url, dateDebut: a.dateDebut, dateFin: a.dateFin })), links);
+      for (const link of links) safetyAlertsCis.add(link.cis);
+      console.log(`✅ Inserted ${alerts.length} unique safety alerts for ${links.length} medications.`);
     } else {
       console.log("   No active safety alerts found");
     }
@@ -799,7 +906,7 @@ async function main() {
   db.db.run(`
     INSERT OR REPLACE INTO medicament_summary (
       cis_code, nom_canonique, is_princeps, group_id, member_type,
-      principes_actifs_communs, princeps_de_reference, forme_pharmaceutique,
+      principes_actifs_communs, princeps_de_reference, parent_princeps_cis, forme_pharmaceutique, form_id, is_form_inferred,
       voies_administration, princeps_brand_name, procedure_type, titulaire_id,
       conditions_prescription, date_amm, is_surveillance, formatted_dosage,
       atc_code, status, price_min, price_max, aggregated_conditions,
@@ -819,7 +926,17 @@ async function main() {
       gm.type AS member_type,
       NULL AS principes_actifs_communs, -- Sera rempli par le vote majoritaire TS (étape 5bis)
       COALESCE(gg.princeps_label, gg.libelle, s.nom_specialite, 'Inconnu') AS princeps_de_reference,
+      (
+        SELECT m0.cis_code 
+        FROM group_members gm0 
+        JOIN medicaments m0 ON gm0.cip_code = m0.cip_code 
+        WHERE gm0.group_id = gg.group_id AND gm0.type = 0 
+        ORDER BY gm0.sort_order DESC 
+        LIMIT 1
+      ) AS parent_princeps_cis,
       s.forme_pharmaceutique,
+      rf.id AS form_id,
+      0 AS is_form_inferred,
       s.voies_administration,
       COALESCE(gg.princeps_label, gg.libelle, s.nom_specialite, 'Inconnu') AS princeps_brand_name,
       s.procedure_type,
@@ -833,13 +950,13 @@ async function main() {
       (
         SELECT MIN(m3.prix_public)
         FROM medicaments m3
-        INNER JOIN group_members gm3 ON m3.code_cip = gm3.code_cip
+        INNER JOIN group_members gm3 ON m3.cip_code = gm3.cip_code
         WHERE gm3.group_id = gg.group_id
       ) AS price_min,
       (
         SELECT MAX(m4.prix_public)
         FROM medicaments m4
-        INNER JOIN group_members gm4 ON m4.code_cip = gm4.code_cip
+        INNER JOIN group_members gm4 ON m4.cip_code = gm4.cip_code
         WHERE gm4.group_id = gg.group_id
       ) AS price_max,
       '[]' AS aggregated_conditions,
@@ -868,24 +985,25 @@ async function main() {
       NULL AS asmr_niveau,
       NULL AS asmr_date,
       'https://base-donnees-publique.medicaments.gouv.fr/affichageDoc.php?specid=' || s.cis_code || '&typedoc=N' AS url_notice,
-      CASE WHEN EXISTS(SELECT 1 FROM safety_alerts sa WHERE sa.cis_code = s.cis_code) THEN 1 ELSE 0 END AS has_safety_alert,
+      CASE WHEN EXISTS(SELECT 1 FROM cis_safety_links l WHERE l.cis_code = s.cis_code) THEN 1 ELSE 0 END AS has_safety_alert,
       (
-        SELECT MIN(m5.code_cip)
+        SELECT MIN(m5.cip_code)
         FROM medicaments m5
-        INNER JOIN group_members gm5 ON m5.code_cip = gm5.code_cip
+        INNER JOIN group_members gm5 ON m5.cip_code = gm5.cip_code
         WHERE gm5.group_id = gg.group_id AND m5.cis_code = s.cis_code
       ) AS representative_cip
     FROM generique_groups gg
     INNER JOIN group_members gm ON gg.group_id = gm.group_id
-    INNER JOIN medicaments m ON gm.code_cip = m.code_cip
+    INNER JOIN medicaments m ON gm.cip_code = m.cip_code
     INNER JOIN specialites s ON m.cis_code = s.cis_code
+    LEFT JOIN ref_forms rf ON s.forme_pharmaceutique = rf.label
   `);
 
   // Insert standalone medicaments (without groups)
   db.db.run(`
     INSERT OR REPLACE INTO medicament_summary (
       cis_code, nom_canonique, is_princeps, group_id, member_type,
-      principes_actifs_communs, princeps_de_reference, forme_pharmaceutique,
+      principes_actifs_communs, princeps_de_reference, parent_princeps_cis, forme_pharmaceutique, form_id, is_form_inferred,
       voies_administration, princeps_brand_name, procedure_type, titulaire_id,
       conditions_prescription, date_amm, is_surveillance, formatted_dosage,
       atc_code, status, price_min, price_max, aggregated_conditions,
@@ -911,14 +1029,17 @@ async function main() {
           )
         )
         FROM principes_actifs pa
-        INNER JOIN medicaments m2 ON pa.code_cip = m2.code_cip
+        INNER JOIN medicaments m2 ON pa.cip_code = m2.cip_code
         WHERE m2.cis_code = s.cis_code
           AND pa.principe_normalized IS NOT NULL
           AND pa.principe_normalized != ''
         ORDER BY pa.principe_normalized
       ) AS principes_actifs_communs,
       s.nom_specialite AS princeps_de_reference,
+      s.cis_code AS parent_princeps_cis, -- Self reference for standalone princeps
       s.forme_pharmaceutique,
+      rf.id AS form_id,
+      0 AS is_form_inferred,
       s.voies_administration,
       s.nom_specialite AS princeps_brand_name,
       s.procedure_type,
@@ -965,17 +1086,18 @@ async function main() {
       NULL AS asmr_niveau,
       NULL AS asmr_date,
       'https://base-donnees-publique.medicaments.gouv.fr/affichageDoc.php?specid=' || s.cis_code || '&typedoc=N' AS url_notice,
-      CASE WHEN EXISTS(SELECT 1 FROM safety_alerts sa WHERE sa.cis_code = s.cis_code) THEN 1 ELSE 0 END AS has_safety_alert,
+      CASE WHEN EXISTS(SELECT 1 FROM cis_safety_links l WHERE l.cis_code = s.cis_code) THEN 1 ELSE 0 END AS has_safety_alert,
       (
-        SELECT MIN(m5.code_cip)
+        SELECT MIN(m5.cip_code)
         FROM medicaments m5
         WHERE m5.cis_code = s.cis_code
       ) AS representative_cip
     FROM specialites s
+    LEFT JOIN ref_forms rf ON s.forme_pharmaceutique = rf.label
     WHERE NOT EXISTS (
       SELECT 1
       FROM group_members gm
-      INNER JOIN medicaments m ON gm.code_cip = m.code_cip
+      INNER JOIN medicaments m ON gm.cip_code = m.cip_code
       WHERE m.cis_code = s.cis_code
     )
   `);
@@ -985,7 +1107,7 @@ async function main() {
 
   // Inject canonical compositions into grouped medicaments (Majority Vote)
   console.log("💉 Injecting canonical compositions into Summary...");
-  
+
   const updateCompoStmt = db['db'].prepare(`
     UPDATE medicament_summary 
     SET principes_actifs_communs = ? 
@@ -997,7 +1119,7 @@ async function main() {
       updateCompoStmt.run(compoJson, groupId);
     }
   })();
-  
+
   // Cas des médicaments sans groupe (Orphelins)
   // On garde la logique SQL simple pour eux (car pas de "vote" possible, un seul CIS)
   console.log("💉 Computing compositions for standalone CIS...");
@@ -1012,7 +1134,7 @@ async function main() {
         )
       )
       FROM principes_actifs pa
-      JOIN medicaments m ON pa.code_cip = m.code_cip
+      JOIN medicaments m ON pa.cip_code = m.cip_code
       WHERE m.cis_code = medicament_summary.cis_code
       AND pa.principe_normalized IS NOT NULL
       AND pa.principe_normalized != ''
@@ -1025,7 +1147,7 @@ async function main() {
   console.log("💉 Injecting SMR and ASMR levels and dates...");
   const updateSmrStmt = db['db'].prepare("UPDATE medicament_summary SET smr_niveau = ?, smr_date = ? WHERE cis_code = ?");
   const updateAsmrStmt = db['db'].prepare("UPDATE medicament_summary SET asmr_niveau = ?, asmr_date = ? WHERE cis_code = ?");
-  
+
   db['db'].transaction(() => {
     for (const [cis, smr] of smrMap.entries()) {
       updateSmrStmt.run(smr.niveau, smr.date, cis);
@@ -1034,7 +1156,7 @@ async function main() {
       updateAsmrStmt.run(asmr.niveau, asmr.date, cis);
     }
   })();
-  
+
   console.log(`✅ Injected SMR levels and dates for ${smrMap.size} CIS`);
   console.log(`✅ Injected ASMR levels and dates for ${asmrMap.size} CIS`);
 
@@ -1223,7 +1345,7 @@ async function main() {
       secondary_princeps TEXT
     )
   `);
-  
+
   // Ajouter les colonnes si elles n'existent pas (pour les bases existantes)
   try {
     db.db.run(`ALTER TABLE cluster_names ADD COLUMN cluster_princeps TEXT`);
@@ -1239,7 +1361,7 @@ async function main() {
       throw e;
     }
   }
-  
+
   // Remplir la table avec les noms de clusters calculés
   const clusterNameMap = new Map<string, string>();
   for (const [groupId, meta] of clusterMap.entries()) {
@@ -1248,12 +1370,12 @@ async function main() {
       clusterNameMap.set(clusterId, meta.princepsLabel);
     }
   }
-  
+
   const insertClusterNameStmt = db['db'].prepare(`
     INSERT OR REPLACE INTO cluster_names (cluster_id, cluster_name, substance_code, cluster_princeps, secondary_princeps)
     VALUES (?, ?, ?, ?, ?)
   `);
-  
+
   db['db'].transaction(() => {
     for (const [groupId, meta] of clusterMap.entries()) {
       const clusterId = groupIdToClusterId.get(groupId);
@@ -1262,14 +1384,14 @@ async function main() {
         // substance_code = substanceCode (pour référence)
         // cluster_princeps sera calculé plus tard via LCP
         // secondary_princeps = tableau JSON des princeps secondaires
-        const secondariesJson = meta.secondaryPrinceps && meta.secondaryPrinceps.length > 0 
-            ? JSON.stringify(meta.secondaryPrinceps) 
-            : null;
+        const secondariesJson = meta.secondaryPrinceps && meta.secondaryPrinceps.length > 0
+          ? JSON.stringify(meta.secondaryPrinceps)
+          : null;
         insertClusterNameStmt.run(clusterId, meta.princepsLabel, meta.substanceCode, null, secondariesJson);
       }
     }
   })();
-  
+
   // Update cluster_id and cluster princeps name for grouped medicaments (post-insert)
   // Le clusterMap contient le princepsLabel calculé avec LCP
   for (const [groupId, meta] of clusterMap.entries()) {
@@ -1287,7 +1409,7 @@ async function main() {
   // IMPORTANT : Cette étape doit être APRÈS l'assignation du cluster_id dans medicament_summary
   // CRITIQUE : Utiliser les noms propres (après masque galénique) et pondérer par sort_order
   console.log("🔍 Computing cluster_princeps via LCP (using clean names, weighted by sort_order)...");
-  
+
   // Récupérer tous les noms princeps PROPRES par cluster avec leur sort_order
   const princepsNamesQuery = db.runQuery<{
     cluster_id: string;
@@ -1300,7 +1422,7 @@ async function main() {
       COALESCE(gm.sort_order, 0) as sort_order
     FROM medicament_summary ms
     JOIN group_members gm ON ms.group_id = gm.group_id
-    JOIN medicaments m ON gm.code_cip = m.code_cip
+    JOIN medicaments m ON gm.cip_code = m.cip_code
     JOIN specialites s ON m.cis_code = s.cis_code
     LEFT JOIN group_princeps_clean gpc ON ms.group_id = gpc.group_id AND gm.type = 0
     LEFT JOIN medicament_names_clean mnc ON m.cis_code = mnc.cis_code
@@ -1349,17 +1471,17 @@ async function main() {
       if (validPrincepsData.length > 0) {
         // Extraire les noms propres uniquement pour le LCP
         const validPrincepsNames = validPrincepsData.map(d => d.name);
-        
+
         // Tentative 1 : LCP sur tous les noms propres
         const commonPrefix = findCommonWordPrefix(validPrincepsNames);
-        
+
         let clusterPrinceps: string;
         let secondaryPrinceps: string[] = [];
-        
+
         if (commonPrefix.length >= 3) {
           // Le LCP a trouvé un préfixe significatif (ex: "CONTRAMAL LP" -> "CONTRAMAL")
           clusterPrinceps = commonPrefix;
-          
+
           // Si il n'y a qu'un seul princeps unique, pas de secondary_princeps
           const uniquePrinceps = new Set(validPrincepsNames);
           if (uniquePrinceps.size === 1) {
@@ -1377,7 +1499,7 @@ async function main() {
           // Utiliser la logique de vote PONDÉRÉ par sort_order sur le PREMIER MOT
           // Les princeps avec sort_order élevé (plus récents) ont plus de poids
           const firstWordVotes = new Map<string, number>();
-          
+
           for (const { name, sortOrder } of validPrincepsData) {
             const firstWord = name.trim().split(/\s+/)[0];
             if (firstWord) {
@@ -1387,7 +1509,7 @@ async function main() {
               firstWordVotes.set(firstWord, (firstWordVotes.get(firstWord) || 0) + weight);
             }
           }
-          
+
           // Trier par vote pondéré décroissant
           const sortedWords = Array.from(firstWordVotes.entries()).sort((a, b) => {
             const voteCompare = b[1] - a[1];
@@ -1395,25 +1517,25 @@ async function main() {
             // En cas d'égalité parfaite, le plus court gagne (souvent le plus générique)
             return a[0].length - b[0].length;
           });
-          
+
           // Le vainqueur est le premier mot avec le plus de votes pondérés
           // Cela privilégie les princeps les plus récents (sort_order élevé)
           clusterPrinceps = sortedWords.length > 0 ? sortedWords[0][0] : validPrincepsNames[0];
-          
+
           // Les secondaires sont tous les autres premiers mots uniques (triés par vote décroissant)
           secondaryPrinceps = sortedWords.slice(1).map(e => e[0]);
         }
-        
+
         // Convertir en JSON pour stockage
-        const secondariesJson = secondaryPrinceps.length > 0 
-            ? JSON.stringify(secondaryPrinceps) 
-            : null;
-        
+        const secondariesJson = secondaryPrinceps.length > 0
+          ? JSON.stringify(secondaryPrinceps)
+          : null;
+
         updateClusterPrincepsStmt.run(clusterPrinceps, secondariesJson, clusterId);
       }
     }
   })();
-  
+
   console.log(`✅ Computed cluster_princeps for ${clusterPrincepsMap.size} clusters`);
 
   // --- 5ter. Compute Canonical CLUSTER Composition (Substance-Only Majority Vote) ---
@@ -1434,8 +1556,8 @@ async function main() {
       pa.principe_normalized as principe
     FROM medicament_summary ms
     JOIN group_members gm ON ms.group_id = gm.group_id
-    JOIN medicaments m ON gm.code_cip = m.code_cip
-    JOIN principes_actifs pa ON m.code_cip = pa.code_cip
+    JOIN medicaments m ON gm.cip_code = m.cip_code
+    JOIN principes_actifs pa ON m.cip_code = pa.cip_code
     WHERE ms.cluster_id IS NOT NULL
       AND ms.group_id IS NOT NULL
       AND pa.principe_normalized IS NOT NULL
@@ -1610,7 +1732,7 @@ async function main() {
     return {
       cluster_id: row.cluster_id,
       title: substance,  // Display title (Substance Clean)
-      subtitle: row.cluster_princeps ? `Ref: ${row.cluster_princeps}` : null,  // Subtitle (Princeps Principal)
+      subtitle: row.cluster_princeps ?? '', // Ensure string, never null
       count_products: countProductsRow.count,
       search_vector: searchVector  // The search vector for FTS5
     };
@@ -1651,6 +1773,14 @@ async function main() {
   db.populateSearchIndex();
   console.log("✅ Search index populated");
 
+  // --- 8. Populate Product Scan Cache (Denormalized table for Flutter Scanner) ---
+  console.log("📦 Populating product scan cache...");
+  db.populateProductScanCache();
+  console.log("✅ Product scan cache populated");
+
+  // Re-enable FK constraints and validate (throws if violations found)
+  db.enableForeignKeys();
+
   // Switch to WAL mode for better concurrent access (after all inserts are done)
   console.log("💾 Switching to WAL mode and flushing checkpoint...");
   db.db.exec("PRAGMA journal_mode = WAL;");
@@ -1665,8 +1795,8 @@ async function readBdpmFile(filePath: string): Promise<string[][]> {
   const content = await fs.promises.readFile(filePath);
   const decoded = iconv.decode(content, "latin1"); // ISO-8859-1
   return new Promise((resolve, reject) => {
-    parse(decoded, { 
-      delimiter: "\t", 
+    parse(decoded, {
+      delimiter: "\t",
       relax_quotes: true,
       relax_column_count: true, // Allow inconsistent column counts
       skip_empty_lines: true, // Skip empty lines
@@ -1682,8 +1812,8 @@ async function readBdpmFile(filePath: string): Promise<string[][]> {
 async function* streamBdpmFile(filePath: string): AsyncIterable<string[]> {
   const stream = fs.createReadStream(filePath)
     .pipe(iconv.decodeStream("latin1"))
-    .pipe(parse({ 
-      delimiter: "\t", 
+    .pipe(parse({
+      delimiter: "\t",
       relax_quotes: true,
       relax_column_count: true, // Allow inconsistent column counts
       skip_empty_lines: true, // Skip empty lines

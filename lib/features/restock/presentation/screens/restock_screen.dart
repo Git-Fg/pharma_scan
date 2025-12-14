@@ -6,7 +6,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:pharma_scan/core/hooks/use_app_header.dart';
 import 'package:pharma_scan/core/hooks/use_tab_reselection.dart';
-import 'package:pharma_scan/core/providers/navigation_provider.dart';
+
 import 'package:pharma_scan/core/providers/preferences_provider.dart';
 import 'package:pharma_scan/core/services/haptic_service.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';

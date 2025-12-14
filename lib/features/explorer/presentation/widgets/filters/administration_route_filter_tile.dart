@@ -39,8 +39,9 @@ Widget buildAdministrationRouteFilterTile(
         routes: routes,
         selectedValue: selectedValue,
         onChanged: (value) {
-          ref.read(searchFiltersProvider.notifier).filters = currentFilters
-              .copyWith(voieAdministration: value);
+          ref.read(searchFiltersProvider.notifier).setFilters(
+                currentFilters.copyWith(voieAdministration: value),
+              );
           unawaited(Navigator.of(context).maybePop());
         },
       );

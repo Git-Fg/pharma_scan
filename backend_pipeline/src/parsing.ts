@@ -1,3 +1,4 @@
+import * as cheerio from 'cheerio';
 import {
   SALT_PREFIXES,
   SALT_SUFFIXES,
@@ -821,6 +822,68 @@ export async function parseSafetyAlerts(
     }
   }
   return alerts;
+}
+
+export interface ParsedSafetyAlert {
+  cisCode: string;
+  dateDebut: string;
+  dateFin: string;
+  url: string;
+  message: string;
+}
+
+// HTML parsing is handled via Cheerio (see parseSafetyAlertsOptimized)
+
+/**
+ * Improved parser that extracts URL, cleans HTML, deduplicates alerts and
+ * returns a lightweight list of links cis->alertIndex.
+ */
+export async function parseSafetyAlertsOptimized(
+  rows: AsyncIterable<string[]>
+): Promise<{ alerts: Omit<ParsedSafetyAlert, 'cisCode'>[]; links: { cis: string; alertIndex: number }[] }> {
+  const uniqueAlertsMap = new Map<string, number>();
+  const alerts: Omit<ParsedSafetyAlert, 'cisCode'>[] = [];
+  const links: { cis: string; alertIndex: number }[] = [];
+
+  for await (const row of rows) {
+    if (row.length < 4) continue;
+
+    const cisCode = row[0]?.trim();
+    const dateDebut = row[1]?.trim() || '';
+    const dateFin = row[2]?.trim() || '';
+    const rawHtml = row[3] || '';
+
+    if (!cisCode) continue;
+
+    // Parse HTML robustly using Cheerio (fast fragment mode)
+    const $ = cheerio.load(rawHtml, null, false);
+    const link = $('a').first();
+
+    // Extraction sécurisée
+    let url = link.attr('href') || '';
+    let message = link.text().trim(); // Cheerio décodera automatiquement les entités
+
+    // If no <a> present, fall back to extracting text from the raw HTML fragment
+    if (link.length === 0) {
+      message = cheerio.load(`<div>${rawHtml}</div>`).text().trim();
+      url = '';
+    }
+
+    if (!message) continue;
+
+    const key = `${dateDebut}|${dateFin}|${url}|${message}`;
+
+    let alertIndex = uniqueAlertsMap.get(key);
+    if (alertIndex === undefined) {
+      alertIndex = alerts.length;
+      alerts.push({ dateDebut, dateFin, url, message });
+      uniqueAlertsMap.set(key, alertIndex);
+    }
+
+    links.push({ cis: cisCode, alertIndex });
+  }
+
+  return { alerts, links };
 }
 
 /**

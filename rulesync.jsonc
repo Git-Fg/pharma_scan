@@ -22,7 +22,5 @@
     "."
   ],
   "delete": true, // Clean old config files before regenerating
-  "simulateCommands": true, // Generate simulated commands
-  "simulateSubagents": true, // Generate simulated subagents
   "simulateSkills": true // Generate simulated skills
 }

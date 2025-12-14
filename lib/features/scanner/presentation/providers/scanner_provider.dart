@@ -218,7 +218,7 @@ class ScannerNotifier extends _$ScannerNotifier {
     switch (decision) {
       case Ignore():
         return;
-      case AnalysisSuccess(:final result, :final replacedExisting):
+      case AnalysisSuccess(:final result):
         // Note: result is handled by Signals store for UI updates
         // We only emit side effects here
         final hasAvailabilityWarning =
@@ -231,7 +231,6 @@ class ScannerNotifier extends _$ScannerNotifier {
           ),
         );
       case RestockAdded(
-          :final scanResult,
           :final toastMessage,
         ):
         _emit(const ScannerHaptic(ScannerHapticType.restockSuccess));
@@ -271,17 +270,5 @@ class ScannerNotifier extends _$ScannerNotifier {
   void _emit(ScannerSideEffect effect) {
     if (_sideEffects.isClosed) return;
     _sideEffects.add(effect);
-  }
-
-  /// Remove bubble (signals are the source of truth, this is for persistence only)
-  void removeBubble(String cip) {
-    // Signals store handles UI state - this is for any persistent cleanup if needed
-    // Currently no persistent storage for individual bubbles, so this is a no-op
-  }
-
-  /// Clear all bubbles (signals are the source of truth, this is for persistence only)
-  void clearAllBubbles() {
-    // Signals store handles UI state - this is for any persistent cleanup if needed
-    // Currently no persistent storage for bubble history, so this is a no-op
   }
 }

@@ -17,18 +17,21 @@ class ScrollToTopFab extends HookWidget {
   Widget build(BuildContext context) {
     final isVisible = useState(false);
 
-    useEffect(() {
-      void listener() {
-        if (!controller.hasClients) return;
-        final shouldShow = controller.offset > 500;
-        if (shouldShow != isVisible.value) {
-          isVisible.value = shouldShow;
+    useEffect(
+      () {
+        void listener() {
+          if (!controller.hasClients) return;
+          final shouldShow = controller.offset > 500;
+          if (shouldShow != isVisible.value) {
+            isVisible.value = shouldShow;
+          }
         }
-      }
 
-      controller.addListener(listener);
-      return () => controller.removeListener(listener);
-    }, [controller],);
+        controller.addListener(listener);
+        return () => controller.removeListener(listener);
+      },
+      [controller],
+    );
 
     Future<void> scrollToTop() async {
       if (!controller.hasClients) return;
@@ -44,31 +47,37 @@ class ScrollToTopFab extends HookWidget {
       onPressed: scrollToTop,
     );
 
-    return AnimatedSlide(
-      duration: const Duration(milliseconds: 200),
-      offset: isVisible.value ? Offset.zero : const Offset(0, 0.5),
-      child: AnimatedOpacity(
-        duration: const Duration(milliseconds: 200),
-        opacity: isVisible.value ? 1 : 0,
-        child: badgeCount != null
-            ? Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  button,
-                  Positioned(
-                    top: -6,
-                    right: -6,
-                    child: ShadBadge(
-                      child: Text(
-                        '$badgeCount',
-                        style: context.typo.small,
-                      ),
-                    ),
+    return badgeCount != null
+        ? Stack(
+            clipBehavior: Clip.none,
+            children: [
+              button
+                  .animate(target: isVisible.value ? 1 : 0)
+                  .fadeIn(duration: const Duration(milliseconds: 200))
+                  .slideY(
+                    begin: 0.5,
+                    end: 0,
+                    duration: const Duration(milliseconds: 200),
                   ),
-                ],
-              )
-            : button,
-      ),
-    );
+              Positioned(
+                top: -6,
+                right: -6,
+                child: ShadBadge(
+                  child: Text(
+                    '$badgeCount',
+                    style: context.typo.small,
+                  ),
+                ),
+              ),
+            ],
+          )
+        : button
+            .animate(target: isVisible.value ? 1 : 0)
+            .fadeIn(duration: const Duration(milliseconds: 200))
+            .slideY(
+              begin: 0.5,
+              end: 0,
+              duration: const Duration(milliseconds: 200),
+            );
   }
 }

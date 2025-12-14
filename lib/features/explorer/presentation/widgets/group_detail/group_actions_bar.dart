@@ -2,9 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 import 'package:pharma_scan/core/services/logger_service.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
-import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
-import 'package:pharma_scan/core/ui/molecules/app_button.dart';
+import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class GroupActionsBar extends StatelessWidget {
@@ -40,32 +39,26 @@ class GroupActionsBar extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (ansmAlertUrl != null && ansmAlertUrl!.isNotEmpty) ...[
-            AppButton.icon(
+            ShadButton.destructive(
               onPressed: () => _launchUrl(context, ansmAlertUrl!),
-              variant: ButtonVariant.destructive,
-              size: ButtonSize.medium,
-              icon: LucideIcons.triangleAlert,
-              label: Strings.shortageAlert,
+              child: const Icon(LucideIcons.triangleAlert),
             ),
             const Gap(AppDimens.spacingSm),
           ],
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final isNarrow = constraints.maxWidth < 420;
-              final ficheButton = AppButton.icon(
+          ShadResponsiveBuilder(
+            builder: (context, breakpoint) {
+              // horizontalPadding not used locally anymore
+
+              // Using static check for narrow screen
+              final isNarrow = MediaQuery.sizeOf(context).width < 640;
+              final ficheButton = ShadButton.secondary(
                 onPressed: () => _launchUrl(context, ficheUrl),
-                variant: ButtonVariant.secondary,
-                size: ButtonSize.medium,
-                icon: LucideIcons.info,
-                label: Strings.ficheInfo,
+                child: const Icon(LucideIcons.info),
               );
 
-              final rcpButton = AppButton.icon(
+              final rcpButton = ShadButton.outline(
                 onPressed: () => _launchUrl(context, rcpUrl),
-                variant: ButtonVariant.outline,
-                size: ButtonSize.medium,
-                icon: LucideIcons.fileText,
-                label: Strings.rcpDocument,
+                child: const Icon(LucideIcons.fileText),
               );
 
               if (!isNarrow) {

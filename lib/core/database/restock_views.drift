@@ -14,7 +14,7 @@ SELECT
   ms.forme_pharmaceutique,
   s.forme_pharmaceutique AS specialite_forme
 FROM restock_items ri
-LEFT JOIN medicaments m ON m.code_cip = ri.cip_code
+LEFT JOIN medicaments m ON m.cip_code = ri.cip_code
 LEFT JOIN medicament_summary ms ON ms.cis_code = m.cis_code
 LEFT JOIN specialites s ON s.cis_code = m.cis_code
 ORDER BY ri.updated_at DESC;

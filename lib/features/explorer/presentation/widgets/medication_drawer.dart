@@ -39,8 +39,8 @@ class MedicationDrawer extends ConsumerWidget {
             itemBuilder: (ctx, idx) {
               final product = products[idx];
               return ProductRow(
-                name: product.nomComplet,
-                isPrinceps: product.isPrinceps,
+                name: product.nomComplet ?? '',
+                isPrinceps: (product.isPrinceps ?? 0) == 1,
               );
             },
           ),

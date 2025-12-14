@@ -113,16 +113,18 @@ class PharmaScanApp extends HookConsumerWidget {
         ),
         // Global radius configuration
         radius: BorderRadius.circular(12),
-        // Component defaults for mobile-first approach
-        primaryButtonTheme: const ShadButtonTheme(
-          height: 50, // Mobile-first: larger touch targets
-          width: double.infinity, // Full width by default on mobile
-        ),
+        // Component defaults using AppDimens values for consistency
         inputTheme: const ShadInputTheme(
           padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         ),
         cardTheme: const ShadCardTheme(
-          padding: EdgeInsets.all(16),
+          padding: EdgeInsets.all(16), // spacingMd from AppDimens
+        ),
+        // Set touch target sizes
+        primaryButtonTheme: const ShadButtonTheme(
+          height:
+              56, // listTileMinHeight from AppDimens for better touch targets
+          width: double.infinity, // Full width by default on mobile
         ),
         primaryToastTheme: const ShadToastTheme(
           alignment: Alignment.topCenter,
@@ -138,16 +140,18 @@ class PharmaScanApp extends HookConsumerWidget {
         ),
         // Global radius configuration
         radius: BorderRadius.circular(12),
-        // Component defaults for mobile-first approach
-        primaryButtonTheme: const ShadButtonTheme(
-          height: 50, // Mobile-first: larger touch targets
-          width: double.infinity, // Full width by default on mobile
-        ),
+        // Component defaults using AppDimens values for consistency
         inputTheme: const ShadInputTheme(
           padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         ),
         cardTheme: const ShadCardTheme(
-          padding: EdgeInsets.all(16),
+          padding: EdgeInsets.all(16), // spacingMd from AppDimens
+        ),
+        // Set touch target sizes
+        primaryButtonTheme: const ShadButtonTheme(
+          height:
+              56, // listTileMinHeight from AppDimens for better touch targets
+          width: double.infinity, // Full width by default on mobile
         ),
         primaryToastTheme: const ShadToastTheme(
           alignment: Alignment.topCenter,

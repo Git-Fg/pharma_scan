@@ -38,6 +38,33 @@ export class ReferenceDatabase {
     console.log(`✅ Database initialized successfully`);
   }
 
+  /**
+   * Disable foreign key constraints during bulk ETL operations.
+   * This allows inserting rows in any order during the pipeline.
+   * IMPORTANT: Call enableForeignKeys() after all inserts to validate.
+   */
+  public disableForeignKeys() {
+    this.db.exec("PRAGMA foreign_keys = OFF;");
+    console.log("⚠️  Foreign key constraints DISABLED for bulk insert");
+  }
+
+  /**
+   * Re-enable foreign key constraints and validate all relationships.
+   * Should be called after all ETL inserts are complete.
+   */
+  public enableForeignKeys() {
+    this.db.exec("PRAGMA foreign_keys = ON;");
+    // Run a foreign key integrity check
+    const violations = this.db.query<{ table: string; rowid: number; parent: string; fkid: number }, []>(
+      "PRAGMA foreign_key_check"
+    ).all();
+    if (violations.length > 0) {
+      console.error(`❌ Found ${violations.length} FK violations:`, violations.slice(0, 5));
+      throw new Error(`Foreign key integrity check failed with ${violations.length} violations`);
+    }
+    console.log("✅ Foreign key constraints ENABLED and validated");
+  }
+
   public initSchema() {
     // Register normalize_text function before creating tables
     // Note: createFunction may not be available in test environment
@@ -81,61 +108,75 @@ export class ReferenceDatabase {
         statut_bdm TEXT,
         numero_europeen TEXT,
         titulaire_id INTEGER,
-        is_surveillance BOOLEAN DEFAULT 0,
+        is_surveillance INTEGER DEFAULT 0 CHECK (is_surveillance IN (0, 1)),
         conditions_prescription TEXT,
         atc_code TEXT
-      );
+      ) STRICT;
     `);
 
+    // Phase 1: Standardize FK relationships for Drift's withReferences()
+    // medicaments is a CHILD of medicament_summary (via cis_code)
+    // This enables: managers.medicaments.withReferences((prefetch) => prefetch(medicamentSummary: true))
     this.db.run(`
       CREATE TABLE IF NOT EXISTS medicaments (
-        code_cip TEXT PRIMARY KEY NOT NULL,
-        cis_code TEXT NOT NULL REFERENCES specialites(cis_code) ON DELETE CASCADE,
-        presentation_label TEXT,
+        cip_code TEXT PRIMARY KEY NOT NULL,
+        cis_code TEXT NOT NULL REFERENCES medicament_summary(cis_code) ON DELETE CASCADE,
+        presentation_label TEXT NOT NULL DEFAULT '',
         commercialisation_statut TEXT,
         taux_remboursement TEXT,
         prix_public REAL,
-        agrement_collectivites TEXT
-      );
+        agrement_collectivites TEXT,
+        is_hospital INTEGER NOT NULL DEFAULT 0 CHECK (is_hospital IN (0, 1))
+      ) STRICT;
     `);
 
+    // Phase 1.1: Standardize on cip_code
     this.db.run(`
       CREATE TABLE IF NOT EXISTS medicament_availability (
-        code_cip TEXT PRIMARY KEY NOT NULL REFERENCES medicaments(code_cip) ON DELETE CASCADE,
-        statut TEXT,
+        cip_code TEXT PRIMARY KEY NOT NULL REFERENCES medicaments(cip_code) ON DELETE CASCADE,
+        statut TEXT NOT NULL DEFAULT '',
         date_debut TEXT,
         date_fin TEXT,
         lien TEXT
-      );
+      ) STRICT;
     `);
 
+    // Safety alerts: deduplicated messages stored centrally
     this.db.run(`
       CREATE TABLE IF NOT EXISTS safety_alerts (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        cis_code TEXT NOT NULL REFERENCES specialites(cis_code) ON DELETE CASCADE,
-        date_debut TEXT,
-        date_fin TEXT,
-        texte TEXT
-      );
+        title TEXT NOT NULL,
+        url TEXT,
+        date_debut TEXT, -- Format YYYY-MM-DD
+        date_fin TEXT,   -- Format YYYY-MM-DD
+        CONSTRAINT unique_alert UNIQUE(title, url, date_debut, date_fin)
+      ) STRICT;
     `);
 
+    // Link table between CIS and deduplicated alerts
     this.db.run(`
-      CREATE INDEX IF NOT EXISTS idx_safety_alerts_cis ON safety_alerts(cis_code);
+      CREATE TABLE IF NOT EXISTS cis_safety_links (
+        cis_code TEXT NOT NULL REFERENCES specialites(cis_code) ON DELETE CASCADE,
+        alert_id INTEGER NOT NULL REFERENCES safety_alerts(id) ON DELETE CASCADE,
+        PRIMARY KEY (cis_code, alert_id)
+      ) STRICT;
     `);
 
+    // Phase 1: principes_actifs is a CHILD of medicaments (via cip_code)
+    // This enables: managers.medicaments.withReferences((prefetch) => prefetch(principesActifs: true))
     this.db.run(`
       CREATE TABLE IF NOT EXISTS principes_actifs (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        code_cip TEXT,
+        cip_code TEXT NOT NULL REFERENCES medicaments(cip_code) ON DELETE CASCADE,
         principe TEXT NOT NULL,
         principe_normalized TEXT,
         dosage TEXT,
         dosage_unit TEXT
-      );
+      ) STRICT;
     `);
 
     this.db.run(`
-      CREATE INDEX IF NOT EXISTS idx_principes_cip ON principes_actifs(code_cip);
+      CREATE INDEX IF NOT EXISTS idx_principes_cip ON principes_actifs(cip_code);
     `);
 
     this.db.run(`
@@ -146,17 +187,18 @@ export class ReferenceDatabase {
         molecule_label TEXT,
         raw_label TEXT,
         parsing_method TEXT
-      );
+      ) STRICT;
     `);
 
+    // Phase 1.1: Standardize on cip_code
     this.db.run(`
       CREATE TABLE IF NOT EXISTS group_members (
-        code_cip TEXT NOT NULL REFERENCES medicaments(code_cip) ON DELETE CASCADE,
+        cip_code TEXT NOT NULL REFERENCES medicaments(cip_code) ON DELETE CASCADE,
         group_id TEXT NOT NULL REFERENCES generique_groups(group_id) ON DELETE CASCADE,
         type INTEGER NOT NULL,
         sort_order INTEGER DEFAULT 0,
-        PRIMARY KEY (code_cip, group_id)
-      );
+        PRIMARY KEY (cip_code, group_id)
+      ) STRICT;
     `);
 
     // Ajouter la colonne sort_order si elle n'existe pas (pour les bases existantes)
@@ -173,7 +215,7 @@ export class ReferenceDatabase {
       CREATE TABLE IF NOT EXISTS laboratories (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL UNIQUE
-      );
+      ) STRICT;
     `);
 
     // 2. Aggregated Summary Table (The "View" optimized for Flutter)
@@ -187,7 +229,7 @@ export class ReferenceDatabase {
         substance_code TEXT,              -- Sous-titre (ex: "Paracétamol")
         cluster_princeps TEXT,            -- Nom princeps pour référence interne
         secondary_princeps TEXT           -- JSON Array ["NUROFEN", "SPEDIFEN"] pour co-marketing/rachats
-      );
+      ) STRICT;
     `);
 
     // --- NEW CLUSTER-FIRST TABLES ---
@@ -199,7 +241,7 @@ export class ReferenceDatabase {
         subtitle TEXT,                    -- Ex: "Réf: Advil" (Princeps Principal)
         count_products INTEGER DEFAULT 0,
         search_vector TEXT                -- The search vector for FTS5
-      );
+      ) STRICT;
     `);
 
     // 2. Detailed table for drawer content (Cluster-First Architecture)
@@ -208,9 +250,9 @@ export class ReferenceDatabase {
         cis_code TEXT PRIMARY KEY,
         cluster_id TEXT,
         nom_complet TEXT,
-        is_princeps BOOLEAN,
+        is_princeps INTEGER CHECK (is_princeps IN (0, 1)),
         FOREIGN KEY(cluster_id) REFERENCES cluster_index(cluster_id)
-      );
+      ) STRICT;
       CREATE INDEX IF NOT EXISTS idx_med_cluster ON medicament_detail(cluster_id);
     `);
 
@@ -233,6 +275,49 @@ export class ReferenceDatabase {
       }
     }
 
+    // --- PHASE 2: CONTROLLED VOCABULARY ---
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS ref_forms (
+        id INTEGER PRIMARY KEY,
+        label TEXT NOT NULL UNIQUE
+      ) STRICT;
+    `);
+
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS ref_routes (
+        id INTEGER PRIMARY KEY,
+        label TEXT NOT NULL UNIQUE
+      ) STRICT;
+    `);
+
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS cis_routes (
+        cis_code TEXT NOT NULL REFERENCES medicament_summary(cis_code) ON DELETE CASCADE,
+        route_id INTEGER NOT NULL REFERENCES ref_routes(id),
+        is_inferred INTEGER NOT NULL DEFAULT 0 CHECK (is_inferred IN (0, 1)),
+        PRIMARY KEY (cis_code, route_id)
+      ) STRICT;
+    `);
+
+    // --- PHASE 3: ATOMIC INGREDIENTS ---
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS ref_substances (
+        id INTEGER PRIMARY KEY,
+        code TEXT UNIQUE, -- Optional code if available (e.g. SNOMED/BDPM code if parsed)
+        label TEXT NOT NULL UNIQUE
+      ) STRICT;
+    `);
+
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS composition_link (
+        cis_code TEXT NOT NULL REFERENCES medicament_summary(cis_code) ON DELETE CASCADE,
+        substance_id INTEGER NOT NULL REFERENCES ref_substances(id),
+        dosage TEXT,
+        nature TEXT, -- SA (Substance Active) or FT (Fraction Thérapeutique)
+        PRIMARY KEY (cis_code, substance_id, dosage) -- Composite key
+      ) STRICT;
+    `);
+
     // --- 3. SOURCE DE VÉRITÉ (Medicament Summary) ---
     // Table dénormalisée pour l'accès rapide
     this.db.run(`
@@ -241,7 +326,8 @@ export class ReferenceDatabase {
         -- Identification
         nom_canonique TEXT NOT NULL,
         princeps_de_reference TEXT NOT NULL,
-        is_princeps BOOLEAN NOT NULL DEFAULT 0,
+        parent_princeps_cis TEXT, -- NEW Explicit Link to Princeps CIS
+        is_princeps INTEGER NOT NULL DEFAULT 0 CHECK (is_princeps IN (0, 1)),
         
         -- Clustering & Grouping
         cluster_id TEXT,
@@ -251,6 +337,8 @@ export class ReferenceDatabase {
         principes_actifs_communs TEXT, -- JSON Array: ["Amoxicilline"]
         formatted_dosage TEXT,
         forme_pharmaceutique TEXT,
+        form_id INTEGER REFERENCES ref_forms(id), -- NEW Normalized ID
+        is_form_inferred INTEGER NOT NULL DEFAULT 0 CHECK (is_form_inferred IN (0, 1)), -- NEW Flag
         voies_administration TEXT,
         
         -- Métadonnées
@@ -260,7 +348,7 @@ export class ReferenceDatabase {
         titulaire_id INTEGER,
         conditions_prescription TEXT,
         date_amm TEXT,
-        is_surveillance BOOLEAN NOT NULL DEFAULT 0,
+        is_surveillance INTEGER NOT NULL DEFAULT 0 CHECK (is_surveillance IN (0, 1)),
         atc_code TEXT,
         status TEXT,
         price_min REAL,
@@ -269,14 +357,14 @@ export class ReferenceDatabase {
         ansm_alert_url TEXT,
         
         -- Flags
-        is_hospital BOOLEAN NOT NULL DEFAULT 0,
-        is_dental BOOLEAN NOT NULL DEFAULT 0,
-        is_list1 BOOLEAN NOT NULL DEFAULT 0,
-        is_list2 BOOLEAN NOT NULL DEFAULT 0,
-        is_narcotic BOOLEAN NOT NULL DEFAULT 0,
-        is_exception BOOLEAN NOT NULL DEFAULT 0,
-        is_restricted BOOLEAN NOT NULL DEFAULT 0,
-        is_otc BOOLEAN NOT NULL DEFAULT 1,
+        is_hospital INTEGER NOT NULL DEFAULT 0 CHECK (is_hospital IN (0, 1)),
+        is_dental INTEGER NOT NULL DEFAULT 0 CHECK (is_dental IN (0, 1)),
+        is_list1 INTEGER NOT NULL DEFAULT 0 CHECK (is_list1 IN (0, 1)),
+        is_list2 INTEGER NOT NULL DEFAULT 0 CHECK (is_list2 IN (0, 1)),
+        is_narcotic INTEGER NOT NULL DEFAULT 0 CHECK (is_narcotic IN (0, 1)),
+        is_exception INTEGER NOT NULL DEFAULT 0 CHECK (is_exception IN (0, 1)),
+        is_restricted INTEGER NOT NULL DEFAULT 0 CHECK (is_restricted IN (0, 1)),
+        is_otc INTEGER NOT NULL DEFAULT 1 CHECK (is_otc IN (0, 1)),
         
         -- SMR & ASMR & Safety
         smr_niveau TEXT,
@@ -284,13 +372,49 @@ export class ReferenceDatabase {
         asmr_niveau TEXT,
         asmr_date TEXT,
         url_notice TEXT,
-        has_safety_alert BOOLEAN DEFAULT 0,
+        has_safety_alert INTEGER DEFAULT 0 CHECK (has_safety_alert IN (0, 1)),
         
         representative_cip TEXT,
         
         FOREIGN KEY(titulaire_id) REFERENCES laboratories(id),
         FOREIGN KEY(cluster_id) REFERENCES cluster_names(cluster_id)
-      );
+      ) STRICT;
+    `);
+
+    // --- PRODUCT SCAN CACHE (Denormalized for Flutter Scanner) ---
+    // This table pre-computes JOINs for getProductByCip()
+    // Also has FK to medicament_summary for validation
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS product_scan_cache (
+        cip_code TEXT PRIMARY KEY NOT NULL REFERENCES medicaments(cip_code) ON DELETE CASCADE,
+        cis_code TEXT NOT NULL REFERENCES medicament_summary(cis_code) ON DELETE CASCADE,
+        nom_canonique TEXT NOT NULL,
+        lab_name TEXT,
+        prix_public REAL,
+        taux_remboursement TEXT,
+        availability_status TEXT,
+        is_hospital INTEGER NOT NULL DEFAULT 0 CHECK (is_hospital IN (0, 1)),
+        is_princeps INTEGER NOT NULL DEFAULT 0 CHECK (is_princeps IN (0, 1)),
+        is_surveillance INTEGER NOT NULL DEFAULT 0 CHECK (is_surveillance IN (0, 1)),
+        is_narcotic INTEGER NOT NULL DEFAULT 0 CHECK (is_narcotic IN (0, 1)),
+        princeps_de_reference TEXT NOT NULL DEFAULT '',
+        princeps_brand_name TEXT NOT NULL DEFAULT '',
+        forme_pharmaceutique TEXT,
+        voies_administration TEXT,
+        formatted_dosage TEXT,
+        group_id TEXT,
+        cluster_id TEXT,
+        conditions_prescription TEXT,
+        commercialisation_statut TEXT,
+        titulaire_id INTEGER REFERENCES laboratories(id) ON DELETE SET NULL,
+        atc_code TEXT,
+        representative_cip TEXT
+      ) STRICT;
+    `);
+
+    // Index for fast lookups
+    this.db.run(`
+      CREATE INDEX IF NOT EXISTS idx_product_scan_cache_cis ON product_scan_cache(cis_code);
     `);
 
     // Ajouter les colonnes SMR/ASMR si elles n'existent pas (pour les bases existantes)
@@ -384,10 +508,10 @@ export class ReferenceDatabase {
 
       -- Indexes matching Flutter app definitions
       CREATE INDEX IF NOT EXISTS idx_medicaments_cis_code ON medicaments(cis_code);
-      CREATE INDEX IF NOT EXISTS idx_principes_code_cip ON principes_actifs(code_cip);
-      CREATE INDEX IF NOT EXISTS idx_principes_normalized_cip ON principes_actifs(principe_normalized, code_cip);
+      CREATE INDEX IF NOT EXISTS idx_principes_cip_code ON principes_actifs(cip_code);
+      CREATE INDEX IF NOT EXISTS idx_principes_normalized_cip ON principes_actifs(principe_normalized, cip_code);
       CREATE INDEX IF NOT EXISTS idx_group_members_group_id ON group_members(group_id);
-      CREATE INDEX IF NOT EXISTS idx_group_members_code_cip ON group_members(code_cip);
+      CREATE INDEX IF NOT EXISTS idx_group_members_cip_code ON group_members(cip_code);
       CREATE INDEX IF NOT EXISTS idx_medicament_summary_group_id ON medicament_summary(group_id);
       CREATE INDEX IF NOT EXISTS idx_medicament_summary_forme_pharmaceutique ON medicament_summary(forme_pharmaceutique);
       CREATE INDEX IF NOT EXISTS idx_medicament_summary_voies_administration ON medicament_summary(voies_administration);
@@ -470,7 +594,7 @@ export class ReferenceDatabase {
         ms.is_princeps,
         ms.voies_administration AS routes,
         ms.is_otc,
-        COALESCE(ms.representative_cip, (SELECT m.code_cip FROM medicaments m WHERE m.cis_code = ms.cis_code LIMIT 1)) AS default_cip,
+        COALESCE(ms.representative_cip, (SELECT m.cip_code FROM medicaments m WHERE m.cis_code = ms.cis_code LIMIT 1)) AS default_cip,
         (SELECT m.prix_public FROM medicaments m WHERE m.cis_code = ms.cis_code LIMIT 1) AS prix_public
       FROM medicament_summary ms
       WHERE ms.cluster_id IS NOT NULL;
@@ -481,7 +605,7 @@ export class ReferenceDatabase {
     this.db.run(`
       CREATE VIEW view_scanner_check AS
       SELECT 
-        m.code_cip,
+        m.cip_code,
         ms.cis_code,
         ms.nom_canonique,
         ms.cluster_id,
@@ -544,13 +668,14 @@ export class ReferenceDatabase {
     console.log(`📊 Inserting ${rows.length} medicaments...`);
 
     const transformedRows = rows.map(row => ({
-      code_cip: row.codeCip,
+      cip_code: row.codeCip,
       cis_code: row.cisCode,
-      presentation_label: row.presentationLabel,
+      presentation_label: row.presentationLabel ?? '',
       commercialisation_statut: row.commercialisationStatut,
       taux_remboursement: row.tauxRemboursement,
       prix_public: row.prixPublic,
-      agrement_collectivites: row.agrementCollectivites
+      agrement_collectivites: row.agrementCollectivites,
+      is_hospital: 0  // Will be computed by trigger based on conditions
     }));
 
     const columns = Object.keys(transformedRows[0] || {}) as (keyof typeof transformedRows[0])[];
@@ -562,8 +687,8 @@ export class ReferenceDatabase {
     console.log(`📊 Inserting ${rows.length} medicament availability records...`);
 
     const transformedRows = rows.map(row => ({
-      code_cip: row.codeCip,
-      statut: row.statut,
+      cip_code: row.codeCip,
+      statut: row.statut ?? '',
       date_debut: row.dateDebut,
       date_fin: row.dateFin,
       lien: row.lien
@@ -573,18 +698,50 @@ export class ReferenceDatabase {
     console.log(`✅ Inserted ${rows.length} availability records`);
   }
 
-  public insertSafetyAlerts(rows: ReadonlyArray<SafetyAlert>) {
-    console.log(`📊 Inserting ${rows.length} safety alerts...`);
+  /**
+   * Insert deduplicated safety alerts + cis links.
+   * @param alerts Array of alerts objects { message, url, dateDebut, dateFin }
+   * @param links Optional array of { cis, alertIndex } linking cis codes to alerts by index
+   */
+  public insertSafetyAlerts(
+    alerts: ReadonlyArray<{ message: string; url?: string; dateDebut?: string; dateFin?: string }>,
+    links?: ReadonlyArray<{ cis: string; alertIndex: number }>
+  ) {
+    console.log(`📊 Inserting ${alerts.length} unique safety alerts (+ ${links?.length ?? 0} links)...`);
 
-    const transformedRows = rows.map(row => ({
-      cis_code: row.cisCode,
-      date_debut: row.dateDebut,
-      date_fin: row.dateFin,
-      texte: row.texte
-    }));
+    const insertAlert = this.db.prepare(
+      `INSERT OR IGNORE INTO safety_alerts (title, url, date_debut, date_fin) VALUES ($title, $url, $start, $end)`
+    );
 
-    this.prepareInsert<any>("safety_alerts", Object.keys(transformedRows[0] || {}) as any)(transformedRows);
-    console.log(`✅ Inserted ${rows.length} safety alerts`);
+    const selectAlertId = this.db.prepare(
+      `SELECT id FROM safety_alerts WHERE title = $title AND COALESCE(url,'') = COALESCE($url,'') AND COALESCE(date_debut,'') = COALESCE($start,'') AND COALESCE(date_fin,'') = COALESCE($end,'') LIMIT 1`
+    );
+
+    const insertLink = this.db.prepare(
+      `INSERT OR IGNORE INTO cis_safety_links (cis_code, alert_id) VALUES ($cis, $id)`
+    );
+
+    const indexToDbId = new Map<number, number>();
+
+    this.db.transaction(() => {
+      alerts.forEach((alert, idx) => {
+        insertAlert.run({ $title: alert.message, $url: alert.url ?? null, $start: alert.dateDebut ?? null, $end: alert.dateFin ?? null });
+        const row = selectAlertId.get({ $title: alert.message, $url: alert.url ?? null, $start: alert.dateDebut ?? null, $end: alert.dateFin ?? null }) as { id: number };
+        if (row && row.id) indexToDbId.set(idx, row.id);
+      });
+
+      if (links) {
+        links.forEach(link => {
+          const id = indexToDbId.get(link.alertIndex);
+          if (!id) return;
+          // Insert link directly; rely on FK constraints when enabled.
+          // In tests FK checks are sometimes disabled, so we avoid pre-checking existence.
+          insertLink.run({ $cis: link.cis, $id: id });
+        });
+      }
+    })();
+
+    console.log(`✅ Inserted ${indexToDbId.size} safety_alert records and ${links?.length ?? 0} links`);
   }
 
   public insertPrincipesActifs(rows: ReadonlyArray<PrincipeActif>) {
@@ -592,7 +749,7 @@ export class ReferenceDatabase {
 
     const transformedRows = rows.map(row => ({
       id: row.id,
-      code_cip: row.codeCip,
+      cip_code: row.codeCip,
       principe: row.principe,
       principe_normalized: row.principeNormalized,
       dosage: row.dosage,
@@ -623,7 +780,7 @@ export class ReferenceDatabase {
     console.log(`📊 Inserting ${rows.length} group members...`);
 
     const transformedRows = rows.map(row => ({
-      code_cip: row.codeCip,
+      cip_code: row.codeCip,
       group_id: row.groupId,
       type: row.type,
       sort_order: row.sortOrder ?? 0
@@ -712,6 +869,37 @@ export class ReferenceDatabase {
     console.log(`✅ Inserted ${rows.length} laboratories`);
   }
 
+  // --- PHASE 2 INSERT METHODS ---
+  public insertRefForms(rows: ReadonlyArray<{ id: number; label: string }>) {
+    console.log(`📊 Inserting ${rows.length} forms...`);
+    this.prepareInsert<any>("ref_forms", ["id", "label"])(rows);
+    console.log(`✅ Inserted ${rows.length} forms`);
+  }
+
+  public insertRefRoutes(rows: ReadonlyArray<{ id: number; label: string }>) {
+    console.log(`📊 Inserting ${rows.length} routes...`);
+    this.prepareInsert<any>("ref_routes", ["id", "label"])(rows);
+    console.log(`✅ Inserted ${rows.length} routes`);
+  }
+
+  public insertCisRoutes(rows: ReadonlyArray<{ cis_code: string; route_id: number; is_inferred: number }>) {
+    console.log(`📊 Inserting ${rows.length} CIS-Route links...`);
+    this.prepareInsert<any>("cis_routes", ["cis_code", "route_id", "is_inferred"])(rows);
+    console.log(`✅ Inserted ${rows.length} CIS-Route links`);
+  }
+
+  public insertRefSubstances(rows: ReadonlyArray<{ id: number; label: string; code?: string }>) {
+    console.log(`🧪 Inserting ${rows.length} substances...`);
+    this.prepareInsert<any>("ref_substances", ["id", "label", "code"])(rows);
+    console.log(`✅ Inserted ${rows.length} substances`);
+  }
+
+  public insertCompositionLinks(rows: ReadonlyArray<{ cis_code: string; substance_id: number; dosage: string; nature: string }>) {
+    console.log(`🔗 Inserting ${rows.length} composition links...`);
+    this.prepareInsert<any>("composition_link", ["cis_code", "substance_id", "dosage", "nature"])(rows);
+    console.log(`✅ Inserted ${rows.length} composition links`);
+  }
+
 
   // Search methods for FTS
   public searchMedicaments(query: string, limit?: number): ReadonlyArray<MedicamentSummary> {
@@ -787,8 +975,8 @@ export class ReferenceDatabase {
     }));
   }
 
-  
-  
+
+
   public insertManufacturers(rows: ReadonlyArray<{ id: number; label: string }>) {
     console.log(`📊 Inserting ${rows.length} manufacturers (as laboratories)...`);
 
@@ -801,9 +989,9 @@ export class ReferenceDatabase {
     console.log(`✅ Inserted ${rows.length} manufacturers as laboratories`);
   }
 
-  
-  
-  
+
+
+
   /**
    * Populates the search_index FTS5 table from medicament_summary.
    * This should be called after bulk inserts/updates to ensure search index is populated.
@@ -846,6 +1034,78 @@ export class ReferenceDatabase {
     }
 
     console.log("✅ Search index populated with cluster data");
+  }
+
+  /**
+   * Populates the product_scan_cache table by pre-computing all JOINs.
+   * This eliminates the need for runtime JOINs in Flutter's CatalogDao.getProductByCip().
+   * Should be called after all base tables are populated.
+   */
+  public populateProductScanCache() {
+    console.log("📦 Populating product_scan_cache from joined data...");
+
+    // Clear existing cache
+    this.db.run("DELETE FROM product_scan_cache");
+
+    // Insert pre-computed data from all joined tables
+    this.db.run(`
+      INSERT INTO product_scan_cache (
+        cip_code,
+        cis_code,
+        nom_canonique,
+        lab_name,
+        prix_public,
+        taux_remboursement,
+        availability_status,
+        is_hospital,
+        is_princeps,
+        is_surveillance,
+        is_narcotic,
+        princeps_de_reference,
+        princeps_brand_name,
+        forme_pharmaceutique,
+        voies_administration,
+        formatted_dosage,
+        group_id,
+        cluster_id,
+        conditions_prescription,
+        commercialisation_statut,
+        titulaire_id,
+        atc_code,
+        representative_cip
+      )
+      SELECT
+        m.cip_code,
+        m.cis_code,
+        ms.nom_canonique,
+        l.name AS lab_name,
+        m.prix_public,
+        m.taux_remboursement,
+        ma.statut AS availability_status,
+        COALESCE(ms.is_hospital, 0) AS is_hospital,
+        COALESCE(ms.is_princeps, 0) AS is_princeps,
+        COALESCE(ms.is_surveillance, 0) AS is_surveillance,
+        COALESCE(ms.is_narcotic, 0) AS is_narcotic,
+        COALESCE(ms.princeps_de_reference, '') AS princeps_de_reference,
+        COALESCE(ms.princeps_brand_name, '') AS princeps_brand_name,
+        ms.forme_pharmaceutique,
+        ms.voies_administration,
+        ms.formatted_dosage,
+        ms.group_id,
+        ms.cluster_id,
+        ms.conditions_prescription,
+        m.commercialisation_statut,
+        ms.titulaire_id,
+        ms.atc_code,
+        ms.representative_cip
+      FROM medicaments m
+      INNER JOIN medicament_summary ms ON m.cis_code = ms.cis_code
+      LEFT JOIN laboratories l ON ms.titulaire_id = l.id
+      LEFT JOIN medicament_availability ma ON m.cip_code = ma.cip_code
+    `);
+
+    const count = this.db.query<{ count: number }, []>("SELECT COUNT(*) as count FROM product_scan_cache").get();
+    console.log(`✅ Product scan cache populated with ${count?.count ?? 0} entries`);
   }
 
   public insertClusterData(rows: Array<{

@@ -1,6 +1,6 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
-import '../database/providers.dart';
+import 'package:pharma_scan/core/database/providers.dart';
 import '../database/daos/app_settings_dao.dart';
 
 part 'app_settings_provider.g.dart';
@@ -8,7 +8,7 @@ part 'app_settings_provider.g.dart';
 /// Provider for accessing the AppSettingsDao
 @Riverpod(keepAlive: true)
 AppSettingsDao appSettingsDao(Ref ref) {
-  return ref.read(databaseProvider()).appSettingsDao;
+  return ref.watch(databaseProvider()).appSettingsDao;
 }
 
 // --- Theme settings providers ---
@@ -16,22 +16,23 @@ AppSettingsDao appSettingsDao(Ref ref) {
 @riverpod
 class ThemeModeNotifier extends _$ThemeModeNotifier {
   @override
-  String? build() => ref.read(appSettingsDao).themeMode;
+  Future<String?> build() => ref.read(appSettingsDaoProvider).themeMode;
 
-  Future<void> update(String mode) async {
-    await ref.read(appSettingsDao).setThemeMode(mode);
-    state = mode;
+  Future<void> setMode(String mode) async {
+    await ref.read(appSettingsDaoProvider).setThemeMode(mode);
+    // Invalider le state pour provoquer un rechargement
+    ref.invalidateSelf();
   }
 }
 
 @riverpod
 class HapticEnabledNotifier extends _$HapticEnabledNotifier {
   @override
-  bool? build() => ref.read(appSettingsDao).hapticEnabled;
+  Future<bool?> build() => ref.read(appSettingsDaoProvider).hapticEnabled;
 
-  Future<void> update(bool enabled) async {
-    await ref.read(appSettingsDao).setHapticEnabled(enabled);
-    state = enabled;
+  Future<void> setEnabled(bool enabled) async {
+    await ref.read(appSettingsDaoProvider).setHapticEnabled(enabled);
+    ref.invalidateSelf();
   }
 }
 
@@ -40,33 +41,33 @@ class HapticEnabledNotifier extends _$HapticEnabledNotifier {
 @riverpod
 class UpdateFrequencyNotifier extends _$UpdateFrequencyNotifier {
   @override
-  String? build() => ref.read(appSettingsDao).updateFrequency;
+  Future<String?> build() => ref.read(appSettingsDaoProvider).updateFrequency;
 
-  Future<void> update(String frequency) async {
-    await ref.read(appSettingsDao).setUpdateFrequency(frequency);
-    state = frequency;
+  Future<void> setFrequency(String frequency) async {
+    await ref.read(appSettingsDaoProvider).setUpdateFrequency(frequency);
+    state = AsyncData(frequency);
   }
 }
 
 @riverpod
 class PreferredSortingNotifier extends _$PreferredSortingNotifier {
   @override
-  String? build() => ref.read(appSettingsDao).preferredSorting;
+  Future<String?> build() => ref.read(appSettingsDaoProvider).preferredSorting;
 
-  Future<void> update(String sorting) async {
-    await ref.read(appSettingsDao).setPreferredSorting(sorting);
-    state = sorting;
+  Future<void> setSorting(String sorting) async {
+    await ref.read(appSettingsDaoProvider).setPreferredSorting(sorting);
+    state = AsyncData(sorting);
   }
 }
 
 @riverpod
 class ScanHistoryLimitNotifier extends _$ScanHistoryLimitNotifier {
   @override
-  int? build() => ref.read(appSettingsDao).scanHistoryLimit;
+  Future<int?> build() => ref.read(appSettingsDaoProvider).scanHistoryLimit;
 
-  Future<void> update(int limit) async {
-    await ref.read(appSettingsDao).setScanHistoryLimit(limit);
-    state = limit;
+  Future<void> setLimit(int limit) async {
+    await ref.read(appSettingsDaoProvider).setScanHistoryLimit(limit);
+    state = AsyncData(limit);
   }
 }
 
@@ -75,27 +76,27 @@ class ScanHistoryLimitNotifier extends _$ScanHistoryLimitNotifier {
 @riverpod
 class LastSyncEpochNotifier extends _$LastSyncEpochNotifier {
   @override
-  int? build() => ref.read(appSettingsDao).lastSyncEpoch;
+  Future<int?> build() => ref.read(appSettingsDaoProvider).lastSyncEpoch;
 
-  Future<void> update(int epoch) async {
-    await ref.read(appSettingsDao).setLastSyncEpoch(epoch);
-    state = epoch;
+  Future<void> setEpoch(int epoch) async {
+    await ref.read(appSettingsDaoProvider).setLastSyncEpoch(epoch);
+    state = AsyncData(epoch);
   }
 
   Future<void> updateFromDateTime(DateTime time) async {
     final epoch = time.millisecondsSinceEpoch;
-    await update(epoch);
+    await setEpoch(epoch);
   }
 }
 
 @riverpod
 class BdpmVersionNotifier extends _$BdpmVersionNotifier {
   @override
-  String? build() => ref.read(appSettingsDao).bdpmVersion;
+  Future<String?> build() => ref.read(appSettingsDaoProvider).bdpmVersion;
 
-  Future<void> update(String version) async {
-    await ref.read(appSettingsDao).setBdpmVersion(version);
-    state = version;
+  Future<void> setVersion(String version) async {
+    await ref.read(appSettingsDaoProvider).setBdpmVersion(version);
+    state = AsyncData(version);
   }
 }
 
@@ -110,7 +111,7 @@ class SourceHashesNotifier extends _$SourceHashesNotifier {
 
 @riverpod
 Future<Map<String, String>> sourceHashesFuture(Ref ref) async {
-  return ref.read(appSettingsDao).sourceHashes;
+  return ref.read(appSettingsDaoProvider).sourceHashes;
 }
 
 @riverpod
@@ -124,5 +125,5 @@ class SourceDatesNotifier extends _$SourceDatesNotifier {
 
 @riverpod
 Future<Map<String, DateTime>> sourceDatesFuture(Ref ref) async {
-  return ref.read(appSettingsDao).sourceDates;
+  return ref.read(appSettingsDaoProvider).sourceDates;
 }

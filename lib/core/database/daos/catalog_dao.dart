@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:drift/drift.dart';
 import 'package:pharma_scan/core/database/database.dart';
+import 'package:pharma_scan/core/database/reference_schema.drift.dart';
 import 'package:pharma_scan/core/domain/types/ids.dart';
 import 'package:pharma_scan/core/domain/types/semantic_types.dart';
 // semantic types are not used directly here; keep imports minimal
@@ -34,6 +35,10 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> {
   /// Returns the medicament summary row associated with the scanned CIP.
   /// Scanner UI still needs the CIP itself alongside presentation metadata.
   /// Returns Future directly - exceptions bubble up to Riverpod's AsyncValue.
+  ///
+  /// **Phase 4 Refactoring**: Now uses denormalized `product_scan_cache` table.
+  /// This eliminates the 4-table JOIN (medicament_summary + medicaments + laboratories + medicament_availability)
+  /// with a single-table query using primary key access. ✨ Zero overhead
   Future<ScanResult?> getProductByCip(
     Cip13 codeCip, {
     DateTime? expDate,
@@ -42,68 +47,25 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> {
 
     final cipString = codeCip.toString();
 
-    // Fallback: execute a custom select to ensure we get the medicament_summary row
-    final rows = await customSelect(
-      '''
-      SELECT ms.*, ls.name AS labName, m.prix_public, m.taux_remboursement,
-             m.is_hospital AS is_hospital, commercialisation_statut AS commercialisationStatut,
-             ma.statut AS availabilityStatut
-      FROM reference_db.medicament_summary ms
-      INNER JOIN reference_db.medicaments m ON ms.cis_code = m.cis_code
-      LEFT JOIN reference_db.laboratories ls ON ls.id = ms.titulaire_id
-      LEFT JOIN reference_db.medicament_availability ma ON ma.code_cip = m.code_cip
-      WHERE m.code_cip = ?1
-      LIMIT 1
-      ''',
-      variables: [Variable<String>(cipString)],
-      readsFrom: {},
-    ).get();
+    // Single table query with PK lookup - no JOINs!
+    // Note: cipCode is an FK to medicaments, so we navigate: cipCode (FK) -> cipCode (column)
+    final cache = await attachedDatabase.managers.productScanCache
+        .filter((f) => f.cipCode.cipCode.equals(cipString))
+        .getSingleOrNull();
 
-    if (rows.isEmpty) {
-      LoggerService.db('No medicament row found for CIP $cipString');
+    if (cache == null) {
+      LoggerService.db('No medicament found in cache for CIP $cipString');
       return null;
     }
 
-    final row = rows.first;
-
-    final summary = MedicamentSummaryData(
-      groupId: row.read<String>('group_id'),
-      cisCode: row.read<String>('cis_code'),
-      nomCanonique: row.read<String>('nom_canonique'),
-      princepsDeReference: row.read<String>('princeps_de_reference'),
-      princepsBrandName: row.read<String>('princeps_brand_name'),
-      isPrinceps: row.read<int>('is_princeps') == 1,
-      status: row.read<String>('status'),
-      formePharmaceutique: row.read<String>('forme_pharmaceutique'),
-      voiesAdministration: row.read<String>('voies_administration'),
-      principesActifsCommuns: row.read<String>('principes_actifs_communs'),
-      formattedDosage: row.read<String>('formatted_dosage'),
-      titulaireId: row.read<int>('titulaire_id'),
-      procedureType: row.read<String>('procedure_type'),
-      conditionsPrescription: row.read<String>('conditions_prescription'),
-      isSurveillance: row.read<int>('is_surveillance') == 1,
-      atcCode: row.read<String>('atc_code'),
-      dateAmm: row.read<String>('date_amm'),
-      aggregatedConditions: row.read<String>('aggregated_conditions'),
-      ansmAlertUrl: row.read<String>('ansm_alert_url'),
-      representativeCip: row.read<String>('representative_cip'),
-    );
-
-    double? price;
-    final prix = row.readNullable<String>('prix_public');
-    if (prix != null && prix.isNotEmpty) {
-      price = double.tryParse(prix.replaceAll(',', '.'));
-    }
-
     return (
-      summary: MedicamentEntity.fromData(summary,
-          labName: row.readNullable<String>('labName')),
+      summary: MedicamentEntity.fromProductCache(cache),
       cip: codeCip,
-      price: price,
-      refundRate: row.readNullable<String>('taux_remboursement'),
-      boxStatus: row.readNullable<String>('commercialisationStatut'),
-      availabilityStatus: row.readNullable<String>('availabilityStatut'),
-      isHospitalOnly: row.read<int>('is_hospital') == 1,
+      price: cache.prixPublic,
+      refundRate: cache.tauxRemboursement,
+      boxStatus: cache.commercialisationStatut,
+      availabilityStatus: cache.availabilityStatus,
+      isHospitalOnly: cache.isHospital == 1,
       libellePresentation: null,
       expDate: expDate,
     );
@@ -239,7 +201,8 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> {
                 nomCanonique: row.read<String>('nom_canonique'),
                 princepsDeReference: row.read<String>('princeps_de_reference'),
                 princepsBrandName: row.read<String>('princeps_brand_name'),
-                isPrinceps: row.read<int>('is_princeps') == 1,
+                isPrinceps: row.read<int>('is_princeps'),
+                memberType: 0, // Default for search results
                 status: row.read<String>('status'),
                 formePharmaceutique: row.read<String>('forme_pharmaceutique'),
                 voiesAdministration: row.read<String>('voies_administration'),
@@ -250,12 +213,25 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> {
                 procedureType: row.read<String>('procedure_type'),
                 conditionsPrescription:
                     row.read<String>('conditions_prescription'),
-                isSurveillance: row.read<int>('is_surveillance') == 1,
+                isSurveillance: row.read<int>('is_surveillance'),
                 atcCode: row.read<String>('atc_code'),
                 dateAmm: row.read<String>('date_amm'),
                 aggregatedConditions: row.read<String>('aggregated_conditions'),
                 ansmAlertUrl: row.read<String>('ansm_alert_url'),
                 representativeCip: row.read<String>('representative_cip'),
+                // Required boolean flags are now INT (0/1) for Strict Mode
+                isHospital: 0,
+                isDental: 0,
+                isList1: 0,
+                isList2: 0,
+                isNarcotic: 0,
+                isException: 0,
+                isRestricted: 0,
+                isOtc: 0,
+                // Phase 2 & 4 fields
+                parentPrincepsCis: row.read<String?>('parent_princeps_cis'),
+                formId: row.read<int?>('form_id'),
+                isFormInferred: row.read<int>('is_form_inferred'),
               ),
               labName: null, // Lab name would need separate join if needed
             ))

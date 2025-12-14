@@ -3,23 +3,23 @@ import 'package:pharma_scan/core/domain/types/ids.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 
 /// Extension type wrapping [ViewRestockItem] for zero-cost abstraction.
-extension type RestockItemEntity(ViewRestockItem _data) {
+extension type RestockItemEntity(ViewRestockItem data) {
   // Factory expecting the exact Drift row type
   factory RestockItemEntity.fromData(ViewRestockItem data) =>
       RestockItemEntity(data);
 
   // Directly validated getters
-  Cip13 get cip => Cip13.validated(_data.cipCode);
+  Cip13 get cip => Cip13.validated(data.cipCode);
 
   // Logic mapped from DAO
-  String get label => _data.nomCanonique ?? Strings.unknown;
+  String get label => data.nomCanonique ?? Strings.unknown;
 
-  int get quantity => _data.stockCount;
+  int get quantity => data.stockCount;
 
-  bool get isChecked => _data.notes?.contains('"checked":true') ?? false;
+  bool get isChecked => data.notes?.contains('"checked":true') ?? false;
 
   // Handle potentially non-boolean representation from Drift view
-  bool get isPrinceps => _convertToBool(_data.isPrinceps);
+  bool get isPrinceps => _convertToBool(data.isPrinceps);
 
   // Helper to convert potentially string/int values to boolean
   // Handles various database representations: 1/0, '1'/'0', 'true'/'false', 't'/'f', etc.
@@ -43,9 +43,9 @@ extension type RestockItemEntity(ViewRestockItem _data) {
     return value.toString().isNotEmpty && value.toString() != '0';
   }
 
-  String? get form => _data.formePharmaceutique;
+  String? get form => data.formePharmaceutique;
 
-  String? get princepsLabel => _data.princepsDeReference;
+  String? get princepsLabel => data.princepsDeReference;
 
   /// Sorting key used by higher layers when applying smart sorting.
   String get sortingKey => (princepsLabel ?? label).trim();

@@ -5,13 +5,13 @@
   "module": "src/index.ts",
   "scripts": {
     "test": "bun test",
-    "build:db": "bun run build",
     "build": "bun run src/index.ts",
-    "export-schema": "bun run tool/export_schema.ts",
+    "download:bdpm": "bun run scripts/download_bdpm.ts",
+    "export-schema": "bash scripts/dump_schema.sh",
     "generate": "bun run build && bun run export-schema",
     "tool": "bun run tool/export_preview.ts && bun run tool/audit_data.ts",
-    "preflight": "bun test && bun run generate && bun run tool",
-    "preflight:bp": "bun run generate && bun run tool",
+    "preflight": "bun run download:bdpm && bun test && bun run generate && bun run tool",
+    "preflight:bp": "bun run download:bdpm && bun run generate && bun run tool",
     "sync": "bun run tool/sync.ts",
     "update-db": "bun run tool/release.ts",
     "update-db-force": "bun run tool/release.ts --force"
@@ -25,6 +25,7 @@
   "dependencies": {
     "@urbanzoo/remove-accents": "^1.0.2",
     "bun-sqlite-generate": "^0.0.2",
+    "cheerio": "^1.1.2",
     "csv-parse": "^6.1.0",
     "iconv-lite": "^0.7.0",
     "zod": "^4.1.13"

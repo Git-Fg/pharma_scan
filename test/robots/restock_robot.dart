@@ -1,6 +1,9 @@
+import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pharma_scan/core/database/database.dart';
+import 'package:pharma_scan/core/database/providers.dart';
 import 'package:pharma_scan/core/providers/app_bar_provider.dart';
 
 import 'package:pharma_scan/features/restock/presentation/screens/restock_screen.dart';
@@ -8,10 +11,6 @@ import 'package:shadcn_ui/shadcn_ui.dart';
 
 
 /// Test wrapper that simulates the app shell with AppBar.
-///
-/// This is necessary because RestockScreen uses `useAppHeader` hook
-/// which sets header config via provider. The actual AppBar is rendered
-/// by the parent shell, not RestockScreen itself.
 class _TestShell extends ConsumerWidget {
   const _TestShell({required this.child});
   final Widget child;
@@ -49,18 +48,16 @@ class RestockRobot {
   /// Sets up the test environment with the restock screen.
   ///
   /// [overrides] - Optional list of provider overrides to add.
-  /// These are typically created with `.overrideWith()` or `.overrideWithValue()`.
   Future<void> pumpScreen({List<dynamic> overrides = const []}) async {
-    // Set up mock preferences for testing
-    SharedPreferences.setMockInitialValues({});
-    final prefs = await SharedPreferences.getInstance();
-    final preferencesService = PreferencesService(prefs);
+    // Create an in-memory database for testing
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
 
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          preferencesServiceProvider.overrideWithValue(preferencesService),
-          // Spread additional overrides - Dart infers the type from context
+          // Override the database provider with our in-memory instance
+          databaseProvider().overrideWithValue(db),
+          // Spread additional overrides
           for (final o in overrides) o,
         ],
         child: const ShadApp(
@@ -72,8 +69,6 @@ class RestockRobot {
     );
 
     // Wait for async useEffect in useAppHeader to fire
-    // Use pump with duration instead of pumpAndSettle to avoid timeout
-    // on async providers that may have continuous reloading
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
     await tester.pump(const Duration(milliseconds: 100));

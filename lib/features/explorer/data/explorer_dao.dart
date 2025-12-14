@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:pharma_scan/core/database/database.dart';
+import 'package:pharma_scan/core/database/reference_schema.drift.dart';
 import 'package:pharma_scan/core/utils/text_utils.dart';
 
 /// DAO for cluster-based search operations (Cluster-First Architecture)
@@ -59,7 +60,7 @@ class ExplorerDao extends DatabaseAccessor<AppDatabase> {
               cisCode: row.read<String>('cis_code'),
               clusterId: row.readNullable<String>('cluster_id'),
               nomComplet: row.read<String>('nom_complet'),
-              isPrinceps: row.read<bool>('is_princeps'),
+              isPrinceps: row.read<int>('is_princeps'),
             ))
         .toList());
   }

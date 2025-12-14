@@ -567,3 +567,31 @@ export function isFormulationDescription(text: string): boolean {
 
     return false;
 }
+
+/**
+ * Normalizes commonPrincipes for comparison using optimal normalization.
+ * Port of normalizeCommonPrincipes from grouping_algorithms.dart
+ */
+export function normalizeCommonPrincipes(commonPrincipes: string): string {
+  if (!commonPrincipes) return "";
+
+  // Associations are delimited by "+", otherwise by comma.
+  const rawList = commonPrincipes.includes("+")
+    ? commonPrincipes.split("+")
+    : commonPrincipes.split(",");
+
+  // Normalize principles, deduplicate, then sort for stable comparison.
+  const normalizedSet = new Set<string>();
+  for (const p of rawList) {
+    const trimmed = p.trim();
+    if (trimmed) {
+      const normalized = normalizePrincipleOptimal(trimmed);
+      if (normalized) {
+        normalizedSet.add(normalized);
+      }
+    }
+  }
+
+  const normalizedList = Array.from(normalizedSet).sort();
+  return normalizedList.join(" ");
+}

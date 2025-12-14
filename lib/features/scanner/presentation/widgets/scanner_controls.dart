@@ -8,9 +8,9 @@ import 'package:pharma_scan/core/widgets/adaptive_bottom_panel.dart';
 import 'package:pharma_scan/features/scanner/presentation/models/scanner_ui_state.dart';
 import 'package:pharma_scan/features/scanner/presentation/providers/scanner_provider.dart';
 import 'package:pharma_scan/core/ui/atoms/app_icon.dart';
-import 'package:pharma_scan/core/ui/molecules/app_button.dart';
 import 'package:pharma_scan/core/ui/theme/app_spacing.dart';
 import 'package:pharma_scan/core/ui/theme/app_theme.dart';
+import 'package:shadcn_ui/shadcn_ui.dart';
 
 /// Widget that displays the bottom control panel for the scanner screen.
 ///
@@ -121,11 +121,10 @@ class ScannerControls extends ConsumerWidget {
                                   label: Strings.importBarcodeFromGallery,
                                   child: FittedBox(
                                     fit: BoxFit.scaleDown,
-                                    child: AppButton(
-                                      label: Strings.gallery,
-                                      variant: ButtonVariant.secondary,
+                                    child: ShadButton.secondary(
                                       onPressed: isInitializing ? null : onGallery,
-                                      icon: Icons.image,
+                                      leading: const Icon(Icons.image),
+                                      child: Text(Strings.gallery),
                                     ),
                                   ),
                                 ),
@@ -137,13 +136,11 @@ class ScannerControls extends ConsumerWidget {
                                   label: torchState == TorchState.on
                                       ? Strings.turnOffTorch
                                       : Strings.turnOnTorch,
-                                  child: AppButton.icon(
-                                    variant: ButtonVariant.secondary,
-                                    icon: Icons.flash_on,
-                                    size: ButtonSize.large,
+                                  child: ShadButton.secondary(
                                     onPressed: isCameraRunning && !isInitializing
                                         ? onToggleTorch
                                         : null,
+                                    child: const Icon(Icons.flash_on),
                                   ),
                                 ),
                                 const Gap(AppDimens.spacingSm),
@@ -155,14 +152,13 @@ class ScannerControls extends ConsumerWidget {
                                   label: Strings.manuallyEnterCipCode,
                                   child: FittedBox(
                                     fit: BoxFit.scaleDown,
-                                    child: AppButton(
+                                    child: ShadButton.secondary(
                                       key: const Key(TestTags.manualEntryButton),
-                                      label: Strings.manualEntry,
-                                      variant: ButtonVariant.secondary,
                                       onPressed: isInitializing
                                           ? null
                                           : onManualEntry,
-                                      icon: Icons.keyboard,
+                                      leading: const Icon(Icons.keyboard),
+                                      child: Text(Strings.manualEntry),
                                     ),
                                   ),
                                 ),
@@ -269,30 +265,25 @@ class ScannerModeToggle extends StatelessWidget {
                 horizontal: AppDimens.spacingMd,
                 vertical: AppDimens.spacing2xs,
               ),
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 180),
-                transitionBuilder: (child, animation) =>
-                    FadeTransition(opacity: animation, child: child),
-                child: Row(
-                  key: ValueKey(mode),
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    AppIcon.custom(
-                      icon,
-                      size: AppDimens.iconSm,
+              child: Row(
+                key: ValueKey(mode),
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AppIcon.custom(
+                    icon,
+                    size: AppDimens.iconSm,
+                    color: color,
+                  ).animate().fadeIn(duration: const Duration(milliseconds: 180)),
+                  const Gap(AppDimens.spacing2xs),
+                  Text(
+                    label,
+                    style: TextStyle(
                       color: color,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
                     ),
-                    const Gap(AppDimens.spacing2xs),
-                    Text(
-                      label,
-                      style: TextStyle(
-                        color: color,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ),
+                  ).animate().fadeIn(duration: const Duration(milliseconds: 180)),
+                ],
               ),
             ),
           ),

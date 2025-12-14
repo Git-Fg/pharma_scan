@@ -40,28 +40,28 @@ class MedicamentTile extends StatelessWidget {
       bool isRevoked,
     ) = switch (item) {
       ClusterResult() => throw StateError(
-        'ClusterResult should not be rendered by MedicamentTile. '
-        'Use MoleculeGroupTile instead.',
-      ),
+          'ClusterResult should not be rendered by MedicamentTile. '
+          'Use MoleculeGroupTile instead.',
+        ),
       GroupResult(group: final group) => (
-        group.commonPrincipes.isNotEmpty
-            ? group.commonPrincipes
-            : Strings.notDetermined,
-        group.princepsReferenceName,
-        const ProductTypeBadge(memberType: 1, compact: true),
-        null,
-        false,
-      ),
+          group.commonPrincipes.isNotEmpty
+              ? group.commonPrincipes
+              : Strings.notDetermined,
+          group.princepsReferenceName,
+          const ProductTypeBadge(memberType: 1, compact: true),
+          null,
+          false,
+        ),
       PrincepsResult(
         princeps: final princeps,
         commonPrinciples: final commonPrinciples,
         generics: final generics,
       ) =>
         (
-          princeps.data.nomCanonique,
+          princeps.dbData.nomCanonique,
           _buildSubtitle(princeps.formePharmaceutique, commonPrinciples),
           ProductTypeBadge(
-            memberType: princeps.data.memberType,
+            memberType: princeps.dbData.memberType,
             compact: true,
           ),
           Strings.genericCount(generics.length),
@@ -73,10 +73,10 @@ class MedicamentTile extends StatelessWidget {
         princeps: final princeps,
       ) =>
         (
-          generic.data.nomCanonique,
+          generic.dbData.nomCanonique,
           _buildSubtitle(generic.formePharmaceutique, commonPrinciples),
           ProductTypeBadge(
-            memberType: generic.data.memberType,
+            memberType: generic.dbData.memberType,
             compact: true,
           ),
           Strings.princepsCount(princeps.length),
@@ -87,10 +87,10 @@ class MedicamentTile extends StatelessWidget {
         commonPrinciples: final commonPrinciples,
       ) =>
         (
-          summary.data.nomCanonique,
+          summary.dbData.nomCanonique,
           _buildSubtitle(summary.formePharmaceutique, commonPrinciples),
           ProductTypeBadge(
-            memberType: summary.data.memberType,
+            memberType: summary.dbData.memberType,
             compact: true,
           ),
           null,
@@ -101,17 +101,17 @@ class MedicamentTile extends StatelessWidget {
     // Build semantic label based on medication type
     final semanticLabel = switch (item) {
       ClusterResult() => throw StateError(
-        'ClusterResult should not be rendered by MedicamentTile. '
-        'Use MoleculeGroupTile instead.',
-      ),
+          'ClusterResult should not be rendered by MedicamentTile. '
+          'Use MoleculeGroupTile instead.',
+        ),
       PrincepsResult(princeps: final princeps, generics: final generics) =>
         Strings.searchResultSemanticsForPrinceps(
-          princeps.data.nomCanonique,
+          princeps.dbData.nomCanonique,
           generics.length,
         ),
       GenericResult(generic: final generic, princeps: final princeps) =>
         Strings.searchResultSemanticsForGeneric(
-          generic.data.nomCanonique,
+          generic.dbData.nomCanonique,
           princeps.length,
         ),
       StandaloneResult(
@@ -119,23 +119,23 @@ class MedicamentTile extends StatelessWidget {
         commonPrinciples: final commonPrinciples,
       ) =>
         Strings.standaloneSemantics(
-          summary.data.nomCanonique,
+          summary.dbData.nomCanonique,
           hasPrinciples: commonPrinciples.isNotEmpty,
           principlesText: commonPrinciples,
         ),
       GroupResult(group: final group) => () {
-        final principles = group.commonPrincipes.isNotEmpty
-            ? group.commonPrincipes
-            : Strings.notDetermined;
-        return '$principles, référence ${group.princepsReferenceName}';
-      }(),
+          final principles = group.commonPrincipes.isNotEmpty
+              ? group.commonPrincipes
+              : Strings.notDetermined;
+          return '$principles, référence ${group.princepsReferenceName}';
+        }(),
     };
 
     return LayoutBuilder(
       builder: (context, constraints) {
         final isStackedLayout = constraints.maxWidth < 600;
 
-    Widget? buildDetails({
+        Widget? buildDetails({
           required TextAlign align,
           required int maxLines,
         }) {
@@ -191,18 +191,17 @@ class MedicamentTile extends StatelessWidget {
                             children: [
                               Hero(
                                 tag: heroTag,
-                                flightShuttleBuilder:
-                                    (
-                                      _,
-                                      animation,
-                                      direction,
-                                      fromContext,
-                                      toContext,
-                                    ) {
+                                flightShuttleBuilder: (
+                                  _,
+                                  animation,
+                                  direction,
+                                  fromContext,
+                                  toContext,
+                                ) {
                                   final target =
                                       direction == HeroFlightDirection.push
-                                      ? toContext.widget
-                                      : fromContext.widget;
+                                          ? toContext.widget
+                                          : fromContext.widget;
                                   return FadeTransition(
                                     opacity: animation.drive(
                                       CurveTween(curve: Curves.easeInOut),
@@ -244,8 +243,7 @@ class MedicamentTile extends StatelessWidget {
                               ) !=
                               null)
                             Expanded(
-                              child:
-                                  buildDetails(
+                              child: buildDetails(
                                     align: TextAlign.start,
                                     maxLines: 2,
                                   ) ??
@@ -259,8 +257,7 @@ class MedicamentTile extends StatelessWidget {
                               null) ...[
                             const Gap(AppDimens.spacingSm),
                             Flexible(
-                              child:
-                                  buildDetails(
+                              child: buildDetails(
                                     align: TextAlign.end,
                                     maxLines: 1,
                                   ) ??
@@ -294,8 +291,7 @@ class MedicamentTile extends StatelessWidget {
 
   String? _buildSubtitle(String form, String? principles) {
     // Principles are already normalized from the database
-    final normalizedPrinciples =
-        principles
+    final normalizedPrinciples = principles
             ?.split(' + ')
             .map((p) => p.trim())
             .where((p) => p.isNotEmpty)

@@ -1,6 +1,8 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:pharma_scan/core/providers/core_providers.dart';
 
+import 'package:pharma_scan/core/database/reference_schema.drift.dart';
+
 /// Provider that watches cluster search results
 final clusterSearchProvider =
     StreamProvider.family.autoDispose<List<ClusterIndexData>, String>(

@@ -5,8 +5,8 @@ import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/features/explorer/domain/models/generic_group_entity.dart';
-import 'package:pharma_scan/core/ui/atoms/app_badge.dart';
 import 'package:pharma_scan/core/ui/organisms/app_sheet.dart';
+import 'package:shadcn_ui/shadcn_ui.dart';
 
 const double _groupHeaderHeight = 108;
 
@@ -70,9 +70,8 @@ class MoleculeGroupTile extends HookWidget {
             ),
             child: Row(
               children: [
-                AppBadge(
-                  label: Strings.generics.substring(0, 1),
-                  variant: BadgeVariant.outline,
+                ShadBadge.outline(
+                  child: Text(Strings.generics.substring(0, 1)),
                 ),
                 const Gap(AppDimens.spacingSm),
                 Expanded(
@@ -113,7 +112,7 @@ class MoleculeGroupTile extends HookWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
                 const Gap(AppDimens.spacingSm),
-                const ExcludeSemantics(
+                ExcludeSemantics(
                   child: Icon(LucideIcons.chevronRight, size: 16),
                 ),
               ],

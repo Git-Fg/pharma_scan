@@ -44,7 +44,7 @@ extension ThemeSettingMapper on ThemeSetting {
 
 @riverpod
 ThemeMode theme(Ref ref) {
-  final raw = ref.watch(themeModeNotifierProvider);
+  final raw = ref.watch(themeModeProvider).value;
   return themeSettingFromStorage(raw).asThemeMode;
 }
 
@@ -56,7 +56,7 @@ class ThemeMutation extends _$ThemeMutation {
   Future<void> setTheme(ThemeSetting setting) async {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
-      await ref.read(themeModeNotifierProvider.notifier).update(setting.name);
+      await ref.read(themeModeProvider.notifier).setMode(setting.name);
       ref.invalidate(themeProvider);
     });
   }

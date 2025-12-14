@@ -172,7 +172,7 @@ class ScanOrchestrator {
           DuplicateScanEvent(
             cip: cip13,
             serial: serial,
-            productName: catalogResult.summary.data.nomCanonique,
+            productName: catalogResult.summary.dbData.nomCanonique,
             currentQuantity: currentQuantity,
           ),
         );
@@ -195,7 +195,7 @@ class ScanOrchestrator {
         DuplicateScanEvent(
           cip: cip13,
           serial: serial ?? '',
-          productName: catalogResult.summary.data.nomCanonique,
+          productName: catalogResult.summary.dbData.nomCanonique,
           currentQuantity: currentQuantity,
         ),
         toastMessage: toast,
@@ -207,9 +207,9 @@ class ScanOrchestrator {
       ViewRestockItem(
         cipCode: cip13.toString(),
         stockCount: quantity,
-        nomCanonique: catalogResult.summary.data.nomCanonique,
-        princepsDeReference: catalogResult.summary.data.princepsDeReference,
-        isPrinceps: catalogResult.summary.data.isPrinceps,
+        nomCanonique: catalogResult.summary.dbData.nomCanonique,
+        princepsDeReference: catalogResult.summary.dbData.princepsDeReference,
+        isPrinceps: catalogResult.summary.dbData.isPrinceps,
         formePharmaceutique: catalogResult.summary.formePharmaceutique,
       ),
     );
@@ -217,7 +217,7 @@ class ScanOrchestrator {
     return RestockAdded(
       item: restockItem,
       scanResult: catalogResult,
-      toastMessage: '+1 ${catalogResult.summary.data.nomCanonique}',
+      toastMessage: '+1 ${catalogResult.summary.dbData.nomCanonique}',
     );
   }
 

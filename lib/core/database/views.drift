@@ -6,7 +6,7 @@ import 'restock_views.drift';
 -- View exposing UI-ready group member rows with CIP metadata
 -- RADICALLY SIMPLIFIED: medicament_summary contains ALL aggregated data from the remote DB
 -- We only join with:
---   - group_members: for group_id and code_cip mapping
+--   - group_members: for group_id and cip_code mapping
 --   - medicaments: for prix_public and taux_remboursement (CIP-level data)
 --   - medicament_availability: for availability_status (CIP-level data)
 --   - generique_groups: for raw_label and parsing_method
@@ -16,13 +16,13 @@ import 'restock_views.drift';
 CREATE VIEW view_group_details AS
 SELECT
   gm.group_id,
-  gm.code_cip,
+  gm.cip_code,
   gg.raw_label,
   gg.parsing_method,
   (
     SELECT m2.cis_code
     FROM group_members gm2
-    INNER JOIN medicaments m2 ON gm2.code_cip = m2.code_cip
+    INNER JOIN medicaments m2 ON gm2.cip_code = m2.cip_code
     WHERE gm2.group_id = gm.group_id
       AND gm2.type = 0
     LIMIT 1
@@ -65,11 +65,11 @@ SELECT
   ms.url_notice,
   ms.has_safety_alert
 FROM group_members gm
-INNER JOIN medicaments m ON gm.code_cip = m.code_cip
+INNER JOIN medicaments m ON gm.cip_code = m.cip_code
 INNER JOIN medicament_summary ms ON ms.cis_code = m.cis_code
 INNER JOIN generique_groups gg ON gg.group_id = gm.group_id
 LEFT JOIN laboratories ls ON ls.id = ms.titulaire_id
-LEFT JOIN medicament_availability ma ON ma.code_cip = gm.code_cip;
+LEFT JOIN medicament_availability ma ON ma.cip_code = gm.cip_code;
 
 -- View providing pre-formatted group summaries with ordered common principles.
 CREATE VIEW view_generic_group_summaries AS

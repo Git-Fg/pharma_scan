@@ -1,9 +1,11 @@
 import 'package:dio/dio.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:talker/talker.dart';
 import 'package:talker_dio_logger/talker_dio_logger.dart';
-import '../services/logger_service.dart';
 
 part 'dio_provider.g.dart';
+
+// Trigger regeneration
 
 /// Provider for a centralized Dio instance with global configuration
 @Riverpod(keepAlive: true)
@@ -33,10 +35,9 @@ Dio _createDioInstance() {
         printRequestHeaders: true,
         printResponseHeaders: false,
         printResponseMessage: true,
-        requestPen: AnsiPen.green(),
-        responsePen: AnsiPen.blue(),
-        errorPen: AnsiPen.red(),
-        infoPen: AnsiPen.cyan(),
+        requestPen: AnsiPen()..green(),
+        responsePen: AnsiPen()..blue(),
+        errorPen: AnsiPen()..red(),
       ),
     ),
   );
@@ -56,7 +57,8 @@ Dio _createDownloadDioInstance() {
   final dio = Dio(
     BaseOptions(
       connectTimeout: const Duration(seconds: 15),
-      receiveTimeout: const Duration(minutes: 10), // Longer timeout for downloads
+      receiveTimeout:
+          const Duration(minutes: 10), // Longer timeout for downloads
       sendTimeout: const Duration(minutes: 2),
       headers: {
         'User-Agent': 'PharmaScan/1.0.0 (Flutter)',
@@ -71,10 +73,7 @@ Dio _createDownloadDioInstance() {
       settings: TalkerDioLoggerSettings(
         printRequestHeaders: false, // Reduce noise for downloads
         printResponseHeaders: false,
-        printResponseMessage: false,
-        requestPen: AnsiPen.green(),
-        responsePen: AnsiPen.blue(),
-        errorPen: AnsiPen.red(),
+        errorPen: AnsiPen()..red(),
       ),
     ),
   );

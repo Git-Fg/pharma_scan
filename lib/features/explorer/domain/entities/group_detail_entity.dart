@@ -35,13 +35,15 @@ extension type GroupDetailEntity(ViewGroupDetail _data)
   bool get isOtc => _convertToBool(_data.isOtc);
 
   // Convert String field to int with default fallback
-  int get memberType => int.tryParse(_data.memberType?.toString() ?? '0') ?? 0;
+  int get memberType => int.tryParse(_data.memberType.toString() ?? '0') ?? 0;
 
   // Convert String field to double?
-  double? get prixPublic => _data.prixPublic != null ? double.tryParse(_data.prixPublic!.toString()) : null;
+  double? get prixPublic => _data.prixPublic != null
+      ? double.tryParse(_data.prixPublic!.toString())
+      : null;
 
   // Getters pour les propriétés nullable avec valeurs par défaut
-  String get codeCip => _data.codeCip ?? '';
+  String get cipCode => _data.cipCode ?? '';
 
   String get parsedTitulaire {
     final summary = _data.summaryTitulaire;
@@ -51,26 +53,15 @@ extension type GroupDetailEntity(ViewGroupDetail _data)
     return parseMainTitulaire(titulaire);
   }
 
-  // Helper to convert potentially string/int values to boolean
-  // Handles various database representations: 1/0, '1'/'0', 'true'/'false', 't'/'f', etc.
+  // Helper to convert String/int values to boolean
+  // SQLite views return String? for booleans - we only need to handle '1'/'0' and int 1/0
   static bool _convertToBool(dynamic value) {
     if (value == null) return false;
-
     if (value is bool) return value;
-
     if (value is int) return value != 0;
-
-    if (value is String) {
-      final lower = value.toLowerCase().trim();
-      if (lower == '1' || lower == 'true' || lower == 't' || lower == 'yes' || lower == 'y') {
-        return true;
-      } else if (lower == '0' || lower == 'false' || lower == 'f' || lower == 'no' || lower == 'n') {
-        return false;
-      }
-    }
-
-    // If conversion isn't straightforward, treat non-empty as true
-    return value.toString().isNotEmpty && value.toString() != '0';
+    // SQLite views always return '1' or '0' as strings for boolean columns
+    if (value is String) return value == '1';
+    return false;
   }
 
   // SMR & ASMR & Safety data (from medicament_summary)

@@ -55,14 +55,14 @@ ScannerLogic useScannerLogic(WidgetRef ref) {
 
   void removeBubble(String cip) {
     store.removeBubble(cip);
-    // Fire-and-forget persistence update; do not await or rely on Riverpod to update the UI
-    scannerNotifier.removeBubble(cip);
+    // Signals store is the sole source of truth for UI state
+    // No persistence needed for individual bubble removal
   }
 
   void clearAllBubbles() {
     store.clearAllBubbles();
-    // Fire-and-forget persistence
-    scannerNotifier.clearAllBubbles();
+    // Signals store is the sole source of truth for UI state
+    // No persistence needed for bubble history
   }
 
   void setMode(ScannerMode mode) {

@@ -11,7 +11,7 @@ class AppSheet {
   }) {
     return showShadSheet<T>(
       context: context,
-      side: ShadSheetSide.bottom,
+      side: _getSheetSide(context),
       builder: (context) => ShadSheet(
         title: Text(title),
         actions: actions ?? const [],
@@ -21,6 +21,11 @@ class AppSheet {
         ),
       ),
     );
+  }
+
+  static ShadSheetSide _getSheetSide(BuildContext context) {
+    // Default to mobile behavior for now
+    return ShadSheetSide.bottom;
   }
 }
 

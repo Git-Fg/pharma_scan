@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_hooks/flutter_hooks.dart';
+
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:pharma_scan/core/providers/navigation_provider.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
@@ -35,28 +35,21 @@ void useTabReselection({
   Duration animationDuration = const Duration(milliseconds: 300),
   Curve animationCurve = Curves.easeInOut,
 }) {
-  useEffect(
-    () {
-      final subscription = ref.listen<TabReselectionSignal>(
-        tabReselectionProvider,
-        (previous, next) {
-          if (next.tabIndex == tabIndex && controller.hasClients) {
-            if (useAnimation) {
-              controller.animateTo(
-                0,
-                duration: animationDuration,
-                curve: animationCurve,
-              );
-            } else {
-              controller.jumpTo(0);
-            }
-          }
-        },
-      );
-
-      return () => subscription.close();
+  ref.listen<TabReselectionSignal>(
+    tabReselectionProvider,
+    (previous, next) {
+      if (next.tabIndex == tabIndex && controller.hasClients) {
+        if (useAnimation) {
+          controller.animateTo(
+            0,
+            duration: animationDuration,
+            curve: animationCurve,
+          );
+        } else {
+          controller.jumpTo(0);
+        }
+      }
     },
-    [controller, tabIndex, useAnimation, animationDuration, animationCurve],
   );
 }
 
@@ -89,26 +82,19 @@ void useTabReselectionWithItemScrollController({
   bool useAnimation = true,
   Duration animationDuration = const Duration(milliseconds: 300),
 }) {
-  useEffect(
-    () {
-      final subscription = ref.listen<TabReselectionSignal>(
-        tabReselectionProvider,
-        (previous, next) {
-          if (next.tabIndex == tabIndex && controller.isAttached) {
-            if (useAnimation) {
-              controller.scrollTo(
-                index: 0,
-                duration: animationDuration,
-              );
-            } else {
-              controller.jumpTo(index: 0);
-            }
-          }
-        },
-      );
-
-      return () => subscription.close();
+  ref.listen<TabReselectionSignal>(
+    tabReselectionProvider,
+    (previous, next) {
+      if (next.tabIndex == tabIndex && controller.isAttached) {
+        if (useAnimation) {
+          controller.scrollTo(
+            index: 0,
+            duration: animationDuration,
+          );
+        } else {
+          controller.jumpTo(index: 0);
+        }
+      }
     },
-    [controller, tabIndex, useAnimation, animationDuration],
   );
 }

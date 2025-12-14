@@ -25,11 +25,11 @@ import 'package:pharma_scan/features/scanner/presentation/utils/scanner_utils.da
 import 'package:pharma_scan/features/scanner/presentation/widgets/scan_window_overlay.dart';
 import 'package:pharma_scan/features/scanner/presentation/widgets/scanner_bubbles.dart';
 import 'package:pharma_scan/features/scanner/presentation/widgets/scanner_controls.dart';
-import 'package:pharma_scan/core/ui/atoms/app_text.dart';
+import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/ui/theme/app_theme.dart';
 import 'package:pharma_scan/core/ui/theme/app_spacing.dart';
-import 'package:pharma_scan/core/ui/molecules/app_button.dart';
 import 'package:pharma_scan/core/ui/services/feedback_service.dart';
+import 'package:shadcn_ui/shadcn_ui.dart';
 
 @RoutePage(name: 'ScannerRoute')
 class CameraScreen extends HookConsumerWidget {
@@ -201,7 +201,7 @@ class CameraScreen extends HookConsumerWidget {
                   const Gap(20),
                   Text(
                     Strings.readyToScan,
-                    style: context.headlineMedium.copyWith(
+                    style: context.typo.h3.copyWith(
                       color: context.textSecondary,
                     ),
                   ),
@@ -227,9 +227,7 @@ class CameraScreen extends HookConsumerWidget {
                 child: Semantics(
                   button: true,
                   label: Strings.historyTitle,
-                  child: AppButton.icon(
-                    variant: ButtonVariant.ghost,
-                    icon: Icons.history,
+                  child: ShadButton.ghost(
                     onPressed: () {
                       // Pour l'instant, nous ouvrons un panneau latéral simple
                       // La migration complète du ShadSheet nécessiterait une implémentation personnalisée
@@ -239,6 +237,7 @@ class CameraScreen extends HookConsumerWidget {
                         builder: (sheetContext) => const HistorySheet(),
                       );
                     },
+                    child: const Icon(Icons.history),
                   ),
                 ),
               ),
@@ -260,11 +259,10 @@ class CameraScreen extends HookConsumerWidget {
                 child: Semantics(
                   button: true,
                   label: Strings.settings,
-                  child: AppButton.icon(
-                    variant: ButtonVariant.ghost,
-                    icon: Icons.settings,
+                  child: ShadButton.ghost(
                     onPressed: () =>
                         AutoRouter.of(context).push(const SettingsRoute()),
+                    child: const Icon(Icons.settings),
                   ),
                 ),
               ),
@@ -299,12 +297,12 @@ class _GallerySheet extends StatelessWidget {
         children: [
           Text(
             Strings.importFromGallery,
-            style: context.headlineSmall,
+            style: context.typo.h4,
           ),
           const Gap(8),
           Text(
             Strings.pharmascanAnalyzesOnly,
-            style: context.bodySmall.copyWith(color: context.textSecondary),
+            style: context.typo.small.copyWith(color: context.textSecondary),
           ),
           const Gap(16),
           Row(
@@ -319,7 +317,7 @@ class _GallerySheet extends StatelessWidget {
               Expanded(
                 child: Text(
                   Strings.noPhotoStoredMessage,
-                  style: context.bodySmall,
+                  style: context.typo.small,
                 ),
               ),
             ],
@@ -328,21 +326,19 @@ class _GallerySheet extends StatelessWidget {
           Semantics(
             button: true,
             label: Strings.choosePhotoFromGallery,
-            child: AppButton(
-              label: Strings.choosePhoto,
-              variant: ButtonVariant.primary,
+            child: ShadButton(
               onPressed: () =>
                   Navigator.of(context).pop(_GallerySheetResult.pick),
+              child: Text(Strings.choosePhoto),
             ),
           ),
           const Gap(8),
           Semantics(
             button: true,
             label: Strings.cancelPhotoSelection,
-            child: AppButton(
-              label: Strings.cancel,
-              variant: ButtonVariant.outline,
+            child: ShadButton.outline(
               onPressed: () => Navigator.of(context).maybePop(),
+              child: Text(Strings.cancel),
             ),
           ),
         ],
@@ -403,11 +399,9 @@ class _ManualCipSheet extends HookConsumerWidget {
       }
     };
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final maxWidth = constraints.maxWidth >= 768.0
-            ? 512.0
-            : screenWidth;
+    return ShadResponsiveBuilder(
+      builder: (context, breakpoint) {
+        final maxWidth = screenWidth >= 512.0 ? 512.0 : screenWidth;
 
         return Padding(
           padding: viewInsets,
@@ -422,79 +416,92 @@ class _ManualCipSheet extends HookConsumerWidget {
                   children: [
                     Text(
                       Strings.manualCipEntry,
-                      style: context.headlineMedium,
+                      style: context.typo.h3,
                     ),
                     const Gap(8),
                     Text(
                       Strings.manualCipDescription,
-                      style: context.bodyMedium.copyWith(color: context.textSecondary),
+                      style:
+                          context.typo.p.copyWith(color: context.textSecondary),
                     ),
                     const Gap(16),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                  Semantics(
-                    button: true,
-                    label: isSubmitting.value
-                        ? Strings.searchingInProgress
-                        : Strings.searchMedicamentWithCip,
-                    enabled: !isSubmitting.value,
-                    child: AppButton(
-                      label: Strings.search,
-                      variant: ButtonVariant.primary,
-                      onPressed: isSubmitting.value
-                          ? null
-                          : () => scanner.submit(scanner.controller.text),
-                      isLoading: isSubmitting.value,
-                    ),
-                  ),
-                ],
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text(
-                        Strings.manualEntryFieldLabel,
-                        style: context.bodySmall.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const Gap(4),
-                      Semantics(
-                        textField: true,
-                        label: Strings.manualEntryFieldLabel,
-                        hint: Strings.cipPlaceholder,
-                        value: scanner.controller.text,
-                        child: TextField(
-                          controller: scanner.controller,
-                          focusNode: scanner.focusNode,
-                          decoration: InputDecoration(
-                            hintText: Strings.cipPlaceholder,
-                            border: OutlineInputBorder(
-                              borderRadius: context.radiusMedium,
-                            ),
+                        Semantics(
+                          button: true,
+                          label: isSubmitting.value
+                              ? Strings.searchingInProgress
+                              : Strings.searchMedicamentWithCip,
+                          enabled: !isSubmitting.value,
+                          child: ShadButton(
+                            onPressed: isSubmitting.value
+                                ? null
+                                : () => scanner.submit(scanner.controller.text),
+                            leading: isSubmitting.value
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                          Colors.white),
+                                    ),
+                                  )
+                                : null,
+                            child: Text(Strings.search),
                           ),
-                            autofocus: true,
-                            keyboardType: TextInputType.number,
-                            textInputAction: TextInputAction.search,
-                            maxLength: 13,
-                            inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly,
-                              LengthLimitingTextInputFormatter(13),
-                            ],
-                            onSubmitted: scanner.submit,
-                          ),
-                        ),
-                        const Gap(16),
-                        Text(
-                          Strings.searchStartsAutomatically,
-                          style: context.bodySmall,
                         ),
                       ],
                     ),
-                  ),
+                    const Gap(16),
+                    SingleChildScrollView(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text(
+                            Strings.manualEntryFieldLabel,
+                            style: context.typo.small.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const Gap(4),
+                          Semantics(
+                            textField: true,
+                            label: Strings.manualEntryFieldLabel,
+                            hint: Strings.cipPlaceholder,
+                            value: scanner.controller.text,
+                            child: TextField(
+                              controller: scanner.controller,
+                              focusNode: scanner.focusNode,
+                              decoration: InputDecoration(
+                                hintText: Strings.cipPlaceholder,
+                                border: OutlineInputBorder(
+                                  borderRadius: context.radiusMedium,
+                                ),
+                              ),
+                              autofocus: true,
+                              keyboardType: TextInputType.number,
+                              textInputAction: TextInputAction.search,
+                              maxLength: 13,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                                LengthLimitingTextInputFormatter(13),
+                              ],
+                              onSubmitted: scanner.submit,
+                            ),
+                          ),
+                          const Gap(16),
+                          Text(
+                            Strings.searchStartsAutomatically,
+                            style: context.typo.small,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),

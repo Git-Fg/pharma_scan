@@ -12,6 +12,7 @@ export 'package:pharma_scan/core/database/providers.dart' show databaseProvider;
 export 'package:pharma_scan/core/services/haptic_service.dart'
     show hapticServiceProvider;
 export 'app_settings_provider.dart';
+import 'app_settings_provider.dart';
 
 part 'core_providers.g.dart';
 
@@ -34,7 +35,7 @@ DataInitializationService dataInitializationService(Ref ref) {
 }
 
 @riverpod
-int? lastSyncEpoch(Ref ref) {
+Future<int?> lastSyncEpoch(Ref ref) {
   return ref.read(appSettingsDaoProvider).lastSyncEpoch;
 }
 

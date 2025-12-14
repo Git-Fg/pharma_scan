@@ -193,9 +193,15 @@ AsyncValue<Map<String, List<RestockItemEntity>>> sortedRestock(Ref ref) {
   final itemsAsync = ref.watch(restockProvider);
   final sortingAsync = ref.watch(sortingPreferenceProvider);
 
+  if (sortingAsync.isLoading || !sortingAsync.hasValue) {
+    return const AsyncValue.loading();
+  }
+
+  final sorting = sortingAsync.value!;
+
   return itemsAsync.when(
     data: (items) => AsyncValue.data(
-      _groupByInitial(_sortRestockItems(items, sortingAsync), sortingAsync),
+      _groupByInitial(_sortRestockItems(items, sorting), sorting),
     ),
     error: AsyncValue.error,
     loading: AsyncValue.loading,
@@ -206,15 +212,11 @@ List<RestockItemEntity> _sortRestockItems(
   List<RestockItemEntity> items,
   SortingPreference preference,
 ) {
-  bool hasValidPrinceps(RestockItemEntity item) {
-    final princepsValue = UnknownAwareString.fromDatabase(item.princepsLabel);
-    return princepsValue.hasContent;
-  }
-
   String keyFor(RestockItemEntity item) {
     switch (preference) {
       case SortingPreference.princeps:
-        final princepsValue = UnknownAwareString.fromDatabase(item.princepsLabel);
+        final princepsValue =
+            UnknownAwareString.fromDatabase(item.princepsLabel);
         if (princepsValue.hasContent) {
           return princepsValue.value.toUpperCase();
         }
@@ -260,9 +262,10 @@ Map<String, List<RestockItemEntity>> _groupByInitial(
       return formValue.value.trim().toUpperCase();
     }
 
-    final base = preference == SortingPreference.princeps && hasValidPrinceps(item)
-        ? item.princepsLabel!
-        : item.label;
+    final base =
+        preference == SortingPreference.princeps && hasValidPrinceps(item)
+            ? item.princepsLabel!
+            : item.label;
 
     final baseValue = UnknownAwareString.fromDatabase(base);
     if (!baseValue.hasContent) return '#';
@@ -284,4 +287,3 @@ Map<String, List<RestockItemEntity>> _groupByInitial(
   }
   return sortedGroups;
 }
-

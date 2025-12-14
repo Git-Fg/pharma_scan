@@ -10,6 +10,7 @@ import 'package:pharma_scan/features/explorer/domain/extensions/medication_statu
 import 'package:pharma_scan/features/explorer/domain/extensions/view_group_detail_extensions.dart';
 import 'package:pharma_scan/features/explorer/presentation/widgets/status_badges.dart';
 import 'package:pharma_scan/core/ui/organisms/app_sheet.dart';
+import 'package:shadcn_ui/shadcn_ui.dart';
 
 class MedicationDetailSheet extends StatelessWidget {
   const MedicationDetailSheet({required this.item, super.key});
@@ -66,9 +67,8 @@ class MedicationDetailSheet extends StatelessWidget {
                     availabilityStatus: availability,
                   ),
                   if (item.isHospitalOnly)
-                    const AppBadge(
-                      label: Strings.hospitalBadge,
-                      variant: BadgeVariant.secondary,
+                    ShadBadge.secondary(
+                      child: Text(Strings.hospitalBadge),
                     ),
                 ],
               ),
@@ -77,7 +77,7 @@ class MedicationDetailSheet extends StatelessWidget {
             _buildInfoRow(
               context,
               label: Strings.cipCodeLabel,
-              value: item.codeCip,
+              value: item.cipCode,
             ),
             _buildInfoRow(
               context,

@@ -15,12 +15,13 @@ import 'package:pharma_scan/core/services/logger_service.dart';
 import 'package:pharma_scan/features/explorer/data/explorer_dao.dart';
 
 @DriftDatabase(
-  // Include BOTH schema files so Drift knows about all tables for query generation
+  // Include schema files - reference tables are defined in reference_schema.drift
   include: {
     'reference_schema.drift',
     'user_schema.drift',
     'queries.drift',
-    'views.drift'
+    'views.drift',
+    'restock_views.drift'
   },
   tables: [AppSettings],
   daos: [CatalogDao, DatabaseDao, RestockDao, ExplorerDao, AppSettingsDao],

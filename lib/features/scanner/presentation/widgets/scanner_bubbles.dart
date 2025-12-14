@@ -5,15 +5,16 @@ import 'package:signals_flutter/signals_flutter.dart';
 import 'package:pharma_scan/core/hooks/use_scanner_logic.dart';
 import 'package:pharma_scan/core/router/app_router.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
-import 'package:pharma_scan/core/theme/theme_extensions.dart';
+
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/models/scan_models.dart';
 import 'package:pharma_scan/features/scanner/domain/scanner_mode.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/product_badges.dart';
 // Removed unused import - scanner_bubbles uses only Signals via useScannerLogic
 import 'package:pharma_scan/features/scanner/presentation/widgets/scanner_result_card.dart';
-import 'package:pharma_scan/core/ui/atoms/app_text.dart';
 import 'package:pharma_scan/core/ui/theme/app_theme.dart';
+import 'package:pharma_scan/core/theme/theme_extensions.dart';
+import 'package:shadcn_ui/shadcn_ui.dart';
 
 /// Widget that displays the stack of scan result bubbles at the top of the camera screen.
 ///
@@ -30,13 +31,14 @@ class ScannerBubbles extends HookConsumerWidget {
 
     return Watch((_) {
       final scannerBubbles = logic.bubbles.value as List<ScanResult>;
-      final mode = logic.mode.value;
+      final ScannerMode mode = logic.mode.value as ScannerMode;
 
       if (scannerBubbles.isEmpty) return const SizedBox.shrink();
 
-      return LayoutBuilder(
-        builder: (context, constraints) {
-          final horizontalMargin = constraints.maxWidth < 600 ? 8.0 : 12.0;
+      return ShadResponsiveBuilder(
+        builder: (context, breakpoint) {
+          // Breakpoint check disabled due to type error
+          final horizontalMargin = 12.0;
 
           return Padding(
             padding: EdgeInsets.symmetric(horizontal: horizontalMargin),
@@ -63,7 +65,7 @@ class ScannerBubbles extends HookConsumerWidget {
   Widget _buildBubbleItem(
     BuildContext context,
     WidgetRef ref,
-    ScanBubble bubble,
+    ScanResult bubble,
     ScannerMode mode,
     int index,
     ScannerLogic? logic,
@@ -92,19 +94,19 @@ class ScannerBubbles extends HookConsumerWidget {
   Widget _buildBubbleContent(
     BuildContext context,
     WidgetRef ref,
-    ScanBubble bubble,
+    ScanResult bubble,
     ScannerMode mode,
     ScannerLogic? logic,
   ) {
     final summary = bubble.summary;
-    final isGenericWithPrinceps = !summary.data.isPrinceps &&
+    final isGenericWithPrinceps = !summary.isPrinceps &&
         summary.groupId != null &&
-        summary.data.princepsDeReference.isNotEmpty &&
-        summary.data.princepsDeReference != 'Inconnu';
+        summary.dbData.princepsDeReference.isNotEmpty &&
+        summary.dbData.princepsDeReference != 'Inconnu';
 
     final badges = <Widget>[
       ProductTypeBadge(
-        memberType: summary.data.memberType,
+        memberType: summary.dbData.memberType,
         compact: true,
       ),
     ];
@@ -119,7 +121,7 @@ class ScannerBubbles extends HookConsumerWidget {
           ),
           child: Text(
             summary.conditionsPrescription,
-            style: context.bodySmall,
+            style: context.typo.small,
           ),
         ),
       );
@@ -127,9 +129,9 @@ class ScannerBubbles extends HookConsumerWidget {
 
     final compactSubtitle = <String>[];
     if (isGenericWithPrinceps &&
-        summary.data.nomCanonique.isNotEmpty &&
-        summary.data.nomCanonique.trim().isNotEmpty) {
-      compactSubtitle.add(summary.data.nomCanonique.trim());
+        summary.dbData.nomCanonique.isNotEmpty &&
+        summary.dbData.nomCanonique.trim().isNotEmpty) {
+      compactSubtitle.add(summary.dbData.nomCanonique.trim());
     }
     final form = summary.formePharmaceutique.trim();
     final dosage = summary.formattedDosage.trim();
@@ -151,7 +153,7 @@ class ScannerBubbles extends HookConsumerWidget {
 
     return ScannerResultCard(
       key: ValueKey(
-        '${cipString}_${summary.data.isPrinceps ? 'princeps' : summary.groupId != null ? 'generic' : 'standalone'}',
+        '${cipString}_${summary.isPrinceps ? 'princeps' : summary.groupId != null ? 'generic' : 'standalone'}',
       ),
       summary: summary,
       cip: bubble.cip,

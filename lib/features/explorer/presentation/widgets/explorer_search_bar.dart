@@ -13,9 +13,8 @@ import 'package:pharma_scan/features/explorer/domain/models/explorer_enums.dart'
 import 'package:pharma_scan/features/explorer/domain/models/search_filters_model.dart';
 import 'package:pharma_scan/features/explorer/presentation/providers/search_provider.dart';
 import 'package:pharma_scan/features/explorer/presentation/widgets/filters/administration_route_filter_tile.dart';
-import 'package:pharma_scan/core/ui/atoms/app_badge.dart';
+import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:pharma_scan/core/ui/organisms/app_sheet.dart';
-import 'package:pharma_scan/core/ui/molecules/app_button.dart';
 
 class ExplorerSearchBar extends HookConsumerWidget {
   const ExplorerSearchBar({required this.onSearchChanged, super.key});
@@ -188,9 +187,8 @@ class ExplorerSearchBar extends HookConsumerWidget {
               child: IgnorePointer(
                 child: Semantics(
                   label: Strings.activeFilterCount(filterCount),
-                  child: AppBadge(
-                    label: '$filterCount',
-                    variant: BadgeVariant.primary,
+                  child: ShadBadge(
+                    child: Text('$filterCount'),
                   ),
                 ),
               ),
@@ -238,12 +236,11 @@ class ExplorerSearchBar extends HookConsumerWidget {
     return AppSheetWidget(
       title: const Text(Strings.filters),
       actions: [
-        AppButton(
-          label: Strings.resetFilters,
+        ShadButton.ghost(
           onPressed: currentFilters.hasActiveFilters
               ? ref.read(searchFiltersProvider.notifier).clearFilters
               : null,
-          variant: ButtonVariant.ghost,
+          child: Text(Strings.resetFilters),
         ),
       ],
       child: SingleChildScrollView(
@@ -326,8 +323,9 @@ class ExplorerSearchBar extends HookConsumerWidget {
           ],
         ),
         onChanged: (value) {
-          ref.read(searchFiltersProvider.notifier).filters =
-              currentFilters.copyWith(atcClass: value);
+          ref.read(searchFiltersProvider.notifier).setFilters(
+                currentFilters.copyWith(atcClass: value),
+              );
           unawaited(Navigator.of(context).maybePop());
         },
       ),

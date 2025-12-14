@@ -16,8 +16,9 @@ MobileScannerController scannerController(Ref ref) {
         false, // Manual lifecycle control via AppLifecycleListener elsewhere if needed
   );
 
-  // 2. Resource Safety Valve
+  // 2. Resource Safety Valve - stop before dispose to release camera locks reliably
   ref.onDispose(() {
+    controller.stop();
     controller.dispose();
   });
 

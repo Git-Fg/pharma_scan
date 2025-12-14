@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
+import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
+
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/product_badges.dart';
+
 import 'package:pharma_scan/features/explorer/presentation/providers/group_explorer_state.dart';
 import 'package:pharma_scan/features/explorer/presentation/widgets/group_detail/group_actions_bar.dart';
-import 'package:pharma_scan/core/ui/atoms/app_badge.dart';
-import 'package:pharma_scan/core/ui/molecules/app_card.dart';
 
 class GroupHeader extends StatelessWidget {
   const GroupHeader({
@@ -23,9 +24,8 @@ class GroupHeader extends StatelessWidget {
     final metadataBadges = <Widget>[
       if (state.distinctForms.isNotEmpty)
         ...state.distinctForms.map(
-          (form) => AppBadge(
-            label: Strings.formWithValue(form),
-            variant: BadgeVariant.secondary,
+          (form) => ShadBadge.secondary(
+            child: Text(Strings.formWithValue(form)),
           ),
         ),
     ];
@@ -33,9 +33,8 @@ class GroupHeader extends StatelessWidget {
         .map((condition) => condition.trim())
         .where((condition) => condition.isNotEmpty)
         .map(
-          (condition) => AppBadge(
-            label: condition,
-            variant: BadgeVariant.outline,
+          (condition) => ShadBadge.outline(
+            child: Text(condition),
           ),
         )
         .toList();
@@ -92,10 +91,9 @@ class GroupHeader extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
           ),
           const Gap(AppDimens.spacing2xs),
-          AppBadge(
-            label: Strings.summaryLine(
-                state.princeps.length, state.generics.length),
-            variant: BadgeVariant.outline,
+          ShadBadge.outline(
+            child: Text(Strings.summaryLine(
+                state.princeps.length, state.generics.length)),
           ),
           if (allBadges.isNotEmpty) ...[
             const Gap(AppDimens.spacingSm),
@@ -134,7 +132,7 @@ class _MetadataTiles extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AppCard(
+    return ShadCard(
       padding: const EdgeInsets.symmetric(
         vertical: AppDimens.spacingSm,
         horizontal: AppDimens.spacingMd,

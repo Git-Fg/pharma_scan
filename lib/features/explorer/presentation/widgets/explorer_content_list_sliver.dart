@@ -622,7 +622,7 @@ class _ExplorerContentListSliverState extends ConsumerState<ExplorerContentListS
   ) {
     final heroTag = 'standalone-$representativeCip';
     // Principles are already normalized from the database
-    final sanitizedPrinciples = summary.data.principesActifsCommuns;
+    final sanitizedPrinciples = summary.dbData.principesActifsCommuns;
 
     Future<void> copyToClipboard(String text, String label) async {
       await Clipboard.setData(ClipboardData(text: text));
@@ -700,11 +700,11 @@ class _ExplorerContentListSliverState extends ConsumerState<ExplorerContentListS
                   child: buildDetailItem(
                     context,
                     label: Strings.nameLabel,
-                    value: summary.data.nomCanonique,
+                    value: summary.dbData.nomCanonique,
                     copyable: true,
                     copyLabel: Strings.copyNameLabel,
                     onCopy: () => copyToClipboard(
-                      summary.data.nomCanonique,
+                      summary.dbData.nomCanonique,
                       Strings.copyNameLabel,
                     ),
                   ),

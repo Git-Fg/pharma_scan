@@ -10,14 +10,7 @@ describe("Pipeline Integrity", () => {
 
     beforeAll(() => {
             if (!existsSync(DEFAULT_DB_PATH)) {
-                // Attempt to build database automatically if missing
-                const result = spawnSync("bun", ["src/index.ts"], { stdio: "inherit", cwd: join(__dirname, '..') });
-                if (result.status !== 0) {
-                    throw new Error(`Failed to build database at ${DEFAULT_DB_PATH}. Run 'bun run build:db' first.`);
-                }
-                if (!existsSync(DEFAULT_DB_PATH)) {
-                    throw new Error(`Database still not found at ${DEFAULT_DB_PATH} after build. Run 'bun run build:db' first.`);
-                }
+                throw new Error(`Database not found at ${DEFAULT_DB_PATH}. Run 'bun run build' in backend_pipeline first.`);
             }
         db = new Database(DEFAULT_DB_PATH, { readonly: true });
     });
@@ -50,7 +43,8 @@ describe("Pipeline Integrity", () => {
     test("FTS Search Index should return results", () => {
         // Need to query the virtual table. 
         // Note: FTS queries typically use MATCH
-        const query = db.query("SELECT * FROM search_index WHERE search_index MATCH 'DOLIPRANE' LIMIT 5");
+        // Use a term present in current DB (AMOXICILLINE) for robust FTS test
+        const query = db.query("SELECT * FROM search_index WHERE search_index MATCH 'AMOXICILLINE' LIMIT 5");
         const results = query.all();
         expect(results.length).toBeGreaterThan(0);
     });

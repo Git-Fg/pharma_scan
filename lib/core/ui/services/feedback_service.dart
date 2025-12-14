@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../atoms/app_icon.dart';
-import '../atoms/app_text.dart';
-import '../molecules/app_button.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_theme.dart';
+import '../../theme/theme_extensions.dart';
 import '../../services/haptic_service.dart'; // Assumant que ce service existe
+import 'package:shadcn_ui/shadcn_ui.dart';
 
 /// Service centralisé pour les feedbacks utilisateur (toasts, dialogs, snackbar)
 class FeedbackService {
   /// Affiche un toast de succès
   static void showSuccess(
-    BuildContext context, 
+    BuildContext context,
     String message, {
     String? title,
     Duration duration = const Duration(seconds: 3),
@@ -33,7 +33,7 @@ class FeedbackService {
 
   /// Affiche un toast d'erreur
   static void showError(
-    BuildContext context, 
+    BuildContext context,
     String message, {
     String? title,
     Duration duration = const Duration(seconds: 4),
@@ -55,7 +55,7 @@ class FeedbackService {
 
   /// Affiche un toast d'avertissement
   static void showWarning(
-    BuildContext context, 
+    BuildContext context,
     String message, {
     String? title,
     Duration duration = const Duration(seconds: 3),
@@ -77,7 +77,7 @@ class FeedbackService {
 
   /// Affiche un toast d'information
   static void showInfo(
-    BuildContext context, 
+    BuildContext context,
     String message, {
     String? title,
     Duration duration = const Duration(seconds: 3),
@@ -111,10 +111,10 @@ class FeedbackService {
     // Afficher le feedback haptique
     hapticFeedback();
 
-    // Affichage du toast (utilisation de ScaffoldMessenger pour l'instant, 
+    // Affichage du toast (utilisation de ScaffoldMessenger pour l'instant,
     // mais pourrait être remplacé par une solution spécifique si shadcn_ui est utilisé)
     final messenger = ScaffoldMessenger.of(context);
-    
+
     messenger.hideCurrentSnackBar();
     messenger.showSnackBar(
       SnackBar(
@@ -127,14 +127,15 @@ class FeedbackService {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  AppText(
+                  Text(
                     title,
-                    variant: TextVariant.labelMedium,
-                    fontWeight: FontWeight.bold,
+                    style: context.typo.large.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                  AppText(
+                  Text(
                     message,
-                    variant: TextVariant.bodySmall,
+                    style: context.typo.small,
                   ),
                 ],
               ),
@@ -160,7 +161,7 @@ class FeedbackService {
     required String content,
     String confirmText = 'Confirmer',
     String cancelText = 'Annuler',
-    ButtonVariant confirmVariant = ButtonVariant.destructive,
+    ShadButtonVariant confirmVariant = ShadButtonVariant.destructive,
     bool barrierDismissible = true,
   }) async {
     final haptics = ProviderScope.containerOf(context, listen: false)
@@ -171,32 +172,40 @@ class FeedbackService {
       barrierDismissible: barrierDismissible,
       builder: (context) {
         return AlertDialog(
-          title: AppText(
+          title: Text(
             title,
-            variant: TextVariant.headlineSmall,
+            style: context.typo.h4,
           ),
-          content: AppText(
+          content: Text(
             content,
-            variant: TextVariant.bodyMedium,
-            color: context.textSecondary,
+            style: context.typo.large?.copyWith(
+              color: context.colors.mutedForeground,
+            ),
           ),
           actions: [
-            AppButton(
-              label: cancelText,
-              variant: ButtonVariant.ghost,
+            ShadButton.ghost(
               onPressed: () {
                 haptics.selection();
                 Navigator.of(context).pop(false);
               },
+              child: Text(cancelText),
             ),
-            AppButton(
-              label: confirmText,
-              variant: confirmVariant,
-              onPressed: () {
-                haptics.selection();
-                Navigator.of(context).pop(true);
-              },
-            ),
+            switch (confirmVariant) {
+              ShadButtonVariant.destructive => ShadButton.destructive(
+                  onPressed: () {
+                    haptics.selection();
+                    Navigator.of(context).pop(true);
+                  },
+                  child: Text(confirmText),
+                ),
+              _ => ShadButton(
+                  onPressed: () {
+                    haptics.selection();
+                    Navigator.of(context).pop(true);
+                  },
+                  child: Text(confirmText),
+                ),
+            },
           ],
         );
       },
@@ -219,23 +228,23 @@ class FeedbackService {
       barrierDismissible: barrierDismissible,
       builder: (context) {
         return AlertDialog(
-          title: AppText(
+          title: Text(
             title,
-            variant: TextVariant.headlineSmall,
+            style: context.typo.h4,
           ),
-          content: AppText(
+          content: Text(
             content,
-            variant: TextVariant.bodyMedium,
-            color: context.textSecondary,
+            style: context.typo.large?.copyWith(
+              color: context.colors.mutedForeground,
+            ),
           ),
           actions: [
-            AppButton(
-              label: confirmText,
-              variant: ButtonVariant.primary,
+            ShadButton(
               onPressed: () {
                 haptics.selection();
                 Navigator.of(context).pop();
               },
+              child: Text(confirmText),
             ),
           ],
         );

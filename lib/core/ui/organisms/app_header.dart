@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../atoms/app_text.dart';
-import '../molecules/app_button.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_theme.dart';
+import 'package:shadcn_ui/shadcn_ui.dart';
+import 'package:pharma_scan/core/theme/theme_extensions.dart';
 
 /// Type de callback pour le bouton de navigation
 typedef NavigationCallback = void Function();
@@ -47,7 +47,8 @@ class AppHeader extends ConsumerWidget implements PreferredSizeWidget {
     this.onLeadingPressed,
     this.leadingTooltip,
     this.titleWidget,
-  }) : assert(title != null || titleWidget != null, 'title or titleWidget must be non-null');
+  }) : assert(title != null || titleWidget != null,
+            'title or titleWidget must be non-null');
 
   /// Constructeur raccourci pour un header avec widget de titre personnalisé
   const AppHeader.widget(
@@ -67,7 +68,8 @@ class AppHeader extends ConsumerWidget implements PreferredSizeWidget {
     this.showLeadingBackButton = false,
     this.onLeadingPressed,
     this.leadingTooltip,
-  }) : assert(title != null || titleWidget != null, 'title or titleWidget must be non-null');
+  }) : assert(title != null || titleWidget != null,
+            'title or titleWidget must be non-null');
 
   final String? title;
   final Widget? titleWidget;
@@ -86,18 +88,17 @@ class AppHeader extends ConsumerWidget implements PreferredSizeWidget {
   final String? leadingTooltip;
 
   @override
-  Size get preferredSize => Size.fromHeight(kToolbarHeight + (bottom?.preferredSize.height ?? 0.0));
+  Size get preferredSize =>
+      Size.fromHeight(kToolbarHeight + (bottom?.preferredSize.height ?? 0.0));
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     Widget? leadingWidget;
 
     if (showLeadingBackButton) {
-      leadingWidget = AppButton.icon(
-        variant: ButtonVariant.ghost,
-        icon: Icons.arrow_back,
+      leadingWidget = ShadButton.ghost(
         onPressed: onLeadingPressed ?? () => Navigator.maybePop(context),
-        tooltip: leadingTooltip ?? 'Retour',
+        child: const Icon(Icons.arrow_back),
       );
     } else if (leading != null) {
       leadingWidget = leading;
@@ -105,10 +106,11 @@ class AppHeader extends ConsumerWidget implements PreferredSizeWidget {
 
     final titleContent = titleWidget ??
         (title != null
-            ? AppText(
+            ? Text(
                 title!,
-                variant: TextVariant.headlineSmall,
-                fontWeight: FontWeight.w600,
+                style: context.typo.h4.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
               )
             : null);
 
@@ -167,10 +169,9 @@ class AppSimpleHeader extends StatelessWidget {
     Widget? leadingWidget;
 
     if (showLeadingBackButton) {
-      leadingWidget = AppButton.icon(
-        variant: ButtonVariant.ghost,
-        icon: Icons.arrow_back,
+      leadingWidget = ShadButton.ghost(
         onPressed: onLeadingPressed ?? () => Navigator.maybePop(context),
+        child: const Icon(Icons.arrow_back),
       );
     } else if (leading != null) {
       leadingWidget = leading;
@@ -179,12 +180,13 @@ class AppSimpleHeader extends StatelessWidget {
     return Container(
       width: double.infinity,
       color: backgroundColor ?? context.surfacePrimary,
-      padding: padding ?? EdgeInsets.only(
-        top: MediaQuery.of(context).padding.top + AppSpacing.large,
-        left: AppSpacing.large,
-        right: AppSpacing.large,
-        bottom: AppSpacing.large,
-      ),
+      padding: padding ??
+          EdgeInsets.only(
+            top: MediaQuery.of(context).padding.top + AppSpacing.large,
+            left: AppSpacing.large,
+            right: AppSpacing.large,
+            bottom: AppSpacing.large,
+          ),
       child: SafeArea(
         bottom: false,
         child: Row(
@@ -196,20 +198,24 @@ class AppSimpleHeader extends StatelessWidget {
             ],
             Expanded(
               child: Column(
-                crossAxisAlignment: centerTitle ? CrossAxisAlignment.center : CrossAxisAlignment.start,
+                crossAxisAlignment: centerTitle
+                    ? CrossAxisAlignment.center
+                    : CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  AppText(
+                  Text(
                     title,
-                    variant: TextVariant.headlineSmall,
-                    fontWeight: FontWeight.w600,
+                    style: context.typo.h4.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                   if (subtitle != null) ...[
                     Gap(AppSpacing.small),
-                    AppText(
+                    Text(
                       subtitle!,
-                      variant: TextVariant.bodySmall,
-                      color: context.textSecondary,
+                      style: context.typo.p.copyWith(
+                        color: context.textSecondary,
+                      ),
                     ),
                   ],
                 ],

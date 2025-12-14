@@ -1,4 +1,4 @@
-import { normalizePrincipleOptimal, generateGroupingKey, applyPharmacologicalMask } from "./sanitizer";
+import { normalizePrincipleOptimal, generateGroupingKey, applyPharmacologicalMask, normalizeCommonPrincipes } from "./sanitizer";
 import crypto from "crypto";
 import { ClusterData } from "./types";
 

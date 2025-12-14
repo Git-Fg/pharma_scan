@@ -9,9 +9,7 @@ import 'package:pharma_scan/features/explorer/domain/entities/group_detail_entit
 import 'package:pharma_scan/features/explorer/domain/extensions/medication_status_extensions.dart';
 import 'package:pharma_scan/features/explorer/domain/extensions/view_group_detail_extensions.dart';
 import 'package:pharma_scan/features/explorer/presentation/widgets/status_badges.dart';
-import 'package:pharma_scan/core/ui/molecules/app_card.dart';
-import 'package:pharma_scan/core/ui/atoms/app_badge.dart';
-import 'package:pharma_scan/core/ui/molecules/app_button.dart';
+import 'package:shadcn_ui/shadcn_ui.dart';
 
 class PrincepsHeroCard extends StatelessWidget {
   const PrincepsHeroCard({
@@ -45,15 +43,14 @@ class PrincepsHeroCard extends StatelessWidget {
         color: theme.colorScheme.primary.withValues(alpha: 0.05),
         borderRadius: theme.radius,
       ),
-      child: AppCard(
+      child: ShadCard(
         padding: const EdgeInsets.all(AppDimens.spacingMd),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (isFallbackGeneric) ...[
-              AppBadge(
-                label: Strings.heroFallbackGeneric,
-                variant: BadgeVariant.secondary,
+              ShadBadge.secondary(
+                child: Text(Strings.heroFallbackGeneric),
               ),
               const Gap(AppDimens.spacing2xs),
             ],
@@ -70,7 +67,7 @@ class PrincepsHeroCard extends StatelessWidget {
                 ),
                 const Gap(AppDimens.spacing2xs),
                 Text(
-                  '${Strings.cip} ${princeps.codeCip}',
+                  '${Strings.cip} ${princeps.cipCode}',
                   style: theme.textTheme.small.copyWith(
                     color: theme.colorScheme.mutedForeground,
                   ),
@@ -85,12 +82,9 @@ class PrincepsHeroCard extends StatelessWidget {
                   softWrap: true,
                 ),
                 const Gap(AppDimens.spacingSm),
-                AppButton.icon(
+                ShadButton.outline(
                   onPressed: onViewDetails,
-                  variant: ButtonVariant.outline,
-                  size: ButtonSize.small,
-                  icon: LucideIcons.info,
-                  label: Strings.showMedicamentDetails,
+                  child: const Icon(LucideIcons.info),
                 ),
               ],
             ),

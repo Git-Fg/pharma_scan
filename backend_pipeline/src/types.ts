@@ -333,7 +333,10 @@ export interface MedicamentSummary {
   memberType?: number; // raw BDPM generic type
   principesActifsCommuns?: string | Uint8Array; // JSONB array of common active ingredients
   princepsDeReference: string; // reference princeps name for group
+  parentPrincepsCis?: string; // reference princeps CIS code
   formePharmaceutique?: string; // for filtering
+  formId?: number; // NEW Normalized ID
+  isFormInferred?: boolean; // NEW Flag (default false)
   voiesAdministration?: string; // semicolon routes
   princepsBrandName: string;
   procedureType?: string;

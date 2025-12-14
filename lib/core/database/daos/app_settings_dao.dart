@@ -85,7 +85,7 @@ class AppSettingsDao extends DatabaseAccessor<AppDatabase>
 
   Future<bool> hasSetting(String key) async {
     final result = await (selectOnly(appSettings)
-          ..where((tbl) => tbl.key.equals(key)))
+          ..where(appSettings.key.equals(key)))
         .get();
     return result.isNotEmpty;
   }

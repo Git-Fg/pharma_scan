@@ -16,9 +16,8 @@ class SearchFiltersNotifier extends _$SearchFiltersNotifier {
         voieAdministration: 'orale',
       );
 
-  SearchFilters get filters => state;
-
-  set filters(SearchFilters filters) {
+  /// Explicit method for updating filters (preferred over setter for clarity)
+  void setFilters(SearchFilters filters) {
     state = filters;
   }
 
@@ -56,6 +55,6 @@ SearchResultItem? _medicamentToSearchResult(MedicamentEntity medicament) {
     cisCode: medicament.cisCode,
     summary: medicament,
     representativeCip: repCip,
-    commonPrinciples: medicament.data.principesActifsCommuns ?? '',
+    commonPrinciples: medicament.dbData.principesActifsCommuns ?? '',
   );
 }

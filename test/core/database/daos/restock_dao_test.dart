@@ -2,8 +2,8 @@ import 'package:drift/drift.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pharma_scan/core/database/daos/restock_dao.dart';
 import 'package:pharma_scan/core/database/database.dart';
-import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/domain/types/ids.dart';
+import 'package:pharma_scan/core/database/reference_schema.drift.dart';
 import '../../../helpers/test_database.dart';
 
 void main() {
@@ -14,17 +14,21 @@ void main() {
     database = createTestDatabase();
     dao = database.restockDao;
 
-    // Créer les tables de référence nécessaires pour les tests
+    // Attacher une base de données en mémoire pour le schéma de référence
+    await database
+        .customStatement("ATTACH DATABASE ':memory:' AS reference_db");
+
+    // Créer les tables de référence nécessaires pour les tests dans le schéma reference_db
     await database.customStatement('''
-      CREATE TABLE IF NOT EXISTS medicaments (
-        code_cip TEXT NOT NULL PRIMARY KEY,
+      CREATE TABLE IF NOT EXISTS reference_db.medicaments (
+        cip_code TEXT NOT NULL PRIMARY KEY,
         cis_code TEXT NOT NULL,
         presentation_label TEXT
       )
     ''');
 
     await database.customStatement('''
-      CREATE TABLE IF NOT EXISTS medicament_summary (
+      CREATE TABLE IF NOT EXISTS reference_db.medicament_summary (
         cis_code TEXT NOT NULL PRIMARY KEY,
         nom_canonique TEXT NOT NULL,
         princeps_de_reference TEXT,
@@ -38,7 +42,7 @@ void main() {
     ''');
 
     await database.customStatement('''
-      CREATE TABLE IF NOT EXISTS specialites (
+      CREATE TABLE IF NOT EXISTS reference_db.specialites (
         cis_code TEXT NOT NULL PRIMARY KEY,
         nom_specialite TEXT NOT NULL,
         forme_pharmaceutique TEXT
@@ -48,7 +52,7 @@ void main() {
     // Insérer des données de référence pour les tests
     await database.into(database.medicaments).insert(
           MedicamentsCompanion.insert(
-            codeCip: '3400934056781',
+            cipCode: '3400934056781',
             cisCode: '12345678',
             presentationLabel: const Value('Test Medicament'),
           ),
@@ -60,7 +64,7 @@ void main() {
             nomCanonique: 'TEST MEDICAMENT',
             princepsDeReference: 'TEST',
             princepsBrandName: 'TEST BRAND',
-            isPrinceps: const Value(true),
+            isPrinceps: const Value(1),
             formePharmaceutique: const Value('Comprimé'),
             voiesAdministration: const Value('orale'),
             formattedDosage: const Value('500mg'),

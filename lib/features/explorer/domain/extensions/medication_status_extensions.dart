@@ -16,7 +16,8 @@ extension MedicamentStatusFlags on MedicamentEntity {
     final flags = <MedicationStatusFlag>{};
 
     // Use the Extension Type for parsing commercialization status
-    final status = CommercializationStatus.fromDatabase(commercializationStatus ?? data.status);
+    final status = CommercializationStatus.fromDatabase(
+        commercializationStatus ?? dbData.status);
 
     // Set flags based on the parsed status
     if (status.isRevoked) {
@@ -42,11 +43,13 @@ extension MedicamentStatusFlags on MedicamentEntity {
 }
 
 extension GroupDetailStatusFlags on GroupDetailEntity {
-  Set<MedicationStatusFlag> statusFlags({String? commercializationStatus, String? availabilityStatus}) {
+  Set<MedicationStatusFlag> statusFlags(
+      {String? commercializationStatus, String? availabilityStatus}) {
     final flags = <MedicationStatusFlag>{};
 
     // Use the Extension Type for parsing commercialization status
-    final status = CommercializationStatus.fromDatabase(commercializationStatus);
+    final status =
+        CommercializationStatus.fromDatabase(commercializationStatus);
 
     // Set flags based on the parsed status
     if (status.isRevoked) {

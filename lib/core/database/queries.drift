@@ -19,8 +19,8 @@ SELECT
 FROM medicaments m
 INNER JOIN medicament_summary ms ON ms.cis_code = m.cis_code
 LEFT JOIN laboratories ls ON ls.id = ms.titulaire_id
-LEFT JOIN medicament_availability ma ON ma.code_cip = m.code_cip
-WHERE m.code_cip = :cipCode
+LEFT JOIN medicament_availability ma ON ma.cip_code = m.cip_code
+WHERE m.cip_code = :cipCode
 LIMIT 1;
 
 
@@ -34,7 +34,7 @@ SELECT
     ms.princeps_de_reference,
     COALESCE(ms.is_princeps, 0) AS is_princeps
 FROM scanned_boxes sb
-LEFT JOIN medicaments m ON m.code_cip = sb.cip_code
+LEFT JOIN medicaments m ON m.cip_code = sb.cip_code
 LEFT JOIN medicament_summary ms ON ms.cis_code = m.cis_code
 ORDER BY sb.scan_timestamp DESC
 LIMIT :limit;
@@ -49,7 +49,7 @@ deleteSearchIndex: DELETE FROM search_index;
 -- No need to join with specialites table
 CREATE VIEW detailed_scan_results AS
 SELECT
-  m.code_cip,
+  m.cip_code,
   m.cis_code,
   ms.nom_canonique AS nom_specialite,  -- Use nom_canonique from medicament_summary
   ms.procedure_type AS specialite_procedure_type,
@@ -83,7 +83,7 @@ SELECT
   COUNT(*) AS match_count
 FROM generique_groups gg
 INNER JOIN group_members gm ON gg.group_id = gm.group_id
-INNER JOIN medicaments m ON gm.code_cip = m.code_cip
+INNER JOIN medicaments m ON gm.cip_code = m.cip_code
 INNER JOIN specialites s ON m.cis_code = s.cis_code
 WHERE gm.type = 0
   AND gg.group_id = :groupId
@@ -94,7 +94,7 @@ HAVING (
   OR NOT EXISTS (
     SELECT 1
     FROM group_members gm2
-    INNER JOIN medicaments m2 ON gm2.code_cip = m2.code_cip
+    INNER JOIN medicaments m2 ON gm2.cip_code = m2.cip_code
     INNER JOIN specialites s2 ON m2.cis_code = s2.cis_code
     WHERE gm2.group_id = gg.group_id
       AND gm2.type = 0
@@ -159,7 +159,7 @@ SET
       SELECT name FROM (
         SELECT s.nom_specialite AS name
         FROM group_members gm
-        INNER JOIN medicaments m ON gm.code_cip = m.code_cip
+        INNER JOIN medicaments m ON gm.cip_code = m.cip_code
         INNER JOIN specialites s ON m.cis_code = s.cis_code
         WHERE gm.group_id = generique_groups.group_id
           AND gm.type = 0
@@ -194,7 +194,7 @@ FROM medicaments m
 INNER JOIN specialites s ON m.cis_code = s.cis_code
 INNER JOIN medicament_summary ms ON m.cis_code = ms.cis_code
 LEFT JOIN laboratories l ON l.id = s.titulaire_id
-WHERE m.code_cip = :cipCode;
+WHERE m.cip_code = :cipCode;
 
 -- Get all products by laboratory with automatic mapping of all related data
 getProductsByLaboratory:
@@ -219,5 +219,5 @@ SELECT
     ma.lien
 FROM medicaments m
 INNER JOIN specialites s ON m.cis_code = s.cis_code
-LEFT JOIN medicament_availability ma ON ma.code_cip = m.code_cip
-WHERE m.code_cip = :cipCode;
+LEFT JOIN medicament_availability ma ON ma.cip_code = m.cip_code
+WHERE m.cip_code = :cipCode;

@@ -10,11 +10,11 @@ import 'package:pharma_scan/core/utils/formatters.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/product_badges.dart';
 import 'package:pharma_scan/features/explorer/domain/entities/medicament_entity.dart';
-import 'package:pharma_scan/features/explorer/domain/extensions/medication_status_extensions.dart';
-import 'package:pharma_scan/features/explorer/presentation/widgets/status_badges.dart';
-import 'package:pharma_scan/features/scanner/presentation/providers/scanner_provider.dart';
 import 'package:pharma_scan/core/ui/theme/app_theme.dart';
-import 'package:pharma_scan/core/ui/atoms/app_icon.dart';
+import 'package:pharma_scan/features/explorer/presentation/widgets/status_badges.dart';
+import 'package:pharma_scan/features/explorer/domain/extensions/medication_status_extensions.dart';
+import 'package:pharma_scan/features/scanner/presentation/providers/scanner_provider.dart';
+import 'package:shadcn_ui/shadcn_ui.dart';
 
 /// Card widget for scanner result bubbles.
 ///
@@ -58,61 +58,58 @@ class ScannerResultCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.shadTheme;
     final isRestockMode = mode == ScannerMode.restock;
     final backgroundColor = context.surfacePrimary.withValues(alpha: 0.7);
     final restockBorder = context.actionSecondary.withValues(alpha: 0.6);
     final radius = context.radiusMedium;
 
-    final isGenericWithPrinceps =
-        !summary.data.isPrinceps &&
+    final isGenericWithPrinceps = !summary.isPrinceps &&
         summary.groupId != null &&
-        summary.data.princepsDeReference.isNotEmpty &&
-        summary.data.princepsDeReference != 'Inconnu';
+        summary.dbData.princepsDeReference.isNotEmpty &&
+        summary.dbData.princepsDeReference != 'Inconnu';
 
-    final commercializationStatus = boxStatus?.isNotEmpty ?? false
-        ? boxStatus
-        : summary.status;
+    final commercializationStatus =
+        boxStatus?.isNotEmpty ?? false ? boxStatus : summary.status;
 
     // Use princepsBrandName from DB if available
     final displayTitle = isGenericWithPrinceps
-        ? (summary.data.princepsBrandName.isNotEmpty
-              ? summary.data.princepsBrandName
-              : summary.data.princepsDeReference)
-        : (summary.data.isPrinceps
-              ? (summary.data.princepsBrandName.isNotEmpty
-                    ? summary.data.princepsBrandName
-                    : summary.data.princepsDeReference)
-              : (summary.groupId != null
-                    ? summary.data.nomCanonique.split(' - ').first.trim()
-                    : summary.data.nomCanonique));
+        ? (summary.dbData.princepsBrandName.isNotEmpty
+            ? summary.dbData.princepsBrandName
+            : summary.dbData.princepsDeReference)
+        : (summary.isPrinceps
+            ? (summary.dbData.princepsBrandName.isNotEmpty
+                ? summary.dbData.princepsBrandName
+                : summary.dbData.princepsDeReference)
+            : (summary.groupId != null
+                ? summary.dbData.nomCanonique.split(' - ').first.trim()
+                : summary.dbData.nomCanonique));
 
     final metadataLines = List<String>.from(subtitle);
-    final descriptionLine = metadataLines.isNotEmpty
-        ? metadataLines.removeAt(0)
-        : null;
+    final descriptionLine =
+        metadataLines.isNotEmpty ? metadataLines.removeAt(0) : null;
 
     final statusIcons = _buildStatusIcons(context);
     final exactMatchBanner = _buildExactMatchBanner(context);
-    final hasRegulatoryBadges =
-        summary.data.isNarcotic ||
-        summary.data.isList1 ||
-        summary.data.isList2 ||
-        summary.data.isException ||
-        summary.data.isRestricted ||
-        summary.data.isHospital ||
-        summary.data.isDental ||
-        summary.data.isSurveillance ||
-        summary.data.isOtc;
+    final hasRegulatoryBadges = summary.isNarcotic ||
+        summary.isList1 ||
+        summary.isList2 ||
+        summary.isException ||
+        summary.isRestricted ||
+        summary.isHospital ||
+        summary.isDental ||
+        summary.isSurveillance ||
+        summary.isOtc;
     final regulatoryBadgesWidget = RegulatoryBadges(
-      isNarcotic: summary.data.isNarcotic,
-      isList1: summary.data.isList1,
-      isList2: summary.data.isList2,
-      isException: summary.data.isException,
-      isRestricted: summary.data.isRestricted,
-      isHospitalOnly: summary.data.isHospital,
-      isDental: summary.data.isDental,
-      isSurveillance: summary.data.isSurveillance,
-      isOtc: summary.data.isOtc,
+      isNarcotic: summary.isNarcotic,
+      isList1: summary.isList1,
+      isList2: summary.isList2,
+      isException: summary.isException,
+      isRestricted: summary.isRestricted,
+      isHospitalOnly: summary.isHospital,
+      isDental: summary.isDental,
+      isSurveillance: summary.isSurveillance,
+      isOtc: summary.isOtc,
       compact: true,
     );
 
@@ -122,14 +119,12 @@ class ScannerResultCard extends StatelessWidget {
     ].whereType<String>().where((line) => line.trim().isNotEmpty).join(' • ');
 
     final normalizedRefund = refundRate?.trim();
-    final hasRefund =
-        normalizedRefund != null &&
+    final hasRefund = normalizedRefund != null &&
         normalizedRefund.isNotEmpty &&
         normalizedRefund.toLowerCase() != 'nr';
     final hasFinancialInfo = hasRefund || price != null;
-    final priceText = price != null
-        ? formatEuro(price!)
-        : Strings.priceUnavailable;
+    final priceText =
+        price != null ? formatEuro(price!) : Strings.priceUnavailable;
     final refundText = (normalizedRefund != null && normalizedRefund.isNotEmpty)
         ? normalizedRefund
         : Strings.refundNotAvailable;
@@ -184,7 +179,7 @@ class ScannerResultCard extends StatelessWidget {
                       children: [
                         Text(
                           displayTitle,
-                          style: context.bodyLarge.copyWith(
+                          style: context.typo.large.copyWith(
                             fontWeight: FontWeight.w700,
                             fontSize: 15,
                           ),
@@ -194,8 +189,8 @@ class ScannerResultCard extends StatelessWidget {
                         if (isGenericWithPrinceps) ...[
                           const Gap(AppDimens.spacing2xs),
                           Text(
-                            summary.data.princepsDeReference,
-                            style: context.bodySmall.copyWith(
+                            summary.dbData.princepsDeReference,
+                            style: context.typo.small.copyWith(
                               color: context.textSecondary,
                               fontWeight: FontWeight.w600,
                             ),
@@ -207,7 +202,7 @@ class ScannerResultCard extends StatelessWidget {
                           const Gap(AppDimens.spacing2xs),
                           Text(
                             combinedMetadata,
-                            style: context.bodySmall.copyWith(
+                            style: context.typo.small.copyWith(
                               color: context.textSecondary,
                               fontSize: 12,
                             ),
@@ -346,19 +341,17 @@ class ScannerResultCard extends StatelessWidget {
 
   String _buildSemanticsLabel() {
     final buffer = StringBuffer(
-      '${Strings.medication} ${summary.data.nomCanonique}',
+      '${Strings.medication} ${summary.dbData.nomCanonique}',
     )..write(', ${Strings.cip} $cip');
     if (summary.titulaire != null && summary.titulaire!.isNotEmpty) {
       buffer.write(', ${Strings.holder} ${summary.titulaire}');
     }
-    if (summary.data.principesActifsCommuns?.isNotEmpty ?? false) {
-      final principles = summary.data.principesActifsCommuns!;
+    if (summary.dbData.principesActifsCommuns?.isNotEmpty ?? false) {
+      final principles = summary.dbData.principesActifsCommuns!;
       final principlesList = json.decode(principles) as List<dynamic>?;
       if (principlesList != null) {
-        final activePrinciples = principlesList
-            .take(3)
-            .map((e) => e.toString())
-            .join(', ');
+        final activePrinciples =
+            principlesList.take(3).map((e) => e.toString()).join(', ');
         buffer.write(', ${Strings.activePrinciples} $activePrinciples');
       }
     }
@@ -398,7 +391,7 @@ class ScannerResultCard extends StatelessWidget {
             Expanded(
               child: Text(
                 value,
-                style: context.bodySmall.copyWith(
+                style: context.typo.small.copyWith(
                   fontWeight: FontWeight.w600,
                 ),
                 maxLines: 1,
@@ -492,7 +485,7 @@ class ScannerResultCard extends StatelessWidget {
           Flexible(
             child: Text(
               exactMatchLabel!,
-              style: context.bodySmall.copyWith(color: mutedForeground),
+              style: context.typo.small.copyWith(color: mutedForeground),
               overflow: TextOverflow.ellipsis,
               maxLines: 1,
             ),

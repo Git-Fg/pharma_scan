@@ -8,8 +8,7 @@ import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/product_badges.dart';
 import 'package:pharma_scan/features/explorer/domain/entities/group_detail_entity.dart';
 import 'package:pharma_scan/features/explorer/domain/extensions/view_group_detail_extensions.dart';
-import 'package:pharma_scan/core/ui/atoms/app_badge.dart';
-import 'package:pharma_scan/core/ui/molecules/app_button.dart';
+import 'package:shadcn_ui/shadcn_ui.dart';
 
 class GenericsSection extends HookWidget {
   const GenericsSection({
@@ -61,8 +60,8 @@ class GenericsSection extends HookWidget {
                   ),
                 ),
                 const Gap(AppDimens.spacingXs),
-                AppBadge(
-                  label: '${filteredGenerics.length}',
+                ShadBadge(
+                  child: Text('${filteredGenerics.length}'),
                 ),
               ],
             ),
@@ -84,11 +83,9 @@ class GenericsSection extends HookWidget {
                       color: context.colors.mutedForeground,
                     ),
                     trailing: filterController.text.isNotEmpty
-                        ? AppButton.icon(
+                        ? ShadButton.ghost(
                             onPressed: filterController.clear,
-                            variant: ButtonVariant.ghost,
-                            size: ButtonSize.small,
-                            icon: LucideIcons.x,
+                            child: const Icon(LucideIcons.x),
                           )
                         : null,
                   ),
@@ -126,7 +123,7 @@ class MedicationListTile extends StatelessWidget {
     final theme = context.shadTheme;
     final name = item.displayName;
     final cipText =
-        item.codeCip.isNotEmpty ? '${Strings.cip} ${item.codeCip}' : '';
+        item.cipCode.isNotEmpty ? '${Strings.cip} ${item.cipCode}' : '';
     final lab = item.parsedTitulaire.isEmpty
         ? Strings.unknownHolder
         : item.parsedTitulaire;
@@ -218,15 +215,14 @@ class MedicationListTile extends StatelessWidget {
                           Row(
                             children: [
                               if (priceText != null) ...[
-                                AppBadge(
-                                  label: priceText,
+                                ShadBadge(
+                                  child: Text(priceText),
                                 ),
                                 const Gap(AppDimens.spacing2xs),
                               ],
                               if (refundText != null) ...[
-                                AppBadge(
-                                  label: refundText,
-                                  variant: BadgeVariant.outline,
+                                ShadBadge.outline(
+                                  child: Text(refundText),
                                 ),
                                 const Gap(AppDimens.spacing2xs),
                               ],
@@ -248,9 +244,8 @@ class MedicationListTile extends StatelessWidget {
                               child: Row(
                                 children: [
                                   if (statusBadge != null)
-                                    AppBadge(
-                                      label: statusBadge,
-                                      variant: BadgeVariant.destructive,
+                                    ShadBadge.destructive(
+                                      child: Text(statusBadge),
                                     ),
                                   if (statusBadge != null &&
                                       (stockBadge != null ||
@@ -259,9 +254,8 @@ class MedicationListTile extends StatelessWidget {
                                       width: AppDimens.spacing2xs,
                                     ),
                                   if (stockBadge != null)
-                                    AppBadge(
-                                      label: stockBadge,
-                                      variant: BadgeVariant.outline,
+                                    ShadBadge.outline(
+                                      child: Text(stockBadge),
                                     ),
                                   if (stockBadge != null &&
                                       showNavigationIndicator)
