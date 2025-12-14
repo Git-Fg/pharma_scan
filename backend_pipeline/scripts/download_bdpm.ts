@@ -41,17 +41,47 @@ export async function downloadBdpm(opts: { force?: boolean } = {}): Promise<void
       continue;
     }
 
-    try {
-      process.stdout.write(`⬇️  Downloading ${file.localName}... `);
-      const response = await fetch(url);
-      if (!response.ok) throw new Error(`HTTP ${response.status} - ${response.statusText}`);
+    // Try download with timeout and a couple retries to avoid hanging on a single slow request
+    const maxRetries = 2;
+    let attempt = 0;
+    let success = false;
+    while (attempt <= maxRetries && !success) {
+      attempt++;
+      try {
+        process.stdout.write(`⬇️  Downloading ${file.localName} (attempt ${attempt})... `);
 
-      // Bun.write accepte directement la Response body
-      const bytesWritten = await write(localPath, response);
-      const sizeKo = (bytesWritten / 1024).toFixed(1);
-      console.log(`✅ Done (${sizeKo} Ko)`);
-    } catch (error) {
-      console.error(`\n❌ Error downloading ${url}:`, error);
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 120_000); // 2 minutes
+
+        const response = await fetch(url, { signal: controller.signal });
+        clearTimeout(timeout);
+
+        if (!response.ok) throw new Error(`HTTP ${response.status} - ${response.statusText}`);
+
+        const finalUrl = (response as any).url || url;
+        const contentLength = response.headers.get?.('content-length') || 'unknown';
+        process.stdout.write(`(from: ${finalUrl}, size: ${contentLength}) `);
+
+        // Use arrayBuffer to avoid issues with streaming responses that might hang
+        const buffer = await response.arrayBuffer();
+        const bytesWritten = await write(localPath, new Uint8Array(buffer));
+        const sizeKo = (bytesWritten / 1024).toFixed(1);
+        console.log(`✅ Done (${sizeKo} Ko)`);
+        success = true;
+      } catch (error: any) {
+        // If aborted due to timeout, indicate it explicitly
+        if (error?.name === 'AbortError') {
+          console.error(`\n⏱️ Timeout downloading ${file.localName} (attempt ${attempt})`);
+        } else {
+          console.error(`\n❌ Error downloading ${file.localName} (attempt ${attempt}):`, error?.message ?? error);
+        }
+
+        if (attempt > maxRetries) {
+          console.error(`⚠️ Giving up downloading ${file.localName} after ${attempt} attempts`);
+        } else {
+          console.log(`🔁 Retrying ${file.localName}...`);
+        }
+      }
     }
   }
 

@@ -73,7 +73,6 @@ tool/data/
 tool/report/
 
 .vscode/mcp.json
-.github/
 .roo
 
 # Python
