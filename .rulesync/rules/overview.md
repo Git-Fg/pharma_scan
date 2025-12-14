@@ -16,7 +16,7 @@ globs:
 
 This content is derived from the `.rulesync/` folder. The AI Agents rules must be kept synchronized at all times with the codebase.
 
-If you need to edit the Agents rules, edit content from the `.rulesync/` folder, and leverage `npx rulesync generate --targets claudecode` & `npx rulesync generate --targets cursor` to propagate the changes.
+If you need to edit the Agents rules, edit content from the `.rulesync/` folder, and leverage `npx rulesync generate` to propagate the changes.
 
 ---
 
@@ -83,8 +83,8 @@ A task is ONLY complete when:
 **CRITICAL:** Before writing code, you must pass these checks:
 
 1. **Stack Verification:**
-   - Stack: Shadcn UI + Riverpod + Drift (SQLite) + AutoRoute.
-   - Pattern: 2025 Standard (Hooks for UI state, Riverpod for App state).
+   - Stack: Shadcn UI + Riverpod + Drift (SQLite) + AutoRoute + **Dart Signals**.
+   - Pattern: **Triad Architecture** (Riverpod for Global State, Hooks for Lifecycle, Signals for High-Frequency UI).
 
 2. **The "Summarization" Trap:**
    - Am I converting a paragraph into a bullet point? -> **STOP**. Keep the paragraph/detail.
@@ -151,7 +151,17 @@ A task is ONLY complete when:
 
 ## Interaction Patterns
 
-**1. Records over DTOs**
+**1. Automatic Mapping (`**`)**
+- **Rule:** Use the `**` operator in `.drift` files to map columns automatically to generated classes.
+- **Forbidden:** Manual `row.read(...)` mapping when a generated class exists.
+- **Pattern:**
+  ```sql
+  -- queries.drift
+  getProduct: SELECT m.**, s.** FROM medicaments m ...;
+  ```
+- **Benefit:** Eliminates manual mapping boilerplate, reduces errors, and simplifies DAO code.
+
+**2. Records over DTOs**
 - **Rule:** Do not create specific DTO classes for query results. Use Dart Records.
 - **Pattern:**
   ```dart
@@ -335,7 +345,69 @@ final name = ref.watch(userProvider.select((u) => u.valueOrNull?.name));
 
 ---
 
+# 11.5. Local State Strategy (Triad Architecture)
+
+\> **System Instruction:** The "Triad Architecture" defines clear boundaries between three state management tools. Use the right tool for the right job.
+
+## State Decision Matrix
+
+| State Type                  | Tool             | Example                                             |
+| :-------------------------- | :--------------- | :-------------------------------------------------- |
+| **Global / Async**          | Riverpod         | Database, User, Sync status                         |
+| **Controller / Lifecycle**  | Hooks            | FocusNode, TextEditingController, AnimationController |
+| **High-Freq UI (60fps)**    | Signals          | Scanner bubbles, Drag deltas, Form validity         |
+
+## Responsibilities
+
+| Tool                | Use Case                                                                                     | Examples                                                        |
+| :------------------ | :------------------------------------------------------------------------------------------- | :-------------------------------------------------------------- |
+| **Flutter Hooks**   | **Lifecycle & Resources** (init/dispose Controllers, FocusNodes, Animations).                | `useTextEditingController`, `useAnimationController`, `useRef` |
+| **Dart Signals**    | **High-Frequency UI State** (60fps updates, counters, form validation, scanner bubbles).     | Scanner position tracking, real-time form validation            |
+| **Riverpod**        | **Business Logic & Persistence** (Database calls, Auth, Sync, cross-widget shared state).   | `AsyncNotifier`, `StreamProvider`, DAO wrappers                 |
+
+## Decision Tree
+
+1. **Does the state need to persist across widget rebuilds or be shared across features?**
+   - ✅ **Riverpod** (e.g., user session, database queries).
+   - ❌ Proceed to step 2.
+
+2. **Does the state update at high frequency (>10fps) or involve complex UI animations?**
+   - ✅ **Dart Signals** (e.g., scanner bubble position, real-time counters).
+   - ❌ Proceed to step 3.
+
+3. **Does the state involve a resource that needs disposal (Controllers, FocusNodes)?**
+   - ✅ **Flutter Hooks** (e.g., `useTextEditingController`).
+   - ❌ Use `useState` (Flutter Hook) for simple local toggles/flags.
+
+## Anti-Patterns
+
+- ❌ Using `useState` for scanner bubble position (causes unnecessary rebuilds) → Use **Signals**.
+- ❌ Using Signals for database queries (violates separation of concerns) → Use **Riverpod**.
+- ❌ Using Riverpod for `FocusNode` (lifecycle overhead) → Use **Flutter Hooks**.
+
+## Naming Conventions
+
+To avoid confusion between `ref.watch()` (Riverpod) and `signal.watch()` (Signals), enforce these suffixes:
+
+| Tool                | Suffix        | Example                                    |
+| :------------------ | :------------ | :----------------------------------------- |
+| **Riverpod Providers** | `*Provider`   | `scannerProvider`, `catalogDaoProvider`    |
+| **Dart Signals**    | `*Signal`     | `bubbleCountSignal`, `formValiditySignal`  |
+| **Flutter Hooks**   | `use*`        | `useScannerLogic`, `useTabReselection`     |
+
+**Benefits:**
+- Instantly recognizable state management tool at call site.
+- No ambiguity between `ref.watch(scannerProvider)` and `bubbleCountSignal.watch()`.
+- Easier code reviews and onboarding.
+
+---
+
 # 12. UI Components & Shadcn (2025 Standard)
+
+## Strict UI Layering (PharmaUI)
+- **Feature Constraint:** Files in `lib/features/` must **NEVER** import `package:shadcn_ui`. They must consume components from `lib/core/ui/`.
+- **Core Authority:** Only `lib/core/ui/` is allowed to import `shadcn_ui`.
+- **Migration:** Prefer `AppButton`, `AppBadge`, `AppCard` over raw Shadcn widgets.
 
 ## The "No Dumb Wrapper" Rule
 - **Do Not:** Wrap Shadcn components just to add static padding or styling.
@@ -421,12 +493,33 @@ AppRouter appRouter(Ref ref) => AppRouter();
 - Never log PII or health data to Talker/console.
 - Strip secrets from logs and crash reports.
 
+## Logging (Zero-Console-Log Rule)
+- **`print()` is BANNED.** Use `LoggerService` (wraps Talker) for all logging.
+- **Rationale:** 
+  - `print()` leaks to production console (privacy risk, performance killer).
+  - `LoggerService` provides structured logging with levels (debug, info, error).
+  - Talker is automatically silenced in Release builds via provider configuration.
+- **Enforcement:** The Cleaner subagent will flag and remove all `print()` statements.
+- **Production Check:** Verify `LoggerService` is configured for Release silence in `logger_provider.dart`.
+
+**Pattern:**
+```dart
+// ❌ BANNED
+print('User data: $user');
+
+// ✅ CORRECT
+LoggerService.debug('Processing user');
+LoggerService.error('Failed to load', error, stackTrace);
+```
+
 ## Input & Query Safety
 - Sanitize all untrusted input before storage or queries.
 - For search/FTS flows, escape user strings via data-layer helpers.
 - Validate form inputs; reject unexpected formats early.
 
 ## Storage
+- **App Settings:** Use `AppSettingsDao` (Drift/SQLite) for user preferences and sync metadata.
+- **Legacy Prefs:** Avoid `SharedPreferences` for new features; prefer the `app_settings` table.
 - Use secure storage for tokens/secrets; never plain SharedPreferences.
 - Drift data is plaintext by default: do not store patient data without SQLCipher.
 
@@ -445,12 +538,43 @@ AppRouter appRouter(Ref ref) => AppRouter();
 
 ## E2E Testing (Patrol)
 - **Framework:** Patrol.
+- **Pattern:** **Strict Page Object Model (Robot Pattern).**
+- **Mandate:** Test files (`*_test.dart`) must **NEVER** contain raw finders (`$(...)` or `find.by...`). They must only call methods on Robot classes (e.g., `await scanner.scanCip(...)`).
 - **Location:** `patrol_test/`.
 - **Execution:**
   - Run all: `patrol test`.
   - Run specific: `patrol test --target <file_path>`.
 
----
+## Test Hygiene
+- **Zero Redundancy:** If a Patrol E2E test covers a flow (e.g., "Scan Product → View Details → Add to Favorites"), **DELETE** any overlapping Widget/Unit tests that only mock the UI without adding value.
+- **Unit Scope:** Keep Unit tests ONLY for:
+  - **Pure algorithmic logic** (Sanitizers, Parsers, Validators).
+  - **Complex StateNotifier logic** that is hard to reach via UI (e.g., edge cases in sync orchestration).
+- **Widget Scope:** Keep Widget tests ONLY for isolated UI components with complex interaction logic (e.g., custom form validators, animation state machines).
+- **Audit Protocol:** After adding a new Patrol E2E test, review the test suite for redundant coverage and delete it. Test suite growth is a code smell.
+
+## Flakiness Handling (Patrol)
+E2E tests are prone to flakiness due to timing issues, animations, and system dialogs. Follow this protocol when a Patrol test fails:
+
+**Investigation Steps (in order):**
+1. **DO NOT just increase timeout** - This masks the root cause.
+2. **Check for `pumpAndSettle()`** - Ensure animations/async operations complete before interacting:
+   ```dart
+   await $.pumpAndSettle();
+   await $(MyButton).tap();
+   ```
+3. **Check for overlaying widgets** - Dialogs, toasts, or bottom sheets may block taps:
+   - Look for `ShadToast`, `ShadDialog`, `ShadSheet` covering the target widget.
+   - Wait for them to dismiss or explicitly close them in the Robot.
+4. **Use `$.native` for system dialogs** - Platform permission dialogs aren't part of the Flutter widget tree:
+   ```dart
+   // Clear system dialogs (permissions, etc.)
+   await $.native.grantPermissionWhenInUse();
+   ```
+5. **Verify widget visibility** - Use `$.waitUntilVisible()` instead of `$.tap()` if the widget may be scrolled offscreen.
+6. **Check for race conditions** - If state changes rapidly (e.g., loading → loaded), add explicit `.waitUntilVisible()` on the expected state.
+
+**Only as a last resort:** Increase timeout to a reasonable value (e.g., 10s max) and document why in a comment.
 
 # 17. CI & Deployment
 

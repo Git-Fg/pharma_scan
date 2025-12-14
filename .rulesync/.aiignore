@@ -1,1 +1,13 @@
 credentials/
+.agent
+.claude
+.github/agents
+.github/prompts
+.github/copilot-instructions.md
+.roo
+.vscode/mcp.json
+AGENTS.md
+CLAUDE.md
+QWEN.md
+.rooignore
+.geminiignore
