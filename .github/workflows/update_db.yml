@@ -30,19 +30,7 @@ jobs:
         run: |
           cd backend_pipeline
           mkdir -p data
-          cd data
-          # On télécharge les fichiers définis dans le pipeline
-          curl -L -o CIS_bdpm.txt https://base-donnees-publique.medicaments.gouv.fr/download/file/CIS_bdpm.txt
-          curl -L -o CIS_CIP_bdpm.txt https://base-donnees-publique.medicaments.gouv.fr/download/file/CIS_CIP_bdpm.txt
-          curl -L -o CIS_COMPO_bdpm.txt https://base-donnees-publique.medicaments.gouv.fr/download/file/CIS_COMPO_bdpm.txt
-          curl -L -o CIS_GENER_bdpm.txt https://base-donnees-publique.medicaments.gouv.fr/download/file/CIS_GENER_bdpm.txt
-          curl -L -o CIS_CPD_bdpm.txt https://base-donnees-publique.medicaments.gouv.fr/download/file/CIS_CPD_bdpm.txt
-          curl -L -o CIS_MITM.txt https://base-donnees-publique.medicaments.gouv.fr/download/file/CIS_MITM.txt
-          curl -L -o CIS_CIP_Dispo_Spec.txt https://base-donnees-publique.medicaments.gouv.fr/download/file/CIS_CIP_Dispo_Spec.txt
-          curl -L -o CIS_InfoImportante.txt https://base-donnees-publique.medicaments.gouv.fr/download/file/CIS_InfoImportante.txt
-          curl -L -o CIS_HAS_SMR_bdpm.txt https://base-donnees-publique.medicaments.gouv.fr/download/file/CIS_HAS_SMR_bdpm.txt
-          curl -L -o CIS_HAS_ASMR_bdpm.txt https://base-donnees-publique.medicaments.gouv.fr/download/file/CIS_HAS_ASMR_bdpm.txt
-          cd ../..
+          bun run scripts/download_bdpm.ts -- --force
 
       - name: 🚀 Run ETL Pipeline
         run: cd backend_pipeline && bun run build:db
