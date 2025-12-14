@@ -6,22 +6,8 @@ import 'views.drift';
 -- Queries for MedicamentSummary table - using traditional SELECT * (for compatibility)
 -- New modern approach uses ** operator for automatic mapping, see examples below
 
--- Scan query using modern ** operator for automatic mapping
-getProductByCip:
-SELECT
-  m.** AS m,                    -- All medicaments columns
-  ms.** AS ms,                  -- All medicament_summary columns
-  ls.name AS labName,           -- Laboratory name
-  ma.statut AS availabilityStatut,
-  m.prix_public,
-  m.taux_remboursement,
-  commercialisation_statut AS commercialisationStatut
-FROM medicaments m
-INNER JOIN medicament_summary ms ON ms.cis_code = m.cis_code
-LEFT JOIN laboratories ls ON ls.id = ms.titulaire_id
-LEFT JOIN medicament_availability ma ON ma.cip_code = m.cip_code
-WHERE m.cip_code = :cipCode
-LIMIT 1;
+-- Removed superseded: getProductByCip
+-- NOTE: This named query was removed; lookups are handled by TableManager (e.g., `attachedDatabase.managers.productScanCache`).
 
 
 -- Scan history (reverse chronological, limited)
@@ -39,39 +25,13 @@ LEFT JOIN medicament_summary ms ON ms.cis_code = m.cis_code
 ORDER BY sb.scan_timestamp DESC
 LIMIT :limit;
 
--- Helpers to manage the search index directly from SQL
--- Note: search_index table is defined in dbschema.drift - DEPRECATED with cluster-first architecture
-deleteSearchIndex: DELETE FROM search_index;
-
--- Deprecated: insertSearchIndexFromSummary - replaced by cluster-based indexing in backend pipeline
-
--- SIMPLIFIED: medicament_summary already contains all specialite data
--- No need to join with specialites table
-CREATE VIEW detailed_scan_results AS
-SELECT
-  m.cip_code,
-  m.cis_code,
-  ms.nom_canonique AS nom_specialite,  -- Use nom_canonique from medicament_summary
-  ms.procedure_type AS specialite_procedure_type,
-  ms.forme_pharmaceutique,
-  ls.name AS specialite_titulaire,  -- Single source from medicament_summary.titulaire_id
-  ms.conditions_prescription AS specialite_conditions_prescription,
-  ms.group_id,
-  ms.is_princeps,
-  ms.nom_canonique,
-  ms.principes_actifs_communs,
-  ms.princeps_de_reference,
-  ms.princeps_brand_name,
-  ms.forme_pharmaceutique AS summary_forme_pharmaceutique,
-  ms.procedure_type AS summary_procedure_type,
-  ls.name AS summary_titulaire,  -- Same as specialite_titulaire
-  ms.conditions_prescription AS summary_conditions_prescription
-FROM medicaments m
-INNER JOIN medicament_summary ms ON ms.cis_code = m.cis_code
-LEFT JOIN laboratories ls ON ls.id = ms.titulaire_id;
 
 
-getMedicamentSummaryCount: SELECT COUNT(*) AS count FROM medicament_summary;
+-- Removed superseded view: detailed_scan_results
+-- NOTE: Flattened scan results are available via precomputed caches/views (e.g., `product_scan_cache`) and this view was unused.
+
+
+-- getMedicamentSummaryCount: Removed - now uses db.managers.medicamentSummary.count()
 
 -- Cross-validation query: Get Type 0 (princeps) member names for a group
 -- Returns the shortest nom_specialite as fallback if parsed princepsLabel doesn't match
@@ -180,44 +140,11 @@ SET
 
 -- Additional SQL-First Mapping Examples
 
--- Get detailed product information by CIP code with all joined data automatically mapped
-getProductDetailsByCip:
-SELECT
-  m.** AS m,         -- All medicament columns
-  s.** AS s,         -- All specialite columns
-    l.name AS laboratory_name,  -- Laboratory name
-    ms.** AS ms,
-    ms.nom_canonique AS summary_nom_canonique,
-    ms.princeps_de_reference AS summary_princeps_ref,
-    ms.principes_actifs_communs AS summary_principes
-FROM medicaments m
-INNER JOIN specialites s ON m.cis_code = s.cis_code
-INNER JOIN medicament_summary ms ON m.cis_code = ms.cis_code
-LEFT JOIN laboratories l ON l.id = s.titulaire_id
-WHERE m.cip_code = :cipCode;
+-- Removed superseded: getProductDetailsByCip
+-- NOTE: Detailed product lookups are serviced via TableManager caches and DAOs (unused named query).
 
--- Get all products by laboratory with automatic mapping of all related data
-getProductsByLaboratory:
-SELECT
-  m.** AS m,         -- All medicament columns
-  s.** AS s,         -- All specialite columns
-  ms.** AS ms         -- All medicament_summary columns
-FROM medicaments m
-INNER JOIN specialites s ON m.cis_code = s.cis_code
-INNER JOIN medicament_summary ms ON m.cis_code = ms.cis_code
-WHERE s.titulaire_id = :labId
-ORDER BY s.nom_specialite;
+-- Removed superseded: getProductsByLaboratory
+-- NOTE: Product listing by laboratory is implemented via manager queries or DAOs; this named query was unused.
 
--- Get availability information for products with automatic mapping
-getProductAvailability:
-SELECT
-  m.** AS m,         -- All medicament columns
-    s.nom_specialite,
-    ma.statut AS availability_status,
-    ma.date_debut,
-    ma.date_fin,
-    ma.lien
-FROM medicaments m
-INNER JOIN specialites s ON m.cis_code = s.cis_code
-LEFT JOIN medicament_availability ma ON ma.cip_code = m.cip_code
-WHERE m.cip_code = :cipCode;
+-- Removed superseded: getProductAvailability
+-- NOTE: Availability info is available via `product_scan_cache` or direct manager tables; query unused.

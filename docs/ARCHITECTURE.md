@@ -197,9 +197,9 @@ PharmaScan operates as a **Thin Client** regarding pharmaceutical data. It does 
 3. **Synchronization:** The mobile app downloads the pre-computed `reference.db`.
 4. **Schema Documentation:** Complete schema reference available in `database_schema.md` (generated artifact).
 
-### Schema Management (`dbschema.drift`)
-
-The file `lib/core/database/dbschema.drift` is a **read-only mirror** of the backend schema.
+### Schema Management (`reference_schema.drift`)
+ 
+The file `lib/core/database/reference_schema.drift` is a **read-only mirror** of the backend schema.
 
 - **⚠️ DO NOT EDIT MANUALLY:** Changes to core tables (`medicament_summary`, `generique_groups`, etc.) must be made in the backend first.
 - **Sync Process:**
@@ -228,7 +228,7 @@ Extension Types are compile-time wrappers that provide:
 1. **ID Types:** Replace primitive `String` obsession with strongly-typed IDs (`Cip13`, `CisCode`, `GroupId`)
    - Prevents accidentally passing wrong ID type
    - Compile-time validation catches errors early
-   - Example: `getProductByCip(Cip13 code)` cannot accept `CisCode` by mistake
+   - Example: `CatalogDao.getProductByCip(Cip13 code)` cannot accept `CisCode` by mistake
 
 2. **Semantic Types:** Enforce invariants at the type level (e.g., `NormalizedQuery`)
    - Factory constructor guarantees normalization happens once
@@ -255,7 +255,7 @@ Data-layer standards are defined in `.cursor/rules/`.
 
 - **Strings uniques :** Toutes les chaînes exposées à l’utilisateur (et dans les tests) viennent de `lib/core/utils/strings.dart` ; pas de littéraux dans `find.text`.
 - **Mocking :** `mocktail` uniquement. Dès qu’un `any()` cible un type non primitif, enregistrer un `registerFallbackValue` dédié.
-- **Stubs plateforme :** Pour les tests Drift/sync, injecter `FakePathProviderPlatform` (voir `test/test_utils.dart`) avant d’appeler `DataInitializationService` afin d’éviter les `MissingPluginException`.
+- **Stubs plateforme :** Pour les tests Drift/sync, injecter `FakePathProviderPlatform` (voir `test/helpers/fake_path_provider.dart`) avant d’appeler `DataInitializationService` afin d’éviter les `MissingPluginException`.
 - **Mutations Riverpod :** Les écritures utilisent `AsyncValue.guard`; couvrir les états loading/data/error dans les tests.
 - **FTS5 & recherche :** Utiliser `NormalizedQuery` et des données minimalistes pour valider ranking/typos/sanitisation, alignées avec `normalize_text` SQL.
 
