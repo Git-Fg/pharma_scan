@@ -8,10 +8,7 @@ set -e
 # Chemins
 DB_PATH="data/reference.db"
 FLUTTER_SCHEMA_PATH="../lib/core/database/reference_schema.drift"
-BACKUP_DIR="schema_backups"
 
-# Créer le répertoire de backup si nécessaire
-mkdir -p "$BACKUP_DIR"
 
 # Vérifier que la base de données existe
 if [ ! -f "$DB_PATH" ]; then
@@ -23,12 +20,7 @@ fi
 echo "🔍 Dumping schema from: $DB_PATH"
 echo "📝 Writing Flutter schema to: $FLUTTER_SCHEMA_PATH"
 
-# Backup existing schema if it exists
-if [ -f "$FLUTTER_SCHEMA_PATH" ]; then
-    backup_file="$BACKUP_DIR/reference_schema_$(date +%Y%m%d_%H%M%S).drift"
-    cp "$FLUTTER_SCHEMA_PATH" "$backup_file"
-    echo "💾 Backed up existing schema to: $backup_file"
-fi
+
 
 # Créer le fichier de schéma Drift
 cat > "$FLUTTER_SCHEMA_PATH" << 'EOF'
@@ -70,7 +62,17 @@ TEST_ASSET_DEST="../assets/test/reference.db"
 if [ -f "$SRC_DB" ]; then
     echo "   -> Copying to Test Assets: $TEST_ASSET_DEST"
     cp "$SRC_DB" "$TEST_ASSET_DEST"
-    echo "✅ Database artifact synchronized."
+
+    # Destination (App Assets for Ship & Copy)
+    APP_ASSET_DEST="../assets/database/reference.db.gz"
+    
+    # Create directory if not exists
+    mkdir -p "../assets/database"
+
+    echo "   -> Compressing and Copying to App Assets: $APP_ASSET_DEST"
+    gzip -c "$SRC_DB" > "$APP_ASSET_DEST"
+    
+    echo "✅ Database artifacts synchronized."
 else
     echo "❌ Error: $SRC_DB not found. Run 'bun run build' first."
     exit 1

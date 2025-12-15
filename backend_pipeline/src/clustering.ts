@@ -113,7 +113,7 @@ function normalizeCommonPrinciples(commonPrincipes: string): string {
  * Deterministic hash for cluster ID generation.
  * Ensures consistent IDs across pipeline runs if data is stable.
  */
-function generateClusterId(key: string): string {
+export function generateClusterId(key: string): string {
   return "CLS_" + crypto.createHash("md5").update(key).digest("hex").substring(0, 8).toUpperCase();
 }
 

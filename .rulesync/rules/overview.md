@@ -124,6 +124,26 @@ A task is ONLY complete when:
 - **Scripts:** Create scripts in `backend_pipeline/tool/` (e.g., `audit_data.ts`) to test hypotheses.
 - **Schema Source:** `backend_pipeline/src/db.ts` is the schema source of truth.
 
+## Backend Normalization Architecture
+
+**Philosophy:** The backend is the "Smart Server", the frontend is the "Dumb Client". Complex parsing logic belongs in the ETL pipeline, not the mobile app.
+
+**Substance Normalization:**
+- `ref_substances` table contains normalized substance names with `canonical_name` column
+- `computeCanonicalSubstance()` in `sanitizer.ts` strips salt prefixes/suffixes (e.g., "CHLORHYDRATE DE MORPHINE" → "MORPHINE")
+- `composition_link` table links medicaments to normalized substances
+- **Removed:** `lib/core/constants/chemical_constants.dart` - all salt normalization logic now handled by backend
+
+**FTS5 Search:**
+- `search_index` virtual table uses trigram tokenizer for fuzzy matching
+- `view_search_results` provides BM25-ranked search results
+- Backend handles all search normalization; frontend sends raw queries
+
+**Data Quality Gate:**
+- `integrity.test.ts` verifies business logic constraints before release
+- Tests check for salt prefix/suffix contamination, orphan records, and search performance
+
+
 ## Backend-Flutter Integration Workflow
 
 **🚨 CRITICAL: Schema File Management Rules**

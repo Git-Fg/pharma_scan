@@ -199,7 +199,8 @@ CREATE TABLE ref_routes (
 CREATE TABLE ref_substances (
         id INTEGER PRIMARY KEY,
         code TEXT UNIQUE, -- Optional code if available (e.g. SNOMED/BDPM code if parsed)
-        label TEXT NOT NULL UNIQUE
+        label TEXT NOT NULL UNIQUE,
+        canonical_name TEXT  -- Salt-stripped base molecule (e.g., "MORPHINE" from "CHLORHYDRATE DE MORPHINE")
       ) STRICT;
 CREATE TABLE safety_alerts (
         id INTEGER PRIMARY KEY AUTOINCREMENT,

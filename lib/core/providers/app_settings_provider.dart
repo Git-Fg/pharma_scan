@@ -50,6 +50,17 @@ class UpdateFrequencyNotifier extends _$UpdateFrequencyNotifier {
 }
 
 @riverpod
+class UpdatePolicyNotifier extends _$UpdatePolicyNotifier {
+  @override
+  Future<String?> build() => ref.read(appSettingsDaoProvider).updatePolicy;
+
+  Future<void> setPolicy(String policy) async {
+    await ref.read(appSettingsDaoProvider).setUpdatePolicy(policy);
+    state = AsyncData(policy);
+  }
+}
+
+@riverpod
 class PreferredSortingNotifier extends _$PreferredSortingNotifier {
   @override
   Future<String?> build() => ref.read(appSettingsDaoProvider).preferredSorting;

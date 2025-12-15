@@ -142,7 +142,7 @@ Génération du fichier `reference.db` (SQLite).
 bun install
 
 # Lancer le pipeline complet (Génération de la DB)
-bun run build:db
+bun run build
 
 # Générer les fichiers d'audit et de prévisualisation
 bun run tool

@@ -88,3 +88,25 @@ Future<UpdateFrequency> appPreferences(Ref ref) async {
     orElse: () => UpdateFrequency.weekly,
   );
 }
+
+// --- Update Policy Provider ---
+
+@riverpod
+class UpdatePolicyMutation extends _$UpdatePolicyMutation {
+  @override
+  Future<void> build() async {}
+
+  Future<void> setPolicy(String policy) async {
+    state = const AsyncValue.loading();
+    state = await AsyncValue.guard(() async {
+      await ref.read(updatePolicyNotifierProvider.notifier).setPolicy(policy);
+      ref.invalidate(updatePolicyProvider);
+    });
+  }
+}
+
+@riverpod
+Future<String> activeUpdatePolicy(Ref ref) async {
+  final raw = await ref.watch(updatePolicyNotifierProvider.future);
+  return raw ?? 'ask';
+}

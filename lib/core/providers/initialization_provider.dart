@@ -70,9 +70,11 @@ Stream<InitializationStep> initializationStep(Ref ref) async* {
     final appSettings = ref.read(appSettingsDaoProvider);
     final hasData = await db.catalogDao.hasExistingData();
     final version = await appSettings.bdpmVersion;
-    const currentVersion = DataInitializationService.dataVersion;
+    // const currentVersion = DataInitializationService.dataVersion; // Removed
 
-    if (hasData && version == currentVersion) {
+    // If we have data and *any* version tag, we consider it ready.
+    // The DataInitializationService.initializeDatabase will verify integrity if needed.
+    if (hasData && version != null && version.isNotEmpty) {
       yield InitializationStep.ready;
       yield* service.onStepChanged;
       return;

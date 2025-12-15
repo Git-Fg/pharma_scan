@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test";
-import { normalizeForSearch, normalizeForSearchIndex } from "../src/sanitizer";
+import { normalizeForSearch, normalizeForSearchIndex, computeCanonicalSubstance } from "../src/sanitizer";
 
 /**
  * Tests for the "Universal" Search Normalizer.
@@ -167,5 +167,67 @@ describe("Cross-Platform Parity", () => {
 
     test.each(testCases)("'%s' normalizes to '%s'", (input, expected) => {
         expect(normalizeForSearch(input)).toBe(expected);
+    });
+});
+
+describe("computeCanonicalSubstance - Substance Canonicalization", () => {
+    describe("Salt prefix removal", () => {
+        test("removes CHLORHYDRATE DE", () => {
+            expect(computeCanonicalSubstance("CHLORHYDRATE DE MORPHINE")).toBe("MORPHINE");
+        });
+
+        test("removes MALEATE DE", () => {
+            expect(computeCanonicalSubstance("MALEATE DE TIMOLOL")).toBe("TIMOLOL");
+        });
+
+        test("removes FUMARATE ACIDE DE", () => {
+            expect(computeCanonicalSubstance("FUMARATE ACIDE DE FORMOTEROL")).toBe("FORMOTEROL");
+        });
+    });
+
+    describe("Salt suffix removal", () => {
+        test("removes SULFATE", () => {
+            expect(computeCanonicalSubstance("AMOXICILLINE SULFATE")).toBe("AMOXICILLINE");
+        });
+
+        test("removes TRIHYDRATE", () => {
+            expect(computeCanonicalSubstance("AMOXICILLINE TRIHYDRATE")).toBe("AMOXICILLINE");
+        });
+
+        test("removes CHLORHYDRATE", () => {
+            expect(computeCanonicalSubstance("METFORMINE CHLORHYDRATE")).toBe("METFORMINE");
+        });
+
+        test("removes DE SODIUM", () => {
+            expect(computeCanonicalSubstance("DICLOFENAC DE SODIUM")).toBe("DICLOFENAC");
+        });
+    });
+
+    describe("Pure inorganic preservation", () => {
+        test("preserves SODIUM", () => {
+            expect(computeCanonicalSubstance("SODIUM")).toBe("SODIUM");
+        });
+
+        test("preserves CHLORURE DE SODIUM", () => {
+            expect(computeCanonicalSubstance("CHLORURE DE SODIUM")).toBe("CHLORURE DE SODIUM");
+        });
+
+        test("preserves MAGNESIUM", () => {
+            expect(computeCanonicalSubstance("MAGNESIUM")).toBe("MAGNESIUM");
+        });
+    });
+
+    describe("Complex cases", () => {
+        test("handles accented characters", () => {
+            expect(computeCanonicalSubstance("Chlorhydrate de Morphine")).toBe("MORPHINE");
+        });
+
+        test("handles multiple salt suffixes", () => {
+            expect(computeCanonicalSubstance("AMOXICILLINE MONOSODIQUE DIHYDRATE")).toBe("AMOXICILLINE");
+        });
+
+        test("preserves non-salt words", () => {
+            expect(computeCanonicalSubstance("ACIDE ACETYLSALICYLIQUE")).toBe("ACIDE ACETYLSALICYLIQUE");
+        });
     });
 });

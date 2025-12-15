@@ -29,7 +29,6 @@ class MainScreen extends HookConsumerWidget {
               description: Text(
                 presenter.successDescription ?? Strings.bdpmUpToDate,
               ),
-              alignment: Alignment.bottomCenter,
             ),
           );
         }
@@ -42,7 +41,6 @@ class MainScreen extends HookConsumerWidget {
               description: Text(
                 presenter.errorDescription ?? Strings.syncFailedMessage,
               ),
-              alignment: Alignment.bottomCenter,
             ),
           );
         }

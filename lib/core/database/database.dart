@@ -124,11 +124,12 @@ class AppDatabase extends $AppDatabase {
       }
 
       // Vérification des vues critiques (devraient être définies dans reference_schema.drift)
-      final criticalViews = ['view_group_details', 'view_search_results'];
+      // Note: Ces "vues" sont maintenant des tables matérialisées (ui_*) pour la performance
+      final criticalUiTables = ['ui_group_details', 'ui_explorer_list'];
 
-      for (final view in criticalViews) {
-        await customSelect('SELECT COUNT(*) FROM $view LIMIT 1').get();
-        logger.db('[DB] View $view verified');
+      for (final table in criticalUiTables) {
+        await customSelect('SELECT COUNT(*) FROM $table LIMIT 1').get();
+        logger.db('[DB] UI Table $table verified');
       }
 
       // Vérification du FTS5 index

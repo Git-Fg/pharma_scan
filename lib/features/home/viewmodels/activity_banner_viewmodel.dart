@@ -110,6 +110,11 @@ ActivityBannerState? activityBannerViewModel(Ref ref) {
           Strings.initializationError,
           LucideIcons.triangleAlert,
         ),
+      InitializationStep.updateAvailable => (
+          'Mise à jour disponible',
+          'Une nouvelle version de la base de données est disponible.',
+          LucideIcons.refreshCw,
+        ),
       InitializationStep.idle => (
           '',
           '',

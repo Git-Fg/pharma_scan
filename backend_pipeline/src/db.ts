@@ -33,6 +33,7 @@ export class ReferenceDatabase {
     this.db.exec("PRAGMA locking_mode = NORMAL;");
     this.db.exec("PRAGMA busy_timeout = 30000;"); // 30 second timeout for locks
     this.initSchema();
+    this.initMetadataTable(); // Initialize metadata table
     // Switch to WAL mode after schema is initialized
     this.db.exec("PRAGMA journal_mode = WAL;");
     console.log(`✅ Database initialized successfully`);
@@ -66,30 +67,7 @@ export class ReferenceDatabase {
   }
 
   public initSchema() {
-    // Register normalize_text function before creating tables
-    // Note: createFunction may not be available in test environment
-    // Cast to 'any' to work around bun:sqlite typing limitations
-    try {
-      const sqliteDb = this.db as any;
-      if (typeof sqliteDb.createFunction === 'function') {
-        sqliteDb.createFunction(
-          'normalize_text',
-          1,
-          true,
-          false,
-          (args: any[]) => {
-            const source = args.length === 0 ? '' : args[0]?.toString() ?? '';
-            if (source.trim().length === 0) return '';
-            // Basic normalization for now - will be enhanced with sanitizer
-            return this.normalizeTextBasic(source);
-          }
-        );
-      }
-    } catch (e) {
-      // In test environments, createFunction might not be available
-      // We'll handle normalization at the application level instead
-      console.warn('Warning: Could not register normalize_text function (likely in test environment)');
-    }
+    // SQLite function registration removed in favor of TS-based population
     this.db.run("PRAGMA foreign_keys = ON;");
     // Keep DELETE mode during initialization, switch to WAL after all inserts are done
     // this.db.run("PRAGMA journal_mode = WAL;");
@@ -294,7 +272,8 @@ export class ReferenceDatabase {
       CREATE TABLE IF NOT EXISTS ref_substances (
         id INTEGER PRIMARY KEY,
         code TEXT UNIQUE, -- Optional code if available (e.g. SNOMED/BDPM code if parsed)
-        label TEXT NOT NULL UNIQUE
+        label TEXT NOT NULL UNIQUE,
+        canonical_name TEXT  -- Salt-stripped base molecule (e.g., "MORPHINE" from "CHLORHYDRATE DE MORPHINE")
       ) STRICT;
     `);
 
@@ -419,67 +398,8 @@ export class ReferenceDatabase {
     // and are not created by the backend pipeline. The FTS5 virtual
     // table for full-text search follows.
     this.db.run(`
-      -- FTS5 virtual table for full-text search with TRIGRAM tokenizer
-      -- TRIGRAM enables powerful fuzzy matching (e.g., "dolipprane" finds "doliprane")
-      -- This tokenizer breaks text into 3-character chunks for substring/typo tolerance
-      -- Requires SQLite 3.34+ (bundled via sqlite3_flutter_libs on mobile)
-      CREATE VIRTUAL TABLE IF NOT EXISTS search_index USING fts5(
-        cis_code UNINDEXED,   -- Keep unindexed for joining
-        molecule_name,        -- Indexed: "Paracetamol"
-        brand_name,           -- Indexed: "Doliprane"
-        tokenize='trigram'    -- The magic switch for fuzzy search
-      );
-
-      -- FTS triggers for keeping search index in sync
-      -- Note: search_index uses molecule_name and brand_name (normalized), not raw columns
-      CREATE TRIGGER IF NOT EXISTS search_index_ai AFTER INSERT ON medicament_summary BEGIN
-        INSERT INTO search_index(
-          cis_code,
-          molecule_name,
-          brand_name
-        ) VALUES (
-          new.cis_code,
-          normalize_text(COALESCE(new.nom_canonique, '')),
-          normalize_text(COALESCE(new.princeps_de_reference, ''))
-        );
-      END;
-
-      CREATE TRIGGER IF NOT EXISTS search_index_ad AFTER DELETE ON medicament_summary BEGIN
-        INSERT INTO search_index(
-          search_index,
-          cis_code,
-          molecule_name,
-          brand_name
-        ) VALUES (
-          'delete',
-          old.cis_code,
-          normalize_text(COALESCE(old.nom_canonique, '')),
-          normalize_text(COALESCE(old.princeps_de_reference, ''))
-        );
-      END;
-
-      CREATE TRIGGER IF NOT EXISTS search_index_au AFTER UPDATE ON medicament_summary BEGIN
-        INSERT INTO search_index(
-          search_index,
-          cis_code,
-          molecule_name,
-          brand_name
-        ) VALUES (
-          'delete',
-          old.cis_code,
-          normalize_text(COALESCE(old.nom_canonique, '')),
-          normalize_text(COALESCE(old.princeps_de_reference, ''))
-        );
-        INSERT INTO search_index(
-          cis_code,
-          molecule_name,
-          brand_name
-        ) VALUES (
-          new.cis_code,
-          normalize_text(COALESCE(new.nom_canonique, '')),
-          normalize_text(COALESCE(new.princeps_de_reference, ''))
-        );
-      END;
+      -- Legacy FTS table and triggers removed. 
+      -- The correct FTS table is created in the Cluster-First section (lines ~260).
 
       -- Indexes matching Flutter app definitions
       CREATE INDEX IF NOT EXISTS idx_medicaments_cis_code ON medicaments(cis_code);
@@ -575,7 +495,6 @@ export class ReferenceDatabase {
       WHERE ms.cluster_id IS NOT NULL;
     `);
 
-    // Vue C : Scanner Check (Vérification immédiate)
     this.db.run(`DROP VIEW IF EXISTS view_scanner_check`);
     this.db.run(`
       CREATE VIEW view_scanner_check AS
@@ -590,6 +509,21 @@ export class ReferenceDatabase {
       FROM medicaments m
       JOIN medicament_summary ms ON m.cis_code = ms.cis_code
       LEFT JOIN cluster_names cn ON ms.cluster_id = cn.cluster_id;
+    `);
+
+    // Vue D : Search Results (FTS5 with BM25 ranking)
+    this.db.run(`DROP VIEW IF EXISTS view_search_results`);
+    this.db.run(`
+      CREATE VIEW view_search_results AS
+      SELECT 
+        si.cluster_id,
+        ci.title,
+        ci.subtitle,
+        ci.count_products,
+        bm25(search_index) as rank
+      FROM search_index si
+      JOIN cluster_index ci ON si.cluster_id = ci.cluster_id
+      ORDER BY rank;
     `);
 
     // --- 5. UI MATERIALIZED VIEWS (Pre-computed for Flutter TableManager) ---
@@ -694,6 +628,19 @@ export class ReferenceDatabase {
         stmt.run(...values);
       }
     };
+  }
+
+  public initMetadataTable() {
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS _metadata (
+        key TEXT PRIMARY KEY,
+        value TEXT
+      ) STRICT;
+    `);
+  }
+
+  public setMetadata(key: string, value: string) {
+    this.db.run(`INSERT OR REPLACE INTO _metadata (key, value) VALUES (?, ?)`, [key, value]);
   }
 
   // New insert methods for Flutter schema
@@ -1728,5 +1675,38 @@ export class ReferenceDatabase {
   // Testing helper: raw query access (read-only usage in tests)
   public rawQuery<T extends Record<string, unknown>>(sql: string): ReadonlyArray<T> {
     return this.db.query<T, []>(sql).all();
+  }
+
+  public rebuildSearchIndex() {
+    console.log("🔍 Rebuilding FTS Search Index...");
+
+    // Clear existing index
+    this.db.run("DELETE FROM search_index");
+
+    // Fetch all summaries
+    const rows = this.db.query<{ cis_code: string; nom_canonique: string; princeps_de_reference: string }, []>(
+      "SELECT cis_code, nom_canonique, princeps_de_reference FROM medicament_summary"
+    ).all();
+
+    console.log(`   Processing ${rows.length} rows for search index...`);
+
+    const stmt = this.db.prepare(`
+      INSERT INTO search_index (cis_code, molecule_name, brand_name)
+      VALUES (?, ?, ?)
+    `);
+
+    // Use transaction for speed
+    const transaction = this.db.transaction((items: typeof rows) => {
+      for (const row of items) {
+        stmt.run(
+          row.cis_code,
+          normalizeForSearch(row.nom_canonique || ''),
+          normalizeForSearch(row.princeps_de_reference || '')
+        );
+      }
+    });
+
+    transaction(rows);
+    console.log("✅ FTS Search Index rebuilt successfully");
   }
 }

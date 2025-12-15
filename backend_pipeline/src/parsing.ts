@@ -284,7 +284,7 @@ export async function parseCompositions(
     const compoRow: CompositionRow = {
       cis,
       substanceCode: cols[2],
-      denomination: normalizeSaltPrefix(cols[3]),
+      denomination: cols[3], // Raw label (Optimization: sanitize later)
       dosage: cols[4],
       nature,
       linkId
@@ -309,7 +309,13 @@ export async function parseCompositions(
     const rawWinners: CompositionRow[] = [];
     for (const rows of linksMap.values()) {
       const winner = selectBestComponentForLink(rows);
-      if (winner) rawWinners.push(winner);
+      if (winner) {
+        // Optimization: Normalize only the winner
+        rawWinners.push({
+          ...winner,
+          denomination: normalizeSaltPrefix(winner.denomination)
+        });
+      }
     }
 
     // 2. CONSOLIDATION : Fusionner les variantes d'hydratation et de sels minéraux
@@ -404,7 +410,7 @@ export async function parsePrincipesActifs(
     const compoRow: CompositionRow = {
       cis,
       substanceCode: cols[2],
-      denomination: normalizeSaltPrefix(cols[3]),
+      denomination: cols[3], // Raw label (Optimization: sanitize later)
       dosage: cols[4],
       nature,
       linkId
@@ -433,7 +439,13 @@ export async function parsePrincipesActifs(
     const rawWinners: CompositionRow[] = [];
     for (const rows of linksMap.values()) {
       const winner = selectBestComponentForLink(rows);
-      if (winner) rawWinners.push(winner);
+      if (winner) {
+        // Optimization: Normalize only the winner
+        rawWinners.push({
+          ...winner,
+          denomination: normalizeSaltPrefix(winner.denomination)
+        });
+      }
     }
 
     // 2.2. CONSOLIDATION : Fusionner les variantes d'hydratation et de sels minéraux

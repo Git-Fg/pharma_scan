@@ -94,7 +94,7 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> {
     String groupId,
   ) {
     attachedDatabase.logger.db(
-      'Watching group $groupId via view_group_details',
+      'Watching group $groupId via getGroupsWithSamePrinciples query',
     );
 
     return attachedDatabase.queriesDrift

@@ -4,22 +4,63 @@
  * Ported from lib/core/constants/chemical_constants.dart
  */
 export class ChemicalConstants {
-  private constructor() {}
+  private constructor() { }
 
   /**
    * Salt prefixes that appear at the beginning of molecule names.
    * Example: "CHLORHYDRATE DE METFORMINE" -> "METFORMINE"
+   * 
+   * NOTE: Use ONLY non-accented versions here. The sanitizer applies
+   * removeDiacritics() to input BEFORE prefix matching, so accented 
+   * variants like "ACÉTATE DE" become "ACETATE DE" before comparison.
    */
   static readonly saltPrefixes = [
+    // Complex compound prefixes (order matters - longer first)
     'FUMARATE ACIDE DE',
     'HEMIFUMARATE DE',
     'CHLORHYDRATE DIHYDRATE DE',
-    'MALÉATE DE',
+    'DIPROPIONATE DE',
+    "DIPROPIONATE D'",
+    // Standard salt prefixes (alphabetical)
+    'ACETATE DE',
+    "ACETATE D'",
+    'ASCORBATE DE',
+    "ASCORBATE D'",
+    'BENZOATE DE',
+    "BENZOATE D'",
+    'BICARBONATE DE',
+    "BICARBONATE D'",
+    'BROMHYDRATE DE',
+    "BROMHYDRATE D'",
+    'CARBONATE DE',
+    "CARBONATE D'",
+    "CHLORHYDRATE D'",
+    'CHLORHYDRATE DE',
+    'CITRATE DE',
+    "CITRATE D'",
+    'FUMARATE DE',
+    "FUMARATE D'",
+    'GLUCONATE DE',
+    "GLUCONATE D'",
+    'LACTATE DE',
+    "LACTATE D'",
     'MALEATE DE',
     "MALATE D'",
     'MALATE DE',
-    "CHLORHYDRATE D'",
-    'CHLORHYDRATE DE',
+    'NITRATE DE',
+    "NITRATE D'",
+    'OXALATE DE',
+    "OXALATE D'",
+    'PHOSPHATE DE',
+    "PHOSPHATE D'",
+    'PROPIONATE DE',
+    "PROPIONATE D'",
+    'SUCCINATE DE',
+    "SUCCINATE D'",
+    'SULFATE DE',
+    "SULFATE D'",
+    'TARTRATE DE',
+    "TARTRATE D'",
     'TOSILATE DE',
     'TOSYLATE DE',
   ] as const;
@@ -30,9 +71,20 @@ export class ChemicalConstants {
    */
   static readonly saltSuffixes = [
     'MAGNESIQUE DIHYDRATE',
+    // Mineral Adjectives (often missing from suffixes list)
+    'SODIQUE',
+    'POTASSIQUE',
+    'CALCIQUE',
+    'MAGNESIQUE',
+    'LITHIQUE',
+    'ZINCIQUE',
     'MONOSODIQUE ANHYDRE',
-    'BASE',
+    'MONOSODIQUE',
     'DISODIQUE',
+    'DIPOTASSIQUE',
+    'MONOPOTASSIQUE',
+    'BASE',
+    'DISODIQUE', // Duplicate? Check if needed, but safe
     'DE SODIUM',
     'DE POTASSIUM',
     'DE CALCIUM',
@@ -44,41 +96,31 @@ export class ChemicalConstants {
     'OLAMINE',
     'MAGNESIQUE TRIHYDRATE',
     // Hydrate and solvate markers (valsartan complexes, hydrates, etc.)
+    'ANHYDRE', // Critical addition from TF-IDF
     'HEMIPENTAHYDRATE',
     'HEMIPENTAHYDRAT',
+    'HEMIHYDRATE',
     'MONOHYDRATE',
     'DIHYDRATE',
     'TRIHYDRATE',
     'PENTAHYDRATE',
     'SESQUIHYDRATE',
-    // Accented hydrate variants (appear in raw BDPM labels)
-    'HÉMIPENTAHYDRATÉ',
-    'MONOHYDRATÉ',
-    'DIHYDRATÉ',
-    'TRIHYDRATÉ',
-    'PENTAHYDRATÉ',
-    'SESQUIHYDRATÉ',
     // From bdpm_file_parser.dart (additional salts)
     'TOSILATE',
     'TERTBUTYLAMINE',
     'MALEATE',
-    'MALÉATE',
     'CHLORHYDRATE',
     'SULFATE',
     'TARTRATE',
     'BESILATE',
-    'BÉSILATE',
     'MESILATE',
-    'MÉSILATE',
     'SUCCINATE',
     'FUMARATE',
     'OXALATE',
     'CITRATE',
     'ACETATE',
-    'ACÉTATE',
     'LACTATE',
     'VALERATE',
-    'VALÉRATE',
     'PROPIONATE',
     'BUTYRATE',
     'PHOSPHATE',

@@ -14,6 +14,7 @@ class AppSettingKeys {
 
   // User preferences
   static const updateFrequency = 'update_frequency';
+  static const updatePolicy = 'update_policy'; // 'ask', 'never', 'always'
   static const preferredSorting = 'preferred_sorting';
   static const scanHistoryLimit = 'scan_history_limit';
 
@@ -105,6 +106,11 @@ class AppSettingsDao extends DatabaseAccessor<AppDatabase> {
       getSetting<String>(AppSettingKeys.updateFrequency);
   Future<void> setUpdateFrequency(String frequency) =>
       setSetting(AppSettingKeys.updateFrequency, frequency);
+
+  Future<String?> get updatePolicy =>
+      getSetting<String>(AppSettingKeys.updatePolicy);
+  Future<void> setUpdatePolicy(String policy) =>
+      setSetting(AppSettingKeys.updatePolicy, policy);
 
   Future<String?> get preferredSorting =>
       getSetting<String>(AppSettingKeys.preferredSorting);

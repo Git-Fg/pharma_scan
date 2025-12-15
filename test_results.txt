@@ -1,462 +1,0 @@
-00:00 +0: loading /Users/felix/Documents/Flutter/pharma_scan/test/unit/gs1_complete_test.dart                                                                                                          00:01 +0: loading /Users/felix/Documents/Flutter/pharma_scan/test/unit/gs1_complete_test.dart                                                                                                          00:02 +0: loading /Users/felix/Documents/Flutter/pharma_scan/test/unit/gs1_complete_test.dart                                                                                                          00:02 +0: /Users/felix/Documents/Flutter/pharma_scan/test/unit/gs1_complete_test.dart: Complete GS1 DataMatrix Test Test the complete code you provided                                                00:02 +1: /Users/felix/Documents/Flutter/pharma_scan/test/unit/gs1_complete_test.dart: Complete GS1 DataMatrix Test Test the complete code you provided                                                00:03 +1: /Users/felix/Documents/Flutter/pharma_scan/test/unit/gs1_complete_test.dart: Complete GS1 DataMatrix Test Test the complete code you provided                                                00:04 +1: /Users/felix/Documents/Flutter/pharma_scan/test/unit/gs1_complete_test.dart: Complete GS1 DataMatrix Test Test the complete code you provided                                                00:05 +1: /Users/felix/Documents/Flutter/pharma_scan/test/unit/gs1_complete_test.dart: Complete GS1 DataMatrix Test Test the complete code you provided                                                00:06 +1: /Users/felix/Documents/Flutter/pharma_scan/test/unit/gs1_complete_test.dart: Complete GS1 DataMatrix Test Test the complete code you provided                                                00:06 +1: loading /Users/felix/Documents/Flutter/pharma_scan/test/core/ui/app_sheet_test.dart                                                                                                          00:06 +1: /Users/felix/Documents/Flutter/pharma_scan/test/core/ui/app_sheet_test.dart: AppSheet Tests AppSheet.show opens and returns                                                                  00:07 +1: /Users/felix/Documents/Flutter/pharma_scan/test/core/ui/app_sheet_test.dart: AppSheet Tests AppSheet.show opens and returns                                                                  00:07 +2: /Users/felix/Documents/Flutter/pharma_scan/test/core/ui/app_sheet_test.dart: AppSheet Tests AppSheet.show opens and returns                                                                  00:07 +2: /Users/felix/Documents/Flutter/pharma_scan/test/core/ui/app_sheet_test.dart: AppSheet Tests AppSheet shows content correctly                                                                 00:07 +3: /Users/felix/Documents/Flutter/pharma_scan/test/core/ui/app_sheet_test.dart: AppSheet Tests AppSheet shows content correctly                                                                 00:07 +3: /Users/felix/Documents/Flutter/pharma_scan/test/core/ui/app_sheet_test.dart: AppSheet Tests AppSheet can be dismissed                                                                        00:07 +4: /Users/felix/Documents/Flutter/pharma_scan/test/core/ui/app_sheet_test.dart: AppSheet Tests AppSheet can be dismissed                                                                        00:07 +4: loading /Users/felix/Documents/Flutter/pharma_scan/test/core/database/sql_error_x_test.dart                                                                                                  00:07 +4: /Users/felix/Documents/Flutter/pharma_scan/test/core/database/sql_error_x_test.dart: detects various unique constraint messages                                                              00:07 +5: /Users/felix/Documents/Flutter/pharma_scan/test/core/database/sql_error_x_test.dart: detects various unique constraint messages                                                              00:07 +5: /Users/felix/Documents/Flutter/pharma_scan/test/core/database/sql_error_x_test.dart: non-unique messages return false                                                                        00:07 +6: /Users/felix/Documents/Flutter/pharma_scan/test/core/database/sql_error_x_test.dart: non-unique messages return false                                                                        00:07 +6: /Users/felix/Documents/Flutter/pharma_scan/test/core/database/sql_error_x_test.dart: typed SqliteException is detected                                                                       00:07 +7: /Users/felix/Documents/Flutter/pharma_scan/test/core/database/sql_error_x_test.dart: typed SqliteException is detected                                                                       00:07 +7: loading /Users/felix/Documents/Flutter/pharma_scan/test/core/database/daos/catalog_dao_test.dart                                                                                             00:07 +7: /Users/felix/Documents/Flutter/pharma_scan/test/core/database/daos/catalog_dao_test.dart: CatalogDao.getProductByCip should return ScanResult when product exists in cache                   00:08 +7 -1: /Users/felix/Documents/Flutter/pharma_scan/test/core/database/daos/catalog_dao_test.dart: CatalogDao.getProductByCip should return ScanResult when product exists in cache [E]            
-  SqliteException(787): while executing statement, FOREIGN KEY constraint failed, constraint failed (code 787)
-    Causing statement: INSERT INTO "product_scan_cache" ("cip_code", "cis_code", "nom_canonique", "prix_public", "taux_remboursement", "is_princeps", "princeps_de_reference", "princeps_brand_name", "forme_pharmaceutique", "voies_administration", "formatted_dosage", "group_id", "cluster_id", "commercialisation_statut") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?), parameters: 3400934056781, 12345678, TEST DOLIPRANE 1000MG, 2.5, 65%, 1, DOLIPRANE, DOLIPRANE, Comprimé, orale, 1000mg, GRP001, CLU001, Commercialisé
-  package:sqlite3/src/implementation/exception.dart 95:3                throwException
-  package:sqlite3/src/implementation/statement.dart 109:7               StatementImplementation._execute
-  package:sqlite3/src/implementation/statement.dart 309:5               StatementImplementation.executeWith
-  package:sqlite3/src/statement.dart 81:12                              CommonPreparedStatement.execute
-  package:drift/src/sqlite3/database.dart 149:14                        Sqlite3Delegate.runWithArgsSync
-  package:drift/native.dart 431:7                                       _NativeDelegate.runInsert.<fn>
-  dart:async                                                            new Future.sync
-  package:drift/native.dart 430:19                                      _NativeDelegate.runInsert
-  package:drift/src/runtime/executor/helpers/engines.dart 106:19        _BaseExecutor.runInsert.<fn>
-  package:drift/src/runtime/executor/helpers/engines.dart 62:20         _BaseExecutor._synchronized
-  package:drift/src/runtime/executor/helpers/engines.dart 103:12        _BaseExecutor.runInsert
-  package:drift/src/runtime/query_builder/statements/insert.dart 74:26  InsertStatement.insert.<fn>
-  package:drift/src/runtime/api/connection_user.dart 171:16             DatabaseConnectionUser.doWhenOpened.<fn>
-  ===== asynchronous gap ===========================
-  dart:async                                                            new Future.sync
-  package:drift/native.dart 430:19                                      _NativeDelegate.runInsert
-  package:drift/src/runtime/executor/helpers/engines.dart 106:19        _BaseExecutor.runInsert.<fn>
-  package:drift/src/runtime/executor/helpers/engines.dart 62:20         _BaseExecutor._synchronized
-  package:drift/src/runtime/executor/helpers/engines.dart 103:12        _BaseExecutor.runInsert
-  package:drift/src/runtime/query_builder/statements/insert.dart 74:26  InsertStatement.insert.<fn>
-  package:drift/src/runtime/api/connection_user.dart 171:16             DatabaseConnectionUser.doWhenOpened.<fn>
-  ===== asynchronous gap ===========================
-  dart:async                                                            Future.then
-  package:drift/src/runtime/api/connection_user.dart 169:50             DatabaseConnectionUser.doWhenOpened
-  package:drift/src/runtime/api/connection_user.dart 728:19             InternalConnectionUserApi.withCurrentExecutor
-  package:drift/src/runtime/query_builder/statements/insert.dart 73:27  InsertStatement.insert
-  test/core/database/daos/catalog_dao_test.dart 18:52                   main.<fn>
-  
-
-To run this test again: /opt/homebrew/share/flutter/bin/cache/dart-sdk/bin/dart test /Users/felix/Documents/Flutter/pharma_scan/test/core/database/daos/catalog_dao_test.dart -p vm --plain-name 'CatalogDao.getProductByCip should return ScanResult when product exists in cache'
-00:08 +8 -1: /Users/felix/Documents/Flutter/pharma_scan/test/core/database/daos/catalog_dao_test.dart: CatalogDao.getProductByCip should return null when product does not exist in cache              00:08 +8 -2: /Users/felix/Documents/Flutter/pharma_scan/test/core/database/daos/catalog_dao_test.dart: CatalogDao.getProductByCip should return null when product does not exist in cache [E]          
-  SqliteException(787): while executing statement, FOREIGN KEY constraint failed, constraint failed (code 787)
-    Causing statement: INSERT INTO "product_scan_cache" ("cip_code", "cis_code", "nom_canonique", "prix_public", "taux_remboursement", "is_princeps", "princeps_de_reference", "princeps_brand_name", "forme_pharmaceutique", "voies_administration", "formatted_dosage", "group_id", "cluster_id", "commercialisation_statut") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?), parameters: 3400934056781, 12345678, TEST DOLIPRANE 1000MG, 2.5, 65%, 1, DOLIPRANE, DOLIPRANE, Comprimé, orale, 1000mg, GRP001, CLU001, Commercialisé
-  package:sqlite3/src/implementation/exception.dart 95:3                throwException
-  package:sqlite3/src/implementation/statement.dart 109:7               StatementImplementation._execute
-  package:sqlite3/src/implementation/statement.dart 309:5               StatementImplementation.executeWith
-  package:sqlite3/src/statement.dart 81:12                              CommonPreparedStatement.execute
-  package:drift/src/sqlite3/database.dart 149:14                        Sqlite3Delegate.runWithArgsSync
-  package:drift/native.dart 431:7                                       _NativeDelegate.runInsert.<fn>
-  dart:async                                                            new Future.sync
-  package:drift/native.dart 430:19                                      _NativeDelegate.runInsert
-  package:drift/src/runtime/executor/helpers/engines.dart 106:19        _BaseExecutor.runInsert.<fn>
-  package:drift/src/runtime/executor/helpers/engines.dart 62:20         _BaseExecutor._synchronized
-  package:drift/src/runtime/executor/helpers/engines.dart 103:12        _BaseExecutor.runInsert
-  package:drift/src/runtime/query_builder/statements/insert.dart 74:26  InsertStatement.insert.<fn>
-  package:drift/src/runtime/api/connection_user.dart 171:16             DatabaseConnectionUser.doWhenOpened.<fn>
-  ===== asynchronous gap ===========================
-  dart:async                                                            new Future.sync
-  package:drift/native.dart 430:19                                      _NativeDelegate.runInsert
-  package:drift/src/runtime/executor/helpers/engines.dart 106:19        _BaseExecutor.runInsert.<fn>
-  package:drift/src/runtime/executor/helpers/engines.dart 62:20         _BaseExecutor._synchronized
-  package:drift/src/runtime/executor/helpers/engines.dart 103:12        _BaseExecutor.runInsert
-  package:drift/src/runtime/query_builder/statements/insert.dart 74:26  InsertStatement.insert.<fn>
-  package:drift/src/runtime/api/connection_user.dart 171:16             DatabaseConnectionUser.doWhenOpened.<fn>
-  ===== asynchronous gap ===========================
-  dart:async                                                            Future.then
-  package:drift/src/runtime/api/connection_user.dart 169:50             DatabaseConnectionUser.doWhenOpened
-  package:drift/src/runtime/api/connection_user.dart 728:19             InternalConnectionUserApi.withCurrentExecutor
-  package:drift/src/runtime/query_builder/statements/insert.dart 73:27  InsertStatement.insert
-  test/core/database/daos/catalog_dao_test.dart 18:52                   main.<fn>
-  
-
-To run this test again: /opt/homebrew/share/flutter/bin/cache/dart-sdk/bin/dart test /Users/felix/Documents/Flutter/pharma_scan/test/core/database/daos/catalog_dao_test.dart -p vm --plain-name 'CatalogDao.getProductByCip should return null when product does not exist in cache'
-00:08 +9 -3: /Users/felix/Documents/Flutter/pharma_scan/test/core/database/daos/restock_dao_test.dart: updateQuantity should modify stock count correctly                                              00:08 +9 -3: /Users/felix/Documents/Flutter/pharma_scan/test/core/database/daos/restock_dao_test.dart: deleteRestockItemFully should remove item completely                                            00:08 +9 -3: /Users/felix/Documents/Flutter/pharma_scan/test/core/database/daos/catalog_dao_test.dart: CatalogDao.getProductByCip should include expiry date when provided [E]                         
-  SqliteException(787): while executing statement, FOREIGN KEY constraint failed, constraint failed (code 787)
-    Causing statement: INSERT INTO "product_scan_cache" ("cip_code", "cis_code", "nom_canonique", "prix_public", "taux_remboursement", "is_princeps", "princeps_de_reference", "princeps_brand_name", "forme_pharmaceutique", "voies_administration", "formatted_dosage", "group_id", "cluster_id", "commercialisation_statut") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?), parameters: 3400934056781, 12345678, TEST DOLIPRANE 1000MG, 2.5, 65%, 1, DOLIPRANE, DOLIPRANE, Comprimé, orale, 1000mg, GRP001, CLU001, Commercialisé
-  package:sqlite3/src/implementation/exception.dart 95:3                throwException
-  package:sqlite3/src/implementation/statement.dart 109:7               StatementImplementation._execute
-  package:sqlite3/src/implementation/statement.dart 309:5               StatementImplementation.executeWith
-  package:sqlite3/src/statement.dart 81:12                              CommonPreparedStatement.execute
-  package:drift/src/sqlite3/database.dart 149:14                        Sqlite3Delegate.runWithArgsSync
-  package:drift/native.dart 431:7                                       _NativeDelegate.runInsert.<fn>
-  dart:async                                                            new Future.sync
-  package:drift/native.dart 430:19                                      _NativeDelegate.runInsert
-  package:drift/src/runtime/executor/helpers/engines.dart 106:19        _BaseExecutor.runInsert.<fn>
-  package:drift/src/runtime/executor/helpers/engines.dart 62:20         _BaseExecutor._synchronized
-  package:drift/src/runtime/executor/helpers/engines.dart 103:12        _BaseExecutor.runInsert
-  package:drift/src/runtime/query_builder/statements/insert.dart 74:26  InsertStatement.insert.<fn>
-  package:drift/src/runtime/api/connection_user.dart 171:16             DatabaseConnectionUser.doWhenOpened.<fn>
-  ===== asynchronous gap ===========================
-  dart:async                                                            new Future.sync
-  package:drift/native.dart 430:19                                      _NativeDelegate.runInsert
-  package:drift/src/runtime/executor/helpers/engines.dart 106:19        _BaseExecutor.runInsert.<fn>
-  package:drift/src/runtime/executor/helpers/engines.dart 62:20         _BaseExecutor._synchronized
-  package:drift/src/runtime/executor/helpers/engines.dart 103:12        _BaseExecutor.runInsert
-  package:drift/src/runtime/query_builder/statements/insert.dart 74:26  InsertStatement.insert.<fn>
-  package:drift/src/runtime/api/connection_user.dart 171:16             DatabaseConnectionUser.doWhenOpened.<fn>
-  ===== asynchronous gap ===========================
-  dart:async                                                            Future.then
-  package:drift/src/runtime/api/connection_user.dart 169:50             DatabaseConnectionUser.doWhenOpened
-  package:drift/src/runtime/api/connection_user.dart 728:19             InternalConnectionUserApi.withCurrentExecutor
-  package:drift/src/runtime/query_builder/statements/insert.dart 73:27  InsertStatement.insert
-  test/core/database/daos/catalog_dao_test.dart 18:52                   main.<fn>
-  
-
-To run this test again: /opt/homebrew/share/flutter/bin/cache/dart-sdk/bin/dart test /Users/felix/Documents/Flutter/pharma_scan/test/core/database/daos/catalog_dao_test.dart -p vm --plain-name 'CatalogDao.getProductByCip should include expiry date when provided'
-00:08 +9 -4: /Users/felix/Documents/Flutter/pharma_scan/test/core/database/daos/catalog_dao_test.dart: CatalogDao.getDatabaseStats should return correct database statistics [E]                       
-  SqliteException(787): while executing statement, FOREIGN KEY constraint failed, constraint failed (code 787)
-    Causing statement: INSERT INTO "product_scan_cache" ("cip_code", "cis_code", "nom_canonique", "prix_public", "taux_remboursement", "is_princeps", "princeps_de_reference", "princeps_brand_name", "forme_pharmaceutique", "voies_administration", "formatted_dosage", "group_id", "cluster_id", "commercialisation_statut") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?), parameters: 3400934056781, 12345678, TEST DOLIPRANE 1000MG, 2.5, 65%, 1, DOLIPRANE, DOLIPRANE, Comprimé, orale, 1000mg, GRP001, CLU001, Commercialisé
-  package:sqlite3/src/implementation/exception.dart 95:3                throwException
-  package:sqlite3/src/implementation/statement.dart 109:7               StatementImplementation._execute
-  package:sqlite3/src/implementation/statement.dart 309:5               StatementImplementation.executeWith
-  package:sqlite3/src/statement.dart 81:12                              CommonPreparedStatement.execute
-  package:drift/src/sqlite3/database.dart 149:14                        Sqlite3Delegate.runWithArgsSync
-  package:drift/native.dart 431:7                                       _NativeDelegate.runInsert.<fn>
-  dart:async                                                            new Future.sync
-  package:drift/native.dart 430:19                                      _NativeDelegate.runInsert
-  package:drift/src/runtime/executor/helpers/engines.dart 106:19        _BaseExecutor.runInsert.<fn>
-  package:drift/src/runtime/executor/helpers/engines.dart 62:20         _BaseExecutor._synchronized
-  package:drift/src/runtime/executor/helpers/engines.dart 103:12        _BaseExecutor.runInsert
-  package:drift/src/runtime/query_builder/statements/insert.dart 74:26  InsertStatement.insert.<fn>
-  package:drift/src/runtime/api/connection_user.dart 171:16             DatabaseConnectionUser.doWhenOpened.<fn>
-  ===== asynchronous gap ===========================
-  dart:async                                                            new Future.sync
-  package:drift/native.dart 430:19                                      _NativeDelegate.runInsert
-  package:drift/src/runtime/executor/helpers/engines.dart 106:19        _BaseExecutor.runInsert.<fn>
-  package:drift/src/runtime/executor/helpers/engines.dart 62:20         _BaseExecutor._synchronized
-  package:drift/src/runtime/executor/helpers/engines.dart 103:12        _BaseExecutor.runInsert
-  package:drift/src/runtime/query_builder/statements/insert.dart 74:26  InsertStatement.insert.<fn>
-  package:drift/src/runtime/api/connection_user.dart 171:16             DatabaseConnectionUser.doWhenOpened.<fn>
-  ===== asynchronous gap ===========================
-  dart:async                                                            Future.then
-  package:drift/src/runtime/api/connection_user.dart 169:50             DatabaseConnectionUser.doWhenOpened
-  package:drift/src/runtime/api/connection_user.dart 728:19             InternalConnectionUserApi.withCurrentExecutor
-  package:drift/src/runtime/query_builder/statements/insert.dart 73:27  InsertStatement.insert
-  test/core/database/daos/catalog_dao_test.dart 18:52                   main.<fn>
-  
-
-To run this test again: /opt/homebrew/share/flutter/bin/cache/dart-sdk/bin/dart test /Users/felix/Documents/Flutter/pharma_scan/test/core/database/daos/catalog_dao_test.dart -p vm --plain-name 'CatalogDao.getDatabaseStats should return correct database statistics'
-00:08 +10 -4: /Users/felix/Documents/Flutter/pharma_scan/test/core/database/daos/restock_dao_test.dart: deleteRestockItemFully should remove item completely                                           00:08 +10 -4: /Users/felix/Documents/Flutter/pharma_scan/test/core/database/daos/catalog_dao_test.dart: CatalogDao.getDatabaseStats should count distinct principles correctly                         00:08 +10 -5: /Users/felix/Documents/Flutter/pharma_scan/test/core/database/daos/catalog_dao_test.dart: CatalogDao.getDatabaseStats should count distinct principles correctly [E]                     
-  SqliteException(787): while executing statement, FOREIGN KEY constraint failed, constraint failed (code 787)
-    Causing statement: INSERT INTO "product_scan_cache" ("cip_code", "cis_code", "nom_canonique", "prix_public", "taux_remboursement", "is_princeps", "princeps_de_reference", "princeps_brand_name", "forme_pharmaceutique", "voies_administration", "formatted_dosage", "group_id", "cluster_id", "commercialisation_statut") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?), parameters: 3400934056781, 12345678, TEST DOLIPRANE 1000MG, 2.5, 65%, 1, DOLIPRANE, DOLIPRANE, Comprimé, orale, 1000mg, GRP001, CLU001, Commercialisé
-  package:sqlite3/src/implementation/exception.dart 95:3                throwException
-  package:sqlite3/src/implementation/statement.dart 109:7               StatementImplementation._execute
-  package:sqlite3/src/implementation/statement.dart 309:5               StatementImplementation.executeWith
-  package:sqlite3/src/statement.dart 81:12                              CommonPreparedStatement.execute
-  package:drift/src/sqlite3/database.dart 149:14                        Sqlite3Delegate.runWithArgsSync
-  package:drift/native.dart 431:7                                       _NativeDelegate.runInsert.<fn>
-  dart:async                                                            new Future.sync
-  package:drift/native.dart 430:19                                      _NativeDelegate.runInsert
-  package:drift/src/runtime/executor/helpers/engines.dart 106:19        _BaseExecutor.runInsert.<fn>
-  package:drift/src/runtime/executor/helpers/engines.dart 62:20         _BaseExecutor._synchronized
-  package:drift/src/runtime/executor/helpers/engines.dart 103:12        _BaseExecutor.runInsert
-  package:drift/src/runtime/query_builder/statements/insert.dart 74:26  InsertStatement.insert.<fn>
-  package:drift/src/runtime/api/connection_user.dart 171:16             DatabaseConnectionUser.doWhenOpened.<fn>
-  ===== asynchronous gap ===========================
-  dart:async                                                            new Future.sync
-  package:drift/native.dart 430:19                                      _NativeDelegate.runInsert
-  package:drift/src/runtime/executor/helpers/engines.dart 106:19        _BaseExecutor.runInsert.<fn>
-  package:drift/src/runtime/executor/helpers/engines.dart 62:20         _BaseExecutor._synchronized
-  package:drift/src/runtime/executor/helpers/engines.dart 103:12        _BaseExecutor.runInsert
-  package:drift/src/runtime/query_builder/statements/insert.dart 74:26  InsertStatement.insert.<fn>
-  package:drift/src/runtime/api/connection_user.dart 171:16             DatabaseConnectionUser.doWhenOpened.<fn>
-  ===== asynchronous gap ===========================
-  dart:async                                                            Future.then
-  package:drift/src/runtime/api/connection_user.dart 169:50             DatabaseConnectionUser.doWhenOpened
-  package:drift/src/runtime/api/connection_user.dart 728:19             InternalConnectionUserApi.withCurrentExecutor
-  package:drift/src/runtime/query_builder/statements/insert.dart 73:27  InsertStatement.insert
-  test/core/database/daos/catalog_dao_test.dart 18:52                   main.<fn>
-  
-00:08 +11 -5: /Users/felix/Documents/Flutter/pharma_scan/test/core/database/daos/restock_dao_test.dart: clearAll should remove all items                                                               
-To run this test again: /opt/homebrew/share/flutter/bin/cache/dart-sdk/bin/dart test /Users/felix/Documents/Flutter/pharma_scan/test/core/database/daos/catalog_dao_test.dart -p vm --plain-name 'CatalogDao.getDatabaseStats should count distinct principles correctly'
-00:08 +11 -5: /Users/felix/Documents/Flutter/pharma_scan/test/core/database/daos/restock_dao_test.dart: toggleCheck should update checked state                                                        00:08 +11 -6: /Users/felix/Documents/Flutter/pharma_scan/test/core/database/daos/catalog_dao_test.dart: CatalogDao.hasExistingData should return true when data exists [E]                             
-  SqliteException(787): while executing statement, FOREIGN KEY constraint failed, constraint failed (code 787)
-    Causing statement: INSERT INTO "product_scan_cache" ("cip_code", "cis_code", "nom_canonique", "prix_public", "taux_remboursement", "is_princeps", "princeps_de_reference", "princeps_brand_name", "forme_pharmaceutique", "voies_administration", "formatted_dosage", "group_id", "cluster_id", "commercialisation_statut") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?), parameters: 3400934056781, 12345678, TEST DOLIPRANE 1000MG, 2.5, 65%, 1, DOLIPRANE, DOLIPRANE, Comprimé, orale, 1000mg, GRP001, CLU001, Commercialisé
-  package:sqlite3/src/implementation/exception.dart 95:3                throwException
-  package:sqlite3/src/implementation/statement.dart 109:7               StatementImplementation._execute
-  package:sqlite3/src/implementation/statement.dart 309:5               StatementImplementation.executeWith
-  package:sqlite3/src/statement.dart 81:12                              CommonPreparedStatement.execute
-  package:drift/src/sqlite3/database.dart 149:14                        Sqlite3Delegate.runWithArgsSync
-  package:drift/native.dart 431:7                                       _NativeDelegate.runInsert.<fn>
-  dart:async                                                            new Future.sync
-  package:drift/native.dart 430:19                                      _NativeDelegate.runInsert
-  package:drift/src/runtime/executor/helpers/engines.dart 106:19        _BaseExecutor.runInsert.<fn>
-  package:drift/src/runtime/executor/helpers/engines.dart 62:20         _BaseExecutor._synchronized
-  package:drift/src/runtime/executor/helpers/engines.dart 103:12        _BaseExecutor.runInsert
-  package:drift/src/runtime/query_builder/statements/insert.dart 74:26  InsertStatement.insert.<fn>
-  package:drift/src/runtime/api/connection_user.dart 171:16             DatabaseConnectionUser.doWhenOpened.<fn>
-  ===== asynchronous gap ===========================
-  dart:async                                                            new Future.sync
-  package:drift/native.dart 430:19                                      _NativeDelegate.runInsert
-  package:drift/src/runtime/executor/helpers/engines.dart 106:19        _BaseExecutor.runInsert.<fn>
-  package:drift/src/runtime/executor/helpers/engines.dart 62:20         _BaseExecutor._synchronized
-  package:drift/src/runtime/executor/helpers/engines.dart 103:12        _BaseExecutor.runInsert
-  package:drift/src/runtime/query_builder/statements/insert.dart 74:26  InsertStatement.insert.<fn>
-  package:drift/src/runtime/api/connection_user.dart 171:16             DatabaseConnectionUser.doWhenOpened.<fn>
-  ===== asynchronous gap ===========================
-  dart:async                                                            Future.then
-  package:drift/src/runtime/api/connection_user.dart 169:50             DatabaseConnectionUser.doWhenOpened
-  package:drift/src/runtime/api/connection_user.dart 728:19             InternalConnectionUserApi.withCurrentExecutor
-  package:drift/src/runtime/query_builder/statements/insert.dart 73:27  InsertStatement.insert
-  test/core/database/daos/catalog_dao_test.dart 18:52                   main.<fn>
-  
-
-To run this test again: /opt/homebrew/share/flutter/bin/cache/dart-sdk/bin/dart test /Users/felix/Documents/Flutter/pharma_scan/test/core/database/daos/catalog_dao_test.dart -p vm --plain-name 'CatalogDao.hasExistingData should return true when data exists'
-00:08 +12 -6: /Users/felix/Documents/Flutter/pharma_scan/test/core/database/daos/catalog_dao_test.dart: CatalogDao.hasExistingData should return false when no data exists                             00:08 +12 -7: /Users/felix/Documents/Flutter/pharma_scan/test/core/database/daos/catalog_dao_test.dart: CatalogDao.hasExistingData should return false when no data exists [E]                         
-  SqliteException(787): while executing statement, FOREIGN KEY constraint failed, constraint failed (code 787)
-    Causing statement: INSERT INTO "product_scan_cache" ("cip_code", "cis_code", "nom_canonique", "prix_public", "taux_remboursement", "is_princeps", "princeps_de_reference", "princeps_brand_name", "forme_pharmaceutique", "voies_administration", "formatted_dosage", "group_id", "cluster_id", "commercialisation_statut") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?), parameters: 3400934056781, 12345678, TEST DOLIPRANE 1000MG, 2.5, 65%, 1, DOLIPRANE, DOLIPRANE, Comprimé, orale, 1000mg, GRP001, CLU001, Commercialisé
-  package:sqlite3/src/implementation/exception.dart 95:3                throwException
-  package:sqlite3/src/implementation/statement.dart 109:7               StatementImplementation._execute
-  package:sqlite3/src/implementation/statement.dart 309:5               StatementImplementation.executeWith
-  package:sqlite3/src/statement.dart 81:12                              CommonPreparedStatement.execute
-  package:drift/src/sqlite3/database.dart 149:14                        Sqlite3Delegate.runWithArgsSync
-  package:drift/native.dart 431:7                                       _NativeDelegate.runInsert.<fn>
-  dart:async                                                            new Future.sync
-  package:drift/native.dart 430:19                                      _NativeDelegate.runInsert
-  package:drift/src/runtime/executor/helpers/engines.dart 106:19        _BaseExecutor.runInsert.<fn>
-  package:drift/src/runtime/executor/helpers/engines.dart 62:20         _BaseExecutor._synchronized
-  package:drift/src/runtime/executor/helpers/engines.dart 103:12        _BaseExecutor.runInsert
-  package:drift/src/runtime/query_builder/statements/insert.dart 74:26  InsertStatement.insert.<fn>
-  package:drift/src/runtime/api/connection_user.dart 171:16             DatabaseConnectionUser.doWhenOpened.<fn>
-  ===== asynchronous gap ===========================
-  dart:async                                                            new Future.sync
-  package:drift/native.dart 430:19                                      _NativeDelegate.runInsert
-  package:drift/src/runtime/executor/helpers/engines.dart 106:19        _BaseExecutor.runInsert.<fn>
-  package:drift/src/runtime/executor/helpers/engines.dart 62:20         _BaseExecutor._synchronized
-  package:drift/src/runtime/executor/helpers/engines.dart 103:12        _BaseExecutor.runInsert
-  package:drift/src/runtime/query_builder/statements/insert.dart 74:26  InsertStatement.insert.<fn>
-  package:drift/src/runtime/api/connection_user.dart 171:16             DatabaseConnectionUser.doWhenOpened.<fn>
-  ===== asynchronous gap ===========================
-  dart:async                                                            Future.then
-  package:drift/src/runtime/api/connection_user.dart 169:50             DatabaseConnectionUser.doWhenOpened
-  package:drift/src/runtime/api/connection_user.dart 728:19             InternalConnectionUserApi.withCurrentExecutor
-  package:drift/src/runtime/query_builder/statements/insert.dart 73:27  InsertStatement.insert
-  test/core/database/daos/catalog_dao_test.dart 18:52                   main.<fn>
-  
-
-To run this test again: /opt/homebrew/share/flutter/bin/cache/dart-sdk/bin/dart test /Users/felix/Documents/Flutter/pharma_scan/test/core/database/daos/catalog_dao_test.dart -p vm --plain-name 'CatalogDao.hasExistingData should return false when no data exists'
-00:08 +13 -7: /Users/felix/Documents/Flutter/pharma_scan/test/core/database/view_group_details_test.dart: view_group_details prefers product_scan_cache values when available                          00:08 +13 -7: /Users/felix/Documents/Flutter/pharma_scan/test/core/database/view_group_details_test.dart: view_group_details prefers product_scan_cache values when available                          
-[38;5;3m┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────[0m
-[38;5;3m│ [warning] | 6:54:00 848ms | [DB] Reference database not attached or missing: SqliteException(1): while preparing statement, no such table: reference_db.medicament_summary, SQL logic error (code 1)[0m
-[38;5;3m│   Causing statement: SELECT count(*) FROM reference_db.medicament_summary[0m
-[38;5;3m└──────────────────────────────────────────────────────────────────────────────────────────────────────────────[0m
-00:08 +14 -7: /Users/felix/Documents/Flutter/pharma_scan/test/core/database/daos/catalog_dao_test.dart: CatalogDao.getDistinctProcedureTypes should return empty list when no procedure types          00:08 +14 -7: /Users/felix/Documents/Flutter/pharma_scan/test/core/database/view_group_details_test.dart: view_group_details falls back to medicaments/availability when cache missing                 
-[38;5;3m┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────[0m
-[38;5;3m│ [warning] | 6:54:00 995ms | [DB] Reference database not attached or missing: SqliteException(1): while preparing statement, no such table: reference_db.medicament_summary, SQL logic error (code 1)[0m
-[38;5;3m│   Causing statement: SELECT count(*) FROM reference_db.medicament_summary[0m
-[38;5;3m└──────────────────────────────────────────────────────────────────────────────────────────────────────────────[0m
-00:09 +15 -7: /Users/felix/Documents/Flutter/pharma_scan/test/core/database/daos/catalog_dao_test.dart: CatalogDao.getDistinctProcedureTypes should return empty list when no procedure types          00:09 +15 -8: /Users/felix/Documents/Flutter/pharma_scan/test/core/database/daos/catalog_dao_test.dart: CatalogDao.getDistinctProcedureTypes should return empty list when no procedure types [E]      
-  SqliteException(787): while executing statement, FOREIGN KEY constraint failed, constraint failed (code 787)
-    Causing statement: INSERT INTO "product_scan_cache" ("cip_code", "cis_code", "nom_canonique", "prix_public", "taux_remboursement", "is_princeps", "princeps_de_reference", "princeps_brand_name", "forme_pharmaceutique", "voies_administration", "formatted_dosage", "group_id", "cluster_id", "commercialisation_statut") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?), parameters: 3400934056781, 12345678, TEST DOLIPRANE 1000MG, 2.5, 65%, 1, DOLIPRANE, DOLIPRANE, Comprimé, orale, 1000mg, GRP001, CLU001, Commercialisé
-  package:sqlite3/src/implementation/exception.dart 95:3                throwException
-  package:sqlite3/src/implementation/statement.dart 109:7               StatementImplementation._execute
-  package:sqlite3/src/implementation/statement.dart 309:5               StatementImplementation.executeWith
-  package:sqlite3/src/statement.dart 81:12                              CommonPreparedStatement.execute
-  package:drift/src/sqlite3/database.dart 149:14                        Sqlite3Delegate.runWithArgsSync
-  package:drift/native.dart 431:7                                       _NativeDelegate.runInsert.<fn>
-  dart:async                                                            new Future.sync
-  package:drift/native.dart 430:19                                      _NativeDelegate.runInsert
-  package:drift/src/runtime/executor/helpers/engines.dart 106:19        _BaseExecutor.runInsert.<fn>
-  package:drift/src/runtime/executor/helpers/engines.dart 62:20         _BaseExecutor._synchronized
-  package:drift/src/runtime/executor/helpers/engines.dart 103:12        _BaseExecutor.runInsert
-  package:drift/src/runtime/query_builder/statements/insert.dart 74:26  InsertStatement.insert.<fn>
-  package:drift/src/runtime/api/connection_user.dart 171:16             DatabaseConnectionUser.doWhenOpened.<fn>
-  ===== asynchronous gap ===========================
-  dart:async                                                            new Future.sync
-  package:drift/native.dart 430:19                                      _NativeDelegate.runInsert
-  package:drift/src/runtime/executor/helpers/engines.dart 106:19        _BaseExecutor.runInsert.<fn>
-  package:drift/src/runtime/executor/helpers/engines.dart 62:20         _BaseExecutor._synchronized
-  package:drift/src/runtime/executor/helpers/engines.dart 103:12        _BaseExecutor.runInsert
-  package:drift/src/runtime/query_builder/statements/insert.dart 74:26  InsertStatement.insert.<fn>
-  package:drift/src/runtime/api/connection_user.dart 171:16             DatabaseConnectionUser.doWhenOpened.<fn>
-  ===== asynchronous gap ===========================
-  dart:async                                                            Future.then
-  package:drift/src/runtime/api/connection_user.dart 169:50             DatabaseConnectionUser.doWhenOpened
-  package:drift/src/runtime/api/connection_user.dart 728:19             InternalConnectionUserApi.withCurrentExecutor
-  package:drift/src/runtime/query_builder/statements/insert.dart 73:27  InsertStatement.insert
-  test/core/database/daos/catalog_dao_test.dart 18:52                   main.<fn>
-  
-
-To run this test again: /opt/homebrew/share/flutter/bin/cache/dart-sdk/bin/dart test /Users/felix/Documents/Flutter/pharma_scan/test/core/database/daos/catalog_dao_test.dart -p vm --plain-name 'CatalogDao.getDistinctProcedureTypes should return empty list when no procedure types'
-00:09 +16 -8: /Users/felix/Documents/Flutter/pharma_scan/test/core/database/daos/catalog_dao_test.dart: CatalogDao.getDistinctProcedureTypes should return distinct procedure types when they exist    00:09 +16 -9: /Users/felix/Documents/Flutter/pharma_scan/test/core/database/daos/catalog_dao_test.dart: CatalogDao.getDistinctProcedureTypes should return distinct procedure types when they exist [E]
-  SqliteException(787): while executing statement, FOREIGN KEY constraint failed, constraint failed (code 787)
-    Causing statement: INSERT INTO "product_scan_cache" ("cip_code", "cis_code", "nom_canonique", "prix_public", "taux_remboursement", "is_princeps", "princeps_de_reference", "princeps_brand_name", "forme_pharmaceutique", "voies_administration", "formatted_dosage", "group_id", "cluster_id", "commercialisation_statut") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?), parameters: 3400934056781, 12345678, TEST DOLIPRANE 1000MG, 2.5, 65%, 1, DOLIPRANE, DOLIPRANE, Comprimé, orale, 1000mg, GRP001, CLU001, Commercialisé
-  package:sqlite3/src/implementation/exception.dart 95:3                throwException
-  package:sqlite3/src/implementation/statement.dart 109:7               StatementImplementation._execute
-  package:sqlite3/src/implementation/statement.dart 309:5               StatementImplementation.executeWith
-  package:sqlite3/src/statement.dart 81:12                              CommonPreparedStatement.execute
-  package:drift/src/sqlite3/database.dart 149:14                        Sqlite3Delegate.runWithArgsSync
-  package:drift/native.dart 431:7                                       _NativeDelegate.runInsert.<fn>
-  dart:async                                                            new Future.sync
-  package:drift/native.dart 430:19                                      _NativeDelegate.runInsert
-  package:drift/src/runtime/executor/helpers/engines.dart 106:19        _BaseExecutor.runInsert.<fn>
-  package:drift/src/runtime/executor/helpers/engines.dart 62:20         _BaseExecutor._synchronized
-  package:drift/src/runtime/executor/helpers/engines.dart 103:12        _BaseExecutor.runInsert
-  package:drift/src/runtime/query_builder/statements/insert.dart 74:26  InsertStatement.insert.<fn>
-  package:drift/src/runtime/api/connection_user.dart 171:16             DatabaseConnectionUser.doWhenOpened.<fn>
-  ===== asynchronous gap ===========================
-  dart:async                                                            new Future.sync
-  package:drift/native.dart 430:19                                      _NativeDelegate.runInsert
-  package:drift/src/runtime/executor/helpers/engines.dart 106:19        _BaseExecutor.runInsert.<fn>
-  package:drift/src/runtime/executor/helpers/engines.dart 62:20         _BaseExecutor._synchronized
-  package:drift/src/runtime/executor/helpers/engines.dart 103:12        _BaseExecutor.runInsert
-  package:drift/src/runtime/query_builder/statements/insert.dart 74:26  InsertStatement.insert.<fn>
-  package:drift/src/runtime/api/connection_user.dart 171:16             DatabaseConnectionUser.doWhenOpened.<fn>
-  ===== asynchronous gap ===========================
-  dart:async                                                            Future.then
-  package:drift/src/runtime/api/connection_user.dart 169:50             DatabaseConnectionUser.doWhenOpened
-  package:drift/src/runtime/api/connection_user.dart 728:19             InternalConnectionUserApi.withCurrentExecutor
-  package:drift/src/runtime/query_builder/statements/insert.dart 73:27  InsertStatement.insert
-  test/core/database/daos/catalog_dao_test.dart 18:52                   main.<fn>
-  
-
-To run this test again: /opt/homebrew/share/flutter/bin/cache/dart-sdk/bin/dart test /Users/felix/Documents/Flutter/pharma_scan/test/core/database/daos/catalog_dao_test.dart -p vm --plain-name 'CatalogDao.getDistinctProcedureTypes should return distinct procedure types when they exist'
-00:09 +17 -9: /Users/felix/Documents/Flutter/pharma_scan/test/core/database/daos/catalog_dao_test.dart: CatalogDao.getDistinctRoutes should return distinct routes                                     00:09 +17 -10: /Users/felix/Documents/Flutter/pharma_scan/test/core/database/daos/catalog_dao_test.dart: CatalogDao.getDistinctRoutes should return distinct routes [E]                                
-  SqliteException(787): while executing statement, FOREIGN KEY constraint failed, constraint failed (code 787)
-    Causing statement: INSERT INTO "product_scan_cache" ("cip_code", "cis_code", "nom_canonique", "prix_public", "taux_remboursement", "is_princeps", "princeps_de_reference", "princeps_brand_name", "forme_pharmaceutique", "voies_administration", "formatted_dosage", "group_id", "cluster_id", "commercialisation_statut") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?), parameters: 3400934056781, 12345678, TEST DOLIPRANE 1000MG, 2.5, 65%, 1, DOLIPRANE, DOLIPRANE, Comprimé, orale, 1000mg, GRP001, CLU001, Commercialisé
-  package:sqlite3/src/implementation/exception.dart 95:3                throwException
-  package:sqlite3/src/implementation/statement.dart 109:7               StatementImplementation._execute
-  package:sqlite3/src/implementation/statement.dart 309:5               StatementImplementation.executeWith
-  package:sqlite3/src/statement.dart 81:12                              CommonPreparedStatement.execute
-  package:drift/src/sqlite3/database.dart 149:14                        Sqlite3Delegate.runWithArgsSync
-  package:drift/native.dart 431:7                                       _NativeDelegate.runInsert.<fn>
-  dart:async                                                            new Future.sync
-  package:drift/native.dart 430:19                                      _NativeDelegate.runInsert
-  package:drift/src/runtime/executor/helpers/engines.dart 106:19        _BaseExecutor.runInsert.<fn>
-  package:drift/src/runtime/executor/helpers/engines.dart 62:20         _BaseExecutor._synchronized
-  package:drift/src/runtime/executor/helpers/engines.dart 103:12        _BaseExecutor.runInsert
-  package:drift/src/runtime/query_builder/statements/insert.dart 74:26  InsertStatement.insert.<fn>
-  package:drift/src/runtime/api/connection_user.dart 171:16             DatabaseConnectionUser.doWhenOpened.<fn>
-  ===== asynchronous gap ===========================
-  dart:async                                                            new Future.sync
-  package:drift/native.dart 430:19                                      _NativeDelegate.runInsert
-  package:drift/src/runtime/executor/helpers/engines.dart 106:19        _BaseExecutor.runInsert.<fn>
-  package:drift/src/runtime/executor/helpers/engines.dart 62:20         _BaseExecutor._synchronized
-  package:drift/src/runtime/executor/helpers/engines.dart 103:12        _BaseExecutor.runInsert
-  package:drift/src/runtime/query_builder/statements/insert.dart 74:26  InsertStatement.insert.<fn>
-  package:drift/src/runtime/api/connection_user.dart 171:16             DatabaseConnectionUser.doWhenOpened.<fn>
-  ===== asynchronous gap ===========================
-  dart:async                                                            Future.then
-  package:drift/src/runtime/api/connection_user.dart 169:50             DatabaseConnectionUser.doWhenOpened
-  package:drift/src/runtime/api/connection_user.dart 728:19             InternalConnectionUserApi.withCurrentExecutor
-  package:drift/src/runtime/query_builder/statements/insert.dart 73:27  InsertStatement.insert
-  test/core/database/daos/catalog_dao_test.dart 18:52                   main.<fn>
-  
-
-To run this test again: /opt/homebrew/share/flutter/bin/cache/dart-sdk/bin/dart test /Users/felix/Documents/Flutter/pharma_scan/test/core/database/daos/catalog_dao_test.dart -p vm --plain-name 'CatalogDao.getDistinctRoutes should return distinct routes'
-00:09 +17 -10: /Users/felix/Documents/Flutter/pharma_scan/test/core/database/daos/restock_dao_test.dart: isDuplicate should correctly identify cip+serial combinations                                 00:09 +18 -10: /Users/felix/Documents/Flutter/pharma_scan/test/core/database/daos/restock_dao_test.dart: isDuplicate should correctly identify cip+serial combinations                                 00:09 +19 -10: /Users/felix/Documents/Flutter/pharma_scan/test/core/database/daos/catalog_dao_test.dart: CatalogDao.getDistinctRoutes should split semicolon-separated routes                          00:09 +19 -11: /Users/felix/Documents/Flutter/pharma_scan/test/core/database/daos/catalog_dao_test.dart: CatalogDao.getDistinctRoutes should split semicolon-separated routes [E]                      
-  SqliteException(787): while executing statement, FOREIGN KEY constraint failed, constraint failed (code 787)
-    Causing statement: INSERT INTO "product_scan_cache" ("cip_code", "cis_code", "nom_canonique", "prix_public", "taux_remboursement", "is_princeps", "princeps_de_reference", "princeps_brand_name", "forme_pharmaceutique", "voies_administration", "formatted_dosage", "group_id", "cluster_id", "commercialisation_statut") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?), parameters: 3400934056781, 12345678, TEST DOLIPRANE 1000MG, 2.5, 65%, 1, DOLIPRANE, DOLIPRANE, Comprimé, orale, 1000mg, GRP001, CLU001, Commercialisé
-  package:sqlite3/src/implementation/exception.dart 95:3                throwException
-  package:sqlite3/src/implementation/statement.dart 109:7               StatementImplementation._execute
-  package:sqlite3/src/implementation/statement.dart 309:5               StatementImplementation.executeWith
-  package:sqlite3/src/statement.dart 81:12                              CommonPreparedStatement.execute
-  package:drift/src/sqlite3/database.dart 149:14                        Sqlite3Delegate.runWithArgsSync
-  package:drift/native.dart 431:7                                       _NativeDelegate.runInsert.<fn>
-  dart:async                                                            new Future.sync
-  package:drift/native.dart 430:19                                      _NativeDelegate.runInsert
-  package:drift/src/runtime/executor/helpers/engines.dart 106:19        _BaseExecutor.runInsert.<fn>
-  package:drift/src/runtime/executor/helpers/engines.dart 62:20         _BaseExecutor._synchronized
-  package:drift/src/runtime/executor/helpers/engines.dart 103:12        _BaseExecutor.runInsert
-  package:drift/src/runtime/query_builder/statements/insert.dart 74:26  InsertStatement.insert.<fn>
-  package:drift/src/runtime/api/connection_user.dart 171:16             DatabaseConnectionUser.doWhenOpened.<fn>
-  ===== asynchronous gap ===========================
-  dart:async                                                            new Future.sync
-  package:drift/native.dart 430:19                                      _NativeDelegate.runInsert
-  package:drift/src/runtime/executor/helpers/engines.dart 106:19        _BaseExecutor.runInsert.<fn>
-  package:drift/src/runtime/executor/helpers/engines.dart 62:20         _BaseExecutor._synchronized
-  package:drift/src/runtime/executor/helpers/engines.dart 103:12        _BaseExecutor.runInsert
-  package:drift/src/runtime/query_builder/statements/insert.dart 74:26  InsertStatement.insert.<fn>
-  package:drift/src/runtime/api/connection_user.dart 171:16             DatabaseConnectionUser.doWhenOpened.<fn>
-  ===== asynchronous gap ===========================
-  dart:async                                                            Future.then
-  package:drift/src/runtime/api/connection_user.dart 169:50             DatabaseConnectionUser.doWhenOpened
-  package:drift/src/runtime/api/connection_user.dart 728:19             InternalConnectionUserApi.withCurrentExecutor
-  package:drift/src/runtime/query_builder/statements/insert.dart 73:27  InsertStatement.insert
-  test/core/database/daos/catalog_dao_test.dart 18:52                   main.<fn>
-  
-
-To run this test again: /opt/homebrew/share/flutter/bin/cache/dart-sdk/bin/dart test /Users/felix/Documents/Flutter/pharma_scan/test/core/database/daos/catalog_dao_test.dart -p vm --plain-name 'CatalogDao.getDistinctRoutes should split semicolon-separated routes'
-00:09 +19 -11: /Users/felix/Documents/Flutter/pharma_scan/test/core/providers/app_settings_provider_test.dart: AppSettingsProvider Tests lastSyncEpoch returns null initially                          
-[38;5;3m┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────[0m
-[38;5;3m│ [warning] | 6:54:01 591ms | [DB] Reference database not attached or missing: SqliteException(1): while preparing statement, no such table: reference_db.medicament_summary, SQL logic error (code 1)[0m
-[38;5;3m│   Causing statement: SELECT count(*) FROM reference_db.medicament_summary[0m
-[38;5;3m└──────────────────────────────────────────────────────────────────────────────────────────────────────────────[0m
-00:09 +20 -11: /Users/felix/Documents/Flutter/pharma_scan/test/core/database/daos/restock_dao_test.dart: addUniqueBox should handle serial-less scans correctly                                        00:09 +20 -11: /Users/felix/Documents/Flutter/pharma_scan/test/core/providers/app_settings_provider_test.dart: AppSettingsProvider Tests lastSyncEpoch updates correctly                               
-[38;5;3m┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────[0m
-[38;5;3m│ [warning] | 6:54:01 625ms | [DB] Reference database not attached or missing: SqliteException(1): while preparing statement, no such table: reference_db.medicament_summary, SQL logic error (code 1)[0m
-[38;5;3m│   Causing statement: SELECT count(*) FROM reference_db.medicament_summary[0m
-[38;5;3m└──────────────────────────────────────────────────────────────────────────────────────────────────────────────[0m
-00:09 +20 -12: /Users/felix/Documents/Flutter/pharma_scan/test/core/database/daos/catalog_dao_test.dart: CatalogDao.fetchRelatedPrinceps should return related products with same principles [E]       
-  SqliteException(787): while executing statement, FOREIGN KEY constraint failed, constraint failed (code 787)
-    Causing statement: INSERT INTO "product_scan_cache" ("cip_code", "cis_code", "nom_canonique", "prix_public", "taux_remboursement", "is_princeps", "princeps_de_reference", "princeps_brand_name", "forme_pharmaceutique", "voies_administration", "formatted_dosage", "group_id", "cluster_id", "commercialisation_statut") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?), parameters: 3400934056781, 12345678, TEST DOLIPRANE 1000MG, 2.5, 65%, 1, DOLIPRANE, DOLIPRANE, Comprimé, orale, 1000mg, GRP001, CLU001, Commercialisé
-  package:sqlite3/src/implementation/exception.dart 95:3                throwException
-  package:sqlite3/src/implementation/statement.dart 109:7               StatementImplementation._execute
-  package:sqlite3/src/implementation/statement.dart 309:5               StatementImplementation.executeWith
-  package:sqlite3/src/statement.dart 81:12                              CommonPreparedStatement.execute
-  package:drift/src/sqlite3/database.dart 149:14                        Sqlite3Delegate.runWithArgsSync
-  package:drift/native.dart 431:7                                       _NativeDelegate.runInsert.<fn>
-  dart:async                                                            new Future.sync
-  package:drift/native.dart 430:19                                      _NativeDelegate.runInsert
-  package:drift/src/runtime/executor/helpers/engines.dart 106:19        _BaseExecutor.runInsert.<fn>
-  package:drift/src/runtime/executor/helpers/engines.dart 62:20         _BaseExecutor._synchronized
-  package:drift/src/runtime/executor/helpers/engines.dart 103:12        _BaseExecutor.runInsert
-  package:drift/src/runtime/query_builder/statements/insert.dart 74:26  InsertStatement.insert.<fn>
-  package:drift/src/runtime/api/connection_user.dart 171:16             DatabaseConnectionUser.doWhenOpened.<fn>
-  ===== asynchronous gap ===========================
-  dart:async                                                            new Future.sync
-  package:drift/native.dart 430:19                                      _NativeDelegate.runInsert
-  package:drift/src/runtime/executor/helpers/engines.dart 106:19        _BaseExecutor.runInsert.<fn>
-  package:drift/src/runtime/executor/helpers/engines.dart 62:20         _BaseExecutor._synchronized
-  package:drift/src/runtime/executor/helpers/engines.dart 103:12        _BaseExecutor.runInsert
-  package:drift/src/runtime/query_builder/statements/insert.dart 74:26  InsertStatement.insert.<fn>
-  package:drift/src/runtime/api/connection_user.dart 171:16             DatabaseConnectionUser.doWhenOpened.<fn>
-  ===== asynchronous gap ===========================
-  dart:async                                                            Future.then
-  package:drift/src/runtime/api/connection_user.dart 169:50             DatabaseConnectionUser.doWhenOpened
-  package:drift/src/runtime/api/connection_user.dart 728:19             InternalConnectionUserApi.withCurrentExecutor
-  package:drift/src/runtime/query_builder/statements/insert.dart 73:27  InsertStatement.insert
-  test/core/database/daos/catalog_dao_test.dart 18:52                   main.<fn>
-  
-
-To run this test again: /opt/homebrew/share/flutter/bin/cache/dart-sdk/bin/dart test /Users/felix/Documents/Flutter/pharma_scan/test/core/database/daos/catalog_dao_test.dart -p vm --plain-name 'CatalogDao.fetchRelatedPrinceps should return related products with same principles'
-00:09 +21 -12: /Users/felix/Documents/Flutter/pharma_scan/test/core/database/daos/restock_dao_test.dart: addUniqueBox should handle serial-less scans correctly                                        00:09 +22 -12: /Users/felix/Documents/Flutter/pharma_scan/test/core/database/daos/catalog_dao_test.dart: CatalogDao.fetchRelatedPrinceps should return empty list for group without common principles  00:09 +22 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/database/daos/catalog_dao_test.dart: CatalogDao.fetchRelatedPrinceps should return empty list for group without common principles [E]
-  SqliteException(787): while executing statement, FOREIGN KEY constraint failed, constraint failed (code 787)
-    Causing statement: INSERT INTO "product_scan_cache" ("cip_code", "cis_code", "nom_canonique", "prix_public", "taux_remboursement", "is_princeps", "princeps_de_reference", "princeps_brand_name", "forme_pharmaceutique", "voies_administration", "formatted_dosage", "group_id", "cluster_id", "commercialisation_statut") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?), parameters: 3400934056781, 12345678, TEST DOLIPRANE 1000MG, 2.5, 65%, 1, DOLIPRANE, DOLIPRANE, Comprimé, orale, 1000mg, GRP001, CLU001, Commercialisé
-  package:sqlite3/src/implementation/exception.dart 95:3                throwException
-  package:sqlite3/src/implementation/statement.dart 109:7               StatementImplementation._execute
-  package:sqlite3/src/implementation/statement.dart 309:5               StatementImplementation.executeWith
-  package:sqlite3/src/statement.dart 81:12                              CommonPreparedStatement.execute
-  package:drift/src/sqlite3/database.dart 149:14                        Sqlite3Delegate.runWithArgsSync
-  package:drift/native.dart 431:7                                       _NativeDelegate.runInsert.<fn>
-  dart:async                                                            new Future.sync
-  package:drift/native.dart 430:19                                      _NativeDelegate.runInsert
-  package:drift/src/runtime/executor/helpers/engines.dart 106:19        _BaseExecutor.runInsert.<fn>
-  package:drift/src/runtime/executor/helpers/engines.dart 62:20         _BaseExecutor._synchronized
-  package:drift/src/runtime/executor/helpers/engines.dart 103:12        _BaseExecutor.runInsert
-  package:drift/src/runtime/query_builder/statements/insert.dart 74:26  InsertStatement.insert.<fn>
-  package:drift/src/runtime/api/connection_user.dart 171:16             DatabaseConnectionUser.doWhenOpened.<fn>
-  ===== asynchronous gap ===========================
-  dart:async                                                            new Future.sync
-  package:drift/native.dart 430:19                                      _NativeDelegate.runInsert
-  package:drift/src/runtime/executor/helpers/engines.dart 106:19        _BaseExecutor.runInsert.<fn>
-  package:drift/src/runtime/executor/helpers/engines.dart 62:20         _BaseExecutor._synchronized
-  package:drift/src/runtime/executor/helpers/engines.dart 103:12        _BaseExecutor.runInsert
-  package:drift/src/runtime/query_builder/statements/insert.dart 74:26  InsertStatement.insert.<fn>
-  package:drift/src/runtime/api/connection_user.dart 171:16             DatabaseConnectionUser.doWhenOpened.<fn>
-  ===== asynchronous gap ===========================
-  dart:async                                                            Future.then
-  package:drift/src/runtime/api/connection_user.dart 169:50             DatabaseConnectionUser.doWhenOpened
-  package:drift/src/runtime/api/connection_user.dart 728:19             InternalConnectionUserApi.withCurrentExecutor
-  package:drift/src/runtime/query_builder/statements/insert.dart 73:27  InsertStatement.insert
-  test/core/database/daos/catalog_dao_test.dart 18:52                   main.<fn>
-  
-
-To run this test again: /opt/homebrew/share/flutter/bin/cache/dart-sdk/bin/dart test /Users/felix/Documents/Flutter/pharma_scan/test/core/database/daos/catalog_dao_test.dart -p vm --plain-name 'CatalogDao.fetchRelatedPrinceps should return empty list for group without common principles'
-00:10 +22 -13: loading /Users/felix/Documents/Flutter/pharma_scan/test/core/logic/sanitizer_test.dart                                                                                                  00:10 +22 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/logic/sanitizer_test.dart: Sanitizer normalizeForSearch handles basic diacritics removal                                           00:10 +23 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/logic/sanitizer_test.dart: Sanitizer normalizeForSearch handles basic diacritics removal                                           00:10 +23 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/logic/sanitizer_test.dart: Sanitizer normalizeForSearch converts to lowercase                                                      00:10 +24 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/logic/sanitizer_test.dart: Sanitizer normalizeForSearch converts to lowercase                                                      00:10 +24 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/logic/sanitizer_test.dart: Sanitizer normalizeForSearch replaces non-alphanumeric characters with spaces                           00:10 +25 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/logic/sanitizer_test.dart: Sanitizer normalizeForSearch replaces non-alphanumeric characters with spaces                           00:10 +25 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/logic/sanitizer_test.dart: Sanitizer normalizeForSearch collapses multiple spaces to single space                                  00:10 +26 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/logic/sanitizer_test.dart: Sanitizer normalizeForSearch collapses multiple spaces to single space                                  00:10 +26 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/logic/sanitizer_test.dart: Sanitizer normalizeForSearch trims leading and trailing whitespace                                      00:10 +27 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/logic/sanitizer_test.dart: Sanitizer normalizeForSearch trims leading and trailing whitespace                                      00:10 +27 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/logic/sanitizer_test.dart: Sanitizer normalizeForSearch handles empty and null inputs                                              00:10 +28 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/logic/sanitizer_test.dart: Sanitizer normalizeForSearch handles empty and null inputs                                              00:10 +28 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/logic/sanitizer_test.dart: Sanitizer normalizeForSearch comprehensive pharmaceutical examples                                      00:10 +29 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/logic/sanitizer_test.dart: Sanitizer normalizeForSearch comprehensive pharmaceutical examples                                      00:10 +29 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/logic/sanitizer_test.dart: Sanitizer normalizeForSearch maintains backend synchronization                                          00:10 +30 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/logic/sanitizer_test.dart: Sanitizer normalizeForSearch maintains backend synchronization                                          00:10 +30 -13: loading /Users/felix/Documents/Flutter/pharma_scan/test/core/utils/gs1_parser_test.dart                                                                                                 00:10 +30 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/utils/gs1_parser_test.dart: Gs1Parser Basic parsing parses GS1 DataMatrix correctly with basic AIs                                 00:10 +31 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/utils/gs1_parser_test.dart: Gs1Parser Basic parsing parses GS1 DataMatrix correctly with basic AIs                                 00:10 +31 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/utils/gs1_parser_test.dart: Gs1Parser Basic parsing parses GS1 with manufacturing date                                             00:10 +32 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/utils/gs1_parser_test.dart: Gs1Parser Basic parsing parses GS1 with manufacturing date                                             00:10 +32 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/utils/gs1_parser_test.dart: Gs1Parser Basic parsing handles incomplete data (GTIN only)                                            00:10 +33 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/utils/gs1_parser_test.dart: Gs1Parser Basic parsing handles incomplete data (GTIN only)                                            00:10 +33 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/utils/gs1_parser_test.dart: Gs1Parser Basic parsing parses data with FNC1 separators                                               00:10 +34 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/utils/gs1_parser_test.dart: Gs1Parser Basic parsing parses data with FNC1 separators                                               00:10 +34 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/utils/gs1_parser_test.dart: Gs1Parser Null and empty input handles null input                                                      00:10 +35 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/utils/gs1_parser_test.dart: Gs1Parser Null and empty input handles null input                                                      00:10 +35 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/utils/gs1_parser_test.dart: Gs1Parser Null and empty input handles empty input                                                     00:10 +36 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/utils/gs1_parser_test.dart: Gs1Parser Null and empty input handles empty input                                                     00:10 +36 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/utils/gs1_parser_test.dart: Gs1Parser Edge cases parses serial number (AI 21)                                                      00:10 +37 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/utils/gs1_parser_test.dart: Gs1Parser Edge cases parses serial number (AI 21)                                                      00:10 +37 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/utils/gs1_parser_test.dart: Gs1Parser Edge cases parses all fields together                                                        00:10 +38 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/utils/gs1_parser_test.dart: Gs1Parser Edge cases parses all fields together                                                        00:10 +38 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/utils/gs1_parser_test.dart: Gs1Parser Edge cases handles multiple consecutive FNC1 separators                                      00:10 +39 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/utils/gs1_parser_test.dart: Gs1Parser Edge cases handles multiple consecutive FNC1 separators                                      00:10 +39 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/utils/gs1_parser_test.dart: Gs1Parser Edge cases handles variable-length fields with special characters                            00:10 +40 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/utils/gs1_parser_test.dart: Gs1Parser Edge cases handles variable-length fields with special characters                            00:10 +40 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/utils/gs1_parser_test.dart: Gs1Parser Edge cases handles unusual AI ordering (expiry before GTIN)                                  00:10 +41 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/utils/gs1_parser_test.dart: Gs1Parser Edge cases handles unusual AI ordering (expiry before GTIN)                                  00:10 +41 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/utils/gs1_parser_test.dart: Gs1Parser Edge cases handles empty variable-length fields                                              00:10 +42 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/utils/gs1_parser_test.dart: Gs1Parser Edge cases handles empty variable-length fields                                              00:10 +42 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/utils/gs1_parser_test.dart: Gs1Parser Edge cases handles whitespace as FNC1 equivalent                                             00:10 +43 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/utils/gs1_parser_test.dart: Gs1Parser Edge cases handles whitespace as FNC1 equivalent                                             00:10 +43 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/utils/gs1_parser_test.dart: Gs1Parser Date parsing handles day 00 (end of month)                                                   00:10 +44 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/utils/gs1_parser_test.dart: Gs1Parser Date parsing handles day 00 (end of month)                                                   00:10 +44 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/utils/gs1_parser_test.dart: Gs1Parser Date parsing handles leap year day 00                                                        00:10 +45 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/utils/gs1_parser_test.dart: Gs1Parser Date parsing handles leap year day 00                                                        00:10 +45 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/utils/gs1_parser_test.dart: Gs1Parser Date parsing handles Y2K pivot (year 49 -> 2049)                                             00:10 +46 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/utils/gs1_parser_test.dart: Gs1Parser Date parsing handles Y2K pivot (year 49 -> 2049)                                             00:10 +46 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/utils/gs1_parser_test.dart: Gs1Parser Date parsing handles Y2K pivot (year 50 -> 1950)                                             00:10 +47 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/utils/gs1_parser_test.dart: Gs1Parser Date parsing handles Y2K pivot (year 50 -> 1950)                                             00:10 +47 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/utils/gs1_parser_test.dart: Gs1Parser Invalid input handling handles completely malformed input gracefully                         00:10 +48 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/utils/gs1_parser_test.dart: Gs1Parser Invalid input handling handles completely malformed input gracefully                         00:10 +48 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/utils/gs1_parser_test.dart: Gs1Parser Invalid input handling handles truncated GTIN (less than 14 digits)                          00:10 +49 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/utils/gs1_parser_test.dart: Gs1Parser Invalid input handling handles truncated GTIN (less than 14 digits)                          00:10 +49 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/utils/gs1_parser_test.dart: Gs1Parser Invalid input handling handles invalid date values                                           00:10 +50 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/utils/gs1_parser_test.dart: Gs1Parser Invalid input handling handles invalid date values                                           00:10 +50 -13: loading /Users/felix/Documents/Flutter/pharma_scan/test/core/domain/types/normalized_query_test.dart                                                                                    00:10 +50 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/domain/types/normalized_query_test.dart: NormalizedQuery Normalizes diacritics correctly                                           00:10 +51 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/domain/types/normalized_query_test.dart: NormalizedQuery Normalizes diacritics correctly                                           00:10 +51 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/domain/types/normalized_query_test.dart: NormalizedQuery Converts to lowercase                                                     00:10 +52 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/domain/types/normalized_query_test.dart: NormalizedQuery Converts to lowercase                                                     00:10 +52 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/domain/types/normalized_query_test.dart: NormalizedQuery Trims whitespace                                                          00:10 +53 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/domain/types/normalized_query_test.dart: NormalizedQuery Trims whitespace                                                          00:10 +53 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/domain/types/normalized_query_test.dart: NormalizedQuery Replaces multiple spaces with single space                                00:10 +54 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/test_database_helper_test.dart: injectTestDatabase writes files when PathProvider returns a valid dir                              00:10 +55 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/test_database_helper_test.dart: injectTestDatabase writes files when PathProvider returns a valid dir                              00:10 +56 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/test_database_helper_test.dart: injectTestDatabase writes files when PathProvider returns a valid dir                              00:10 +57 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/test_database_helper_test.dart: injectTestDatabase writes files when PathProvider returns a valid dir                              00:10 +58 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/test_database_helper_test.dart: injectTestDatabase writes files when PathProvider returns a valid dir                              00:10 +59 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/test_database_helper_test.dart: injectTestDatabase writes files when PathProvider returns a valid dir                              00:10 +60 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/test_database_helper_test.dart: injectTestDatabase writes files when PathProvider returns a valid dir                              00:10 +61 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/test_database_helper_test.dart: injectTestDatabase writes files when PathProvider returns a valid dir                              00:10 +61 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/test_database_helper_test.dart: injectTestDatabase writes files when PathProvider returns a valid dir                              
-[38;5;3m┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────[0m
-[38;5;3m│ [warning] | 6:54:02 962ms | [DB] Reference database not attached or missing: SqliteException(1): while preparing statement, no such table: reference_db.medicament_summary, SQL logic error (code 1)[0m
-[38;5;3m│   Causing statement: SELECT count(*) FROM reference_db.medicament_summary[0m
-[38;5;3m└──────────────────────────────────────────────────────────────────────────────────────────────────────────────[0m
-✅ Test Database injected at: /var/folders/64/fpgjb_qj6wjcz5n0794__l540000gn/T/pharma_scan_test_unit_lCXDy9/reference.db with settings in /var/folders/64/fpgjb_qj6wjcz5n0794__l540000gn/T/pharma_scan_test_unit_lCXDy9/user.db
-00:10 +62 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/test_database_helper_test.dart: injectTestDatabase writes files when PathProvider returns a valid dir                              00:10 +62 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/test_database_helper_test.dart: injectTestDatabase falls back to temp dir when PathProvider plugin is missing                      00:11 +62 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/test_database_helper_test.dart: injectTestDatabase falls back to temp dir when PathProvider plugin is missing                      00:11 +62 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/test_database_helper_test.dart: injectTestDatabase falls back to temp dir when PathProvider plugin is missing                      
-[38;5;3m┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────[0m
-[38;5;3m│ [warning] | 6:54:03 30ms | [DB] Reference database not attached or missing: SqliteException(1): while preparing statement, no such table: reference_db.medicament_summary, SQL logic error (code 1)[0m
-[38;5;3m│   Causing statement: SELECT count(*) FROM reference_db.medicament_summary[0m
-[38;5;3m└──────────────────────────────────────────────────────────────────────────────────────────────────────────────[0m
-✅ Test Database injected at: /var/folders/64/fpgjb_qj6wjcz5n0794__l540000gn/T/pharma_scan_test_hZwMhV/reference.db with settings in /var/folders/64/fpgjb_qj6wjcz5n0794__l540000gn/T/pharma_scan_test_hZwMhV/user.db
-00:11 +63 -13: /Users/felix/Documents/Flutter/pharma_scan/test/core/test_database_helper_test.dart: injectTestDatabase falls back to temp dir when PathProvider plugin is missing                      00:11 +63 -13: loading /Users/felix/Documents/Flutter/pharma_scan/test/features/explorer/domain/group_detail_entity_test.dart                                                                          00:11 +63 -13: /Users/felix/Documents/Flutter/pharma_scan/test/features/explorer/domain/group_detail_entity_test.dart: GroupDetailEntity isPrinceps returns true for integer 1                         00:11 +64 -13: /Users/felix/Documents/Flutter/pharma_scan/test/features/explorer/domain/group_detail_entity_test.dart: GroupDetailEntity isPrinceps returns true for integer 1                         00:11 +64 -13: /Users/felix/Documents/Flutter/pharma_scan/test/features/explorer/domain/group_detail_entity_test.dart: GroupDetailEntity isPrinceps returns false for integer 0                        00:11 +65 -13: /Users/felix/Documents/Flutter/pharma_scan/test/features/explorer/domain/group_detail_entity_test.dart: GroupDetailEntity isPrinceps returns false for integer 0                        00:11 +65 -13: /Users/felix/Documents/Flutter/pharma_scan/test/features/explorer/domain/group_detail_entity_test.dart: GroupDetailEntity parsedTitulaire prefers summaryTitulaire                      00:11 +66 -13: /Users/felix/Documents/Flutter/pharma_scan/test/features/explorer/domain/group_detail_entity_test.dart: GroupDetailEntity parsedTitulaire prefers summaryTitulaire                      00:11 +66 -13: /Users/felix/Documents/Flutter/pharma_scan/test/features/explorer/domain/group_detail_entity_test.dart: GroupDetailEntity parsedTitulaire falls back to officialTitulaire               00:11 +67 -13: /Users/felix/Documents/Flutter/pharma_scan/test/features/explorer/domain/group_detail_entity_test.dart: GroupDetailEntity parsedTitulaire falls back to officialTitulaire               00:11 +67 -13: loading /Users/felix/Documents/Flutter/pharma_scan/test/features/scanner/domain/scan_orchestrator_test.dart                                                                             00:11 +67 -13: /Users/felix/Documents/Flutter/pharma_scan/test/features/scanner/domain/scan_orchestrator_test.dart: ... - Invalid Barcode should return ProductNotFound when barcode is null           00:11 +68 -13: /Users/felix/Documents/Flutter/pharma_scan/test/features/scanner/domain/scan_orchestrator_test.dart: ... - Invalid Barcode should return ProductNotFound when barcode is null           00:11 +68 -13: /Users/felix/Documents/Flutter/pharma_scan/test/features/scanner/domain/scan_orchestrator_test.dart: ... - Invalid Barcode should return ProductNotFound when GTIN is garbage           00:11 +69 -13: /Users/felix/Documents/Flutter/pharma_scan/test/features/scanner/domain/scan_orchestrator_test.dart: ... - Invalid Barcode should return ProductNotFound when GTIN is garbage           00:11 +69 -13: /Users/felix/Documents/Flutter/pharma_scan/test/features/scanner/domain/scan_orchestrator_test.dart: ... - Cooldown Logic should return Ignore when cooldown is active                  00:11 +70 -13: /Users/felix/Documents/Flutter/pharma_scan/test/features/scanner/domain/scan_orchestrator_test.dart: ... - Cooldown Logic should return Ignore when cooldown is active                  00:11 +70 -13: /Users/felix/Documents/Flutter/pharma_scan/test/features/scanner/domain/scan_orchestrator_test.dart: ScanOrchestrator.decide - Cooldown Logic should bypass cooldown when force is true 00:11 +71 -13: /Users/felix/Documents/Flutter/pharma_scan/test/features/scanner/domain/scan_orchestrator_test.dart: ScanOrchestrator.decide - Cooldown Logic should bypass cooldown when force is true 00:11 +71 -13: /Users/felix/Documents/Flutter/pharma_scan/test/features/scanner/domain/scan_orchestrator_test.dart: ... - Analysis Mode should return AnalysisSuccess when product is found            00:11 +72 -13: /Users/felix/Documents/Flutter/pharma_scan/test/features/scanner/domain/scan_orchestrator_test.dart: ... - Analysis Mode should return AnalysisSuccess when product is found            00:11 +72 -13: /Users/felix/Documents/Flutter/pharma_scan/test/features/scanner/domain/scan_orchestrator_test.dart: ... - Analysis Mode should return ProductNotFound when product is not in catalog   00:11 +73 -13: /Users/felix/Documents/Flutter/pharma_scan/test/features/scanner/domain/scan_orchestrator_test.dart: ... - Analysis Mode should return ProductNotFound when product is not in catalog   00:11 +73 -13: /Users/felix/Documents/Flutter/pharma_scan/test/features/scanner/domain/scan_orchestrator_test.dart: ... - Analysis Mode should ignore duplicate scans in analysis mode                 00:11 +74 -13: /Users/felix/Documents/Flutter/pharma_scan/test/features/scanner/domain/scan_orchestrator_test.dart: ... - Analysis Mode should ignore duplicate scans in analysis mode                 00:11 +74 -13: /Users/felix/Documents/Flutter/pharma_scan/test/features/scanner/domain/scan_orchestrator_test.dart: ... - Analysis Mode should replace existing bubble when force is true              00:11 +75 -13: /Users/felix/Documents/Flutter/pharma_scan/test/features/scanner/domain/scan_orchestrator_test.dart: ... - Analysis Mode should replace existing bubble when force is true              00:11 +75 -13: /Users/felix/Documents/Flutter/pharma_scan/test/features/scanner/domain/scan_orchestrator_test.dart: ... - Restock Mode should return RestockAdded when adding new unique box           00:11 +76 -13: /Users/felix/Documents/Flutter/pharma_scan/test/features/scanner/domain/scan_orchestrator_test.dart: ... - Restock Mode should return RestockAdded when adding new unique box           00:11 +76 -13: /Users/felix/Documents/Flutter/pharma_scan/test/features/scanner/domain/scan_orchestrator_test.dart: ... - Restock Mode should return RestockDuplicate when scanning duplicate serial   00:11 +77 -13: /Users/felix/Documents/Flutter/pharma_scan/test/features/scanner/domain/scan_orchestrator_test.dart: ... - Restock Mode should return RestockDuplicate when scanning duplicate serial   00:11 +77 -13: /Users/felix/Documents/Flutter/pharma_scan/test/features/scanner/domain/scan_orchestrator_test.dart: ScanOrchestrator.decide - Restock Mode should handle restock without serial number 00:11 +78 -13: /Users/felix/Documents/Flutter/pharma_scan/test/features/scanner/domain/scan_orchestrator_test.dart: ScanOrchestrator.decide - Restock Mode should handle restock without serial number 00:11 +78 -13: /Users/felix/Documents/Flutter/pharma_scan/test/features/scanner/domain/scan_orchestrator_test.dart: ... Mode should detect duplicate from addUniqueBox when isDuplicate check passes   00:11 +79 -13: /Users/felix/Documents/Flutter/pharma_scan/test/features/scanner/domain/scan_orchestrator_test.dart: ... Mode should detect duplicate from addUniqueBox when isDuplicate check passes   00:11 +79 -13: /Users/felix/Documents/Flutter/pharma_scan/test/features/scanner/domain/scan_orchestrator_test.dart: ... - Error Handling should return ScanError when DAO throws exception             00:11 +80 -13: /Users/felix/Documents/Flutter/pharma_scan/test/features/scanner/domain/scan_orchestrator_test.dart: ... - Error Handling should return ScanError when DAO throws exception             00:11 +80 -13: /Users/felix/Documents/Flutter/pharma_scan/test/features/scanner/domain/scan_orchestrator_test.dart: ... - Error Handling should still mark processed even when error occurs            00:11 +81 -13: /Users/felix/Documents/Flutter/pharma_scan/test/features/scanner/domain/scan_orchestrator_test.dart: ... - Error Handling should still mark processed even when error occurs            00:11 +81 -13: /Users/felix/Documents/Flutter/pharma_scan/test/features/scanner/domain/scan_orchestrator_test.dart: ScanOrchestrator.decide - Warning Logic should return ScanWarning for EAN13 barcode00:11 +82 -13: /Users/felix/Documents/Flutter/pharma_scan/test/features/scanner/domain/scan_orchestrator_test.dart: ScanOrchestrator.decide - Warning Logic should return ScanWarning for EAN13 barcode00:11 +82 -13: /Users/felix/Documents/Flutter/pharma_scan/test/features/scanner/domain/scan_orchestrator_test.dart: ScanOrchestrator.updateQuantity should delegate to restockDao.forceUpdateQuantity  00:11 +83 -13: /Users/felix/Documents/Flutter/pharma_scan/test/features/scanner/domain/scan_orchestrator_test.dart: ScanOrchestrator.updateQuantity should delegate to restockDao.forceUpdateQuantity  00:11 +83 -13: loading /Users/felix/Documents/Flutter/pharma_scan/test/features/scanner/presentation/scanner_notifier_test.dart                                                                        00:11 +83 -13: /Users/felix/Documents/Flutter/pharma_scan/test/features/scanner/presentation/scanner_notifier_test.dart: initial state is analysis mode                                                00:11 +84 -13: /Users/felix/Documents/Flutter/pharma_scan/test/features/scanner/presentation/scanner_notifier_test.dart: initial state is analysis mode                                                00:11 +84 -13: /Users/felix/Documents/Flutter/pharma_scan/test/features/scanner/presentation/scanner_notifier_test.dart: setMode updates state and resets traffic control                              00:11 +85 -13: /Users/felix/Documents/Flutter/pharma_scan/test/features/scanner/presentation/scanner_notifier_test.dart: setMode updates state and resets traffic control                              00:11 +85 -13: /Users/felix/Documents/Flutter/pharma_scan/test/features/scanner/presentation/scanner_notifier_test.dart: processBarcodeCapture delegates to orchestrator                               00:11 +86 -13: /Users/felix/Documents/Flutter/pharma_scan/test/features/scanner/presentation/scanner_notifier_test.dart: processBarcodeCapture delegates to orchestrator                               00:11 +86 -13: Some tests failed.                                                                                                                                                                      

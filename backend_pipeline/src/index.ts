@@ -17,7 +17,7 @@ import {
   type SmrEvaluation,
   type AsmrEvaluation,
 } from "./parsing";
-import { computeClusters, type ClusteringInput, findCommonWordPrefix, buildSearchVector } from "./clustering";
+import { computeClusters, type ClusteringInput, findCommonWordPrefix, buildSearchVector, generateClusterId } from "./clustering";
 import { applyPharmacologicalMask, formatPrinciples, isPureGalenicDescription } from "./sanitizer";
 import { extractForms, extractRoutes } from "./normalization";
 import type { Specialite, MedicamentAvailability, GeneriqueGroup, GroupMember, PrincipeActif, MedicamentSummary } from "./types";
@@ -79,10 +79,10 @@ async function main() {
   // --- 0. Truncate Tables ---
   console.log("🗑️  Truncating staging tables...");
 
-  // Disable triggers before truncating to avoid normalize_text issues
-  db.db.run("DROP TRIGGER IF EXISTS search_index_ai");
-  db.db.run("DROP TRIGGER IF EXISTS search_index_au");
-  db.db.run("DROP TRIGGER IF EXISTS search_index_ad");
+  // Triggers removed in favor of TS population
+  // db.db.run("DROP TRIGGER IF EXISTS search_index_ai");
+  // db.db.run("DROP TRIGGER IF EXISTS search_index_au");
+  // db.db.run("DROP TRIGGER IF EXISTS search_index_ad");
 
   db.db.run("DELETE FROM group_members");
   db.db.run("DELETE FROM generique_groups");
@@ -422,7 +422,7 @@ async function main() {
     }
     const missingInSpecialites = Array.from(generCisSet).filter(c => c && !specialitesMap.has(c));
     if (missingInSpecialites.length > 0) {
-      console.warn(`⚠️ Found ${missingInSpecialites.length} CIS referenced in CIS_GENER but missing from CIS_bdpm.txt. Example(s): ${missingInSpecialites.slice(0,10).join(", ")}`);
+      console.warn(`⚠️ Found ${missingInSpecialites.length} CIS referenced in CIS_GENER but missing from CIS_bdpm.txt. Example(s): ${missingInSpecialites.slice(0, 10).join(", ")}`);
       try {
         const outPath = path.join(DATA_DIR, "missing_generique_cis.json");
         fs.writeFileSync(outPath, JSON.stringify({ generated_at: new Date().toISOString(), total_referenced: generCisSet.size, missing_count: missingInSpecialites.length, sample: missingInSpecialites.slice(0, 100) }, null, 2), "utf8");
@@ -1308,9 +1308,11 @@ async function main() {
         updatedGroups++;
       }
     })();
-  } catch (error: any) {
+    console.log(`✅ Harmonized data for ${updatedGroups} generics groups`);
+  } catch (err: any) {
+    console.error("❌ Error during harmonization:", err);
     // Fallback: insert without transaction if transaction fails
-    console.warn(`⚠️ Transaction failed, retrying without transaction: ${error.message}`);
+    console.warn(`⚠️ Transaction failed, retrying without transaction: ${err.message}`);
     for (const [groupId, consensus] of groupConsensus.entries()) {
       try {
         updateHarmonizedStmt.run(
@@ -1693,6 +1695,59 @@ async function main() {
 
   console.log(`✅ Updated ${updatedCount} cluster_names with harmonized substances (cluster_name)`);
 
+  // --- 5quater. Handle Orphans (Items without cluster_id) ---
+  console.log("🦅 Handling Orphans (Single-Item Clusters)...");
+
+  // Fetch orphans (items not in any generic group)
+  const orphans = db.runQuery<{ cis_code: string; nom_canonique: string; princeps_de_reference: string }>(
+    "SELECT cis_code, nom_canonique, princeps_de_reference FROM medicament_summary WHERE cluster_id IS NULL"
+  );
+
+  console.log(`   Found ${orphans.length} orphans`);
+
+  // Group orphans by nom_canonique to reduce cluster count and group same-substance orphans
+  const orphanGroups = new Map<string, typeof orphans>();
+  for (const o of orphans) {
+    const key = o.nom_canonique || "UNKNOWN";
+    if (!orphanGroups.has(key)) orphanGroups.set(key, []);
+    orphanGroups.get(key)!.push(o);
+  }
+
+  const insertOrphanClusterStmt = db['db'].prepare(`
+    INSERT OR IGNORE INTO cluster_names (cluster_id, cluster_name, cluster_princeps)
+    VALUES (?, ?, ?)
+  `);
+
+  const updateOrphanSummaryStmt = db['db'].prepare(`
+    UPDATE medicament_summary SET cluster_id = ? WHERE cis_code = ?
+  `);
+
+  let orphanClusterCount = 0;
+  db['db'].transaction(() => {
+    for (const [key, items] of orphanGroups.entries()) {
+      // Generate ID based on key (prefix ORPHAN_ to avoid collision with legitimate clusters)
+      const clusterId = generateClusterId("ORPHAN_" + key);
+
+      // Create Cluster
+      // Name = Prettified Substance (e.g. "Paracétamol")
+      const prettyName = formatPrinciples(key);
+
+      // Princeps = First item's princeps reference (or key if null)
+      // Ideally we pick the "most princeps-like" label, but for orphans, the first is fine.
+      const representative = items[0];
+      const princepsLabel = representative.princeps_de_reference || prettyName;
+
+      insertOrphanClusterStmt.run(clusterId, prettyName, princepsLabel);
+      orphanClusterCount++;
+
+      // Assign Cluster ID to members
+      for (const item of items) {
+        updateOrphanSummaryStmt.run(clusterId, item.cis_code);
+      }
+    }
+  })();
+  console.log(`✅ Created ${orphanClusterCount} orphan clusters for ${orphans.length} items`);
+
   // --- CLUSTER-FIRST ARCHITECTURE: Populate cluster_index and medicament_detail tables ---
   console.log("🏗️  Populating cluster-indexed tables for Cluster-First Architecture...");
 
@@ -1795,6 +1850,13 @@ async function main() {
   console.log("🏗️ Populating UI materialized view tables...");
   db.populateAllUiTables();
   console.log("✅ UI materialized views populated");
+
+  // --- 10. Metadata Injection ---
+  console.log("📝 Injecting build metadata...");
+  const buildDate = new Date().toISOString();
+  db.setMetadata('last_updated', buildDate);
+  db.setMetadata('schema_version', '1.0');
+  console.log(`✅ Metadata injected: last_updated=${buildDate}, schema_version=1.0`);
 
   // Re-enable FK constraints and validate (throws if violations found)
   db.enableForeignKeys();

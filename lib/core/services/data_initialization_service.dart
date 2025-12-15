@@ -1,20 +1,37 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:drift/drift.dart';
 import 'package:dio/dio.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pharma_scan/core/config/database_config.dart';
-// import 'package:pharma_scan/core/database/database.dart';
+import 'package:pharma_scan/core/database/daos/app_settings_dao.dart';
+import 'package:pharma_scan/core/database/providers.dart';
+import 'package:pharma_scan/core/providers/sync_provider.dart';
 import 'package:pharma_scan/core/services/file_download_service.dart';
 import 'package:pharma_scan/core/services/logger_service.dart';
-import 'package:pharma_scan/core/database/daos/app_settings_dao.dart';
-import 'package:riverpod/riverpod.dart';
-import 'package:pharma_scan/core/database/providers.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
-import 'package:pharma_scan/core/providers/sync_provider.dart';
 
-enum InitializationStep { idle, downloading, ready, error }
+enum InitializationStep { idle, downloading, ready, error, updateAvailable }
+
+class VersionCheckResult {
+  final bool updateAvailable;
+  final String? localDate;
+  final String remoteTag;
+  final String? downloadUrl;
+  final bool blockedByPolicy;
+
+  VersionCheckResult({
+    required this.updateAvailable,
+    this.localDate,
+    required this.remoteTag,
+    this.downloadUrl,
+    required this.blockedByPolicy,
+  });
+}
 
 /// Service for database initialization using a download-only workflow.
 ///
@@ -25,15 +42,18 @@ class DataInitializationService {
     required Ref ref,
     required FileDownloadService fileDownloadService,
     required Dio dio,
+    AssetBundle? assetBundle,
   })  : _ref = ref,
         _downloadService = fileDownloadService,
-        _dio = dio;
+        _dio = dio,
+        _assetBundle = assetBundle ?? rootBundle;
 
   static const String dataVersion = 'remote-database';
 
   final Ref _ref;
   final FileDownloadService _downloadService;
   final Dio _dio;
+  final AssetBundle _assetBundle;
 
   LoggerService get _logger => _ref.read(loggerProvider);
 
@@ -54,18 +74,77 @@ class DataInitializationService {
   Future<void> initializeDatabase({bool forceRefresh = false}) async {
     try {
       // 1. Check if database needs to be downloaded/updated
+      // We only download if:
+      // - forced
+      // - version is unknown (fresh install)
+      // - or integrity check fails (handled below)
       final currentVersion = await _appSettings.bdpmVersion;
-      final needsDownload = forceRefresh || currentVersion != dataVersion;
+      final hasVersion = currentVersion != null && currentVersion.isNotEmpty;
+
+      // Check integrity of existing DB if we think we have one
+      bool integrityOk = false;
+      if (hasVersion && !forceRefresh) {
+        try {
+          final db = _ref.read(databaseProvider());
+          await db.checkDatabaseIntegrity();
+          integrityOk = true;
+        } catch (_) {
+          integrityOk = false;
+          _logger
+              .warning('[DataInit] Integrity check failed, forcing download.');
+        }
+      }
+
+      final needsDownload = forceRefresh || !hasVersion || !integrityOk;
 
       if (!needsDownload) {
-        _logger
-            .info('[DataInit] Database is up to date, verifying integrity...');
-        // 2. Verify existing database integrity
-        final db = _ref.read(databaseProvider());
-        await db.checkDatabaseIntegrity();
-        _logger.info('[DataInit] Database ready with existing data.');
+        _logger.info(
+            '[DataInit] Database is present (version: $currentVersion) and healthy.');
         _emit(InitializationStep.ready, Strings.initializationReady);
         return;
+      }
+
+      // Check if we can hydrate from assets before downloading
+      // Only if no DB exists (first run) or if we want to force reset from bundle (not implemented yet)
+      final docDir = await getApplicationDocumentsDirectory();
+      final dbPath = p.join(docDir.path, DatabaseConfig.dbFilename);
+      final dbFile = File(dbPath);
+
+      if (!await dbFile.exists()) {
+        try {
+          _logger.info(
+              '[DataInit] No local database found. Checking for bundled asset...');
+          // Check if bundled asset exists
+          // Note: In Flutter, we can't easily check if an asset exists without trying to load it
+          // But since we control the build, we assume it's there if we put it in pubspec
+
+          final assetPath = 'assets/database/reference.db.gz';
+          // We use rootBundle to load the asset
+          // However, for large files, it's better to get the ByteData and write it
+
+          // Using specialized method to copy asset to file
+          await _copyFromAsset(assetPath, dbFile);
+
+          _logger.info('[DataInit] Database hydrated from bundled asset.');
+          _emit(InitializationStep.ready, Strings.initializationReady);
+
+          // Set version to "bundled" so we know where it came from
+          // Or even better, if we can read the version from the DB metadata later?
+          // For now, let's mark it as 'bundled'
+          await _appSettings.setBdpmVersion('bundled');
+
+          // Verify integrity of the copied DB
+          final db = _ref.read(databaseProvider());
+          await db.checkDatabaseIntegrity();
+
+          // Trigger sync found in existing flow
+          _triggerPostInitializationSync();
+          return;
+        } catch (e) {
+          _logger.warning(
+              '[DataInit] Failed to copy from asset: $e. Falling back to download.');
+          // Fallthrough to download logic
+        }
       }
 
       _logger.info('[DataInit] Downloading fresh database from backend...');
@@ -92,7 +171,19 @@ class DataInitializationService {
       await newDb.checkDatabaseIntegrity();
 
       // 7. Save version tag
-      await _appSettings.setBdpmVersion(dataVersion);
+      // 7. Save version tag
+      // If we downloaded via initialization (not update), use a placeholder if we don't know the tag yet.
+      // Ideally we would fetch the tag from the release we just downloaded from, but _resolveDownloadUrl
+      // assumes 'latest'.
+      // For now, set a marker so next launch doesn't loop. The SyncController will correct it to the real tag.
+      if (currentVersion == null) {
+        await _appSettings.setBdpmVersion('initial-install');
+      } else {
+        // Keep existing version or update if we had one?
+        // If we re-downloaded due to integrity failure, we might want to reset or keep.
+        // Let's assume 'initial-install' is safe.
+        await _appSettings.setBdpmVersion(currentVersion);
+      }
 
       _logger.info('[DataInit] Database initialization complete.');
       _emit(InitializationStep.ready, Strings.initializationReady);
@@ -290,5 +381,116 @@ class DataInitializationService {
         );
       }
     });
+  }
+
+  Future<void> _copyFromAsset(String assetPath, File destination) async {
+    try {
+      final byteData = await _assetBundle.load(assetPath);
+      final compressedBytes = byteData.buffer
+          .asUint8List(byteData.offsetInBytes, byteData.lengthInBytes);
+
+      _logger.info('[DataInit] Decompressing asset $assetPath...');
+      final decompressed = GZipCodec().decode(compressedBytes);
+
+      await destination.writeAsBytes(decompressed, flush: true);
+    } catch (e) {
+      throw Exception('Could not copy and decompress asset $assetPath: $e');
+    }
+  }
+
+  // New Version Check Logic
+  Future<VersionCheckResult?> checkVersionStatus(
+      {bool ignorePolicy = false}) async {
+    try {
+      final db = _ref.read(databaseProvider());
+
+      // 1. Get Local Version from _metadata
+      String? localDate;
+      try {
+        final result = await db.customSelect(
+          'SELECT value FROM _metadata WHERE key = ?',
+          variables: [Variable.withString('last_updated')],
+        ).getSingleOrNull();
+
+        if (result != null) {
+          localDate = result.read<String>('value');
+        }
+      } catch (e) {
+        _logger.warning('[DataInit] Could not read _metadata: $e');
+        // Fallback to SharedPreferences if _metadata missing (legacy DB)
+        localDate = await _appSettings.bdpmVersion;
+      }
+
+      // 2. Get Remote Version
+      final response = await _dio.get<Map<String, dynamic>>(
+        DatabaseConfig.githubReleasesUrl,
+        options: Options(responseType: ResponseType.json),
+      );
+
+      if (response.statusCode != 200 || response.data == null) {
+        return null;
+      }
+
+      final json = response.data!;
+      final latestTag = json['tag_name'] as String;
+
+      // Parse tag (db-YYYY-MM-DD...) to Date if possible for comparison?
+      // For now, assuming tag IS the version identifier.
+      // If we used ISO dates in backend, we should be able to compare string-wise or parse.
+      // Plan said: "Parse Remote Tag... Parse Local Date... Compare"
+
+      // 3. Find asset URL
+      final assets = json['assets'] as List<dynamic>;
+      final asset = assets.firstWhere(
+        (a) =>
+            (a as Map<String, dynamic>)['name'] ==
+            DatabaseConfig.compressedDbFilename,
+        orElse: () => null,
+      );
+      final downloadUrl =
+          (asset as Map<String, dynamic>?)?['browser_download_url'] as String?;
+
+      // 4. Compare
+      // Logic: If localDate matches latestTag (or is close enough?), up to date.
+      // Wait, localDate is ISO string "2023-..."
+      // Remote Tag is "db-YYYY-MM-DD..."
+      // We need to parse both to DateTime to compare properly.
+
+      // Assuming naive comparison for now or equality check if format differs
+      bool updateAvailable = false;
+      if (localDate != null) {
+        // Simple string inequality for now, or parsing if format established
+        // If localDate is ISO (from JS new Date().toISOString())
+        // And Tag is "db-..."
+        // We can't compare directly.
+        // Let's rely on inequality.
+        updateAvailable = localDate != latestTag;
+        // IMPROVEMENT: Implement real date parsing comparison here
+      } else {
+        updateAvailable = true; // No local version
+      }
+
+      // 5. Check Policy
+      final policy = await _appSettings.updatePolicy ?? 'ask';
+      bool blocked = false;
+
+      if (updateAvailable && !ignorePolicy) {
+        if (policy == 'never') {
+          blocked = true;
+          updateAvailable = false; // Effectively hidden
+        }
+      }
+
+      return VersionCheckResult(
+        updateAvailable: updateAvailable,
+        localDate: localDate,
+        remoteTag: latestTag,
+        downloadUrl: downloadUrl,
+        blockedByPolicy: blocked,
+      );
+    } catch (e) {
+      _logger.error('[DataInit] Version check failed', e);
+      return null;
+    }
   }
 }

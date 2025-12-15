@@ -18,6 +18,7 @@ import 'package:pharma_scan/core/hooks/use_app_header.dart';
 import 'package:pharma_scan/core/providers/database_stats_provider.dart';
 import 'package:pharma_scan/core/providers/sync_provider.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
+import 'package:pharma_scan/core/widgets/update_dialog.dart';
 
 @RoutePage()
 class SettingsScreen extends HookConsumerWidget {
@@ -27,9 +28,11 @@ class SettingsScreen extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final themeController = useState<ThemeSetting?>(null);
     final frequencyController = useState<UpdateFrequency?>(null);
+    final policyController = useState<String?>(null);
 
     final themeState = ref.watch(themeProvider);
     final frequencyState = ref.watch(appPreferencesProvider);
+    final policyState = ref.watch(activeUpdatePolicyProvider);
     final packageInfoSnapshot = useFuture(
       useMemoized(PackageInfo.fromPlatform),
     );
@@ -94,12 +97,18 @@ class SettingsScreen extends HookConsumerWidget {
         next.whenOrNull(
           error: (Object error, _) => showDestructiveErrorToast(error),
         );
+      })
+      ..listen(updatePolicyMutationProvider, (prev, next) {
+        next.whenOrNull(
+          error: (Object error, _) => showDestructiveErrorToast(error),
+        );
       });
 
     final themeModeValue = themeState;
     final selectedFrequency = frequencyState.value;
     final hapticEnabled = hapticSettingsState.value ?? true;
     final sortingPreference = sortingState.value;
+    final updatePolicyValue = policyState.value;
 
     useEffect(
       () {
@@ -115,6 +124,14 @@ class SettingsScreen extends HookConsumerWidget {
         return null;
       },
       [selectedFrequency],
+    );
+
+    useEffect(
+      () {
+        policyController.value = updatePolicyValue;
+        return null;
+      },
+      [updatePolicyValue],
     );
 
     Future<void> performReset() async {
@@ -201,20 +218,44 @@ class SettingsScreen extends HookConsumerWidget {
       );
 
       try {
-        final updated = await ref
-            .read(syncControllerProvider.notifier)
-            .startSync(force: true);
+        final result = await ref
+            .read(dataInitializationServiceProvider)
+            .checkVersionStatus(ignorePolicy: true);
+
         if (!context.mounted) return;
-        ShadToaster.of(context).show(
-          ShadToast(
-            title: Text(updated ? Strings.bdpmSynced : Strings.noNewUpdates),
-            description: Text(
-              updated
-                  ? Strings.latestBdpmDataApplied
-                  : Strings.localDataUpToDate,
+
+        if (result?.updateAvailable == true) {
+          final shouldUpdate = await showDialog<bool>(
+            context: context,
+            builder: (context) => UpdateDialog(versionResult: result!),
+          );
+
+          if (shouldUpdate == true && context.mounted) {
+            final updated = await ref
+                .read(syncControllerProvider.notifier)
+                .startSync(force: true);
+
+            if (!context.mounted) return;
+            ShadToaster.of(context).show(
+              ShadToast(
+                title:
+                    Text(updated ? Strings.bdpmSynced : Strings.noNewUpdates),
+                description: Text(
+                  updated
+                      ? Strings.latestBdpmDataApplied
+                      : Strings.localDataUpToDate,
+                ),
+              ),
+            );
+          }
+        } else {
+          ShadToaster.of(context).show(
+            const ShadToast(
+              title: Text(Strings.noNewUpdates),
+              description: Text(Strings.localDataUpToDate),
             ),
-          ),
-        );
+          );
+        }
       } on Exception catch (_) {
         if (!context.mounted) return;
         ShadToaster.of(context).show(
@@ -449,6 +490,56 @@ class SettingsScreen extends HookConsumerWidget {
                                   ShadOption(
                                     value: SortingPreference.form,
                                     child: Text(Strings.sortingByForm),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Gap(16),
+                        ShadCard(
+                          title:
+                              const Text('Mises à jour de la base de données'),
+                          description: const Text(
+                              'Configurez le comportement des mises à jour.'),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              ShadSelect<String>(
+                                key: ValueKey(
+                                    'policy_${policyController.value}'),
+                                initialValue: policyController.value,
+                                placeholder: const Text('Comportement'),
+                                selectedOptionBuilder: (context, value) {
+                                  final label = switch (value) {
+                                    'always' => 'Toujours mettre à jour',
+                                    'never' => 'Ne jamais demander',
+                                    _ => 'Demander à chaque fois',
+                                  };
+                                  return Text(label);
+                                },
+                                onChanged: (value) {
+                                  if (value != null) {
+                                    unawaited(
+                                      ref
+                                          .read(updatePolicyMutationProvider
+                                              .notifier)
+                                          .setPolicy(value),
+                                    );
+                                  }
+                                },
+                                options: const [
+                                  ShadOption(
+                                    value: 'ask',
+                                    child: Text('Demander à chaque fois'),
+                                  ),
+                                  ShadOption(
+                                    value: 'always',
+                                    child: Text('Toujours mettre à jour'),
+                                  ),
+                                  ShadOption(
+                                    value: 'never',
+                                    child: Text('Ne jamais demander'),
                                   ),
                                 ],
                               ),

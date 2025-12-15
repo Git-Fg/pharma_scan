@@ -344,6 +344,81 @@ export function normalizePrincipleOptimal(principe: string): string {
 }
 
 /**
+ * Computes the canonical substance name by stripping salt prefixes and suffixes.
+ * This is used to populate ref_substances.canonical_name in the database.
+ * 
+ * Rules:
+ * 1. Strip salt prefixes (e.g., "CHLORHYDRATE DE" -> "")
+ * 2. Strip salt suffixes (e.g., " SULFATE" -> "")
+ * 3. Preserve pure inorganic names (e.g., "SODIUM" remains "SODIUM")
+ * 4. Return uppercase canonical name
+ * 
+ * @example
+ * computeCanonicalSubstance("CHLORHYDRATE DE MORPHINE") => "MORPHINE"
+ * computeCanonicalSubstance("AMOXICILLINE TRIHYDRATE") => "AMOXICILLINE"
+ * computeCanonicalSubstance("SODIUM") => "SODIUM"
+ */
+export function computeCanonicalSubstance(rawLabel: string): string {
+    if (!rawLabel || !rawLabel.trim()) return "";
+
+    // Uppercase and remove diacritics
+    let canonical = removeDiacritics(rawLabel.toUpperCase().trim()).toUpperCase();
+
+    // Check if it's a pure inorganic name (preserve as-is)
+    if (isPureInorganicName(canonical)) {
+        return canonical.replace(/\s+/g, " ").trim();
+    }
+
+    // Strip salt prefixes
+    for (const prefix of SALT_PREFIXES) {
+        if (canonical.startsWith(prefix)) {
+            const rest = canonical.substring(prefix.length);
+            if (prefix.endsWith("'") || prefix.endsWith("'")) {
+                canonical = rest.trimStart();
+                break;
+            }
+            if (!rest || rest.startsWith(" ")) {
+                canonical = rest.trimStart();
+                break;
+            }
+        }
+    }
+
+    // Strip salt suffixes (iterate until no more changes to handle multiple suffixes)
+    let changed = true;
+    while (changed) {
+        changed = false;
+        for (const suffix of SALT_SUFFIXES) {
+            if (canonical.endsWith(" " + suffix)) {
+                canonical = canonical.substring(0, canonical.length - suffix.length).trimEnd().trim();
+                changed = true;
+                break; // Restart from beginning after a change
+            }
+        }
+    }
+
+    // Strip mineral suffixes (e.g., "DE SODIUM")
+    for (const mineral of MINERAL_TOKENS) {
+        // Pattern: " DE <MINERAL>" or " D' <MINERAL>" at end
+        const suffixPattern = new RegExp(`\\s+(DE\\s+|D[''])${mineral}$`, "i");
+        canonical = canonical.replace(suffixPattern, "").trim();
+    }
+
+    // Strip additional mineral-related modifiers (MONOSODIQUE, DISODIQUE, etc.)
+    const mineralModifiers = ["MONOSODIQUE", "DISODIQUE", "MONOPOTASSIQUE", "DIPOTASSIQUE", "MAGNESIQUE", "CALCIQUE"];
+    for (const modifier of mineralModifiers) {
+        if (canonical.endsWith(" " + modifier)) {
+            canonical = canonical.substring(0, canonical.length - modifier.length).trimEnd().trim();
+        }
+    }
+
+    return canonical.replace(/\s+/g, " ").trim();
+}
+
+
+
+
+/**
  * Extracts princeps label from raw label.
  * Port of extractPrincepsLabel from sanitizer.dart
  */
@@ -573,25 +648,25 @@ export function isFormulationDescription(text: string): boolean {
  * Port of normalizeCommonPrincipes from grouping_algorithms.dart
  */
 export function normalizeCommonPrincipes(commonPrincipes: string): string {
-  if (!commonPrincipes) return "";
+    if (!commonPrincipes) return "";
 
-  // Associations are delimited by "+", otherwise by comma.
-  const rawList = commonPrincipes.includes("+")
-    ? commonPrincipes.split("+")
-    : commonPrincipes.split(",");
+    // Associations are delimited by "+", otherwise by comma.
+    const rawList = commonPrincipes.includes("+")
+        ? commonPrincipes.split("+")
+        : commonPrincipes.split(",");
 
-  // Normalize principles, deduplicate, then sort for stable comparison.
-  const normalizedSet = new Set<string>();
-  for (const p of rawList) {
-    const trimmed = p.trim();
-    if (trimmed) {
-      const normalized = normalizePrincipleOptimal(trimmed);
-      if (normalized) {
-        normalizedSet.add(normalized);
-      }
+    // Normalize principles, deduplicate, then sort for stable comparison.
+    const normalizedSet = new Set<string>();
+    for (const p of rawList) {
+        const trimmed = p.trim();
+        if (trimmed) {
+            const normalized = normalizePrincipleOptimal(trimmed);
+            if (normalized) {
+                normalizedSet.add(normalized);
+            }
+        }
     }
-  }
 
-  const normalizedList = Array.from(normalizedSet).sort();
-  return normalizedList.join(" ");
+    const normalizedList = Array.from(normalizedSet).sort();
+    return normalizedList.join(" ");
 }

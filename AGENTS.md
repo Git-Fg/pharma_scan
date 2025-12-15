@@ -115,6 +115,26 @@ A task is ONLY complete when:
 - **Scripts:** Create scripts in `backend_pipeline/tool/` (e.g., `audit_data.ts`) to test hypotheses.
 - **Schema Source:** `backend_pipeline/src/db.ts` is the schema source of truth.
 
+## Backend Normalization Architecture
+
+**Philosophy:** The backend is the "Smart Server", the frontend is the "Dumb Client". Complex parsing logic belongs in the ETL pipeline, not the mobile app.
+
+**Substance Normalization:**
+- `ref_substances` table contains normalized substance names with `canonical_name` column
+- `computeCanonicalSubstance()` in `sanitizer.ts` strips salt prefixes/suffixes (e.g., "CHLORHYDRATE DE MORPHINE" → "MORPHINE")
+- `composition_link` table links medicaments to normalized substances
+- **Removed:** `lib/core/constants/chemical_constants.dart` - all salt normalization logic now handled by backend
+
+**FTS5 Search:**
+- `search_index` virtual table uses trigram tokenizer for fuzzy matching
+- `view_search_results` provides BM25-ranked search results
+- Backend handles all search normalization; frontend sends raw queries
+
+**Data Quality Gate:**
+- `integrity.test.ts` verifies business logic constraints before release
+- Tests check for salt prefix/suffix contamination, orphan records, and search performance
+
+
 ## Backend-Flutter Integration Workflow
 
 **🚨 CRITICAL: Schema File Management Rules**
@@ -660,55 +680,59 @@ LoggerService.error('Failed to load', error, stackTrace);
 
 # 16. Testing Strategy
 
-## Unit & Integration
+## Philosophy: The "Hourglass" Model (High ROI)
+
+We optimize for **Maximum Coverage / Minimum Test Suite Length**. We avoid the "Pyramid" (heavy middle) in favor of an "Hourglass" shape:
+
+1.  **Heavy Top (E2E/Patrol):** Focus on "Golden Path" user journeys. These tests cover 80% of the app's functionality (UI + State + DB) with minimal code.
+2.  **Thin Middle (Widget):** **Minimize widget tests.** Our stack (Signals + Hooks + Riverpod) makes widget testing complex (heavy mocking). Trust the Design System and only test truly isolated complex UI components.
+3.  **Heavy Bottom (Unit/Integration):** Rigorous testing of:
+    *   **Core Logic:** Algorithms, Parsers (GS1), State Machines (`ScanOrchestrator`).
+    *   **Data Layer:** DAOs (`RestockDao`, `CatalogDao`) using in-memory SQLite (`NativeDatabase.memory()`).
+
+## Unit & Integration (The Foundation)
 - **Framework:** `flutter test`.
 - **Mocking:** Use `mocktail` (NOT `mockito`).
-- **Scope:** Test logic, repositories, and complex widgets.
+- **Data Reality:** Unit tests must use **realistic data formats**.
+  - *Example:* GS1 Parsers require valid 14-digit GTINs (e.g., `0103400934056781`). Loose strings will fail parsing logic.
+- **DAO Testing:** never mock the database for DAO tests. Use `NativeDatabase.memory()` to validate actual SQL logic (Triggers, ON CONFLICT, Views).
 
-## E2E Testing (Patrol)
+## E2E Testing (Patrol 4.x)
 - **Framework:** Patrol.
-- **Pattern:** **Strict Page Object Model (Robot Pattern).**
-- **Mandate:** Test files (`*_test.dart`) must **NEVER** contain raw finders (`$(...)` or `find.by...`). They must only call methods on Robot classes (e.g., `await scanner.scanCip(...)`).
 - **Location:** `patrol_test/`.
-- **Execution:**
-  - Run all: `patrol test`.
-  - Run specific: `patrol test --target <file_path>`.
+- **Pattern:** **Strict Page Object Model (Robot Pattern).**
+  - **Rule:** Test files (`*_test.dart`) must **NEVER** contain raw finders (`$(...)` or `find.by...`).
+  - **Rule:** Delegate ALL interaction to Robot classes (`AppRobot`, `ScannerRobot`).
+  - **Why:** Keeps tests readable and resilient to UI changes.
 
-### Patrol 4.0 Syntax
-- **Patrol 4.0 Syntax:**
-  - Use `$.platform.mobile` instead of `$.native` for system interactions (permissions, home button).
-  - Use `await $.pumpAndSettle()` aggressively to handle animations.
+### Patrol 4.x Best Practices & "Gotchas"
+- **Platform Interactions:**
+  - **Do:** Use `$.platform.android` or `$.platform.ios` (e.g., `$.platform.android.pressBack()`).
+  - **Do Not:** Use `$.native` (Deprecated/Legacy).
+- **Waits & Timing:**
+  - **Do:** Use `await $.pumpAndSettle()` aggressively between interactions.
+  - **Explicit Delays:** Use `await Future<void>.delayed(...)` when necessary (e.g., waiting for toast). *Note: explicit type `<void>` avoids lint warnings.*
+  - **Do Not:** Pass Duration to `pumpAndSettle()` (API mismatch in some versions).
+- **Assertions:**
+  - **Check Return Types:** Many custom expect methods (e.g., `expectVisible`) return `void`. **Do not await them.**
 
-## Test Hygiene
+## Test Hygiene & Deduplication
 - **Zero Redundancy:** If a Patrol E2E test covers a flow (e.g., "Scan Product → View Details → Add to Favorites"), **DELETE** any overlapping Widget/Unit tests that only mock the UI without adding value.
-- **Unit Scope:** Keep Unit tests ONLY for:
-  - **Pure algorithmic logic** (Sanitizers, Parsers, Validators).
-  - **Complex StateNotifier logic** that is hard to reach via UI (e.g., edge cases in sync orchestration).
-- **Widget Scope:** Keep Widget tests ONLY for isolated UI components with complex interaction logic (e.g., custom form validators, animation state machines).
 - **Audit Protocol:** After adding a new Patrol E2E test, review the test suite for redundant coverage and delete it. Test suite growth is a code smell.
 
 ## Flakiness Handling (Patrol)
-E2E tests are prone to flakiness due to timing issues, animations, and system dialogs. Follow this protocol when a Patrol test fails:
+E2E tests are prone to flakiness due to timing, animations, and system dialogs.
 
 **Investigation Steps (in order):**
 1. **DO NOT just increase timeout** - This masks the root cause.
-2. **Check for `pumpAndSettle()`** - Ensure animations/async operations complete before interacting:
+2. **Check for race conditions** - Use `$.waitUntilVisible()` instead of `$.tap()` if the widget may be loading.
+3. **Check for overlaying widgets** - Dialogs, toasts, or bottom sheets may block taps.
+4. **Use `$.platform` for system dialogs** - Permission dialogs aren't Flutter widgets.
    ```dart
-   await $.pumpAndSettle();
-   await $(MyButton).tap();
+   if (await $.platform.mobile.isPermissionDialogVisible()) {
+     await $.platform.mobile.grantPermissionWhenInUse();
+   }
    ```
-3. **Check for overlaying widgets** - Dialogs, toasts, or bottom sheets may block taps:
-   - Look for `ShadToast`, `ShadDialog`, `ShadSheet` covering the target widget.
-   - Wait for them to dismiss or explicitly close them in the Robot.
-4. **Use `$.platform.mobile` for system dialogs** - Platform permission dialogs aren't part of the Flutter widget tree:
-  ```dart
-  // Clear system dialogs (permissions, etc.)
-  await $.platform.mobile.grantPermissionWhenInUse();
-  ```
-5. **Verify widget visibility** - Use `$.waitUntilVisible()` instead of `$.tap()` if the widget may be scrolled offscreen.
-6. **Check for race conditions** - If state changes rapidly (e.g., loading → loaded), add explicit `.waitUntilVisible()` on the expected state.
-
-**Only as a last resort:** Increase timeout to a reasonable value (e.g., 10s max) and document why in a comment.
 
 # 17. CI & Deployment
 
