@@ -20,7 +20,7 @@ void main() {
   group('GP5: Full App Cycle Tests', () {
     patrolTest(
       'GP5.1: Complete cross-tab user journey',
-      config: PatrolTesterConfig(),
+      config: PatrolTesterConfig(printLogs: true),
       ($) async {
         final appRobot = AppRobot($);
         // PHASE 1: Setup and Initialization
@@ -97,7 +97,7 @@ void main() {
 
     patrolTest(
       'GP5.2: App lifecycle - Background and resume persistence',
-      config: PatrolTesterConfig(),
+      config: PatrolTesterConfig(printLogs: true),
       ($) async {
         final appRobot = AppRobot($);
         // Setup initial state
@@ -179,7 +179,7 @@ void main() {
 
     patrolTest(
       'GP5.3: App resilience and stress testing',
-      config: PatrolTesterConfig(),
+      config: PatrolTesterConfig(printLogs: true),
       ($) async {
         final appRobot = AppRobot($);
         // Setup
@@ -260,7 +260,7 @@ void main() {
 
     patrolTest(
       'GP5.4: Data integrity across app restart',
-      config: PatrolTesterConfig(),
+      config: PatrolTesterConfig(printLogs: true),
       ($) async {
         final appRobot = AppRobot($);
         // Initial setup
@@ -337,7 +337,7 @@ void main() {
 
     patrolTest(
       'GP5.5: Complete user journey with controlled substances',
-      config: PatrolTesterConfig(),
+      config: PatrolTesterConfig(printLogs: true),
       ($) async {
         final appRobot = AppRobot($);
         // Setup for controlled substances testing
@@ -399,7 +399,7 @@ void main() {
 
     patrolTest(
       'GP5.6: Error handling and recovery testing',
-      config: PatrolTesterConfig(),
+      config: PatrolTesterConfig(printLogs: true),
       ($) async {
         final appRobot = AppRobot($);
         // Setup

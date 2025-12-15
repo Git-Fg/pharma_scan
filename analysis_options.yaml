@@ -16,6 +16,8 @@ linter:
     avoid_print: true
 
 analyzer:
+  plugins:
+    - custom_lint
   exclude:
     - "**/*.g.dart"
     - "**/*.freezed.dart"
@@ -54,3 +56,6 @@ analyzer:
     non_type_as_type_argument: warning # Test files reference generated types
     undefined_class: warning # Test files reference generated companion classes
     undefined_function: warning # Test files reference generated companion constructors
+
+custom_lint:
+  debug: true 

@@ -10,7 +10,7 @@ import 'package:patrol/src/platform/contracts/contracts.dart';
 import 'package:test_api/src/backend/invoker.dart';
 
 // START: GENERATED TEST IMPORTS
-import 'tests/gp1_scanner_standalone_test.dart' as tests__gp1_scanner_standalone_test;
+import 'tests/gp2_search_explorer_test.dart' as tests__gp2_search_explorer_test;
 // END: GENERATED TEST IMPORTS
 
 Future<void> main() async {
@@ -70,7 +70,7 @@ Future<void> main() async {
   });
 
   // START: GENERATED TEST GROUPS
-  group('tests.gp1_scanner_standalone_test', tests__gp1_scanner_standalone_test.main);
+  group('tests.gp2_search_explorer_test', tests__gp2_search_explorer_test.main);
   // END: GENERATED TEST GROUPS
 
   final dartTestGroup = await testExplorationCompleter.future;

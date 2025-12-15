@@ -11,12 +11,7 @@
   ],
   // 2. Define the features to include (Rules, MCP servers, Skills)
   "features": [
-    "rules",
-    "mcp",
-    "commands",
-    "subagents",
-    "skills",
-    "ignore" // Recommended to keep ignore files in sync too
+    "rules"
   ],
   "baseDirs": [
     "."

@@ -55,7 +55,8 @@ void main() {
     ''');
 
     // Ensure the unique index on scanned_boxes exists for duplicate detection
-    await database.customStatement('CREATE UNIQUE INDEX IF NOT EXISTS idx_scanned_boxes_unique ON scanned_boxes(cip_code, box_label)');
+    await database.customStatement(
+        'CREATE UNIQUE INDEX IF NOT EXISTS idx_scanned_boxes_unique ON scanned_boxes(cip_code, box_label)');
 
     // Insérer des données de référence pour les tests
     await database.into(database.medicaments).insert(
@@ -190,4 +191,3 @@ void main() {
     expect(outcome2, ScanOutcome.duplicate);
   });
 }
-

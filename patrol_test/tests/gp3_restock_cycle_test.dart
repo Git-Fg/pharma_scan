@@ -319,7 +319,7 @@ void main() {
 
     patrolTest(
       'GP3.6: Restock performance with large quantities',
-      config: PatrolTesterConfig(),
+      config: PatrolTesterConfig(printLogs: true),
       ($) async {
         final appRobot = AppRobot($);
         // Setup
@@ -384,7 +384,7 @@ void main() {
 
     patrolTest(
       'GP3.7: Restock error handling and edge cases',
-      config: PatrolTesterConfig(),
+      config: PatrolTesterConfig(printLogs: true),
       ($) async {
         final appRobot = AppRobot($);
         // Setup

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:patrol/patrol.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
+import 'package:pharma_scan/core/utils/test_tags.dart';
 
 import 'base_robot.dart';
 import 'scanner_robot.dart';
@@ -73,11 +74,20 @@ class AppRobot extends BaseRobot {
 
   // --- App-wide Verifications ---
   Future<void> expectAppStarted() async {
+    print('DEBUG: expectAppStarted() called');
     // Wait for the app to be fully loaded
-    await waitAndSettle(const Duration(seconds: 3));
+    await waitAndSettle(const Duration(seconds: 5));
 
     // Check that we can see one of the main navigation elements
-    await $(#main_scaffold).waitUntilVisible();
+    try {
+      await $(Key(TestTags.navScanner)).waitUntilVisible();
+      print('DEBUG: expectAppStarted() success - navScanner found');
+    } catch (e) {
+      final tree = $.tester.binding.renderViewElement?.toStringDeep() ??
+          'No render view element';
+      throw Exception(
+          'App startup failed. navScanner not found.\nWidget Tree Dump:\n$tree');
+    }
   }
 
   Future<void> expectTabVisible(String tabName) async {

@@ -19,7 +19,7 @@ void main() {
   group('GP4: Explorer Deep Dive Tests', () {
     patrolTest(
       'GP4.1: Complex medication group exploration - Doliprane cluster',
-      config: PatrolTesterConfig(),
+      config: PatrolTesterConfig(printLogs: true),
       ($) async {
         final appRobot = AppRobot($);
         // PHASE 1: Setup and Initialization
@@ -148,7 +148,7 @@ void main() {
 
     patrolTest(
       'GP4.2: Advanced filtering - Administration routes and prices',
-      config: PatrolTesterConfig(),
+      config: PatrolTesterConfig(printLogs: true),
       ($) async {
         final appRobot = AppRobot($);
         // Setup
@@ -201,7 +201,7 @@ void main() {
 
     patrolTest(
       'GP4.3: Medication cluster depth and complexity testing',
-      config: PatrolTesterConfig(),
+      config: PatrolTesterConfig(printLogs: true),
       ($) async {
         final appRobot = AppRobot($);
         // Setup
@@ -263,7 +263,7 @@ void main() {
 
     patrolTest(
       'GP4.4: Generic relationships and price comparisons',
-      config: PatrolTesterConfig(),
+      config: PatrolTesterConfig(printLogs: true),
       ($) async {
         final appRobot = AppRobot($);
         // Setup
@@ -319,7 +319,7 @@ void main() {
 
     patrolTest(
       'GP4.5: Pricing and reimbursement verification',
-      config: PatrolTesterConfig(),
+      config: PatrolTesterConfig(printLogs: true),
       ($) async {
         final appRobot = AppRobot($);
         // Setup
@@ -382,7 +382,7 @@ void main() {
 
     patrolTest(
       'GP4.6: Search performance with complex queries',
-      config: PatrolTesterConfig(),
+      config: PatrolTesterConfig(printLogs: true),
       ($) async {
         final appRobot = AppRobot($);
         // Setup
@@ -444,7 +444,7 @@ void main() {
 
     patrolTest(
       'GP4.7: Navigation depth and breadcrumb testing',
-      config: PatrolTesterConfig(),
+      config: PatrolTesterConfig(printLogs: true),
       ($) async {
         final appRobot = AppRobot($);
         // Setup

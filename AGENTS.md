@@ -539,6 +539,43 @@ Any component using a manual Controller must ensure disposal to prevent memory l
 ## Logic Isolation
 - **Rule:** Do NOT reuse Data Layer sanitizers for UI rendering logic. UI highlighting requires length-preserving normalization.
 
+## 🎨 UI & Theming Strictness (Enforced via Custom Lint)
+
+### The "No-Magic-Color" Rule
+**Source of Truth:** `tool/custom_lints/pharma_lints/lib/src/avoid_direct_colors.dart`
+
+**Restrictions (Enforced by Lint):**
+You are **FORBIDDEN** from using:
+- `Colors.red`, `Colors.blue`, `Colors.orange`, etc. (Material colors)
+- `Color(0xFF...)` literals (hex colors)
+- `Color.fromARGB(...)` or `Color.fromRGBO(...)` constructors
+
+**Authorized Access:**
+You **MUST** use the semantic context extensions:
+- ✅ `context.shadColors.primary`
+- ✅ `context.shadColors.destructive`
+- ✅ `context.shadColors.background`
+- ✅ `context.shadColors.muted`
+- ✅ `context.colors.<semanticColor>` (TypeScript-like access)
+
+**Self-Correction Protocol:**
+When `dart analyze` fails with `avoid_direct_colors`:
+- **DO NOT** add `// ignore: avoid_direct_colors`
+- **DO** refactor the code to use `context.shadColors.*`
+- If a semantic color is missing from the theme, **DO NOT** hardcode a hex value. Instead:
+  1. Check if the color exists in `lib/core/theme/semantic_colors.dart`
+  2. If not, add it to the semantic extensions
+
+**Exclusions:**
+The lint rule automatically excludes:
+- `lib/core/theme/` - Where themes are defined (you can define colors here)
+- `test/` directory - Test files
+- Generated files (`.g.dart`, `.drift.dart`, `.freezed.dart`, `.mapper.dart`)
+
+**Allowed Exceptions:**
+- `Colors.transparent` - For transparency
+- `Colors.black.withValues(alpha: ...)` and `Colors.white.withValues(alpha: ...)` - For alpha adjustments
+
 ---
 
 # 13. UI Layout & Spacing
@@ -691,6 +728,27 @@ flutter build apk --release --split-per-abi --no-tree-shake-icons
 flutter build appbundle --release --no-tree-shake-icons
 ```
 
-## Versioning
-- Format: `x.y.z+n`
-- Bump version in `pubspec.yaml` before build.
+---
+
+# 18. 🤖 PharmaScan Agent Operating Protocol
+
+## 🚨 STRICT LINT ADHERENCE
+This project uses a custom analysis server (`pharma_lints`).
+
+1.  **Architecture Layering:** Never import `features/*` from `core/*`. Never import `feature_b` from `feature_a`. Move shared logic to `core`.
+2.  **Design System:** If you see `avoid_direct_colors`, do NOT ignore it. You MUST find the semantic token in `AppTheme`.
+3.  **Data Models:** Any class ending in `Model` MUST have a `toEntity()` method.
+4.  **Observability:** Never use `print`. Use `ref.read(loggerProvider).info(...)`.
+
+## 🛠️ Self-Correction Loop
+When you write code, run `dart run custom_lint` (or check IDE errors). 
+If the linter screams:
+1.  Read the custom error message (e.g., `"❌ ARCHITECTURE..."`).
+2.  Understand the architectural violation.
+3.  Refactor your code to comply. 
+4.  **Do not disable the lint.**
+
+## 📂 File Structure
+- `lib/core/`: Shared utilities, UI kit, networking.
+- `lib/features/`: Independent feature modules.
+- `lib/main.dart`: Entry point.
