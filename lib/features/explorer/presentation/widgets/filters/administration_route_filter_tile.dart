@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:gap/gap.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:pharma_scan/core/theme/app_dimens.dart';
+
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/features/explorer/domain/models/search_filters_model.dart';
@@ -50,8 +50,8 @@ Widget buildAdministrationRouteFilterTile(
       context: context,
       title: Strings.administrationRouteFilter,
       trailing: const SizedBox(
-        width: AppDimens.iconSm,
-        height: AppDimens.iconSm,
+        width: 16,
+        height: 16,
         child: CircularProgressIndicator(strokeWidth: 2),
       ),
     ),
@@ -79,8 +79,8 @@ Widget _buildTile({
 
   return Container(
     padding: const EdgeInsets.symmetric(
-      horizontal: AppDimens.spacingMd,
-      vertical: AppDimens.spacingSm,
+      horizontal: 16,
+      vertical: 12,
     ),
     decoration: BoxDecoration(
       border: Border(
@@ -98,7 +98,7 @@ Widget _buildTile({
           ),
         ),
         if (trailing != null) ...[
-          const Gap(AppDimens.spacingSm),
+          const Gap(12),
           trailing,
         ],
       ],
@@ -132,8 +132,8 @@ class _SelectTileWithSearch extends HookWidget {
 
     return Container(
       padding: const EdgeInsets.symmetric(
-        horizontal: AppDimens.spacingMd,
-        vertical: AppDimens.spacingSm,
+        horizontal: 16,
+        vertical: 12,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -144,7 +144,7 @@ class _SelectTileWithSearch extends HookWidget {
               fontWeight: FontWeight.w600,
             ),
           ),
-          const Gap(AppDimens.spacingXs),
+          const Gap(8),
           ShadSelect<String?>.withSearch(
             minWidth: 300,
             initialValue: selectedValue,

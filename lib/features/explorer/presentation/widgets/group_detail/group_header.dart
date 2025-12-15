@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
-import 'package:pharma_scan/core/theme/app_dimens.dart';
+
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
 
 import 'package:pharma_scan/core/utils/strings.dart';
@@ -65,9 +65,9 @@ class GroupHeader extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-        AppDimens.spacingMd,
-        AppDimens.spacingSm,
-        AppDimens.spacingMd,
+        16,
+        12,
+        16,
         0,
       ),
       child: Column(
@@ -80,7 +80,7 @@ class GroupHeader extends StatelessWidget {
                 color: theme.colorScheme.foreground,
               ),
             ),
-            const Gap(AppDimens.spacing2xs),
+            const Gap(4),
           ],
           Text(
             state.title,
@@ -90,20 +90,20 @@ class GroupHeader extends StatelessWidget {
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
-          const Gap(AppDimens.spacing2xs),
+          const Gap(4),
           ShadBadge.outline(
             child: Text(Strings.summaryLine(
                 state.princeps.length, state.generics.length)),
           ),
           if (allBadges.isNotEmpty) ...[
-            const Gap(AppDimens.spacingSm),
+            const Gap(12),
             Wrap(
-              spacing: AppDimens.spacing2xs,
-              runSpacing: AppDimens.spacing2xs,
+              spacing: 4,
+              runSpacing: 4,
               children: allBadges,
             ),
           ],
-          const Gap(AppDimens.spacingSm),
+          const Gap(12),
           _MetadataTiles(priceLabel: priceLabel, refundValue: refundValue),
           GroupActionsBar(
             cisCode: state.princepsCisCode,
@@ -112,7 +112,7 @@ class GroupHeader extends StatelessWidget {
           if ((state.rawLabelAnsm?.isNotEmpty ?? false) ||
               (state.parsingMethod?.isNotEmpty ?? false) ||
               (state.princepsCisReference?.isNotEmpty ?? false)) ...[
-            const Gap(AppDimens.spacingSm),
+            const Gap(12),
             _TechnicalInfo(state: state),
           ],
         ],
@@ -134,8 +134,8 @@ class _MetadataTiles extends StatelessWidget {
   Widget build(BuildContext context) {
     return ShadCard(
       padding: const EdgeInsets.symmetric(
-        vertical: AppDimens.spacingSm,
-        horizontal: AppDimens.spacingMd,
+        vertical: 12,
+        horizontal: 16,
       ),
       child: Row(
         children: [
@@ -146,7 +146,7 @@ class _MetadataTiles extends StatelessWidget {
               value: priceLabel,
             ),
           ),
-          const Gap(AppDimens.spacingMd),
+          const Gap(16),
           Expanded(
             child: _MetadataItem(
               icon: LucideIcons.percent,
@@ -183,7 +183,7 @@ class _MetadataItem extends StatelessWidget {
           size: 18,
           color: context.colors.mutedForeground,
         ),
-        const Gap(AppDimens.spacingSm),
+        const Gap(12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -230,15 +230,15 @@ class _TechnicalInfo extends StatelessWidget {
               borderRadius: theme.radius,
             ),
             padding: const EdgeInsets.symmetric(
-              vertical: AppDimens.spacingSm,
-              horizontal: AppDimens.spacingMd,
+              vertical: 12,
+              horizontal: 16,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (badge != null) ...[
                   Align(alignment: Alignment.centerRight, child: badge),
-                  const Gap(AppDimens.spacing2xs),
+                  const Gap(4),
                 ],
                 if (state.rawLabelAnsm?.isNotEmpty ?? false) ...[
                   Text(
@@ -252,7 +252,7 @@ class _TechnicalInfo extends StatelessWidget {
                     state.rawLabelAnsm!,
                     style: theme.textTheme.p,
                   ),
-                  const Gap(AppDimens.spacing2xs),
+                  const Gap(4),
                 ],
                 if (state.princepsCisReference?.isNotEmpty ?? false) ...[
                   Text(

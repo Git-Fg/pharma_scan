@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:pharma_scan/core/providers/core_providers.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
-import 'package:pharma_scan/features/explorer/domain/entities/group_detail_entity.dart';
+import 'package:pharma_scan/core/domain/entities/group_detail_entity.dart';
 import 'package:pharma_scan/features/explorer/domain/extensions/view_group_detail_extensions.dart';
 import 'package:pharma_scan/features/explorer/presentation/providers/group_explorer_state.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -84,7 +84,7 @@ String _buildPrincepsDisplayTitle(GroupDetailEntity princeps) {
   final brand = princeps.princepsBrandName.trim();
   if (brand.isNotEmpty) return brand;
 
-  final nomSpecialite = princeps.nomSpecialite.trim();
+  final nomSpecialite = princeps.nomSpecialite?.trim() ?? '';
   if (nomSpecialite.isNotEmpty) return nomSpecialite;
 
   final princepsRef = princeps.princepsDeReference;

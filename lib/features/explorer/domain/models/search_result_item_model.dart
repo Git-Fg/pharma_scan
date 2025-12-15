@@ -1,7 +1,7 @@
 import 'package:dart_mappable/dart_mappable.dart';
 import 'package:pharma_scan/core/domain/types/ids.dart';
-import 'package:pharma_scan/features/explorer/domain/entities/medicament_entity.dart';
-import 'package:pharma_scan/features/explorer/domain/models/generic_group_entity.dart';
+import 'package:pharma_scan/core/domain/entities/medicament_entity.dart';
+import 'package:pharma_scan/core/domain/models/generic_group_entity.dart';
 
 part 'search_result_item_model.mapper.dart';
 

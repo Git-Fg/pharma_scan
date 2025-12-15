@@ -4,15 +4,14 @@ import 'package:diacritic/diacritic.dart';
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 import 'package:pharma_scan/core/domain/types/ids.dart';
-import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/formatters.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/product_badges.dart';
-import 'package:pharma_scan/features/explorer/domain/entities/medicament_entity.dart';
+import 'package:pharma_scan/core/domain/entities/medicament_entity.dart';
 import 'package:pharma_scan/core/ui/theme/app_theme.dart';
-import 'package:pharma_scan/features/explorer/presentation/widgets/status_badges.dart';
-import 'package:pharma_scan/features/explorer/domain/extensions/medication_status_extensions.dart';
+import 'package:pharma_scan/core/widgets/badges/status_badges.dart';
+import 'package:pharma_scan/core/domain/extensions/medication_status_extensions.dart';
 import 'package:pharma_scan/features/scanner/presentation/providers/scanner_provider.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
@@ -63,6 +62,7 @@ class ScannerResultCard extends StatelessWidget {
     final backgroundColor = context.surfacePrimary.withValues(alpha: 0.7);
     final restockBorder = context.actionSecondary.withValues(alpha: 0.6);
     final radius = context.radiusMedium;
+    final spacing = context.spacing;
 
     final isGenericWithPrinceps = !summary.isPrinceps &&
         summary.groupId != null &&
@@ -187,7 +187,7 @@ class ScannerResultCard extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                         if (isGenericWithPrinceps) ...[
-                          const Gap(AppDimens.spacing2xs),
+                          Gap(spacing.xs / 2),
                           Text(
                             summary.dbData.princepsDeReference,
                             style: context.typo.small.copyWith(
@@ -199,7 +199,7 @@ class ScannerResultCard extends StatelessWidget {
                           ),
                         ],
                         if (combinedMetadata.isNotEmpty) ...[
-                          const Gap(AppDimens.spacing2xs),
+                          Gap(spacing.xs / 2),
                           Text(
                             combinedMetadata,
                             style: context.typo.small.copyWith(
@@ -213,14 +213,14 @@ class ScannerResultCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const Gap(AppDimens.spacing2xs),
+                  Gap(spacing.xs / 2),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       if (financialBadge != null)
                         Padding(
-                          padding: const EdgeInsets.only(
-                            top: AppDimens.spacing2xs,
+                          padding: EdgeInsets.only(
+                            top: spacing.xs / 2,
                           ),
                           child: financialBadge,
                         ),
@@ -247,7 +247,7 @@ class ScannerResultCard extends StatelessWidget {
                 ],
               ),
               if (hasFinancialInfo) ...[
-                const Gap(AppDimens.spacing2xs),
+                Gap(spacing.xs / 2),
                 Row(
                   children: [
                     Expanded(
@@ -258,7 +258,7 @@ class ScannerResultCard extends StatelessWidget {
                         icon: LucideIcons.banknote,
                       ),
                     ),
-                    const Gap(AppDimens.spacingSm),
+                    Gap(spacing.sm),
                     Expanded(
                       child: _buildStatChip(
                         context,
@@ -274,16 +274,16 @@ class ScannerResultCard extends StatelessWidget {
                   hasRegulatoryBadges ||
                   statusIcons is! SizedBox)
                 Padding(
-                  padding: const EdgeInsets.only(top: AppDimens.spacing2xs),
+                  padding: EdgeInsets.only(top: spacing.xs / 2),
                   child: SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Row(
                       children: [
-                        ..._withSpacing(badges),
+                        ..._withSpacing(context, badges),
                         if (hasRegulatoryBadges)
-                          ..._withSpacing([regulatoryBadgesWidget]),
+                          ..._withSpacing(context, [regulatoryBadgesWidget]),
                         if (statusIcons is! SizedBox) ...[
-                          const SizedBox(width: AppDimens.spacingXs),
+                          Gap(spacing.xs),
                           statusIcons,
                         ],
                       ],
@@ -292,11 +292,11 @@ class ScannerResultCard extends StatelessWidget {
                 ),
               if (infoBadges.isNotEmpty)
                 Padding(
-                  padding: const EdgeInsets.only(top: AppDimens.spacing2xs),
+                  padding: EdgeInsets.only(top: spacing.xs / 2),
                   child: SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Row(
-                      children: _withSpacing(infoBadges),
+                      children: _withSpacing(context, infoBadges),
                     ),
                   ),
                 ),
@@ -369,12 +369,13 @@ class ScannerResultCard extends StatelessWidget {
     required String value,
     required IconData icon,
   }) {
+    final spacing = context.spacing;
     return Semantics(
       label: label,
       child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppDimens.spacingSm,
-          vertical: AppDimens.spacing2xs,
+        padding: EdgeInsets.symmetric(
+          horizontal: spacing.sm,
+          vertical: spacing.xs / 2,
         ),
         decoration: BoxDecoration(
           borderRadius: context.radiusMedium,
@@ -407,6 +408,7 @@ class ScannerResultCard extends StatelessWidget {
   Widget _buildStatusIcons(BuildContext context) {
     final primaryColor = context.actionPrimary;
     final destructiveColor = context.textNegative;
+    final spacing = context.spacing;
     final icons = <Widget>[];
 
     if (isHospitalOnly) {
@@ -447,8 +449,8 @@ class ScannerResultCard extends StatelessWidget {
     if (icons.isEmpty) return const SizedBox.shrink();
 
     return Wrap(
-      spacing: AppDimens.spacingXs,
-      runSpacing: AppDimens.spacing2xs,
+      spacing: spacing.xs,
+      runSpacing: spacing.xs / 2,
       children: icons,
     );
   }
@@ -478,7 +480,7 @@ class ScannerResultCard extends StatelessWidget {
         children: [
           Icon(
             Icons.qr_code_scanner,
-            size: AppDimens.iconXs,
+            size: 12, // AppDimens.iconXs
             color: mutedForeground,
           ),
           const Gap(4),
@@ -495,11 +497,12 @@ class ScannerResultCard extends StatelessWidget {
     );
   }
 
-  List<Widget> _withSpacing(List<Widget> children) {
+  List<Widget> _withSpacing(BuildContext context, List<Widget> children) {
     final spaced = <Widget>[];
+    final spacing = context.spacing;
     for (var i = 0; i < children.length; i++) {
       if (i > 0) {
-        spaced.add(const SizedBox(width: AppDimens.spacingXs));
+        spaced.add(Gap(spacing.xs));
       }
       spaced.add(children[i]);
     }

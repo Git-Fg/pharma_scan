@@ -3,7 +3,7 @@ import 'package:pharma_scan/core/providers/preferences_provider.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/mixins/safe_async_notifier_mixin.dart';
 import 'package:pharma_scan/core/domain/types/unknown_value.dart';
-import 'package:pharma_scan/features/restock/domain/entities/restock_item_entity.dart';
+import 'package:pharma_scan/core/domain/entities/restock_item_entity.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'restock_provider.g.dart';

@@ -2,11 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:gap/gap.dart';
 import 'package:pharma_scan/core/services/haptic_service.dart';
-import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/utils/ui_helpers.dart';
-import 'package:pharma_scan/features/restock/domain/entities/restock_item_entity.dart';
+import 'package:pharma_scan/core/domain/entities/restock_item_entity.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 class RestockListItem extends StatelessWidget {
@@ -35,9 +34,12 @@ class RestockListItem extends StatelessWidget {
   final void Function(DismissDirection) onDismissed;
   final VoidCallback? onRemove;
 
+  static const double _minTileHeight = 56.0;
+
   @override
   Widget build(BuildContext context) {
     final theme = context.shadTheme;
+    final spacing = context.spacing;
     final isZero = item.quantity == 0;
     final contentOpacity = isZero ? 0.5 : 1.0;
     final backgroundColor = isZero
@@ -53,7 +55,7 @@ class RestockListItem extends StatelessWidget {
       background: Container(
         color: context.colors.primary,
         alignment: Alignment.centerLeft,
-        padding: const EdgeInsets.symmetric(horizontal: AppDimens.spacingMd),
+        padding: EdgeInsets.symmetric(horizontal: spacing.md),
         child: const Icon(
           LucideIcons.check,
           color: Colors.white,
@@ -62,11 +64,11 @@ class RestockListItem extends StatelessWidget {
       secondaryBackground: Container(
         color: context.colors.destructive,
         alignment: Alignment.centerRight,
-        padding: const EdgeInsets.symmetric(horizontal: AppDimens.spacingMd),
+        padding: EdgeInsets.symmetric(horizontal: spacing.md),
         child: const Icon(
           LucideIcons.trash2,
           color: Colors.white,
-          size: AppDimens.iconLg,
+          size: 24, // Standard large icon
         ),
       ),
       confirmDismiss: (direction) async {
@@ -97,7 +99,7 @@ class RestockListItem extends StatelessWidget {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           constraints: const BoxConstraints(
-            minHeight: AppDimens.listTileMinHeight,
+            minHeight: _minTileHeight,
           ),
           decoration: BoxDecoration(
             color: backgroundColor,
@@ -105,7 +107,7 @@ class RestockListItem extends StatelessWidget {
             border: Border.all(color: borderColor),
           ),
           child: Padding(
-            padding: const EdgeInsets.all(AppDimens.spacingMd),
+            padding: EdgeInsets.all(spacing.md),
             child: Row(
               children: [
                 Container(
@@ -116,7 +118,7 @@ class RestockListItem extends StatelessWidget {
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-                const SizedBox(width: AppDimens.spacingMd),
+                SizedBox(width: spacing.md),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -145,7 +147,7 @@ class RestockListItem extends StatelessWidget {
                     ],
                   ),
                 ),
-                const Gap(AppDimens.spacingSm),
+                Gap(spacing.sm),
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -155,7 +157,7 @@ class RestockListItem extends StatelessWidget {
                       padding: EdgeInsets.zero,
                       icon: Icon(
                         isZero ? LucideIcons.trash2 : LucideIcons.minus,
-                        size: AppDimens.iconSm,
+                        size: 16, // Standard small icon
                         color: isZero
                             ? context.colors.destructive
                             : context.colors.foreground,
@@ -171,7 +173,7 @@ class RestockListItem extends StatelessWidget {
                         }
                       },
                     ),
-                    const SizedBox(width: AppDimens.spacing2xs),
+                    SizedBox(width: spacing.xs / 2),
                     GestureDetector(
                       onTap: () => _showQuantityDialog(
                         context,
@@ -181,9 +183,9 @@ class RestockListItem extends StatelessWidget {
                         constraints: const BoxConstraints(
                           minWidth: 32,
                         ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppDimens.spacing2xs,
-                          vertical: AppDimens.spacing2xs,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: spacing.xs / 2,
+                          vertical: spacing.xs / 2,
                         ),
                         alignment: Alignment.center,
                         child: Text(
@@ -197,26 +199,26 @@ class RestockListItem extends StatelessWidget {
                         ),
                       ),
                     ),
-                    const SizedBox(width: AppDimens.spacing2xs),
+                    SizedBox(width: spacing.xs / 2),
                     ShadIconButton.ghost(
                       width: 32,
                       height: 32,
                       padding: EdgeInsets.zero,
                       icon: const Icon(
                         LucideIcons.plus,
-                        size: AppDimens.iconSm,
+                        size: 16, // Standard small icon
                       ),
                       onPressed: () async {
                         await haptics.selection();
                         onIncrement();
                       },
                     ),
-                    const SizedBox(width: AppDimens.spacing2xs),
+                    SizedBox(width: spacing.xs / 2),
                     TextButton(
                       style: TextButton.styleFrom(
                         minimumSize: const Size(44, 32),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppDimens.spacing2xs,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: spacing.xs / 2,
                         ),
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
@@ -232,7 +234,7 @@ class RestockListItem extends StatelessWidget {
                     ),
                   ],
                 ),
-                const Gap(AppDimens.spacingSm),
+                Gap(spacing.sm),
                 Opacity(
                   opacity: contentOpacity,
                   child: ShadCheckbox(

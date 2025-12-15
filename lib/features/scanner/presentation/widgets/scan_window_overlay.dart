@@ -4,8 +4,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:pharma_scan/core/theme/app_dimens.dart';
-import 'package:pharma_scan/core/hooks/use_scanner_logic.dart';
+import 'package:pharma_scan/features/scanner/constants/scanner_constants.dart';
+import 'package:pharma_scan/features/scanner/presentation/hooks/use_scanner_logic.dart';
 import 'package:pharma_scan/features/scanner/presentation/providers/scanner_provider.dart';
 import 'package:pharma_scan/core/ui/theme/app_theme.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
@@ -28,7 +28,7 @@ class ScanWindowOverlay extends HookConsumerWidget {
 
         // Use Signals for high-frequency bubble count updates
         final scannerLogic = useScannerLogic(ref);
-        final bubblesCount = scannerLogic.bubbleCount.value as int;
+        final bubblesCount = scannerLogic.bubbleCount.value;
         final scannerAsync = ref.watch(scannerProvider);
         final isLoading = scannerAsync.isLoading;
 
@@ -147,10 +147,10 @@ class _Reticle extends HookWidget {
       _ReticleState.idle => baseColor,
     };
 
-    final iconContainerSize = windowSize *
-        (AppDimens.scannerWindowIconSize / AppDimens.scannerWindowSize);
+    final iconContainerSize =
+        windowSize * (ScannerConstants.iconSize / ScannerConstants.windowSize);
     final iconInnerSize = windowSize *
-        (AppDimens.scannerWindowIconInnerSize / AppDimens.scannerWindowSize);
+        (ScannerConstants.iconInnerSize / ScannerConstants.windowSize);
 
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(begin: 1, end: targetScale),
@@ -160,12 +160,9 @@ class _Reticle extends HookWidget {
         return Transform.scale(
           scale: scale,
           // ignore: unchecked_use_of_nullable_value
-          child: (child ?? const SizedBox())
-              .animate()
-              .fade(
+          child: (child ?? const SizedBox()).animate().fade(
                 duration: const Duration(milliseconds: 220),
-              )
-              ,
+              ),
         );
       },
       child: SizedBox(
@@ -177,8 +174,8 @@ class _Reticle extends HookWidget {
             CustomPaint(
               painter: _ScanCornerPainter(
                 color: targetColor,
-                cornerLength: AppDimens.scannerWindowCornerLength,
-                cornerThickness: AppDimens.scannerWindowCornerThickness,
+                cornerLength: ScannerConstants.cornerLength,
+                cornerThickness: ScannerConstants.cornerThickness,
                 borderRadius: borderRadius,
               ),
             ),

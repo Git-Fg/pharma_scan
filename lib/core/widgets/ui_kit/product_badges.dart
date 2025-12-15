@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
-import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/formatters.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
@@ -26,67 +25,67 @@ class ProductTypeBadge extends StatelessWidget {
         : const ShadOrangeColorScheme.light();
     final (:badge, :tooltip) = switch (memberType) {
       0 => (
-        badge: ShadBadge.secondary(
-          child: Text(
-            compact ? Strings.badgePrinceps[0] : Strings.badgePrinceps,
-            style: theme.textTheme.small,
+          badge: ShadBadge.secondary(
+            child: Text(
+              compact ? Strings.badgePrinceps[0] : Strings.badgePrinceps,
+              style: theme.textTheme.small,
+            ),
           ),
+          tooltip: Strings.badgePrincepsTooltip,
         ),
-        tooltip: Strings.badgePrincepsTooltip,
-      ),
       2 => (
-        badge: ShadBadge(
-          backgroundColor: warningScheme.primary,
-          hoverBackgroundColor: warningScheme.ring,
-          foregroundColor: warningScheme.primaryForeground,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (!compact)
-                Icon(
-                  LucideIcons.triangleAlert,
-                  size: 12,
-                  color: warningScheme.primaryForeground,
+          badge: ShadBadge(
+            backgroundColor: warningScheme.primary,
+            hoverBackgroundColor: warningScheme.ring,
+            foregroundColor: warningScheme.primaryForeground,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (!compact)
+                  Icon(
+                    LucideIcons.triangleAlert,
+                    size: 12,
+                    color: warningScheme.primaryForeground,
+                  ),
+                if (!compact) const SizedBox(width: 4),
+                Text(
+                  compact ? 'G!' : Strings.badgeGenericComplementary,
+                  style: theme.textTheme.small.copyWith(
+                    color: warningScheme.primaryForeground,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-              if (!compact) const SizedBox(width: 4),
-              Text(
-                compact ? 'G!' : Strings.badgeGenericComplementary,
-                style: theme.textTheme.small.copyWith(
-                  color: warningScheme.primaryForeground,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
+          tooltip: Strings.badgeGenericComplementaryTooltip,
         ),
-        tooltip: Strings.badgeGenericComplementaryTooltip,
-      ),
       1 || 3 || 4 => (
-        badge: ShadBadge.outline(
-          child: Text(
-            compact
-                ? 'G'
-                : memberType == 1
-                ? Strings.badgeGeneric
-                : Strings.badgeGenericSubstitutable,
-            style: theme.textTheme.small,
+          badge: ShadBadge.outline(
+            child: Text(
+              compact
+                  ? 'G'
+                  : memberType == 1
+                      ? Strings.badgeGeneric
+                      : Strings.badgeGenericSubstitutable,
+              style: theme.textTheme.small,
+            ),
           ),
+          tooltip: memberType == 1
+              ? Strings.badgeGenericTooltip
+              : Strings.badgeGenericSubstitutableTooltip,
         ),
-        tooltip: memberType == 1
-            ? Strings.badgeGenericTooltip
-            : Strings.badgeGenericSubstitutableTooltip,
-      ),
       _ => (
-        badge: ShadBadge.outline(
-          child: Text(
-            compact
-                ? Strings.genericTypeUnknown[0]
-                : Strings.genericTypeUnknown,
-            style: theme.textTheme.small,
+          badge: ShadBadge.outline(
+            child: Text(
+              compact
+                  ? Strings.genericTypeUnknown[0]
+                  : Strings.genericTypeUnknown,
+              style: theme.textTheme.small,
+            ),
           ),
+          tooltip: Strings.genericTypeUnknown,
         ),
-        tooltip: Strings.genericTypeUnknown,
-      ),
     };
 
     return ShadTooltip(
@@ -116,8 +115,7 @@ class FinancialBadge extends StatelessWidget {
     final items = <Widget>[];
 
     final normalizedRefund = refundRate?.trim();
-    final hasRefund =
-        normalizedRefund != null &&
+    final hasRefund = normalizedRefund != null &&
         normalizedRefund.isNotEmpty &&
         normalizedRefund.toLowerCase() != 'nr';
     if (hasRefund) {
@@ -311,8 +309,8 @@ class RegulatoryBadges extends StatelessWidget {
     }
 
     return Wrap(
-      spacing: compact ? 2.0 : AppDimens.spacing2xs,
-      runSpacing: compact ? 1.0 : AppDimens.spacing2xs / 2,
+      spacing: 2.0,
+      runSpacing: 1.0,
       children: badges,
     );
   }

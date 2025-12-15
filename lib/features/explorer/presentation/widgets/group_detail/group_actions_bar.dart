@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 import 'package:pharma_scan/core/services/logger_service.dart';
-import 'package:pharma_scan/core/theme/app_dimens.dart';
+
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -34,7 +34,7 @@ class GroupActionsBar extends StatelessWidget {
     final rcpUrl = rcpAnsm(cisCode!);
 
     return Padding(
-      padding: const EdgeInsets.only(top: AppDimens.spacingMd),
+      padding: const EdgeInsets.only(top: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -43,7 +43,7 @@ class GroupActionsBar extends StatelessWidget {
               onPressed: () => _launchUrl(context, ansmAlertUrl!),
               child: const Icon(LucideIcons.triangleAlert),
             ),
-            const Gap(AppDimens.spacingSm),
+            const Gap(12),
           ],
           ShadResponsiveBuilder(
             builder: (context, breakpoint) {
@@ -65,7 +65,7 @@ class GroupActionsBar extends StatelessWidget {
                 return Row(
                   children: [
                     Expanded(child: ficheButton),
-                    const Gap(AppDimens.spacingSm),
+                    const Gap(12),
                     Expanded(child: rcpButton),
                   ],
                 );
@@ -75,7 +75,7 @@ class GroupActionsBar extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   ficheButton,
-                  const Gap(AppDimens.spacingSm),
+                  const Gap(12),
                   rcpButton,
                 ],
               );

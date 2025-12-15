@@ -1,5 +1,5 @@
 import 'package:pharma_scan/core/providers/core_providers.dart';
-import 'package:pharma_scan/features/explorer/domain/entities/group_detail_entity.dart';
+import 'package:pharma_scan/core/domain/entities/group_detail_entity.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'group_classification_provider.g.dart';

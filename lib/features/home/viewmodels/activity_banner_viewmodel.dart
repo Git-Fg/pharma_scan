@@ -3,9 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
-import 'package:pharma_scan/features/home/models/sync_state.dart';
-import 'package:pharma_scan/features/home/providers/initialization_provider.dart';
-import 'package:pharma_scan/features/home/providers/sync_provider.dart';
+import 'package:pharma_scan/core/domain/models/sync_state.dart';
+import 'package:pharma_scan/core/providers/initialization_provider.dart';
+import 'package:pharma_scan/core/providers/sync_provider.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
@@ -132,8 +132,8 @@ ActivityBannerState? activityBannerViewModel(Ref ref) {
   // Priority 3: Sync Progress
   if (syncProgress.phase != SyncPhase.idle) {
     final presenter = SyncStatusPresenter(syncProgress);
-    IconData icon;
-    String status;
+    IconData icon = LucideIcons.circleDashed; // Default initialization
+    String status = ''; // Default initialization
     String? description;
     var indeterminate = true;
     double? progressValue;

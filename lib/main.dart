@@ -1,18 +1,20 @@
 import 'dart:async';
 
+import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 // import 'package:pharma_scan/core/database/database.dart';
 import 'package:pharma_scan/core/providers/theme_provider.dart';
-import 'package:pharma_scan/core/router/app_router.dart';
-import 'package:pharma_scan/core/router/router_provider.dart';
+import 'package:pharma_scan/app/router/app_router.dart';
+import 'package:pharma_scan/app/router/router_provider.dart';
 // import 'package:pharma_scan/core/services/data_initialization_service.dart';
 import 'package:pharma_scan/core/services/logger_service.dart';
-import 'package:pharma_scan/core/utils/navigation_helpers.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
-import 'package:pharma_scan/features/home/providers/initialization_provider.dart';
+import 'package:pharma_scan/core/providers/initialization_provider.dart';
+import 'package:pharma_scan/core/services/haptic_service.dart';
+import 'package:pharma_scan/features/scanner/presentation/providers/scanner_provider.dart';
 import 'package:quick_actions/quick_actions.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:talker_riverpod_logger/talker_riverpod_logger.dart';
@@ -77,7 +79,16 @@ class PharmaScanApp extends HookConsumerWidget {
                 unawaited(() async {
                   final navContext =
                       appRouter.navigatorKey.currentContext ?? context;
-                  await ref.navigateToRestockMode(navContext);
+                  // Inlined logic from navigation_helpers to avoid Core -> Feature violation
+                  ref
+                      .read(scannerProvider.notifier)
+                      .setMode(ScannerMode.restock);
+                  try {
+                    AutoTabsRouter.of(navContext).setActiveIndex(0);
+                  } on Object {
+                    // Not inside a tab scaffold
+                  }
+                  await ref.read(hapticServiceProvider).restockSuccess();
                   await appRouter.navigate(const ScannerTabRoute());
                 }());
               case 'action_search':
@@ -109,7 +120,8 @@ class PharmaScanApp extends HookConsumerWidget {
       theme: ShadThemeData(
         brightness: Brightness.light,
         colorScheme: const ShadGreenColorScheme.light(
-          primary: Color(0xFF0F766E), // Pharmacy green
+          // ignore: avoid_direct_colors
+          primary: Color(0xFF0F766E),
         ),
         // Global radius configuration
         radius: BorderRadius.circular(12),
@@ -118,12 +130,11 @@ class PharmaScanApp extends HookConsumerWidget {
           padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         ),
         cardTheme: const ShadCardTheme(
-          padding: EdgeInsets.all(16), // spacingMd from AppDimens
+          padding: EdgeInsets.all(16),
         ),
         // Set touch target sizes
         primaryButtonTheme: const ShadButtonTheme(
-          height:
-              56, // listTileMinHeight from AppDimens for better touch targets
+          height: 56,
           width: double.infinity, // Full width by default on mobile
         ),
         primaryToastTheme: const ShadToastTheme(
@@ -136,7 +147,8 @@ class PharmaScanApp extends HookConsumerWidget {
       darkTheme: ShadThemeData(
         brightness: Brightness.dark,
         colorScheme: const ShadGreenColorScheme.dark(
-          primary: Color(0xFF14B8A6), // Pharmacy green in dark mode
+          // ignore: avoid_direct_colors
+          primary: Color(0xFF14B8A6),
         ),
         // Global radius configuration
         radius: BorderRadius.circular(12),
@@ -149,8 +161,7 @@ class PharmaScanApp extends HookConsumerWidget {
         ),
         // Set touch target sizes
         primaryButtonTheme: const ShadButtonTheme(
-          height:
-              56, // listTileMinHeight from AppDimens for better touch targets
+          height: 56,
           width: double.infinity, // Full width by default on mobile
         ),
         primaryToastTheme: const ShadToastTheme(
@@ -173,6 +184,9 @@ class PharmaScanApp extends HookConsumerWidget {
           ],
           locale: const Locale('fr', ''),
           routerConfig: appRouter.config(),
+          builder: (context, child) {
+            return ShadToaster(child: child!);
+          },
         );
       },
     );

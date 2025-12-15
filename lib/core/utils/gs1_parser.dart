@@ -1,9 +1,11 @@
 import 'package:petitparser/petitparser.dart';
+import 'package:pharma_scan/core/utils/cip_utils.dart';
 
 /// Result of parsing a GS1 DataMatrix barcode.
 class Gs1DataMatrix {
   const Gs1DataMatrix({
     this.gtin, // AI (01) -> Code CIP
+    this.cip7,
     this.serial, // AI (21)
     this.lot, // AI (10)
     this.expDate, // AI (17)
@@ -11,6 +13,7 @@ class Gs1DataMatrix {
   });
 
   final String? gtin;
+  final String? cip7;
   final String? serial;
   final String? lot;
   final DateTime? expDate;
@@ -144,6 +147,7 @@ class Gs1Parser {
 
     return Gs1DataMatrix(
       gtin: gtin,
+      cip7: CipUtils.extractCip7(gtin),
       serial: serial,
       lot: lot,
       expDate: expDate,

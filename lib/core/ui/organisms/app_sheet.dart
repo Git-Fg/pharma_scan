@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 class AppSheet {
@@ -16,7 +15,7 @@ class AppSheet {
         title: Text(title),
         actions: actions ?? const [],
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: AppDimens.spacingMd),
+          padding: const EdgeInsets.symmetric(vertical: 16), // spacingMd
           child: child,
         ),
       ),

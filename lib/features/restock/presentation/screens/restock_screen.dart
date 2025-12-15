@@ -9,7 +9,6 @@ import 'package:pharma_scan/core/hooks/use_tab_reselection.dart';
 
 import 'package:pharma_scan/core/providers/preferences_provider.dart';
 import 'package:pharma_scan/core/services/haptic_service.dart';
-import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/status_view.dart';
@@ -24,6 +23,7 @@ class RestockScreen extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scrollController = useScrollController();
+    final spacing = context.spacing;
 
     final restockAsync = ref.watch(sortedRestockProvider);
     final sortingAsync = ref.watch(sortingPreferenceProvider);
@@ -42,7 +42,7 @@ class RestockScreen extends HookConsumerWidget {
           return ShadDialog.alert(
             title: Text(title),
             description: Padding(
-              padding: const EdgeInsets.only(bottom: AppDimens.spacingXs),
+              padding: EdgeInsets.only(bottom: spacing.xs),
               child: Text(description),
             ),
             actions: [
@@ -127,9 +127,9 @@ class RestockScreen extends HookConsumerWidget {
               slivers: [
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppDimens.spacingMd,
-                      vertical: AppDimens.spacingSm,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: spacing.md,
+                      vertical: spacing.sm,
                     ),
                     child: Text(
                       letter,

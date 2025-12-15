@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
-import 'package:pharma_scan/core/theme/app_dimens.dart';
+
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
-import 'package:pharma_scan/features/explorer/domain/entities/cluster_entity.dart';
+import 'package:pharma_scan/core/domain/entities/cluster_entity.dart';
 
 /// A tile representing a cluster (conceptual group) in search results
 /// Displays cluster information and opens a drawer when tapped
@@ -31,8 +31,8 @@ class ClusterTile extends StatelessWidget {
           child: Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(
-              horizontal: AppDimens.spacingMd,
-              vertical: AppDimens.spacingSm,
+              horizontal: 16,
+              vertical: 12,
             ),
             decoration: BoxDecoration(
               color: context.colors.card,
@@ -70,11 +70,11 @@ class ClusterTile extends StatelessWidget {
                     ],
                   ),
                 ),
-                const Gap(AppDimens.spacingSm),
+                const Gap(12),
                 ShadBadge(
                   child: Text(Strings.productCount(entity.productCount)),
                 ),
-                const Gap(AppDimens.spacingSm),
+                const Gap(12),
                 const ExcludeSemantics(
                   child: Icon(LucideIcons.chevronRight, size: 16),
                 ),

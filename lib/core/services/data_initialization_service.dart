@@ -12,7 +12,7 @@ import 'package:pharma_scan/core/database/daos/app_settings_dao.dart';
 import 'package:riverpod/riverpod.dart';
 import 'package:pharma_scan/core/database/providers.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
-import 'package:pharma_scan/features/home/providers/sync_provider.dart';
+import 'package:pharma_scan/core/providers/sync_provider.dart';
 
 enum InitializationStep { idle, downloading, ready, error }
 

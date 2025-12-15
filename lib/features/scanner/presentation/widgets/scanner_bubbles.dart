@@ -2,18 +2,19 @@ import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:signals_flutter/signals_flutter.dart';
-import 'package:pharma_scan/core/hooks/use_scanner_logic.dart';
-import 'package:pharma_scan/core/router/app_router.dart';
-import 'package:pharma_scan/core/theme/app_dimens.dart';
+import 'package:pharma_scan/features/scanner/presentation/hooks/use_scanner_logic.dart';
+import 'package:pharma_scan/app/router/app_router.dart';
 
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/models/scan_models.dart';
-import 'package:pharma_scan/features/scanner/domain/scanner_mode.dart';
+import 'package:pharma_scan/features/scanner/presentation/providers/scanner_provider.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/product_badges.dart';
 import 'package:pharma_scan/features/scanner/presentation/widgets/scanner_result_card.dart';
 import 'package:pharma_scan/core/ui/theme/app_theme.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
+
+import 'package:pharma_scan/features/scanner/domain/scanner_mode.dart';
 
 /// Widget that displays the stack of scan result bubbles at the top of the camera screen.
 ///
@@ -29,8 +30,8 @@ class ScannerBubbles extends HookConsumerWidget {
     final logic = useScannerLogic(ref);
 
     return Watch((_) {
-      final scannerBubbles = logic.bubbles.value as List<ScanResult>;
-      final ScannerMode mode = logic.mode.value as ScannerMode;
+      final scannerBubbles = logic.bubbles.value;
+      final ScannerMode mode = logic.mode.value;
 
       if (scannerBubbles.isEmpty) return const SizedBox.shrink();
 
@@ -73,8 +74,8 @@ class ScannerBubbles extends HookConsumerWidget {
 
     return Padding(
       padding: EdgeInsets.only(
-        bottom: AppDimens.spacing2xs / 2,
-        top: isPrimary ? 0 : AppDimens.spacing2xs / 2,
+        bottom: context.spacing.xs / 2,
+        top: isPrimary ? 0 : context.spacing.xs / 2,
       ),
       child: Dismissible(
         key: ValueKey(bubble.cip.toString()),

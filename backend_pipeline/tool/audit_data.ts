@@ -28,9 +28,11 @@ function main() {
 
   // Utiliser directement la vue SQL qui fait tout le travail
   // Échantillonnage aléatoire limité à 500 clusters pour revue
+  // Order clusters by `cluster_princeps` alphabetically (case-insensitive)
   const clustersQuery = db.query(`
     SELECT * FROM v_clusters_audit
-    ORDER BY RANDOM()
+    -- Fallback to unified_name when cluster_princeps is NULL
+    ORDER BY COALESCE(cluster_princeps, unified_name) COLLATE NOCASE ASC
     LIMIT 500
   `);
 

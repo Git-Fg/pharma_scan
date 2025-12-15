@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
-import 'package:pharma_scan/core/theme/app_dimens.dart';
+
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/formatters.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/product_badges.dart';
-import 'package:pharma_scan/features/explorer/domain/entities/group_detail_entity.dart';
-import 'package:pharma_scan/features/explorer/domain/extensions/medication_status_extensions.dart';
+import 'package:pharma_scan/core/domain/entities/group_detail_entity.dart';
+import 'package:pharma_scan/core/domain/extensions/medication_status_extensions.dart';
 import 'package:pharma_scan/features/explorer/domain/extensions/view_group_detail_extensions.dart';
-import 'package:pharma_scan/features/explorer/presentation/widgets/status_badges.dart';
+import 'package:pharma_scan/core/widgets/badges/status_badges.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 class PrincepsHeroCard extends StatelessWidget {
@@ -44,7 +44,7 @@ class PrincepsHeroCard extends StatelessWidget {
         borderRadius: theme.radius,
       ),
       child: ShadCard(
-        padding: const EdgeInsets.all(AppDimens.spacingMd),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -52,7 +52,7 @@ class PrincepsHeroCard extends StatelessWidget {
               ShadBadge.secondary(
                 child: Text(Strings.heroFallbackGeneric),
               ),
-              const Gap(AppDimens.spacing2xs),
+              const Gap(4),
             ],
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -65,7 +65,7 @@ class PrincepsHeroCard extends StatelessWidget {
                   ),
                   softWrap: true,
                 ),
-                const Gap(AppDimens.spacing2xs),
+                const Gap(4),
                 Text(
                   '${Strings.cip} ${princeps.cipCode}',
                   style: theme.textTheme.small.copyWith(
@@ -81,14 +81,14 @@ class PrincepsHeroCard extends StatelessWidget {
                   ),
                   softWrap: true,
                 ),
-                const Gap(AppDimens.spacingSm),
+                const Gap(12),
                 ShadButton.outline(
                   onPressed: onViewDetails,
                   child: const Icon(LucideIcons.info),
                 ),
               ],
             ),
-            const Gap(AppDimens.spacingSm),
+            const Gap(12),
             Row(
               children: [
                 Expanded(
@@ -99,7 +99,7 @@ class PrincepsHeroCard extends StatelessWidget {
                     icon: LucideIcons.banknote,
                   ),
                 ),
-                const Gap(AppDimens.spacingSm),
+                const Gap(12),
                 Expanded(
                   child: _buildStatChip(
                     context,
@@ -110,10 +110,10 @@ class PrincepsHeroCard extends StatelessWidget {
                 ),
               ],
             ),
-            const Gap(AppDimens.spacingSm),
+            const Gap(12),
             Wrap(
-              spacing: AppDimens.spacing2xs,
-              runSpacing: AppDimens.spacing2xs,
+              spacing: 4,
+              runSpacing: 4,
               children: [
                 ...buildStatusBadges(
                   context,
@@ -148,8 +148,8 @@ class PrincepsHeroCard extends StatelessWidget {
     final theme = context.shadTheme;
     return Container(
       padding: const EdgeInsets.symmetric(
-        horizontal: AppDimens.spacingSm,
-        vertical: AppDimens.spacing2xs,
+        horizontal: 12,
+        vertical: 4,
       ),
       decoration: BoxDecoration(
         borderRadius: theme.radius,

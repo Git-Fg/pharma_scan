@@ -9,11 +9,10 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:pharma_scan/core/hooks/use_app_header.dart';
 import 'package:pharma_scan/core/providers/navigation_provider.dart';
 
-import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/status_view.dart';
-import 'package:pharma_scan/features/explorer/domain/entities/group_detail_entity.dart';
+import 'package:pharma_scan/core/domain/entities/group_detail_entity.dart';
 import 'package:pharma_scan/features/explorer/presentation/providers/group_explorer_provider.dart';
 import 'package:pharma_scan/features/explorer/presentation/providers/group_explorer_state.dart';
 import 'package:pharma_scan/features/explorer/presentation/widgets/group_detail/generics_section.dart';
@@ -34,6 +33,7 @@ class GroupExplorerView extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scrollController = useScrollController();
+    final spacing = context.spacing;
 
     useEffect(
       () {
@@ -123,9 +123,9 @@ class GroupExplorerView extends HookConsumerWidget {
             if (shouldShowRelatedSection)
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppDimens.spacingMd,
-                    vertical: AppDimens.spacingMd,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: spacing.md,
+                    vertical: spacing.md,
                   ),
                   child: Text(
                     Strings.relatedGroups,
@@ -137,9 +137,9 @@ class GroupExplorerView extends HookConsumerWidget {
               ...state.related.map(
                 (related) => SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppDimens.spacingMd,
-                      vertical: AppDimens.spacingXs,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: spacing.md,
+                      vertical: spacing.xs,
                     ),
                     child: MedicationDetailSheet(
                       item: related,
@@ -147,7 +147,7 @@ class GroupExplorerView extends HookConsumerWidget {
                   ),
                 ),
               ),
-            const SliverToBoxAdapter(child: Gap(AppDimens.spacingLg)),
+            SliverToBoxAdapter(child: Gap(spacing.lg)),
           ],
         );
       },

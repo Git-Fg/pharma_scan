@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:gap/gap.dart';
-import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
-import 'package:pharma_scan/features/explorer/domain/models/generic_group_entity.dart';
+import 'package:pharma_scan/core/domain/models/generic_group_entity.dart';
 import 'package:pharma_scan/core/ui/organisms/app_sheet.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
@@ -26,6 +25,7 @@ class MoleculeGroupTile extends HookWidget {
 
   @override
   Widget build(BuildContext context) {
+    final spacing = context.spacing;
     final sortedGroups = List<GenericGroupEntity>.from(groups)
       ..sort(
         (a, b) =>
@@ -38,9 +38,9 @@ class MoleculeGroupTile extends HookWidget {
         title: moleculeName,
         child: SingleChildScrollView(
           child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppDimens.spacingMd,
-              vertical: AppDimens.spacingMd,
+            padding: EdgeInsets.symmetric(
+              horizontal: spacing.md,
+              vertical: spacing.md,
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -65,15 +65,15 @@ class MoleculeGroupTile extends HookWidget {
         child: SizedBox(
           height: _groupHeaderHeight,
           child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppDimens.spacingMd,
+            padding: EdgeInsets.symmetric(
+              horizontal: spacing.md,
             ),
             child: Row(
               children: [
                 ShadBadge.outline(
                   child: Text(Strings.generics.substring(0, 1)),
                 ),
-                const Gap(AppDimens.spacingSm),
+                Gap(spacing.sm),
                 Expanded(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -102,7 +102,7 @@ class MoleculeGroupTile extends HookWidget {
                     ],
                   ),
                 ),
-                const Gap(AppDimens.spacingSm),
+                Gap(spacing.sm),
                 Text(
                   Strings.productCount(groups.length),
                   style: context.typo.small.copyWith(
@@ -111,8 +111,8 @@ class MoleculeGroupTile extends HookWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                const Gap(AppDimens.spacingSm),
-                ExcludeSemantics(
+                Gap(spacing.sm),
+                const ExcludeSemantics(
                   child: Icon(LucideIcons.chevronRight, size: 16),
                 ),
               ],

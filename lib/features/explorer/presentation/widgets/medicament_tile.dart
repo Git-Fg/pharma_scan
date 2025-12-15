@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
-import 'package:pharma_scan/core/theme/app_dimens.dart';
+
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/product_badges.dart';
@@ -169,8 +169,8 @@ class MedicamentTile extends StatelessWidget {
                   child: Container(
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(
-                      horizontal: AppDimens.spacingMd,
-                      vertical: AppDimens.spacingSm,
+                      horizontal: 16,
+                      vertical: 12,
                     ),
                     decoration: BoxDecoration(
                       border: Border(
@@ -182,7 +182,7 @@ class MedicamentTile extends StatelessWidget {
                       children: [
                         ...[
                           ExcludeSemantics(child: prefix),
-                          const Gap(AppDimens.spacingSm),
+                          const Gap(12),
                         ],
                         Expanded(
                           child: Column(
@@ -236,7 +236,7 @@ class MedicamentTile extends StatelessWidget {
                           ),
                         ),
                         if (isStackedLayout) ...[
-                          const Gap(AppDimens.spacing2xs),
+                          const Gap(4),
                           if (buildDetails(
                                 align: TextAlign.start,
                                 maxLines: 2,
@@ -255,7 +255,7 @@ class MedicamentTile extends StatelessWidget {
                                 maxLines: 1,
                               ) !=
                               null) ...[
-                            const Gap(AppDimens.spacingSm),
+                            const Gap(12),
                             Flexible(
                               child: buildDetails(
                                     align: TextAlign.end,
@@ -266,14 +266,14 @@ class MedicamentTile extends StatelessWidget {
                           ],
                         ],
                         if (isRevoked) ...[
-                          const Gap(AppDimens.spacingXs),
+                          const Gap(8),
                           Icon(
                             LucideIcons.circle,
                             size: 10,
                             color: context.colors.destructive,
                           ),
                         ],
-                        const Gap(AppDimens.spacingXs),
+                        const Gap(8),
                         const ExcludeSemantics(
                           child: Icon(LucideIcons.chevronRight, size: 16),
                         ),

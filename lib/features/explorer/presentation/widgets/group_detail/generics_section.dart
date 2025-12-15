@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:gap/gap.dart';
-import 'package:pharma_scan/core/theme/app_dimens.dart';
+
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/formatters.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/product_badges.dart';
-import 'package:pharma_scan/features/explorer/domain/entities/group_detail_entity.dart';
+import 'package:pharma_scan/core/domain/entities/group_detail_entity.dart';
 import 'package:pharma_scan/features/explorer/domain/extensions/view_group_detail_extensions.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
@@ -36,7 +36,7 @@ class GenericsSection extends HookWidget {
 
     return Padding(
       padding: const EdgeInsets.symmetric(
-        horizontal: AppDimens.spacingMd,
+        horizontal: 16,
       ),
       child: ShadAccordion<String>.multiple(
         initialValue: const <String>[],
@@ -47,10 +47,10 @@ class GenericsSection extends HookWidget {
               children: [
                 Icon(
                   LucideIcons.copy,
-                  size: AppDimens.iconSm,
+                  size: 16,
                   color: context.colors.mutedForeground,
                 ),
-                const Gap(AppDimens.spacingXs),
+                const Gap(8),
                 Expanded(
                   child: Text(
                     Strings.generics,
@@ -59,7 +59,7 @@ class GenericsSection extends HookWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                const Gap(AppDimens.spacingXs),
+                const Gap(8),
                 ShadBadge(
                   child: Text('${filteredGenerics.length}'),
                 ),
@@ -70,7 +70,7 @@ class GenericsSection extends HookWidget {
               children: [
                 Padding(
                   padding: const EdgeInsets.only(
-                    bottom: AppDimens.spacingSm,
+                    bottom: 12,
                   ),
                   child: ShadInput(
                     controller: filterController,
@@ -79,7 +79,7 @@ class GenericsSection extends HookWidget {
                     ),
                     leading: Icon(
                       LucideIcons.search,
-                      size: AppDimens.iconSm,
+                      size: 16,
                       color: context.colors.mutedForeground,
                     ),
                     trailing: filterController.text.isNotEmpty
@@ -171,8 +171,8 @@ class MedicationListTile extends StatelessWidget {
                 width: itemWidth,
                 constraints: const BoxConstraints(minHeight: 72),
                 padding: const EdgeInsets.symmetric(
-                  horizontal: AppDimens.spacingMd,
-                  vertical: AppDimens.spacingSm,
+                  horizontal: 16,
+                  vertical: 12,
                 ),
                 decoration: BoxDecoration(
                   border: Border(
@@ -186,7 +186,7 @@ class MedicationListTile extends StatelessWidget {
                       scale: 0.9,
                       child: ProductTypeBadge(memberType: item.memberType),
                     ),
-                    const Gap(AppDimens.spacingSm),
+                    const Gap(12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -211,20 +211,20 @@ class MedicationListTile extends StatelessWidget {
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
-                          const Gap(AppDimens.spacing2xs),
+                          const Gap(4),
                           Row(
                             children: [
                               if (priceText != null) ...[
                                 ShadBadge(
                                   child: Text(priceText),
                                 ),
-                                const Gap(AppDimens.spacing2xs),
+                                const Gap(4),
                               ],
                               if (refundText != null) ...[
                                 ShadBadge.outline(
                                   child: Text(refundText),
                                 ),
-                                const Gap(AppDimens.spacing2xs),
+                                const Gap(4),
                               ],
                               if (priceText == null && refundText == null)
                                 Text(
@@ -238,7 +238,7 @@ class MedicationListTile extends StatelessWidget {
                           if (statusBadge != null ||
                               stockBadge != null ||
                               showNavigationIndicator) ...[
-                            const Gap(AppDimens.spacing2xs),
+                            const Gap(4),
                             SingleChildScrollView(
                               scrollDirection: Axis.horizontal,
                               child: Row(
@@ -251,7 +251,7 @@ class MedicationListTile extends StatelessWidget {
                                       (stockBadge != null ||
                                           showNavigationIndicator))
                                     const SizedBox(
-                                      width: AppDimens.spacing2xs,
+                                      width: 4,
                                     ),
                                   if (stockBadge != null)
                                     ShadBadge.outline(
@@ -260,7 +260,7 @@ class MedicationListTile extends StatelessWidget {
                                   if (stockBadge != null &&
                                       showNavigationIndicator)
                                     const SizedBox(
-                                      width: AppDimens.spacing2xs,
+                                      width: 4,
                                     ),
                                   if (showNavigationIndicator)
                                     const Icon(

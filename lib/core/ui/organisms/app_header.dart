@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../theme/app_spacing.dart';
 import '../theme/app_theme.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
@@ -132,7 +131,7 @@ class AppHeader extends ConsumerWidget implements PreferredSizeWidget {
           ? null
           : [
               ...actions,
-              HGap(AppSpacing.medium),
+              const SizedBox(width: 16), // Medium spacing
             ],
       bottom: bottom,
     );

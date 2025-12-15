@@ -1,7 +1,7 @@
 import 'package:dart_mappable/dart_mappable.dart';
 import 'package:pharma_scan/core/providers/core_providers.dart';
 import 'package:pharma_scan/core/mixins/safe_async_notifier_mixin.dart';
-import 'package:pharma_scan/features/explorer/domain/models/generic_group_entity.dart';
+import 'package:pharma_scan/core/domain/models/generic_group_entity.dart';
 import 'package:pharma_scan/features/explorer/domain/models/search_filters_model.dart';
 import 'package:pharma_scan/features/explorer/presentation/providers/search_provider.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';

@@ -5,7 +5,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:pharma_scan/core/hooks/use_app_header.dart';
 import 'package:pharma_scan/core/hooks/use_tab_reselection.dart';
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
-import 'package:pharma_scan/core/theme/app_dimens.dart';
+
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/status_view.dart';
@@ -13,7 +13,7 @@ import 'package:pharma_scan/features/explorer/presentation/providers/cluster_pro
 import 'package:pharma_scan/features/explorer/presentation/widgets/cluster_tile.dart'
     hide Strings;
 import 'package:pharma_scan/features/explorer/presentation/utils/drawer_utils.dart';
-import 'package:pharma_scan/features/home/providers/initialization_provider.dart';
+import 'package:pharma_scan/core/providers/initialization_provider.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 class DatabaseSearchView extends HookConsumerWidget {
@@ -28,7 +28,7 @@ class DatabaseSearchView extends HookConsumerWidget {
     final bottomSpace =
         viewInsetsBottom > 0 ? viewInsetsBottom : safeBottomPadding;
     final listBottomPadding =
-        AppDimens.searchBarHeaderHeight + bottomSpace + AppDimens.spacingSm;
+        64 + bottomSpace + 12;
 
     // Setup tab reselection with standard ScrollController for explorer tab (index 1)
     final scrollController = useScrollController();
@@ -74,17 +74,17 @@ class DatabaseSearchView extends HookConsumerWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(
+                  Icon(
                     LucideIcons.triangleAlert,
-                    color: Colors.red,
+                    color: context.colors.destructive,
                     size: 48,
                   ),
-                  const Gap(AppDimens.spacingSm),
+                  const Gap(12),
                   Text(
                     'Erreur de chargement',
                     style: context.typo.p,
                   ),
-                  const Gap(AppDimens.spacingXs),
+                  const Gap(8),
                   Text(
                     error.toString(),
                     style: context.typo.small.copyWith(
@@ -112,10 +112,10 @@ class DatabaseSearchView extends HookConsumerWidget {
           top: false,
           child: Padding(
             padding: EdgeInsets.only(
-              left: AppDimens.spacingMd,
-              right: AppDimens.spacingMd,
+              left: 16,
+              right: 16,
               bottom:
-                  viewInsetsBottom > 0 ? viewInsetsBottom : AppDimens.spacingSm,
+                  viewInsetsBottom > 0 ? viewInsetsBottom : 12,
             ),
             child: ShadInput(
               placeholder: const Text('Rechercher...'),

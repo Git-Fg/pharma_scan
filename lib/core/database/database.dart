@@ -12,7 +12,8 @@ import 'package:pharma_scan/core/database/daos/database_dao.dart';
 import 'package:pharma_scan/core/database/daos/restock_dao.dart';
 import 'package:pharma_scan/core/database/database.drift.dart';
 import 'package:pharma_scan/core/services/logger_service.dart';
-import 'package:pharma_scan/features/explorer/data/explorer_dao.dart';
+import 'package:pharma_scan/core/database/daos/explorer_dao.dart';
+import 'package:pharma_scan/core/database/user_schema.drift.dart';
 
 @DriftDatabase(
   // Include schema files - reference tables are defined in reference_schema.drift
@@ -20,7 +21,6 @@ import 'package:pharma_scan/features/explorer/data/explorer_dao.dart';
     'reference_schema.drift',
     'user_schema.drift',
     'queries.drift',
-    'views.drift',
     'restock_views.drift'
   },
   tables: [AppSettings],
@@ -68,6 +68,10 @@ class AppDatabase extends $AppDatabase {
         await m.createTable(restockItems);
         await m.createTable(scannedBoxes);
         await m.createTable(appSettings);
+
+        // Create generated indices for user tables
+        // Note: Indices defined in .drift files outside of CREATE TABLE must be created manually
+        await m.createIndex(idxScannedBoxesUnique);
       },
       beforeOpen: (details) async {
         await customStatement('PRAGMA foreign_keys = ON');

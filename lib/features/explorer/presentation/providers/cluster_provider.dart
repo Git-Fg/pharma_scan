@@ -1,6 +1,6 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:pharma_scan/core/providers/core_providers.dart';
-import 'package:pharma_scan/features/explorer/domain/entities/cluster_entity.dart';
+import 'package:pharma_scan/core/domain/entities/cluster_entity.dart';
 
 /// Provider that watches cluster search results
 final clusterSearchProvider =

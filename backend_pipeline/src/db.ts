@@ -120,6 +120,11 @@ export class ReferenceDatabase {
     this.db.run(`
       CREATE TABLE IF NOT EXISTS medicaments (
         cip_code TEXT PRIMARY KEY NOT NULL,
+        
+        -- ✨ NOUVEAU : Extraction automatique du CIP7
+        -- On prend 7 caractères à partir du 6ème (34009 3030261 3)
+        cip7 TEXT GENERATED ALWAYS AS (SUBSTR(cip_code, 6, 7)) STORED,
+        
         cis_code TEXT NOT NULL REFERENCES medicament_summary(cis_code) ON DELETE CASCADE,
         presentation_label TEXT NOT NULL DEFAULT '',
         commercialisation_statut TEXT,
@@ -128,6 +133,11 @@ export class ReferenceDatabase {
         agrement_collectivites TEXT,
         is_hospital INTEGER NOT NULL DEFAULT 0 CHECK (is_hospital IN (0, 1))
       ) STRICT;
+    `);
+
+    // Indexer le CIP7 pour des recherches ultra-rapides (Fallback Scanner)
+    this.db.run(`
+      CREATE INDEX IF NOT EXISTS idx_medicaments_cip7 ON medicaments(cip7);
     `);
 
     // Phase 1.1: Standardize on cip_code
@@ -201,16 +211,6 @@ export class ReferenceDatabase {
       ) STRICT;
     `);
 
-    // Ajouter la colonne sort_order si elle n'existe pas (pour les bases existantes)
-    try {
-      this.db.run(`ALTER TABLE group_members ADD COLUMN sort_order INTEGER DEFAULT 0`);
-    } catch (e: any) {
-      // La colonne existe déjà, ignorer l'erreur
-      if (!e.message?.includes('duplicate column')) {
-        throw e;
-      }
-    }
-
     this.db.run(`
       CREATE TABLE IF NOT EXISTS laboratories (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -264,16 +264,6 @@ export class ReferenceDatabase {
         tokenize='trigram'                -- The magic for fuzzy matching
       );
     `);
-
-    // Ajouter la colonne secondary_princeps si elle n'existe pas (pour les bases existantes)
-    try {
-      this.db.run(`ALTER TABLE cluster_names ADD COLUMN secondary_princeps TEXT`);
-    } catch (e: any) {
-      // La colonne existe déjà, ignorer l'erreur
-      if (!e.message?.includes('duplicate column')) {
-        throw e;
-      }
-    }
 
     // --- PHASE 2: CONTROLLED VOCABULARY ---
     this.db.run(`
@@ -387,6 +377,10 @@ export class ReferenceDatabase {
     this.db.run(`
       CREATE TABLE IF NOT EXISTS product_scan_cache (
         cip_code TEXT PRIMARY KEY NOT NULL REFERENCES medicaments(cip_code) ON DELETE CASCADE,
+
+        -- ✨ NOUVEAU : On expose aussi le CIP7 ici
+        cip7 TEXT GENERATED ALWAYS AS (SUBSTR(cip_code, 6, 7)) STORED,
+
         cis_code TEXT NOT NULL REFERENCES medicament_summary(cis_code) ON DELETE CASCADE,
         nom_canonique TEXT NOT NULL,
         lab_name TEXT,
@@ -412,33 +406,14 @@ export class ReferenceDatabase {
       ) STRICT;
     `);
 
+    this.db.run(`
+      CREATE INDEX IF NOT EXISTS idx_product_scan_cache_cip7 ON product_scan_cache(cip7);
+    `);
+
     // Index for fast lookups
     this.db.run(`
       CREATE INDEX IF NOT EXISTS idx_product_scan_cache_cis ON product_scan_cache(cis_code);
     `);
-
-    // Ajouter les colonnes SMR/ASMR si elles n'existent pas (pour les bases existantes)
-    try {
-      this.db.run(`ALTER TABLE medicament_summary ADD COLUMN asmr_niveau TEXT`);
-    } catch (e: any) {
-      if (!e.message?.includes('duplicate column')) {
-        throw e;
-      }
-    }
-    try {
-      this.db.run(`ALTER TABLE medicament_summary ADD COLUMN smr_date TEXT`);
-    } catch (e: any) {
-      if (!e.message?.includes('duplicate column')) {
-        throw e;
-      }
-    }
-    try {
-      this.db.run(`ALTER TABLE medicament_summary ADD COLUMN asmr_date TEXT`);
-    } catch (e: any) {
-      if (!e.message?.includes('duplicate column')) {
-        throw e;
-      }
-    }
 
     // NOTE: App settings are intentionally managed by the Flutter app
     // and are not created by the backend pipeline. The FTS5 virtual
@@ -604,7 +579,7 @@ export class ReferenceDatabase {
     this.db.run(`DROP VIEW IF EXISTS view_scanner_check`);
     this.db.run(`
       CREATE VIEW view_scanner_check AS
-      SELECT 
+      SELECT
         m.cip_code,
         ms.cis_code,
         ms.nom_canonique,
@@ -615,6 +590,88 @@ export class ReferenceDatabase {
       FROM medicaments m
       JOIN medicament_summary ms ON m.cis_code = ms.cis_code
       LEFT JOIN cluster_names cn ON ms.cluster_id = cn.cluster_id;
+    `);
+
+    // --- 5. UI MATERIALIZED VIEWS (Pre-computed for Flutter TableManager) ---
+    // These tables replace complex Flutter views and enable simple Manager API access
+
+    // Table: ui_group_details - Materialized view replacing Flutter's view_group_details
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS ui_group_details (
+        -- Composite Primary Key for fast direct access
+        group_id TEXT NOT NULL,
+        cip_code TEXT NOT NULL,
+
+        -- Pre-joined fields from (group_members + medicaments + medicament_summary + generique_groups)
+        cis_code TEXT NOT NULL,
+        nom_canonique TEXT NOT NULL,
+        princeps_de_reference TEXT NOT NULL,
+        princeps_brand_name TEXT NOT NULL,
+        is_princeps INTEGER DEFAULT 0 CHECK (is_princeps IN (0, 1)),
+        status TEXT,
+        forme_pharmaceutique TEXT,
+        voies_administration TEXT,
+        principes_actifs_communs TEXT,
+        formatted_dosage TEXT,
+        summary_titulaire TEXT,
+        official_titulaire TEXT,
+        nom_specialite TEXT,
+        procedure_type TEXT,
+        conditions_prescription TEXT,
+        is_surveillance INTEGER DEFAULT 0 CHECK (is_surveillance IN (0, 1)),
+        atc_code TEXT,
+        member_type INTEGER DEFAULT 0,
+        prix_public REAL,
+        taux_remboursement TEXT,
+        ansm_alert_url TEXT,
+        is_hospital_only INTEGER DEFAULT 0 CHECK (is_hospital_only IN (0, 1)),
+        is_dental INTEGER DEFAULT 0 CHECK (is_dental IN (0, 1)),
+        is_list1 INTEGER DEFAULT 0 CHECK (is_list1 IN (0, 1)),
+        is_list2 INTEGER DEFAULT 0 CHECK (is_list2 IN (0, 1)),
+        is_narcotic INTEGER DEFAULT 0 CHECK (is_narcotic IN (0, 1)),
+        is_exception INTEGER DEFAULT 0 CHECK (is_exception IN (0, 1)),
+        is_restricted INTEGER DEFAULT 0 CHECK (is_restricted IN (0, 1)),
+        is_otc INTEGER DEFAULT 1 CHECK (is_otc IN (0, 1)),
+        availability_status TEXT,
+        smr_niveau TEXT,
+        smr_date TEXT,
+        asmr_niveau TEXT,
+        asmr_date TEXT,
+        url_notice TEXT,
+        has_safety_alert INTEGER DEFAULT 0 CHECK (has_safety_alert IN (0, 1)),
+        raw_label TEXT,
+        parsing_method TEXT,
+        princeps_cis_reference TEXT,
+
+        PRIMARY KEY (group_id, cip_code),
+        FOREIGN KEY(group_id) REFERENCES generique_groups(group_id)
+      ) STRICT;
+    `);
+
+    // Table: ui_stats - Pre-computed database statistics
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS ui_stats (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        total_princeps INTEGER DEFAULT 0,
+        total_generiques INTEGER DEFAULT 0,
+        total_principes INTEGER DEFAULT 0,
+        last_updated TEXT DEFAULT CURRENT_TIMESTAMP
+      ) STRICT;
+    `);
+
+    // Table: ui_explorer_list - Materialized view replacing Flutter's view_explorer_list
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS ui_explorer_list (
+        cluster_id TEXT PRIMARY KEY NOT NULL,
+        title TEXT NOT NULL,
+        subtitle TEXT,
+        secondary_princeps TEXT, -- JSON Array
+        is_narcotic INTEGER DEFAULT 0 CHECK (is_narcotic IN (0, 1)),
+        variant_count INTEGER DEFAULT 0,
+        representative_cis TEXT,
+
+        FOREIGN KEY(cluster_id) REFERENCES cluster_names(cluster_id)
+      ) STRICT;
     `);
   }
 
@@ -660,14 +717,43 @@ export class ReferenceDatabase {
     }));
 
     const columns = Object.keys(transformedRows[0] || {}) as (keyof typeof transformedRows[0])[];
-    this.prepareInsert<any>("specialites", columns)(transformedRows);
+    // Use defined interfaces for type safety matching the DB schema
+    interface SpecialiteRow {
+      cis_code: string;
+      nom_specialite: string;
+      procedure_type: string;
+      statut_administratif?: string | null;
+      forme_pharmaceutique?: string | null;
+      voies_administration?: string | null;
+      etat_commercialisation?: string | null;
+      titulaire_id?: number | null;
+      conditions_prescription?: string | null;
+      date_amm?: string | null;
+      atc_code?: string | null;
+      is_surveillance: number;
+      [key: string]: any; // Required for Record constraint
+    }
+
+    this.prepareInsert<SpecialiteRow>("specialites", columns)(transformedRows);
     console.log(`✅ Inserted ${rows.length} specialites`);
   }
 
   public insertMedicaments(rows: ReadonlyArray<Medicament>) {
     console.log(`📊 Inserting ${rows.length} medicaments...`);
 
-    const transformedRows = rows.map(row => ({
+    interface MedicamentRow {
+      cip_code: string;
+      cis_code: string;
+      presentation_label: string;
+      commercialisation_statut?: string | null;
+      taux_remboursement?: string | null;
+      prix_public?: number | null;
+      agrement_collectivites?: string | null;
+      is_hospital: number;
+      [key: string]: any;
+    }
+
+    const transformedRows: MedicamentRow[] = rows.map(row => ({
       cip_code: row.codeCip,
       cis_code: row.cisCode,
       presentation_label: row.presentationLabel ?? '',
@@ -678,15 +764,24 @@ export class ReferenceDatabase {
       is_hospital: 0  // Will be computed by trigger based on conditions
     }));
 
-    const columns = Object.keys(transformedRows[0] || {}) as (keyof typeof transformedRows[0])[];
-    this.prepareInsert<any>("medicaments", columns)(transformedRows);
+    const columns = Object.keys(transformedRows[0] || {}) as (keyof MedicamentRow)[];
+    this.prepareInsert<MedicamentRow>("medicaments", columns)(transformedRows);
     console.log(`✅ Inserted ${rows.length} medicaments`);
   }
 
   public insertMedicamentAvailability(rows: ReadonlyArray<MedicamentAvailability>) {
     console.log(`📊 Inserting ${rows.length} medicament availability records...`);
 
-    const transformedRows = rows.map(row => ({
+    interface AvailabilityRow {
+      cip_code: string;
+      statut: string;
+      date_debut?: string | null;
+      date_fin?: string | null;
+      lien?: string | null;
+      [key: string]: any;
+    }
+
+    const transformedRows: AvailabilityRow[] = rows.map(row => ({
       cip_code: row.codeCip,
       statut: row.statut ?? '',
       date_debut: row.dateDebut,
@@ -694,7 +789,7 @@ export class ReferenceDatabase {
       lien: row.lien
     }));
 
-    this.prepareInsert<any>("medicament_availability", Object.keys(transformedRows[0] || {}) as any)(transformedRows);
+    this.prepareInsert<AvailabilityRow>("medicament_availability", Object.keys(transformedRows[0] || {}) as any)(transformedRows);
     console.log(`✅ Inserted ${rows.length} availability records`);
   }
 
@@ -1060,6 +1155,201 @@ export class ReferenceDatabase {
     }
 
     console.log("✅ Search index populated with cluster data");
+  }
+
+  /**
+   * Populates the ui_group_details table by pre-computing complex JOINs.
+   * This replaces Flutter's view_group_details and enables simple TableManager access.
+   * Should be called after all base tables are populated.
+   */
+  public populateUiGroupDetails() {
+    console.log("🏗️ Populating ui_group_details from joined data...");
+
+    // Clear existing data
+    this.db.run("DELETE FROM ui_group_details");
+
+    // Insert pre-computed data with all required JOINs
+    this.db.run(`
+      INSERT INTO ui_group_details (
+        group_id,
+        cip_code,
+        cis_code,
+        nom_canonique,
+        princeps_de_reference,
+        princeps_brand_name,
+        is_princeps,
+        status,
+        forme_pharmaceutique,
+        voies_administration,
+        principes_actifs_communs,
+        formatted_dosage,
+        summary_titulaire,
+        official_titulaire,
+        nom_specialite,
+        procedure_type,
+        conditions_prescription,
+        is_surveillance,
+        atc_code,
+        member_type,
+        prix_public,
+        taux_remboursement,
+        ansm_alert_url,
+        is_hospital_only,
+        is_dental,
+        is_list1,
+        is_list2,
+        is_narcotic,
+        is_exception,
+        is_restricted,
+        is_otc,
+        availability_status,
+        smr_niveau,
+        smr_date,
+        asmr_niveau,
+        asmr_date,
+        url_notice,
+        has_safety_alert,
+        raw_label,
+        parsing_method,
+        princeps_cis_reference
+      )
+      SELECT
+        gm.group_id,
+        gm.cip_code,
+        ms.cis_code,
+        ms.nom_canonique,
+        ms.princeps_de_reference,
+        ms.princeps_brand_name,
+        COALESCE(ms.is_princeps, 0),
+        ms.status,
+        ms.forme_pharmaceutique,
+        ms.voies_administration,
+        ms.principes_actifs_communs,
+        ms.formatted_dosage,
+        l.name AS summary_titulaire,
+        l.name AS official_titulaire,
+        ms.nom_canonique AS nom_specialite,
+        ms.procedure_type,
+        ms.conditions_prescription,
+        COALESCE(ms.is_surveillance, 0),
+        ms.atc_code,
+        gm.type AS member_type,
+        COALESCE(m.prix_public, 0) AS prix_public,
+        m.taux_remboursement,
+        ms.ansm_alert_url,
+        COALESCE(ms.is_hospital, 0) AS is_hospital_only,
+        COALESCE(ms.is_dental, 0),
+        COALESCE(ms.is_list1, 0),
+        COALESCE(ms.is_list2, 0),
+        COALESCE(ms.is_narcotic, 0),
+        COALESCE(ms.is_exception, 0),
+        COALESCE(ms.is_restricted, 0),
+        COALESCE(ms.is_otc, 1),
+        COALESCE(ma.statut, '') AS availability_status,
+        ms.smr_niveau,
+        ms.smr_date,
+        ms.asmr_niveau,
+        ms.asmr_date,
+        ms.url_notice,
+        COALESCE(ms.has_safety_alert, 0),
+        gg.raw_label,
+        gg.parsing_method,
+        (
+          SELECT ms2.cis_code
+          FROM medicament_summary ms2
+          WHERE ms2.group_id = ms.group_id
+            AND ms2.is_princeps = 1
+          LIMIT 1
+        ) AS princeps_cis_reference
+      FROM group_members gm
+      INNER JOIN medicaments m ON m.cip_code = gm.cip_code
+      INNER JOIN medicament_summary ms ON ms.cis_code = m.cis_code
+      INNER JOIN generique_groups gg ON gg.group_id = gm.group_id
+      LEFT JOIN laboratories l ON l.id = ms.titulaire_id
+      LEFT JOIN medicament_availability ma ON ma.cip_code = gm.cip_code
+    `);
+
+    const count = this.db.query<{ count: number }, []>("SELECT COUNT(*) as count FROM ui_group_details").get();
+    console.log(`✅ UI group details populated with ${count?.count ?? 0} entries`);
+  }
+
+  /**
+   * Populates the ui_stats table with pre-computed database statistics.
+   * Replaces Flutter's complex COUNT() queries with a single row fetch.
+   */
+  public populateUiStats() {
+    console.log("📊 Populating ui_stats from computed data...");
+
+    // Clear existing data
+    this.db.run("DELETE FROM ui_stats");
+
+    // Insert computed statistics
+    this.db.run(`
+      INSERT INTO ui_stats (id, total_princeps, total_generiques, total_principes)
+      SELECT
+        1,
+        COUNT(*) - COUNT(CASE WHEN gm.type = 1 THEN 1 END) AS total_princeps,
+        COUNT(CASE WHEN gm.type = 1 THEN 1 END) AS total_generiques,
+        (SELECT COUNT(DISTINCT principe) FROM principes_actifs) AS total_principes
+      FROM medicaments m
+      LEFT JOIN group_members gm ON gm.cip_code = m.cip_code
+    `);
+
+    const stats = this.db.query<{ total_princeps: number; total_generiques: number; total_principes: number }, []>(
+      "SELECT total_princeps, total_generiques, total_principes FROM ui_stats WHERE id = 1"
+    ).get();
+
+    console.log(`✅ UI stats populated: ${stats?.total_princeps ?? 0} princeps, ${stats?.total_generiques ?? 0} generics, ${stats?.total_principes ?? 0} principles`);
+  }
+
+  /**
+   * Populates the ui_explorer_list table from cluster data.
+   * Replaces Flutter's view_explorer_list with a materialized table.
+   */
+  public populateUiExplorerList() {
+    console.log("📋 Populating ui_explorer_list from cluster data...");
+
+    // Clear existing data
+    this.db.run("DELETE FROM ui_explorer_list");
+
+    // Insert cluster-based data
+    this.db.run(`
+      INSERT INTO ui_explorer_list (
+        cluster_id,
+        title,
+        subtitle,
+        secondary_princeps,
+        is_narcotic,
+        variant_count,
+        representative_cis
+      )
+      SELECT
+        cn.cluster_id,
+        cn.cluster_name AS title,
+        cn.cluster_princeps AS subtitle,
+        cn.secondary_princeps,
+        MAX(COALESCE(ms.is_narcotic, 0)) AS is_narcotic,
+        COUNT(ms.cis_code) AS variant_count,
+        MIN(ms.cis_code) AS representative_cis
+      FROM cluster_names cn
+      JOIN medicament_summary ms ON cn.cluster_id = ms.cluster_id
+      GROUP BY cn.cluster_id
+    `);
+
+    const count = this.db.query<{ count: number }, []>("SELECT COUNT(*) as count FROM ui_explorer_list").get();
+    console.log(`✅ UI explorer list populated with ${count?.count ?? 0} entries`);
+  }
+
+  /**
+   * Populates all UI materialized view tables.
+   * Call this after all base tables are populated.
+   */
+  public populateAllUiTables() {
+    console.log("🏗️ Populating all UI materialized view tables...");
+    this.populateUiGroupDetails();
+    this.populateUiStats();
+    this.populateUiExplorerList();
+    console.log("✅ All UI tables populated successfully");
   }
 
   /**

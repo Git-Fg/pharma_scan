@@ -1,11 +1,12 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:pharma_scan/core/router/app_router.dart';
+import 'package:pharma_scan/app/router/app_router.dart';
+
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/widgets/scaffold_shell.dart';
-import 'package:pharma_scan/features/home/models/sync_state.dart';
-import 'package:pharma_scan/features/home/providers/sync_provider.dart';
+import 'package:pharma_scan/core/domain/models/sync_state.dart';
+import 'package:pharma_scan/core/providers/sync_provider.dart';
 import 'package:pharma_scan/features/home/viewmodels/activity_banner_viewmodel.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 

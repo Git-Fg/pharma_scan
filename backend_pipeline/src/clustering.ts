@@ -179,7 +179,7 @@ export function computeClusters(items: ClusteringInput[]): Map<string, ClusterMe
       groupingKey = cisToPrincipleMap.get(item.princepsCisCode)!;
     }
     // 2. Soft Link via Common Principles (fallback)
-    else if (item.commonPrinciples) {
+    else if (item.commonPrincipes) {
       groupingKey = normalizeCommonPrincipes(item.commonPrincipes);
       // Validate soft link quality - must be meaningful
       if (groupingKey.length <= 2) {

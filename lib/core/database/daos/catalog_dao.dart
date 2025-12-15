@@ -7,10 +7,11 @@ import 'package:pharma_scan/core/domain/types/ids.dart';
 import 'package:pharma_scan/core/models/scan_models.dart';
 
 // views.drift is not directly referenced; remove to avoid unused import
-import 'package:pharma_scan/features/explorer/domain/entities/group_detail_entity.dart';
-import 'package:pharma_scan/features/explorer/domain/entities/medicament_entity.dart';
-import 'package:pharma_scan/features/explorer/domain/models/database_stats.dart';
-import 'package:pharma_scan/features/explorer/domain/models/generic_group_entity.dart';
+import 'package:pharma_scan/core/domain/entities/group_detail_entity.dart';
+import 'package:pharma_scan/core/domain/entities/medicament_entity.dart';
+import 'package:pharma_scan/core/domain/models/database_stats.dart';
+import 'package:pharma_scan/core/domain/models/generic_group_entity.dart';
+import 'package:pharma_scan/core/utils/cip_utils.dart';
 
 /// DAO pour les opérations sur le catalogue de médicaments.
 ///
@@ -45,11 +46,26 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> {
 
     final cipString = codeCip.toString();
 
-    // Single table query with PK lookup - no JOINs!
-    // Note: cipCode is an FK to medicaments, so we navigate: cipCode (FK) -> cipCode (column)
-    final cache = await attachedDatabase.managers.productScanCache
+    // 1. Try exact match (Fastest)
+    var cache = await attachedDatabase.managers.productScanCache
         .filter((f) => f.cipCode.cipCode.equals(cipString))
         .getSingleOrNull();
+
+    // 2. Fallback: Search by CIP7 if exact match fails
+    // This handles cases where the scanned CIP13 is old but a newer CIP13 exists with same CIP7
+    if (cache == null) {
+      final cip7 = CipUtils.extractCip7(cipString);
+      if (cip7 != null) {
+        attachedDatabase.logger.db(
+            'Exact match failed. Trying fallback with CIP7: $cip7 for $cipString');
+
+        // Note: multiple items might share CIP7? Usually minimal, pick first found.
+        // In pharmacy logic, CIP7 is the pivot.
+        cache = await attachedDatabase.managers.productScanCache
+            .filter((f) => f.cip7.equals(cip7))
+            .getSingleOrNull();
+      }
+    }
 
     if (cache == null) {
       attachedDatabase.logger
@@ -97,18 +113,13 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> {
     String groupId,
   ) async {
     attachedDatabase.logger.db(
-      'Fetching snapshot for group $groupId via view_group_details',
+      'Fetching snapshot for group $groupId via ui_group_details table',
     );
 
-    final rows = await (attachedDatabase
-            .select(attachedDatabase.viewGroupDetails)
-          ..where((t) => t.groupId.equals(groupId))
-          ..orderBy([
-            (t) =>
-                OrderingTerm(expression: t.isPrinceps, mode: OrderingMode.desc),
-            (t) => OrderingTerm(
-                expression: t.nomCanonique, mode: OrderingMode.asc),
-          ]))
+    // ✅ NEW: Using TableManager API instead of complex view
+    final rows = await attachedDatabase.managers.uiGroupDetails
+        .filter((f) => f.groupId.equals(groupId))
+        .orderBy((o) => o.isPrinceps.desc() & o.nomCanonique.asc())
         .get();
 
     return rows.map(GroupDetailEntity.fromData).toList();
@@ -168,37 +179,44 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> {
 // Migration to cluster-first architecture completed
 
   Future<DatabaseStats> getDatabaseStats() async {
-    final totalMedicamentsRow = await customSelect(
-      'SELECT COUNT(*) AS count FROM medicaments',
-      readsFrom: {},
-    ).getSingle();
-    final countMeds = totalMedicamentsRow.read<int>('count');
+    try {
+      // ✅ NEW: Using pre-computed ui_stats table (single row fetch)
+      final stats = await attachedDatabase.managers.uiStats.getSingleOrNull();
 
-    final totalGeneriquesRow = await customSelect(
-      'SELECT COUNT(*) AS count FROM group_members WHERE type = 1',
-      readsFrom: {},
-    ).getSingle();
-    final countGens = totalGeneriquesRow.read<int>('count');
+      if (stats == null) {
+        // Return empty stats if table doesn't exist or not populated yet
+        return (
+          totalPrinceps: 0,
+          totalGeneriques: 0,
+          totalPrincipes: 0,
+          avgGenPerPrincipe: 0.0,
+        );
+      }
 
-    final totalPrincipesRow = await customSelect(
-      'SELECT COUNT(DISTINCT principe) AS count FROM principes_actifs',
-      readsFrom: {},
-    ).getSingle();
-    final countPrincipes = totalPrincipesRow.read<int>('count');
+      var ratioGenPerPrincipe = 0.0;
+      final totalPrincipes = stats.totalPrincipes ?? 0;
+      final totalGeneriques = stats.totalGeneriques ?? 0;
+      final totalPrinceps = stats.totalPrinceps ?? 0;
 
-    final countPrinceps = countMeds - countGens;
+      if (totalPrincipes > 0) {
+        ratioGenPerPrincipe = totalGeneriques / totalPrincipes;
+      }
 
-    var ratioGenPerPrincipe = 0.0;
-    if (countPrincipes > 0) {
-      ratioGenPerPrincipe = countGens / countPrincipes;
+      return (
+        totalPrinceps: totalPrinceps,
+        totalGeneriques: totalGeneriques,
+        totalPrincipes: totalPrincipes,
+        avgGenPerPrincipe: ratioGenPerPrincipe,
+      );
+    } catch (_) {
+      // Return empty stats if table doesn't exist or other DB error
+      return (
+        totalPrinceps: 0,
+        totalGeneriques: 0,
+        totalPrincipes: 0,
+        avgGenPerPrincipe: 0.0,
+      );
     }
-
-    return (
-      totalPrinceps: countPrinceps,
-      totalGeneriques: countGens,
-      totalPrincipes: countPrincipes,
-      avgGenPerPrincipe: ratioGenPerPrincipe,
-    );
   }
 
   Future<List<GenericGroupEntity>> getGenericGroupSummaries({
@@ -210,71 +228,52 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> {
     int limit = 100,
     int offset = 0,
   }) async {
-    // Query view_explorer_list from backend instead of view_generic_group_summaries
-    final query = customSelect(
-      'SELECT ' +
-          'vel.cluster_id, ' +
-          'vel.title, ' +
-          'vel.subtitle, ' +
-          'vel.secondary_princeps, ' +
-          'vel.is_narcotic, ' +
-          'vel.variant_count, ' +
-          'vel.representative_cis, ' +
-          'ms.princeps_de_reference, ' +
-          'ms.principes_actifs_communs ' +
-          'FROM view_explorer_list vel ' +
-          'JOIN medicament_summary ms ON ms.cluster_id = vel.cluster_id ' +
-          'WHERE ms.principes_actifs_communs IS NOT NULL ' +
-          "AND ms.principes_actifs_communs != '[]' " +
-          "AND ms.principes_actifs_communs != '' " +
-          'ORDER BY vel.title ' +
-          'LIMIT ? OFFSET ?',
-      variables: [
-        Variable<int>(limit),
-        Variable<int>(offset),
-      ],
-      readsFrom: {},
-    );
+    // ✅ NEW: Using pre-computed ui_explorer_list table with TableManager API
+    final uelRows = await attachedDatabase.managers.uiExplorerList
+        .orderBy((o) => o.title.asc())
+        .limit(limit, offset: offset)
+        .get();
 
-    final rows = await query.get();
+    final results = <GenericGroupEntity>[];
 
-    final results = rows
-        .map((row) {
-          final clusterId = row.read<String>('cluster_id');
-          if (clusterId.isEmpty) return null;
+    for (final uelData in uelRows) {
+      // Get the corresponding medicament_summary data for the cluster
+      final summary = await attachedDatabase.managers.medicamentSummary
+          .filter((f) => f.clusterId.equals(uelData.clusterId))
+          .getSingleOrNull();
 
-          final princepsReference = row.readNullable<String>('subtitle');
-          final commonPrincipes = row.readNullable<String>(
-            'principes_actifs_communs',
-          );
+      if (summary == null) continue;
 
-          if (commonPrincipes == null ||
-              commonPrincipes.trim().isEmpty ||
-              princepsReference == null ||
-              princepsReference.isEmpty) {
-            return null;
-          }
+      final clusterId = uelData.clusterId;
+      if (clusterId.isEmpty) continue;
 
-          final princepsCisCodeRaw =
-              row.readNullable<String>('representative_cis') ?? '';
-          final princepsCisCode = princepsCisCodeRaw.isNotEmpty
-              ? (princepsCisCodeRaw.length == 8
-                  ? CisCode.validated(princepsCisCodeRaw)
-                  : CisCode.unsafe(princepsCisCodeRaw))
-              : null;
+      final princepsReference = summary.princepsDeReference;
+      final commonPrincipes = summary.principesActifsCommuns;
 
-          return GenericGroupEntity(
-            groupId: GroupId.validated(clusterId),
-            commonPrincipes: commonPrincipes,
-            princepsReferenceName: princepsReference,
-            princepsCisCode: princepsCisCode,
-          );
-        })
-        .whereType<GenericGroupEntity>()
+      if (commonPrincipes == null ||
+          commonPrincipes.trim().isEmpty ||
+          princepsReference.isEmpty) {
+        continue;
+      }
+
+      final princepsCisCodeRaw = uelData.representativeCis ?? '';
+      final princepsCisCode = princepsCisCodeRaw.isNotEmpty
+          ? (princepsCisCodeRaw.length == 8
+              ? CisCode.validated(princepsCisCodeRaw)
+              : CisCode.unsafe(princepsCisCodeRaw))
+          : null;
+
+      results.add(GenericGroupEntity(
+        groupId: GroupId.validated(clusterId),
+        commonPrincipes: commonPrincipes,
+        princepsReferenceName: princepsReference,
+        princepsCisCode: princepsCisCode,
+      ));
+    }
+
+    return results
         .where((entity) => entity.commonPrincipes.isNotEmpty)
         .toList();
-
-    return results;
   }
 
   Future<bool> hasExistingData() async {

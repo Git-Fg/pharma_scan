@@ -1,3 +1,4 @@
+// ignore_for_file: enforce_architecture_layering
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';

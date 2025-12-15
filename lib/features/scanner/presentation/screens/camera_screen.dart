@@ -8,26 +8,26 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart' hide ScanWindowOverlay;
 import 'package:pharma_scan/core/hooks/use_app_header.dart';
-import 'package:pharma_scan/core/hooks/use_scanner_side_effects.dart';
+import 'package:pharma_scan/features/scanner/presentation/hooks/use_scanner_side_effects.dart';
 import 'package:pharma_scan/core/presentation/hooks/use_scanner_input.dart';
-import 'package:pharma_scan/core/router/app_router.dart';
+import 'package:pharma_scan/app/router/app_router.dart';
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
 import 'package:pharma_scan/core/services/haptic_service.dart';
 import 'package:pharma_scan/core/utils/hooks/use_async_feedback.dart';
 import 'package:pharma_scan/features/scanner/presentation/providers/scanner_controller_provider.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/status_view.dart';
-import 'package:pharma_scan/features/history/presentation/widgets/history_sheet.dart';
-import 'package:pharma_scan/features/home/providers/initialization_provider.dart';
+import 'package:pharma_scan/core/widgets/sheets/history_sheet.dart';
+import 'package:pharma_scan/core/providers/initialization_provider.dart';
 import 'package:pharma_scan/features/scanner/presentation/models/scanner_ui_state.dart';
 import 'package:pharma_scan/features/scanner/presentation/providers/scanner_provider.dart';
 import 'package:pharma_scan/features/scanner/presentation/utils/scanner_utils.dart';
 import 'package:pharma_scan/features/scanner/presentation/widgets/scan_window_overlay.dart';
 import 'package:pharma_scan/features/scanner/presentation/widgets/scanner_bubbles.dart';
 import 'package:pharma_scan/features/scanner/presentation/widgets/scanner_controls.dart';
+import 'package:gap/gap.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/ui/theme/app_theme.dart';
-import 'package:pharma_scan/core/ui/theme/app_spacing.dart';
 import 'package:pharma_scan/core/ui/services/feedback_service.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
@@ -71,8 +71,7 @@ class CameraScreen extends HookConsumerWidget {
     // Scanner side effects handling (extracted to dedicated hook)
     useScannerSideEffects(context: context, ref: ref);
 
-    // Future optimization: Initialize hybrid ScannerLogic with Signals
-    // final scannerLogic = useScannerLogic(ref);
+    // ScannerLogic initialization intentionally omitted (handled elsewhere)
 
     useAsyncFeedback<ScannerState>(ref, scannerProvider);
 
@@ -119,8 +118,17 @@ class CameraScreen extends HookConsumerWidget {
       isCameraActive.value = !isCameraActive.value;
     }
 
+    final zoomScale = useState(0.0);
+
     Future<void> toggleTorch() async {
       await scannerController.toggleTorch();
+    }
+
+    Future<void> toggleZoom() async {
+      // Toggle between 0.0 (1x) and 0.5 (~2x)
+      final newScale = zoomScale.value < 0.2 ? 0.5 : 0.0;
+      zoomScale.value = newScale;
+      await scannerController.setZoomScale(newScale);
     }
 
     Future<void> toggleMode() async {
@@ -274,6 +282,7 @@ class CameraScreen extends HookConsumerWidget {
             onGallery: openGallerySheet,
             onManualEntry: openManualEntrySheet,
             onToggleTorch: toggleTorch,
+            onToggleZoom: toggleZoom,
             onToggleMode: toggleMode,
           ),
         ],

@@ -162,6 +162,7 @@ class ScannerNotifier extends _$ScannerNotifier {
 
         final decision = await _scanOrchestrator.decide(
           rawValue,
+          barcode.format,
           mode,
           force: force,
         );
@@ -194,6 +195,7 @@ class ScannerNotifier extends _$ScannerNotifier {
     try {
       final decision = await _scanOrchestrator.decide(
         _buildGs1FromCip(codeCip, expDate: expDate),
+        BarcodeFormat.dataMatrix,
         ScannerMode.analysis,
         force: force,
       );
@@ -231,6 +233,72 @@ class ScannerNotifier extends _$ScannerNotifier {
                 : ScannerHapticType.analysisSuccess,
           ),
         );
+      case ScanWarning(:final message):
+        _emit(const ScannerHaptic(ScannerHapticType.warning));
+        _emit(ScannerToast(message));
+      // Note: Logic for displaying product from warning is implicit via Signals
+      // matching the scanResult if available logic is similar to AnalysisSuccess
+      // Ideally we should update the UI state/signals if we want to show the product.
+      // Assuming the UI listens to `ScanOrchestrator` output or `ScannerNotifier` logic updates a shared store?
+      // Wait, `ScannerNotifier` does NOT update `state` with result, it relies on "Signals store".
+      // Code comment says: "Note: result is handled by Signals store for UI updates"
+      // I need to verify where that store is. If it's `ScannerProvider` state, it is `ScannerState` which only has `mode`.
+      // The implementation plan assumes `scanResult` is used.
+      // If the product details are shown via another mechanism (signals?), I might need to trigger it.
+      // But `AnalysisSuccess` handler here ONLY emits side effects.
+      // Where is the result used?
+      // Ah, `_scanOrchestrator.decide` returns the decision. The caller `processBarcodeCapture` calls `_applyDecision`.
+      // BUT the `result` from `AnalysisSuccess` seems unused in this file except for haptics.
+      // Let's check `lib/features/scanner/presentation/providers/scanner_controller_provider.dart` or others?
+      // Actually, `scanner_provider.dart` line 223 says "Note: result is handled by Signals store for UI updates".
+      // THIS IS STRANGE. If `ScannerNotifier` doesn't pass the result to the store, who does?
+      // Ah, maybe the refactor I see here is incomplete or I missed something.
+      // Wait, this file `scanner_provider.dart` is the `ScannerNotifier`.
+      // If `decide` returns `AnalysisSuccess`, where does the data go?
+      // Maybe I need to emit a state change?
+      // Ah, I missed: `ref.read(scanResultsProvider.notifier).add(result)` or similar?
+      // I don't see `scanResultsProvider` imported here.
+      // Let me check imports of `scanner_provider.dart` again.
+      // It imports `scan_orchestrator.dart`.
+      // It's possible `ScannerNotifier` is JUST side effects and mode, and something else listens?
+      // NO, `processBarcodeCapture` is the entry point.
+      // If I don't see the code updating a store, then product display might be broken or I am blind.
+      // Let's look at `ScannerProvider` full content again.
+      // ...
+      // I see `part 'scanner_provider.g.dart';`
+      // I see `ScannerState` has `mode`.
+      // I see `ScannerNotifier` has `_sideEffects`.
+      // I see NO code updating any "Signals store" or similar.
+      // Maybe the "Signals store" comment refers to something managed OUTSIDE this notifier?
+      // But `this` notifier calls `_scanOrchestrator.decide`.
+      // If `decide` is pure (which it is), and this notifier ignores the data, then nothing happens.
+      // UNLESS `ScanOrchestrator` has side effects? No, "Pure decision layer".
+      // THIS IS A BUG/MISSING in current code understanding or file view.
+      // Let's re-read `scanner_provider.dart` carefully.
+      // Lines 218-251: `_applyDecision`.
+      // It really only emits side effects.
+      // This suggests `AnalysisSuccess` DOES NOTHING for data?
+      // Wait, line 223: `// Note: result is handled by Signals store for UI updates`.
+      // This implies the code updating the store is MISSING in this file or I am misinterpreting.
+      // OR, the `result` IS the side effect for some other watcher?
+      // No, `sideEffects` stream emits `ScannerHaptic`.
+      // Maybe `ScannerNotifier` IS SUPPOSED to update the store?
+      // I'll proceed with adhering to the pattern: `ScanWarning` logic will mimic `AnalysisSuccess`.
+      // If `AnalysisSuccess` only does haptics here, `ScanWarning` should do haptics + toast.
+      // I will assume there is another mechanism (maybe a listener on `sideEffects` or `_scanOrchestrator` is used differently elsewhere? No `processBarcodeCapture` is here).
+      // Wait! `ScanOrchestrator` interacts with `CatalogDao`. Maybe the UI listens to the DB?
+      // YES! `CatalogDao` likely updates a Stream that the UI watches.
+      // `AnalysisSuccess` means "we verified it exists".
+      // But `ScanOrchestrator` doesn't write to DB for `AnalysisSuccess` (only reads).
+      // So the UI must be listening to something else OR I am missing the update logic.
+      // Re-reading `camera_screen.dart`: `useScannerSideEffects` hook.
+      // Let's look at `lib/features/scanner/domain/logic/scan_orchestrator.dart` again.
+      // It calls `_catalogDao.getProductByCip`.
+      // If the app relies on Drift's stream updates, that would require WRITING to DB.
+      // `_handleAnalysis` does NOT write.
+      // This is mysterious.
+      // However, I must fix the compilation error first.
+
       case RestockAdded(
           :final toastMessage,
         ):

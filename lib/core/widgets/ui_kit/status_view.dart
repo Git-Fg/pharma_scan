@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
-import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
@@ -28,6 +27,7 @@ class StatusView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final spacing = context.spacing;
     switch (type) {
       case StatusType.loading:
         return const Center(
@@ -47,7 +47,7 @@ class StatusView extends StatelessWidget {
 
         return Center(
           child: Padding(
-            padding: const EdgeInsets.all(AppDimens.spacingXl),
+            padding: EdgeInsets.all(spacing.xl),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: maxWidth),
               child: isError
@@ -70,7 +70,7 @@ class StatusView extends StatelessWidget {
                             effectiveIcon,
                             color: context.colors.mutedForeground,
                           ),
-                          const Gap(AppDimens.spacingXs),
+                          Gap(spacing.xs),
                           if (title != null)
                             Expanded(
                               child: Text(
@@ -89,6 +89,7 @@ class StatusView extends StatelessWidget {
   }
 
   Widget _buildDescription(BuildContext context) {
+    final spacing = context.spacing;
     final descriptionText = description;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -103,11 +104,11 @@ class StatusView extends StatelessWidget {
           ),
         ],
         if (action != null) ...[
-          const Gap(AppDimens.spacingMd),
+          Gap(spacing.md),
           action!,
         ],
         if (onAction != null && actionLabel != null) ...[
-          const Gap(AppDimens.spacingMd),
+          Gap(spacing.md),
           ShadButton.outline(
             onPressed: onAction,
             child: Text(actionLabel!),

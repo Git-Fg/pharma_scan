@@ -22,11 +22,6 @@ class EnforceArchitectureLayering extends DartLintRule {
     // Normalize path for Windows support
     final path = resolver.path.replaceAll('\\', '/');
 
-    // Infrastructure exceptions
-    if (path.contains('/core/router/') ||
-        path.contains('/core/di/') ||
-        path.contains('scaffold_shell.dart')) return;
-
     // Normalized path parts
     final parts = path.split('/');
     final libIndex = parts.indexOf('lib');
@@ -47,12 +42,12 @@ class EnforceArchitectureLayering extends DartLintRule {
       } else if (uri.startsWith('package:pharma_scan/core/') &&
           layer == 'core') {
         // Core inside Core is fine generally, but maybe check for cycles?
-        // For now allowing core <-> core.
       }
 
       // 2. Check relative imports (approximated)
-      // This is harder without resolving, but we can catch obvious ../../features/
-      if (uri.contains('/features/')) {
+      // Only check if it's NOT a package import we already checked
+      else if (!uri.startsWith('package:pharma_scan/features/') &&
+          uri.contains('/features/')) {
         // If we are in core, we shouldn't import features
         if (layer == 'core')
           reporter.atOffset(

@@ -1,4 +1,4 @@
-import 'package:pharma_scan/features/explorer/domain/models/generic_group_entity.dart';
+import 'package:pharma_scan/core/domain/models/generic_group_entity.dart';
 import 'package:pharma_scan/features/explorer/presentation/providers/generic_groups_provider.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 

@@ -413,6 +413,25 @@ async function main() {
     const allSpecs = db.runQuery<{ cis_code: string; nom_specialite: string }>("SELECT cis_code, nom_specialite FROM specialites");
     for (const s of allSpecs) specialitesMap.set(s.cis_code, s.nom_specialite);
 
+    // Quick validation: detect CIS referenced in CIS_GENER that are not present
+    // in the master `specialites` file. This helps diagnose "orphans" caused
+    // by mismatched BDPM file versions or download issues.
+    const generCisSet = new Set<string>();
+    for await (const row of streamBdpmFile(generPath)) {
+      if (row.length >= 3) generCisSet.add(row[2]?.trim());
+    }
+    const missingInSpecialites = Array.from(generCisSet).filter(c => c && !specialitesMap.has(c));
+    if (missingInSpecialites.length > 0) {
+      console.warn(`⚠️ Found ${missingInSpecialites.length} CIS referenced in CIS_GENER but missing from CIS_bdpm.txt. Example(s): ${missingInSpecialites.slice(0,10).join(", ")}`);
+      try {
+        const outPath = path.join(DATA_DIR, "missing_generique_cis.json");
+        fs.writeFileSync(outPath, JSON.stringify({ generated_at: new Date().toISOString(), total_referenced: generCisSet.size, missing_count: missingInSpecialites.length, sample: missingInSpecialites.slice(0, 100) }, null, 2), "utf8");
+        console.log(`✅ Wrote ${outPath} with ${Math.min(100, missingInSpecialites.length)} sample CIS`);
+      } catch (e) {
+        console.warn("⚠️ Failed to write missing_generique_cis.json", e);
+      }
+    }
+
     const result = await parseGeneriques(
       streamBdpmFile(generPath),
       cisToCip13,
@@ -1771,6 +1790,11 @@ async function main() {
   console.log("📦 Populating product scan cache...");
   db.populateProductScanCache();
   console.log("✅ Product scan cache populated");
+
+  // --- 9. Populate UI Materialized Views (Replace Flutter complex views) ---
+  console.log("🏗️ Populating UI materialized view tables...");
+  db.populateAllUiTables();
+  console.log("✅ UI materialized views populated");
 
   // Re-enable FK constraints and validate (throws if violations found)
   db.enableForeignKeys();

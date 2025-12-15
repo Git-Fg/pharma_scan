@@ -10,13 +10,13 @@ import 'package:pharma_scan/core/models/update_frequency.dart';
 import 'package:pharma_scan/core/providers/core_providers.dart';
 import 'package:pharma_scan/core/providers/preferences_provider.dart';
 import 'package:pharma_scan/core/providers/theme_provider.dart';
-import 'package:pharma_scan/core/router/app_router.dart';
-import 'package:pharma_scan/core/theme/app_dimens.dart';
+import 'package:pharma_scan/app/router/app_router.dart';
+
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/hooks/use_app_header.dart';
-import 'package:pharma_scan/features/explorer/presentation/providers/database_stats_provider.dart';
-import 'package:pharma_scan/features/home/providers/sync_provider.dart';
+import 'package:pharma_scan/core/providers/database_stats_provider.dart';
+import 'package:pharma_scan/core/providers/sync_provider.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 @RoutePage()
@@ -51,7 +51,7 @@ class SettingsScreen extends HookConsumerWidget {
           Strings.dataUnknown,
         ),
       >= 31 => (
-          Colors.orange,
+          context.colors.destructive,
           Strings.dataStaleWarning,
         ),
       _ => (
@@ -239,7 +239,7 @@ class SettingsScreen extends HookConsumerWidget {
       showBackButton: true,
       actions: [
         Padding(
-          padding: const EdgeInsets.only(right: AppDimens.spacingSm),
+          padding: const EdgeInsets.only(right: 12),
           child: Semantics(
             label: indicatorLabel,
             child: Tooltip(
@@ -266,7 +266,7 @@ class SettingsScreen extends HookConsumerWidget {
         CustomScrollView(
           slivers: [
             SliverPadding(
-              padding: const EdgeInsets.all(AppDimens.spacingMd),
+              padding: const EdgeInsets.all(16),
               sliver: SliverList(
                   delegate: SliverChildListDelegate.fixed([
                 Center(
@@ -301,8 +301,8 @@ class SettingsScreen extends HookConsumerWidget {
                               };
                               return Row(
                                 children: [
-                                  Icon(icon, size: AppDimens.iconSm),
-                                  const Gap(AppDimens.spacingSm),
+                                  Icon(icon, size: 16),
+                                  const Gap(12),
                                   Text(label),
                                 ],
                               );
@@ -323,9 +323,9 @@ class SettingsScreen extends HookConsumerWidget {
                                   children: [
                                     Icon(
                                       LucideIcons.monitor,
-                                      size: AppDimens.iconSm,
+                                      size: 16,
                                     ),
-                                    Gap(AppDimens.spacingSm),
+                                    Gap(12),
                                     Text(Strings.systemTheme),
                                   ],
                                 ),
@@ -334,9 +334,8 @@ class SettingsScreen extends HookConsumerWidget {
                                 value: ThemeSetting.light,
                                 child: Row(
                                   children: [
-                                    Icon(LucideIcons.sun,
-                                        size: AppDimens.iconSm),
-                                    Gap(AppDimens.spacingSm),
+                                    Icon(LucideIcons.sun, size: 16),
+                                    Gap(12),
                                     Text(Strings.lightTheme),
                                   ],
                                 ),
@@ -347,9 +346,9 @@ class SettingsScreen extends HookConsumerWidget {
                                   children: [
                                     Icon(
                                       LucideIcons.moon,
-                                      size: AppDimens.iconSm,
+                                      size: 16,
                                     ),
-                                    Gap(AppDimens.spacingSm),
+                                    Gap(12),
                                     Text(Strings.darkTheme),
                                   ],
                                 ),
@@ -357,7 +356,7 @@ class SettingsScreen extends HookConsumerWidget {
                             ],
                           ),
                         ),
-                        const Gap(AppDimens.spacingMd),
+                        const Gap(16),
                         ShadCard(
                           title: const Text(Strings.hapticsTitle),
                           description: const Text(Strings.hapticsDescription),
@@ -368,9 +367,9 @@ class SettingsScreen extends HookConsumerWidget {
                                   children: [
                                     Icon(
                                       LucideIcons.vibrate,
-                                      size: AppDimens.iconSm,
+                                      size: 16,
                                     ),
-                                    Gap(AppDimens.spacingSm),
+                                    Gap(12),
                                     Flexible(
                                       child:
                                           Text(Strings.hapticsVibrationsLabel),
@@ -391,7 +390,7 @@ class SettingsScreen extends HookConsumerWidget {
                             ],
                           ),
                         ),
-                        const Gap(AppDimens.spacingMd),
+                        const Gap(16),
                         ShadCard(
                           title: const Text(Strings.sortingTitle),
                           description: const Text(Strings.sortingDescription),
@@ -402,15 +401,15 @@ class SettingsScreen extends HookConsumerWidget {
                                 children: [
                                   Icon(
                                     LucideIcons.arrowUpDown,
-                                    size: AppDimens.iconSm,
+                                    size: 16,
                                   ),
-                                  Gap(AppDimens.spacingSm),
+                                  Gap(12),
                                   Flexible(
                                     child: Text(Strings.sortingDescription),
                                   ),
                                 ],
                               ),
-                              const Gap(AppDimens.spacingSm),
+                              const Gap(12),
                               ShadSelect<SortingPreference>(
                                 key: ValueKey('sorting_$sortingPreference'),
                                 initialValue: sortingPreference,
@@ -456,7 +455,7 @@ class SettingsScreen extends HookConsumerWidget {
                             ],
                           ),
                         ),
-                        const Gap(AppDimens.spacingMd),
+                        const Gap(16),
                         ShadCard(
                           title: const Text(Strings.sync),
                           description:
@@ -486,8 +485,8 @@ class SettingsScreen extends HookConsumerWidget {
                               };
                               return Row(
                                 children: [
-                                  Icon(icon, size: AppDimens.iconSm),
-                                  const Gap(AppDimens.spacingSm),
+                                  Icon(icon, size: 16),
+                                  const Gap(12),
                                   Text(label),
                                 ],
                               );
@@ -509,9 +508,8 @@ class SettingsScreen extends HookConsumerWidget {
                                 value: UpdateFrequency.none,
                                 child: Row(
                                   children: [
-                                    Icon(LucideIcons.ban,
-                                        size: AppDimens.iconSm),
-                                    Gap(AppDimens.spacingSm),
+                                    Icon(LucideIcons.ban, size: 16),
+                                    Gap(12),
                                     Text(Strings.never),
                                   ],
                                 ),
@@ -522,9 +520,9 @@ class SettingsScreen extends HookConsumerWidget {
                                   children: [
                                     Icon(
                                       LucideIcons.calendarDays,
-                                      size: AppDimens.iconSm,
+                                      size: 16,
                                     ),
-                                    Gap(AppDimens.spacingSm),
+                                    Gap(12),
                                     Text(Strings.daily),
                                   ],
                                 ),
@@ -535,9 +533,9 @@ class SettingsScreen extends HookConsumerWidget {
                                   children: [
                                     Icon(
                                       LucideIcons.calendarRange,
-                                      size: AppDimens.iconSm,
+                                      size: 16,
                                     ),
-                                    Gap(AppDimens.spacingSm),
+                                    Gap(12),
                                     Text(Strings.weekly),
                                   ],
                                 ),
@@ -548,9 +546,9 @@ class SettingsScreen extends HookConsumerWidget {
                                   children: [
                                     Icon(
                                       LucideIcons.calendar,
-                                      size: AppDimens.iconSm,
+                                      size: 16,
                                     ),
-                                    Gap(AppDimens.spacingSm),
+                                    Gap(12),
                                     Text(Strings.monthly),
                                   ],
                                 ),
@@ -558,7 +556,7 @@ class SettingsScreen extends HookConsumerWidget {
                             ],
                           ),
                         ),
-                        const Gap(AppDimens.spacingMd),
+                        const Gap(16),
                         ShadCard(
                           title: const Text(Strings.data),
                           description:
@@ -572,14 +570,14 @@ class SettingsScreen extends HookConsumerWidget {
                                 child: ShadButton.outline(
                                   width: double.infinity,
                                   padding: const EdgeInsets.symmetric(
-                                    vertical: AppDimens.spacingSm,
-                                    horizontal: AppDimens.spacingMd,
+                                    vertical: 12,
+                                    horizontal: 16,
                                   ),
                                   mainAxisAlignment: MainAxisAlignment.start,
                                   leading: isCheckingUpdates.value
                                       ? const SizedBox(
-                                          width: AppDimens.iconSm,
-                                          height: AppDimens.iconSm,
+                                          width: 16,
+                                          height: 16,
                                           child: CircularProgressIndicator(
                                             strokeWidth: 2,
                                           ),
@@ -588,74 +586,78 @@ class SettingsScreen extends HookConsumerWidget {
                                   onPressed: isCheckingUpdates.value
                                       ? null
                                       : runManualSync,
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Flexible(
-                                        child: Text(
-                                          isCheckingUpdates.value
-                                              ? Strings
-                                                  .checkingUpdatesInProgress
-                                              : Strings.checkUpdatesNow,
-                                          overflow: TextOverflow.ellipsis,
+                                  child: Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Flexible(
+                                          child: Text(
+                                            isCheckingUpdates.value
+                                                ? Strings
+                                                    .checkingUpdatesInProgress
+                                                : Strings.checkUpdatesNow,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
                                         ),
-                                      ),
-                                      const Gap(4),
-                                      Flexible(
-                                        child: Text(
-                                          isCheckingUpdates.value
-                                              ? Strings.pleaseWaitSync
-                                              : Strings.checkUpdatesTitle,
-                                          style: context.typo.small,
-                                          overflow: TextOverflow.ellipsis,
+                                        const Gap(4),
+                                        Flexible(
+                                          child: Text(
+                                            isCheckingUpdates.value
+                                                ? Strings.pleaseWaitSync
+                                                : Strings.checkUpdatesTitle,
+                                            style: context.typo.small,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
                                         ),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
-                              const Gap(AppDimens.spacingSm),
+                              const Gap(12),
                               ConstrainedBox(
                                 constraints:
                                     const BoxConstraints(minHeight: 72),
                                 child: ShadButton.outline(
                                   width: double.infinity,
                                   padding: const EdgeInsets.symmetric(
-                                    vertical: AppDimens.spacingSm,
-                                    horizontal: AppDimens.spacingMd,
+                                    vertical: 12,
+                                    horizontal: 16,
                                   ),
                                   mainAxisAlignment: MainAxisAlignment.start,
                                   leading: const Icon(LucideIcons.databaseZap),
                                   onPressed: showResetConfirmation,
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const Flexible(
-                                        child: Text(
-                                          Strings.forceReset,
-                                          overflow: TextOverflow.ellipsis,
+                                  child: Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Flexible(
+                                          child: Text(
+                                            Strings.forceReset,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
                                         ),
-                                      ),
-                                      const Gap(4),
-                                      Flexible(
-                                        child: Text(
-                                          Strings.forceResetDescription,
-                                          style: context.typo.small,
-                                          overflow: TextOverflow.ellipsis,
+                                        const Gap(4),
+                                        Flexible(
+                                          child: Text(
+                                            Strings.forceResetDescription,
+                                            style: context.typo.small,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
                                         ),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
                             ],
                           ),
                         ),
-                        const Gap(AppDimens.spacingMd),
+                        const Gap(16),
                         ShadCard(
                           title: const Text(Strings.diagnostics),
                           description:
@@ -665,29 +667,31 @@ class SettingsScreen extends HookConsumerWidget {
                             child: ShadButton.outline(
                               width: double.infinity,
                               padding: const EdgeInsets.symmetric(
-                                vertical: AppDimens.spacingSm,
-                                horizontal: AppDimens.spacingMd,
+                                vertical: 12,
+                                horizontal: 16,
                               ),
                               mainAxisAlignment: MainAxisAlignment.start,
                               leading: const Icon(LucideIcons.terminal),
                               onPressed: () => AutoRouter.of(context)
                                   .push(const LogsRoute()),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Text(Strings.showLogs),
-                                  const Gap(4),
-                                  Text(
-                                    Strings.openDetailedViewForSupport,
-                                    style: context.typo.small,
-                                  ),
-                                ],
+                              child: Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Text(Strings.showLogs),
+                                    const Gap(4),
+                                    Text(
+                                      Strings.openDetailedViewForSupport,
+                                      style: context.typo.small,
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
                         ),
-                        const Gap(AppDimens.spacingMd),
+                        const Gap(16),
                         databaseStats.when(
                           data: (stats) => ShadCard(
                             title: const Text(Strings.databaseStatsTitle),
@@ -696,8 +700,8 @@ class SettingsScreen extends HookConsumerWidget {
                             ),
                             child: Padding(
                               padding: const EdgeInsets.symmetric(
-                                vertical: AppDimens.spacingXs,
-                                horizontal: AppDimens.spacingSm,
+                                vertical: 8,
+                                horizontal: 12,
                               ),
                               child: Row(
                                 mainAxisAlignment:
@@ -725,7 +729,7 @@ class SettingsScreen extends HookConsumerWidget {
                           loading: () => const SizedBox.shrink(),
                           error: (error, _) => const SizedBox.shrink(),
                         ),
-                        const Gap(AppDimens.spacingMd),
+                        const Gap(16),
                         if (packageInfo != null)
                           ShadCard(
                             title: const Text(Strings.appInfo),
@@ -736,12 +740,12 @@ class SettingsScreen extends HookConsumerWidget {
                                   label: Strings.version,
                                   value: packageInfo.version,
                                 ),
-                                const Gap(AppDimens.spacingSm),
+                                const Gap(12),
                                 _AppInfoItem(
                                   label: Strings.buildNumber,
                                   value: packageInfo.buildNumber,
                                 ),
-                                const Gap(AppDimens.spacingSm),
+                                const Gap(12),
                                 _AppInfoItem(
                                   label: Strings.packageName,
                                   value: packageInfo.packageName,
@@ -749,7 +753,7 @@ class SettingsScreen extends HookConsumerWidget {
                               ],
                             ),
                           ),
-                        const Gap(AppDimens.spacingXl),
+                        const Gap(24),
                       ],
                     ),
                   ),
@@ -779,7 +783,7 @@ class SettingsScreen extends HookConsumerWidget {
                         ),
                       ),
                     ),
-                    const Gap(AppDimens.spacingMd),
+                    const Gap(16),
                     Text(
                       Strings.resetting,
                       style: context.typo.p,
@@ -842,16 +846,16 @@ class _StatsItem extends StatelessWidget {
         ExcludeSemantics(
           child: Icon(
             icon,
-            size: AppDimens.iconSm,
+            size: 16,
             color: theme.colorScheme.primary,
           ),
         ),
-        const Gap(AppDimens.spacing2xs),
+        const Gap(4),
         Text(
           value,
           style: theme.textTheme.h4.copyWith(fontWeight: FontWeight.bold),
         ),
-        const Gap(AppDimens.spacing2xs),
+        const Gap(4),
         Text(
           label,
           style: theme.textTheme.small.copyWith(
@@ -886,7 +890,7 @@ class _AppInfoItem extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
           ),
         ),
-        const Gap(AppDimens.spacingSm),
+        const Gap(12),
         Flexible(
           child: Text(
             value,

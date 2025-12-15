@@ -5,7 +5,8 @@ import 'package:pharma_scan/core/domain/types/ids.dart';
 import 'package:pharma_scan/core/models/scan_models.dart';
 import 'package:pharma_scan/core/utils/gs1_parser.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
-import 'package:pharma_scan/features/restock/domain/entities/restock_item_entity.dart';
+import 'package:pharma_scan/core/domain/entities/restock_item_entity.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:pharma_scan/features/scanner/domain/logic/scan_traffic_control.dart';
 import 'package:pharma_scan/features/scanner/domain/scanner_mode.dart';
 
@@ -41,6 +42,18 @@ class RestockDuplicate extends ScanDecision {
 
   final DuplicateScanEvent event;
   final String? toastMessage;
+}
+
+class ScanWarning extends ScanDecision {
+  const ScanWarning({
+    required this.message,
+    required this.productCip,
+    required this.scanResult,
+  });
+
+  final String message;
+  final String productCip;
+  final ScanResult? scanResult;
 }
 
 class ProductNotFound extends ScanDecision {
@@ -83,11 +96,34 @@ class ScanOrchestrator {
 
   Future<ScanDecision> decide(
     String rawValue,
+    BarcodeFormat format,
     ScannerMode mode, {
     bool force = false,
     Set<String> scannedCodes = const {},
     List<ScanResult> existingBubbles = const [],
   }) async {
+    // 1. Handle 1D Barcodes (EAN13, Code128) - Warning Pathway
+    if (format == BarcodeFormat.ean13 || format == BarcodeFormat.code128) {
+      if (rawValue.length != 13 && format == BarcodeFormat.ean13) {
+        // Simple sanity check, though EAN13 should be 13 chars
+      }
+
+      // Treat rawValue as CIP13
+      final cip13 = Cip13.validated(rawValue);
+
+      // Check existence
+      final catalogResult = await _catalogDao.getProductByCip(cip13);
+
+      // Even if found, we warn about using DataMatrix for full tracking
+      return ScanWarning(
+        message:
+            "Code-barres détecté. Utilisez le DataMatrix pour le suivi complet (Lot/Exp).",
+        productCip: rawValue,
+        scanResult: catalogResult,
+      );
+    }
+
+    // 2. Handle DataMatrix - Green Pathway
     final parsedData = Gs1Parser.parse(rawValue);
     final codeCip = parsedData.gtin;
     if (codeCip == null) {

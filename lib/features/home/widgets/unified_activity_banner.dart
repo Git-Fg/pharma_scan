@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
-import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
@@ -31,9 +30,9 @@ class UnifiedActivityBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final spacing = context.spacing;
     final effectiveProgress = progressValue?.clamp(0.0, 1.0);
-    final progressSummary =
-        progressLabel ??
+    final progressSummary = progressLabel ??
         (effectiveProgress != null
             ? Strings.dataOperationsProgressLabel(
                 effectiveProgress * 100,
@@ -70,11 +69,11 @@ class UnifiedActivityBanner extends StatelessWidget {
           );
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppDimens.spacingMd,
+      padding: EdgeInsets.fromLTRB(
+        spacing.md,
         0,
-        AppDimens.spacingMd,
-        AppDimens.spacingXs,
+        spacing.md,
+        spacing.xs,
       ),
       child: alert,
     );
@@ -85,6 +84,7 @@ class UnifiedActivityBanner extends StatelessWidget {
     String progressSummary,
     double? effectiveProgress,
   ) {
+    final spacing = context.spacing;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -96,14 +96,14 @@ class UnifiedActivityBanner extends StatelessWidget {
           ),
         ),
         if (secondaryStatus != null) ...[
-          const Gap(AppDimens.spacing2xs),
+          Gap(spacing.xs / 2),
           Text(
             secondaryStatus!,
             style: context.typo.small,
           ),
         ],
         if (effectiveProgress != null || indeterminate) ...[
-          const Gap(AppDimens.spacingSm),
+          Gap(spacing.sm),
           SizedBox(
             height: 4,
             child: ClipRRect(
@@ -121,14 +121,14 @@ class UnifiedActivityBanner extends StatelessWidget {
               ),
             ),
           ),
-          const Gap(AppDimens.spacing2xs),
+          Gap(spacing.xs / 2),
           Text(
             progressSummary,
             style: context.typo.small,
           ),
         ],
         if (isError && onRetry != null) ...[
-          const Gap(AppDimens.spacingMd),
+          Gap(spacing.md),
           Align(
             alignment: Alignment.centerRight,
             child: ShadButton.outline(

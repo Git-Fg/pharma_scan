@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
-import 'package:pharma_scan/core/theme/app_dimens.dart';
+
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/formatters.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/product_badges.dart';
-import 'package:pharma_scan/features/explorer/domain/entities/group_detail_entity.dart';
-import 'package:pharma_scan/features/explorer/domain/extensions/medication_status_extensions.dart';
+import 'package:pharma_scan/core/domain/entities/group_detail_entity.dart';
+import 'package:pharma_scan/core/domain/extensions/medication_status_extensions.dart';
 import 'package:pharma_scan/features/explorer/domain/extensions/view_group_detail_extensions.dart';
-import 'package:pharma_scan/features/explorer/presentation/widgets/status_badges.dart';
+import 'package:pharma_scan/core/widgets/badges/status_badges.dart';
 import 'package:pharma_scan/core/ui/organisms/app_sheet.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
@@ -41,25 +41,25 @@ class MedicationDetailSheet extends StatelessWidget {
         style: theme.textTheme.p.copyWith(fontWeight: FontWeight.w600),
       ),
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(AppDimens.spacingMd),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
                 ProductTypeBadge(memberType: item.memberType),
-                const Gap(AppDimens.spacingSm),
+                const Gap(12),
                 FinancialBadge(
                   refundRate: item.trimmedRefundRate,
                   price: item.prixPublic,
                 ),
               ],
             ),
-            const Gap(AppDimens.spacingSm),
+            const Gap(12),
             if (availability != null || item.isHospitalOnly) ...[
               Wrap(
-                spacing: AppDimens.spacing2xs,
-                runSpacing: AppDimens.spacing2xs,
+                spacing: 4,
+                runSpacing: 4,
                 children: [
                   ...buildStatusBadges(
                     context,
@@ -72,7 +72,7 @@ class MedicationDetailSheet extends StatelessWidget {
                     ),
                 ],
               ),
-              const Gap(AppDimens.spacingSm),
+              const Gap(12),
             ],
             _buildInfoRow(
               context,
@@ -97,7 +97,7 @@ class MedicationDetailSheet extends StatelessWidget {
                 value: item.formLabel!,
               ),
             if (priceText != null) ...[
-              const Gap(AppDimens.spacing2xs),
+              const Gap(4),
               _buildInfoRow(
                 context,
                 label: Strings.priceShort,
@@ -112,10 +112,10 @@ class MedicationDetailSheet extends StatelessWidget {
               ),
             ],
             if (conditions != null && conditions.isNotEmpty) ...[
-              const Gap(AppDimens.spacing2xs),
+              const Gap(4),
               _buildConditions(context, conditions),
             ],
-            const Gap(AppDimens.spacingSm),
+            const Gap(12),
             RegulatoryBadges(
               isNarcotic: item.isNarcotic,
               isList1: item.isList1,
@@ -140,7 +140,7 @@ class MedicationDetailSheet extends StatelessWidget {
   }) {
     final theme = context.shadTheme;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppDimens.spacing2xs),
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
           Expanded(
@@ -151,7 +151,7 @@ class MedicationDetailSheet extends StatelessWidget {
               ),
             ),
           ),
-          const Gap(AppDimens.spacingSm),
+          const Gap(12),
           Expanded(
             child: Text(
               value,
@@ -192,7 +192,7 @@ class MedicationDetailSheet extends StatelessWidget {
               border: Border.all(color: theme.colorScheme.border),
               borderRadius: theme.radius,
             ),
-            padding: const EdgeInsets.all(AppDimens.spacingMd),
+            padding: const EdgeInsets.all(16),
             child: Text(
               conditions,
               style: theme.textTheme.p.copyWith(fontWeight: FontWeight.w600),

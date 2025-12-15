@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:collection/collection.dart';
 import 'package:pharma_scan/core/utils/text_utils.dart';
 import 'package:pharma_scan/core/utils/formatters.dart';
-import 'package:pharma_scan/features/explorer/domain/entities/group_detail_entity.dart';
+import 'package:pharma_scan/core/domain/entities/group_detail_entity.dart';
 
 /// Helper method to decode JSON strings to List<String>
 List<String> decodeJsonStringList(String? jsonString) {

@@ -5,8 +5,8 @@ import 'package:pharma_scan/core/database/user_schema.drift.dart';
 
 import 'package:pharma_scan/core/domain/types/ids.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
-import 'package:pharma_scan/features/history/domain/entities/scan_history_entry.dart';
-import 'package:pharma_scan/features/restock/domain/entities/restock_item_entity.dart';
+import 'package:pharma_scan/core/domain/entities/scan_history_entry.dart';
+import 'package:pharma_scan/core/domain/entities/restock_item_entity.dart';
 import 'package:pharma_scan/core/database/utils/sql_error_x.dart';
 
 // Centralized detection moved to `lib/core/database/utils/sql_error_x.dart`.
@@ -67,23 +67,14 @@ class RestockDao extends DatabaseAccessor<AppDatabase> with $RestockDaoMixin {
   Future<void> addToRestock(Cip13 cip) async {
     final cipString = cip.toString();
 
-    // Récupérer les infos du médicament depuis la DB
-    final medicamentInfo = await customSelect(
-      '''
-      SELECT m.cis_code, ms.nom_canonique, ms.is_princeps,
-             ms.princeps_de_reference, ms.forme_pharmaceutique,
-             ms.voies_administration, ms.formatted_dosage, ms.representative_cip
-      FROM medicaments m
-      LEFT JOIN medicament_summary ms ON m.cis_code = ms.cis_code
-      WHERE m.cip_code = ?
-      LIMIT 1
-      ''',
-      variables: [Variable<String>(cipString)],
-      readsFrom: {},
-    ).getSingleOrNull();
+    // Use managers to fetch from the optimized read cache
+    final cachedProduct = await attachedDatabase.managers.productScanCache
+        .filter((f) => f.cipCode.cipCode.equals(cipString))
+        .getSingleOrNull();
 
-    if (medicamentInfo == null) {
-      // Si le médicament n'existe pas dans la DB, créer un item minimal
+    if (cachedProduct == null) {
+      // Fallback: If not in cache, create a minimal item
+      // This handles "Unknown" items gracefully
       await _upsertRestockItem(
         cipCode: cipString,
         cisCode: '',
@@ -93,39 +84,17 @@ class RestockDao extends DatabaseAccessor<AppDatabase> with $RestockDaoMixin {
       return;
     }
 
-    // Extract medication information
-    final cisCode = medicamentInfo.readNullable<String>('cis_code') ?? '';
-    final nomCanonique =
-        medicamentInfo.readNullable<String>('nom_canonique') ?? Strings.unknown;
-    final isPrinceps =
-        (medicamentInfo.readNullable<int>('is_princeps') ?? 0) == 1;
-    final princepsDeReference = medicamentInfo.readNullable<String>(
-      'princeps_de_reference',
-    );
-    final formePharmaceutique = medicamentInfo.readNullable<String>(
-      'forme_pharmaceutique',
-    );
-    final voiesAdministration = medicamentInfo.readNullable<String>(
-      'voies_administration',
-    );
-    final formattedDosage = medicamentInfo.readNullable<String>(
-      'formatted_dosage',
-    );
-    final representativeCip = medicamentInfo.readNullable<String>(
-      'representative_cip',
-    );
-
-    // Use the consolidated upsert helper
+    // Map fields directly from the cache to the upsert helper
     await _upsertRestockItem(
       cipCode: cipString,
-      cisCode: cisCode,
-      nomCanonique: nomCanonique,
-      isPrinceps: isPrinceps,
-      princepsDeReference: princepsDeReference,
-      formePharmaceutique: formePharmaceutique,
-      voiesAdministration: voiesAdministration,
-      formattedDosage: formattedDosage,
-      representativeCip: representativeCip,
+      cisCode: cachedProduct.cisCode,
+      nomCanonique: cachedProduct.nomCanonique,
+      isPrinceps: cachedProduct.isPrinceps == 1,
+      princepsDeReference: cachedProduct.princepsDeReference,
+      formePharmaceutique: cachedProduct.formePharmaceutique,
+      voiesAdministration: cachedProduct.voiesAdministration,
+      formattedDosage: cachedProduct.formattedDosage,
+      representativeCip: cachedProduct.representativeCip,
     );
   }
 

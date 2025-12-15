@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/features/explorer/presentation/providers/cluster_provider.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
@@ -19,6 +18,7 @@ class MedicationDrawer extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final productsAsync = ref.watch(clusterContentProvider(clusterId));
+    final spacing = context.spacing;
 
     return ShadSheet(
       title: const Text("Détail du groupe"),
@@ -27,15 +27,14 @@ class MedicationDrawer extends ConsumerWidget {
           child: CircularProgressIndicator(),
         ),
         data: (products) => Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppDimens.spacingMd,
-            vertical: AppDimens.spacingMd,
+          padding: EdgeInsets.symmetric(
+            horizontal: spacing.md,
+            vertical: spacing.md,
           ),
           child: ListView.separated(
             shrinkWrap: true,
             itemCount: products.length,
-            separatorBuilder: (context, index) =>
-                const Gap(AppDimens.spacingXs),
+            separatorBuilder: (context, index) => Gap(spacing.xs),
             itemBuilder: (ctx, idx) {
               final product = products[idx];
               return ProductRow(
@@ -50,17 +49,17 @@ class MedicationDrawer extends ConsumerWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(
+              Icon(
                 LucideIcons.triangleAlert,
-                color: Colors.red,
+                color: context.colors.destructive,
                 size: 48,
               ),
-              const Gap(AppDimens.spacingSm),
+              Gap(spacing.sm),
               Text(
                 Strings.errorLoadingCluster,
                 style: context.typo.p,
               ),
-              const Gap(AppDimens.spacingXs),
+              Gap(spacing.xs),
               Text(
                 error.toString(),
                 style: context.typo.small.copyWith(
@@ -90,8 +89,9 @@ class ProductRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final spacing = context.spacing;
     return Container(
-      padding: const EdgeInsets.all(AppDimens.spacingSm),
+      padding: EdgeInsets.all(spacing.sm),
       decoration: BoxDecoration(
         color: isPrinceps ? context.colors.secondary : context.colors.card,
         borderRadius: context.shadTheme.radius,
@@ -108,7 +108,7 @@ class ProductRow extends StatelessWidget {
                 style: context.typo.small,
               ),
             ),
-          const Gap(AppDimens.spacingXs),
+          Gap(spacing.xs),
           Expanded(
             child: Text(
               name,

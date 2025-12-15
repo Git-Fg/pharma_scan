@@ -54,6 +54,34 @@ class TestDatabaseHelper {
       await db.appSettingsDao.setBdpmVersion('test-version-local');
       await db.appSettingsDao
           .setLastSyncEpoch(DateTime.now().millisecondsSinceEpoch);
+
+      // --- Additional test preferences previously provided by
+      // MockPreferencesHelper.configureForTesting() ---
+      // These keys ensure the running app reads the mocked state from
+      // the `app_settings` table during Patrol E2E tests.
+      await db.appSettingsDao.setSetting('onboarding_completed', true);
+      await db.appSettingsDao.setSetting('initial_tutorial_shown', true);
+      await db.appSettingsDao.setSetting('terms_accepted', true);
+      await db.appSettingsDao.setSetting('privacy_policy_accepted', true);
+      await db.appSettingsDao.setSetting('user_profile_setup', true);
+
+      // Permissions
+      await db.appSettingsDao.setSetting('camera_permissions_granted', true);
+      await db.appSettingsDao.setSetting('storage_permissions_granted', true);
+
+      // App flags
+      await db.appSettingsDao.setSetting('is_first_launch', false);
+      await db.appSettingsDao.setSetting('analytics_enabled', false);
+      await db.appSettingsDao.setSetting('crash_reporting_enabled', false);
+      await db.appSettingsDao.setSetting('auto_update_enabled', false);
+      await db.appSettingsDao.setSetting('show_tutorial_hints', false);
+      await db.appSettingsDao.setSetting('default_scan_mode', 'analysis');
+
+      // User preferences
+      await db.appSettingsDao.setSetting('preferred_language', 'fr');
+      await db.appSettingsDao.setSetting('dark_mode', false);
+      await db.appSettingsDao.setSetting('haptic_feedback', true);
+      await db.appSettingsDao.setSetting('sound_enabled', true);
     } finally {
       await db.close();
     }

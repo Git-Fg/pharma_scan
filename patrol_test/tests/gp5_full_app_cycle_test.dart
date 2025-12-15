@@ -3,7 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:patrol/patrol.dart';
 
 import '../data/test_products.dart';
-import '../helpers/mock_preferences_helper.dart';
 import '../helpers/test_database_helper.dart';
 import '../robots/app_robot.dart';
 
@@ -24,7 +23,6 @@ void main() {
       ($) async {
         final appRobot = AppRobot($);
         // PHASE 1: Setup and Initialization
-        await MockPreferencesHelper.configureForTesting();
         await TestDatabaseHelper.injectTestDatabase();
 
         await appRobot.completeAppInitialization();
@@ -101,7 +99,6 @@ void main() {
       ($) async {
         final appRobot = AppRobot($);
         // Setup initial state
-        await MockPreferencesHelper.configureForTesting();
         await TestDatabaseHelper.injectTestDatabase();
 
         await appRobot.completeAppInitialization();
@@ -183,7 +180,6 @@ void main() {
       ($) async {
         final appRobot = AppRobot($);
         // Setup
-        await MockPreferencesHelper.configureForTesting();
         await TestDatabaseHelper.injectTestDatabase();
 
         await appRobot.completeAppInitialization();
@@ -264,7 +260,6 @@ void main() {
       ($) async {
         final appRobot = AppRobot($);
         // Initial setup
-        await MockPreferencesHelper.configureForTesting();
         await TestDatabaseHelper.injectTestDatabase();
 
         await appRobot.completeAppInitialization();
@@ -341,7 +336,6 @@ void main() {
       ($) async {
         final appRobot = AppRobot($);
         // Setup for controlled substances testing
-        await MockPreferencesHelper.configureForTesting();
         await TestDatabaseHelper.injectTestDatabase();
 
         await appRobot.completeAppInitialization();
@@ -403,7 +397,6 @@ void main() {
       ($) async {
         final appRobot = AppRobot($);
         // Setup
-        await MockPreferencesHelper.configureForTesting();
         await TestDatabaseHelper.injectTestDatabase();
 
         await appRobot.completeAppInitialization();

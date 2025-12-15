@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:gap/gap.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
-import 'package:pharma_scan/core/theme/app_dimens.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/utils/test_tags.dart';
 import 'package:pharma_scan/core/widgets/adaptive_bottom_panel.dart';
 import 'package:pharma_scan/features/scanner/presentation/models/scanner_ui_state.dart';
 import 'package:pharma_scan/features/scanner/presentation/providers/scanner_provider.dart';
 
-import 'package:pharma_scan/core/ui/theme/app_spacing.dart';
 import 'package:pharma_scan/core/ui/theme/app_theme.dart';
+import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 /// Widget that displays the bottom control panel for the scanner screen.
@@ -26,6 +26,7 @@ class ScannerControls extends ConsumerWidget {
     required this.onGallery,
     required this.onManualEntry,
     required this.onToggleTorch,
+    required this.onToggleZoom,
     required this.onToggleMode,
     super.key,
   });
@@ -35,6 +36,7 @@ class ScannerControls extends ConsumerWidget {
   final VoidCallback onGallery;
   final VoidCallback onManualEntry;
   final VoidCallback onToggleTorch;
+  final VoidCallback onToggleZoom;
   final VoidCallback onToggleMode;
 
   @override
@@ -67,9 +69,10 @@ class ScannerControls extends ConsumerWidget {
         ? context.textNegative
         : context.actionPrimary;
     final bottomInset = MediaQuery.paddingOf(context).bottom;
+    final spacing = context.spacing;
 
     return Positioned(
-      bottom: AppDimens.spacingMd + bottomInset,
+      bottom: spacing.md + bottomInset,
       left: 0,
       right: 0,
       child: AdaptiveBottomPanel(
@@ -87,13 +90,11 @@ class ScannerControls extends ConsumerWidget {
                     ),
                   ),
                   child: Padding(
-                    padding: const EdgeInsets.all(
-                      AppDimens.spacingLg,
-                    ),
+                    padding: EdgeInsets.all(spacing.lg),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
-                      spacing: AppDimens.spacingMd,
+                      spacing: spacing.md,
                       children: [
                         Center(
                           child: ScannerModeToggle(
@@ -110,10 +111,9 @@ class ScannerControls extends ConsumerWidget {
                           ),
                         ),
                         Padding(
-                          padding:
-                              const EdgeInsets.only(top: AppDimens.spacingSm),
+                          padding: EdgeInsets.only(top: spacing.sm),
                           child: Row(
-                            spacing: AppSpacing.small,
+                            spacing: spacing.sm,
                             children: [
                               Expanded(
                                 child: Semantics(
@@ -131,7 +131,7 @@ class ScannerControls extends ConsumerWidget {
                                 ),
                               ),
                               if (isCameraRunning) ...[
-                                const Gap(AppDimens.spacingSm),
+                                Gap(spacing.sm),
                                 Semantics(
                                   button: true,
                                   label: torchState == TorchState.on
@@ -142,12 +142,34 @@ class ScannerControls extends ConsumerWidget {
                                         isCameraRunning && !isInitializing
                                             ? onToggleTorch
                                             : null,
-                                    child: const Icon(Icons.flash_on),
+                                    child: Icon(
+                                      torchState == TorchState.on
+                                          ? Icons.flash_on
+                                          : Icons.flash_off,
+                                      size: 18,
+                                    ),
                                   ),
                                 ),
-                                const Gap(AppDimens.spacingSm),
+                                Gap(spacing.sm),
+                                Semantics(
+                                  button: true,
+                                  label: 'Zoom',
+                                  child: ShadButton.secondary(
+                                    onPressed:
+                                        isCameraRunning && !isInitializing
+                                            ? onToggleZoom
+                                            : null,
+                                    child: Text(
+                                      '2x',
+                                      style: context.typo.small.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                Gap(spacing.sm),
                               ] else
-                                const Gap(AppDimens.spacingMd),
+                                Gap(spacing.md),
                               Expanded(
                                 child: Semantics(
                                   button: true,
@@ -221,7 +243,7 @@ class ScannerActionButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(44),
             child: Icon(
               isCameraRunning ? Icons.camera_alt : Icons.qr_code_scanner,
-              size: AppDimens.iconXl,
+              size: 48, // AppDimens.iconXl was 48 (assuming)
               color: context.actionOnPrimary,
             ),
           ),
@@ -248,6 +270,7 @@ class ScannerModeToggle extends StatelessWidget {
     final icon = isRestock ? Icons.inventory : Icons.search;
     final label =
         isRestock ? Strings.scannerModeRestock : Strings.scannerModeAnalysis;
+    final spacing = context.spacing;
 
     return FittedBox(
       child: ConstrainedBox(
@@ -261,9 +284,9 @@ class ScannerModeToggle extends StatelessWidget {
               border: Border.all(color: color.withValues(alpha: 0.6)),
             ),
             child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppDimens.spacingMd,
-                vertical: AppDimens.spacing2xs,
+              padding: EdgeInsets.symmetric(
+                horizontal: spacing.md,
+                vertical: spacing.xs / 2, // spacing2xs implies 2px
               ),
               child: Row(
                 key: ValueKey(mode),
@@ -271,15 +294,15 @@ class ScannerModeToggle extends StatelessWidget {
                 children: [
                   Icon(
                     icon,
-                    size: AppDimens.iconSm,
+                    size: 16, // AppDimens.iconSm was likely 16 or 20
                     color: color,
                   )
                       .animate()
                       .fadeIn(duration: const Duration(milliseconds: 180)),
-                  const Gap(AppDimens.spacing2xs),
+                  Gap(spacing.xs / 2),
                   Text(
                     label,
-                    style: TextStyle(
+                    style: context.typo.small.copyWith(
                       color: color,
                       fontWeight: FontWeight.w600,
                       fontSize: 14,

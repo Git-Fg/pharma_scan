@@ -1,14 +1,6 @@
 import 'database.dart';
 import 'reference_schema.drift';
 import 'user_schema.drift';
-import 'views.drift';
-
--- Queries for MedicamentSummary table - using traditional SELECT * (for compatibility)
--- New modern approach uses ** operator for automatic mapping, see examples below
-
--- Removed superseded: getProductByCip
--- NOTE: This named query was removed; lookups are handled by TableManager (e.g., `attachedDatabase.managers.productScanCache`).
-
 
 -- Scan history (reverse chronological, limited)
 -- Utilise la structure du schéma SQL distant : scanned_boxes avec cip_code et scan_timestamp
@@ -27,52 +19,17 @@ LIMIT :limit;
 
 
 
--- Removed superseded view: detailed_scan_results
--- NOTE: Flattened scan results are available via precomputed caches/views (e.g., `product_scan_cache`) and this view was unused.
-
-
--- getMedicamentSummaryCount: Removed - now uses db.managers.medicamentSummary.count()
-
--- Cross-validation query: Get Type 0 (princeps) member names for a group
--- Returns the shortest nom_specialite as fallback if parsed princepsLabel doesn't match
-getPrincepsNamesForGroup:
-SELECT
-  gg.group_id,
-  gg.princeps_label AS parsed_princeps,
-  MIN(s.nom_specialite) AS shortest_name,
-  COUNT(*) AS match_count
-FROM generique_groups gg
-INNER JOIN group_members gm ON gg.group_id = gm.group_id
-INNER JOIN medicaments m ON gm.cip_code = m.cip_code
-INNER JOIN specialites s ON m.cis_code = s.cis_code
-WHERE gm.type = 0
-  AND gg.group_id = :groupId
-GROUP BY gg.group_id, gg.princeps_label
-HAVING (
-  -- Check if parsed_princeps appears in any Type 0 member name (normalized LIKE)
-  gg.princeps_label IS NULL
-  OR NOT EXISTS (
-    SELECT 1
-    FROM group_members gm2
-    INNER JOIN medicaments m2 ON gm2.cip_code = m2.cip_code
-    INNER JOIN specialites s2 ON m2.cis_code = s2.cis_code
-    WHERE gm2.group_id = gg.group_id
-      AND gm2.type = 0
-      AND normalize_text(s2.nom_specialite) LIKE '%' || normalize_text(gg.princeps_label) || '%'
-  )
-);
-
 -- Query to get all groups with the same active principles as a target group
 -- Uses self-join on principes_actifs_communs to find related groups
 -- Always includes the target group itself, even if it has no principes_actifs_communs
 getGroupsWithSamePrinciples:
-SELECT vgd.*
-FROM view_group_details vgd
-WHERE vgd.group_id = :targetGroupId
-   OR vgd.group_id IN (
+SELECT ugd.*
+FROM ui_group_details ugd
+WHERE ugd.group_id = :targetGroupId
+   OR ugd.group_id IN (
     SELECT DISTINCT ms2.group_id
     FROM medicament_summary ms1
-    INNER JOIN medicament_summary ms2 
+    INNER JOIN medicament_summary ms2
         ON ms1.principes_actifs_communs = ms2.principes_actifs_communs
     WHERE ms1.group_id = :targetGroupId
       AND ms1.principes_actifs_communs IS NOT NULL
@@ -82,16 +39,16 @@ WHERE vgd.group_id = :targetGroupId
       AND ms2.group_id != ''
       AND ms2.group_id != :targetGroupId
   )
-ORDER BY vgd.is_princeps DESC, vgd.nom_canonique ASC;
+ORDER BY ugd.is_princeps DESC, ugd.nom_canonique ASC;
 
 -- Query to find related therapies (superset groups)
 -- Finds groups where target principles are a SUBSET of candidate principles
 getRelatedTherapies:
-SELECT DISTINCT vgd.*
-FROM view_group_details vgd
-INNER JOIN medicament_summary ms ON vgd.group_id = ms.group_id
-WHERE vgd.group_id != :targetGroupId
-  AND vgd.is_princeps = 1
+SELECT DISTINCT ugd.*
+FROM ui_group_details ugd
+INNER JOIN medicament_summary ms ON ugd.group_id = ms.group_id
+WHERE ugd.group_id != :targetGroupId
+  AND ugd.is_princeps = 1
   AND ms.principes_actifs_communs IS NOT NULL
   AND ms.principes_actifs_communs != '[]'
   AND ms.principes_actifs_communs != ''
@@ -103,48 +60,7 @@ WHERE vgd.group_id != :targetGroupId
       SELECT value FROM json_each(ms.principes_actifs_communs)
     )
   )
-ORDER BY vgd.princeps_de_reference ASC;
+ORDER BY ugd.princeps_de_reference ASC;
 
--- SQL-First Mapping Example: Join medicaments with specialites using ** operator
--- This demonstrates the automatic mapping feature where m.** maps all columns from medicaments
--- and s.** maps all columns from specialites, creating strongly-typed result classes
 
--- Batch update for princeps and molecule labels using SQL (no Dart loops).
-refineGroupMetadata:
-UPDATE generique_groups
-SET
-  princeps_label = COALESCE(
-    NULLIF(princeps_label, ''),
-    (
-      SELECT name FROM (
-        SELECT s.nom_specialite AS name
-        FROM group_members gm
-        INNER JOIN medicaments m ON gm.cip_code = m.cip_code
-        INNER JOIN specialites s ON m.cis_code = s.cis_code
-        WHERE gm.group_id = generique_groups.group_id
-          AND gm.type = 0
-          AND s.nom_specialite IS NOT NULL
-          AND s.nom_specialite != ''
-        ORDER BY LENGTH(s.nom_specialite), s.nom_specialite
-        LIMIT 1
-      )
-    )
-  ),
-  molecule_label = COALESCE(
-    NULLIF(molecule_label, ''),
-    NULLIF(
-      TRIM(libelle),
-      ''
-    )
-  );
 
--- Additional SQL-First Mapping Examples
-
--- Removed superseded: getProductDetailsByCip
--- NOTE: Detailed product lookups are serviced via TableManager caches and DAOs (unused named query).
-
--- Removed superseded: getProductsByLaboratory
--- NOTE: Product listing by laboratory is implemented via manager queries or DAOs; this named query was unused.
-
--- Removed superseded: getProductAvailability
--- NOTE: Availability info is available via `product_scan_cache` or direct manager tables; query unused.

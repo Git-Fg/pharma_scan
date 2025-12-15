@@ -11,6 +11,12 @@ MobileScannerController scannerController(Ref ref) {
     detectionSpeed: DetectionSpeed.noDuplicates,
     detectionTimeoutMs: 500,
     returnImage: false, // Critical for RAM
+    formats: const [
+      BarcodeFormat.dataMatrix,
+      BarcodeFormat.ean13,
+      BarcodeFormat.code128,
+    ],
+    torchEnabled: false,
     cameraResolution: const Size(1280, 720),
     autoStart:
         false, // Manual lifecycle control via AppLifecycleListener elsewhere if needed

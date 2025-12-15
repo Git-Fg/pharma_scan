@@ -1,5 +1,3 @@
-# AGENTS.md
-
 > **System Instruction:** This file is the **SINGLE SOURCE OF TRUTH** for AI Agents working on the PharmaScan project. It consolidates architectural rules, coding standards, library patterns, and operational workflows. You must strictly adhere to these constraints.
 
 ---
