@@ -5,7 +5,7 @@ import {
   MINERAL_TOKENS,
 } from "./constants";
 import { normalizePrincipleOptimal, normalizeForSearchIndex } from "./sanitizer";
-import type { GeneriqueGroup, GroupMember, PrincipeActif, MedicamentAvailability, SafetyAlert } from "./types";
+import type { GeneriqueGroup, GroupMember, PrincipeActif, MedicamentAvailability, SafetyAlert, Specialite } from "./types";
 
 // --- 0. Core Parsing Generators/Interfaces ---
 
@@ -1061,3 +1061,31 @@ export async function parseASMR(
   return result;
 }
 
+
+// --- 10. Normalization Helpers (Moved from normalization.ts) ---
+
+export function extractForms(specialites: Specialite[]): Set<string> {
+  const forms = new Set<string>();
+  for (const s of specialites) {
+    if (s.formePharmaceutique && s.formePharmaceutique.trim()) {
+      forms.add(s.formePharmaceutique.trim());
+    }
+  }
+  return forms;
+}
+
+export function extractRoutes(specialites: Specialite[]): Set<string> {
+  const routes = new Set<string>();
+  for (const s of specialites) {
+    if (s.voiesAdministration) {
+      const parts = s.voiesAdministration.split(";");
+      for (const part of parts) {
+        const trimmed = part.trim();
+        if (trimmed) {
+          routes.add(trimmed);
+        }
+      }
+    }
+  }
+  return routes;
+}

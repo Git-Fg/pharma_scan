@@ -13,6 +13,8 @@ import type {
   Laboratory,
   SafetyAlert
 } from "./types";
+import { formatPrinciples } from "./sanitizer";
+import { findCommonWordPrefix, type ClusterMetadata, buildSearchVector } from "./clustering";
 
 export const DEFAULT_DB_PATH = path.join("data", "reference.db");
 
@@ -614,19 +616,23 @@ export class ReferenceDatabase {
     return normalizeForSearch(input);
   }
 
-  private prepareInsert<T extends Record<string, SQLQueryBindings | null>>(
+  private prepareInsert<T extends Record<string, any>>(
     table: string,
     columns: ReadonlyArray<keyof T>
   ) {
     const cols = columns.map(String).join(", ");
     const vals = columns.map(() => "?").join(", ");
+    const sql = `INSERT OR REPLACE INTO ${table} (${cols}) VALUES (${vals})`;
+    const stmt = this.db.prepare(sql);
 
     return (rows: ReadonlyArray<T>) => {
-      for (const row of rows) {
-        const values = columns.map((col) => row[col]) as SQLQueryBindings[];
-        const stmt = this.db.prepare(`INSERT OR REPLACE INTO ${table} (${cols}) VALUES (${vals})`);
-        stmt.run(...values);
-      }
+      const transaction = this.db.transaction((data: ReadonlyArray<T>) => {
+        for (const row of data) {
+          const values = columns.map((col) => row[col]);
+          stmt.run(...values as SQLQueryBindings[]);
+        }
+      });
+      transaction(rows);
     };
   }
 
@@ -1432,8 +1438,678 @@ export class ReferenceDatabase {
     console.log(`✅ Inserted ${rows.length} cluster medicament details`);
   }
 
-  public runQuery<T = any>(sql: string, params: any[] = []): T[] {
-    return this.db.query(sql).all(...params) as T[];
+  /**
+   * Aggregates data into the medicament_summary table.
+   * This is the "Source of Truth" table optimized for the Flutter app.
+   */
+  public aggregateMedicamentSummary() {
+    console.log("📊 Aggregating MedicamentSummary...");
+
+    // Insert grouped medicaments (without cluster_id first, then update)
+    this.db.run(`
+      INSERT OR REPLACE INTO medicament_summary (
+        cis_code, nom_canonique, is_princeps, group_id, member_type,
+        principes_actifs_communs, princeps_de_reference, parent_princeps_cis, forme_pharmaceutique, form_id, is_form_inferred,
+        voies_administration, princeps_brand_name, procedure_type, titulaire_id,
+        conditions_prescription, date_amm, is_surveillance, formatted_dosage,
+        atc_code, status, price_min, price_max, aggregated_conditions,
+        ansm_alert_url, is_hospital, is_dental, is_list1, is_list2,
+        is_narcotic, is_exception, is_restricted, is_otc,
+        smr_niveau, smr_date, asmr_niveau, asmr_date, url_notice, has_safety_alert,
+        representative_cip
+      )
+      SELECT
+        s.cis_code,
+        COALESCE(
+          (SELECT nom_clean FROM medicament_names_clean WHERE cis_code = s.cis_code LIMIT 1),
+          s.nom_specialite
+        ) AS nom_canonique,
+        CASE WHEN gm.type = 0 THEN 1 ELSE 0 END AS is_princeps,
+        gg.group_id,
+        gm.type AS member_type,
+        NULL AS principes_actifs_communs, -- Filled via update later
+        COALESCE(gg.princeps_label, gg.libelle, s.nom_specialite, 'Inconnu') AS princeps_de_reference,
+        (
+          SELECT m0.cis_code 
+          FROM group_members gm0 
+          JOIN medicaments m0 ON gm0.cip_code = m0.cip_code 
+          WHERE gm0.group_id = gg.group_id AND gm0.type = 0 
+          ORDER BY gm0.sort_order DESC 
+          LIMIT 1
+        ) AS parent_princeps_cis,
+        s.forme_pharmaceutique,
+        rf.id AS form_id,
+        0 AS is_form_inferred,
+        s.voies_administration,
+        COALESCE(gg.princeps_label, gg.libelle, s.nom_specialite, 'Inconnu') AS princeps_brand_name,
+        s.procedure_type,
+        s.titulaire_id,
+        s.conditions_prescription,
+        s.date_amm,
+        s.is_surveillance,
+        NULL AS formatted_dosage,
+        s.atc_code,
+        s.statut_administratif AS status,
+        (
+          SELECT MIN(m3.prix_public)
+          FROM medicaments m3
+          INNER JOIN group_members gm3 ON m3.cip_code = gm3.cip_code
+          WHERE gm3.group_id = gg.group_id
+        ) AS price_min,
+        (
+          SELECT MAX(m4.prix_public)
+          FROM medicaments m4
+          INNER JOIN group_members gm4 ON m4.cip_code = gm4.cip_code
+          WHERE gm4.group_id = gg.group_id
+        ) AS price_max,
+        '[]' AS aggregated_conditions,
+        NULL AS ansm_alert_url,
+        -- Computed flags based on conditions_prescription
+        CASE WHEN UPPER(COALESCE(s.conditions_prescription, '')) LIKE '%LISTE II%' THEN 0 
+             WHEN UPPER(COALESCE(s.conditions_prescription, '')) LIKE '%LISTE I%' 
+              AND UPPER(COALESCE(s.conditions_prescription, '')) NOT LIKE '%LISTE II%' THEN 1 
+             ELSE 0 END AS is_list1,
+        CASE WHEN UPPER(COALESCE(s.conditions_prescription, '')) LIKE '%LISTE II%' THEN 1 ELSE 0 END AS is_list2,
+        CASE WHEN UPPER(COALESCE(s.conditions_prescription, '')) LIKE '%STUPÉFIANT%' OR UPPER(COALESCE(s.conditions_prescription, '')) LIKE '%STUPEFIANT%' THEN 1 ELSE 0 END AS is_narcotic,
+        CASE WHEN UPPER(COALESCE(s.conditions_prescription, '')) LIKE '%HOSPITALIER%' THEN 1 ELSE 0 END AS is_hospital,
+        CASE WHEN UPPER(COALESCE(s.conditions_prescription, '')) LIKE '%EXCEPTION%' THEN 1 ELSE 0 END AS is_exception,
+        CASE WHEN UPPER(COALESCE(s.conditions_prescription, '')) LIKE '%RESTREINTE%' THEN 1 ELSE 0 END AS is_restricted,
+        CASE WHEN UPPER(COALESCE(s.conditions_prescription, '')) LIKE '%DENTAIRE%' THEN 1 ELSE 0 END AS is_dental,
+        -- OTC Logic
+        CASE WHEN (
+            UPPER(COALESCE(s.conditions_prescription, '')) NOT LIKE '%LISTE I%' AND 
+            UPPER(COALESCE(s.conditions_prescription, '')) NOT LIKE '%LISTE II%' AND 
+            (UPPER(COALESCE(s.conditions_prescription, '')) NOT LIKE '%STUPÉFIANT%' AND UPPER(COALESCE(s.conditions_prescription, '')) NOT LIKE '%STUPEFIANT%')
+        ) THEN 1 ELSE 0 END AS is_otc,
+        NULL AS smr_niveau, NULL AS smr_date, NULL AS asmr_niveau, NULL AS asmr_date,
+        'https://base-donnees-publique.medicaments.gouv.fr/affichageDoc.php?specid=' || s.cis_code || '&typedoc=N' AS url_notice,
+        CASE WHEN EXISTS(SELECT 1 FROM cis_safety_links l WHERE l.cis_code = s.cis_code) THEN 1 ELSE 0 END AS has_safety_alert,
+        (
+          SELECT MIN(m5.cip_code)
+          FROM medicaments m5
+          INNER JOIN group_members gm5 ON m5.cip_code = gm5.cip_code
+          WHERE gm5.group_id = gg.group_id AND m5.cis_code = s.cis_code
+        ) AS representative_cip
+      FROM generique_groups gg
+      INNER JOIN group_members gm ON gg.group_id = gm.group_id
+      INNER JOIN medicaments m ON gm.cip_code = m.cip_code
+      INNER JOIN specialites s ON m.cis_code = s.cis_code
+      LEFT JOIN ref_forms rf ON s.forme_pharmaceutique = rf.label
+    `);
+
+    // Insert standalone medicaments
+    this.db.run(`
+      INSERT OR REPLACE INTO medicament_summary (
+        cis_code, nom_canonique, is_princeps, group_id, member_type,
+        principes_actifs_communs, princeps_de_reference, parent_princeps_cis, forme_pharmaceutique, form_id, is_form_inferred,
+        voies_administration, princeps_brand_name, procedure_type, titulaire_id,
+        conditions_prescription, date_amm, is_surveillance, formatted_dosage,
+        atc_code, status, price_min, price_max, aggregated_conditions,
+        ansm_alert_url, is_hospital, is_dental, is_list1, is_list2,
+        is_narcotic, is_exception, is_restricted, is_otc,
+        smr_niveau, smr_date, asmr_niveau, asmr_date, url_notice, has_safety_alert, representative_cip
+      )
+      SELECT
+        s.cis_code,
+        COALESCE(
+          (SELECT nom_clean FROM medicament_names_clean WHERE cis_code = s.cis_code LIMIT 1),
+          s.nom_specialite
+        ) AS nom_canonique,
+        1 AS is_princeps,
+        NULL AS group_id,
+        0 AS member_type,
+        json_array() AS principes_actifs_communs, -- Placeholder
+        s.nom_specialite AS princeps_de_reference,
+        s.cis_code AS parent_princeps_cis,
+        s.forme_pharmaceutique,
+        rf.id AS form_id,
+        0 AS is_form_inferred,
+        s.voies_administration,
+        s.nom_specialite AS princeps_brand_name,
+        s.procedure_type,
+        s.titulaire_id,
+        s.conditions_prescription,
+        s.date_amm,
+        s.is_surveillance,
+        NULL AS formatted_dosage,
+        s.atc_code,
+        s.statut_administratif AS status,
+        (SELECT MIN(m3.prix_public) FROM medicaments m3 WHERE m3.cis_code = s.cis_code) AS price_min,
+        (SELECT MAX(m4.prix_public) FROM medicaments m4 WHERE m4.cis_code = s.cis_code) AS price_max,
+        '[]' AS aggregated_conditions,
+        NULL AS ansm_alert_url,
+        CASE WHEN UPPER(COALESCE(s.conditions_prescription, '')) LIKE '%LISTE II%' THEN 0 
+             WHEN UPPER(COALESCE(s.conditions_prescription, '')) LIKE '%LISTE I%' AND UPPER(COALESCE(s.conditions_prescription, '')) NOT LIKE '%LISTE II%' THEN 1 
+             ELSE 0 END AS is_list1,
+        CASE WHEN UPPER(COALESCE(s.conditions_prescription, '')) LIKE '%LISTE II%' THEN 1 ELSE 0 END AS is_list2,
+        CASE WHEN UPPER(COALESCE(s.conditions_prescription, '')) LIKE '%STUPÉFIANT%' OR UPPER(COALESCE(s.conditions_prescription, '')) LIKE '%STUPEFIANT%' THEN 1 ELSE 0 END AS is_narcotic,
+        CASE WHEN UPPER(COALESCE(s.conditions_prescription, '')) LIKE '%HOSPITALIER%' THEN 1 ELSE 0 END AS is_hospital,
+        CASE WHEN UPPER(COALESCE(s.conditions_prescription, '')) LIKE '%EXCEPTION%' THEN 1 ELSE 0 END AS is_exception,
+        CASE WHEN UPPER(COALESCE(s.conditions_prescription, '')) LIKE '%RESTREINTE%' THEN 1 ELSE 0 END AS is_restricted,
+        CASE WHEN UPPER(COALESCE(s.conditions_prescription, '')) LIKE '%DENTAIRE%' THEN 1 ELSE 0 END AS is_dental,
+        CASE WHEN (
+            UPPER(COALESCE(s.conditions_prescription, '')) NOT LIKE '%LISTE I%' AND 
+            UPPER(COALESCE(s.conditions_prescription, '')) NOT LIKE '%LISTE II%' AND 
+            (UPPER(COALESCE(s.conditions_prescription, '')) NOT LIKE '%STUPÉFIANT%' AND UPPER(COALESCE(s.conditions_prescription, '')) NOT LIKE '%STUPEFIANT%')
+        ) THEN 1 ELSE 0 END AS is_otc,
+        NULL AS smr_niveau, NULL AS smr_date, NULL AS asmr_niveau, NULL AS asmr_date,
+        'https://base-donnees-publique.medicaments.gouv.fr/affichageDoc.php?specid=' || s.cis_code || '&typedoc=N' AS url_notice,
+        CASE WHEN EXISTS(SELECT 1 FROM cis_safety_links l WHERE l.cis_code = s.cis_code) THEN 1 ELSE 0 END AS has_safety_alert,
+        (SELECT MIN(m5.cip_code) FROM medicaments m5 WHERE m5.cis_code = s.cis_code) AS representative_cip
+      FROM specialites s
+      LEFT JOIN ref_forms rf ON s.forme_pharmaceutique = rf.label
+      WHERE NOT EXISTS (
+        SELECT 1 FROM group_members gm JOIN medicaments m ON gm.cip_code = m.cip_code WHERE m.cis_code = s.cis_code
+      )
+    `);
+
+    // Update compositions for standalone CIS
+    this.db.run(`
+      UPDATE medicament_summary
+      SET principes_actifs_communs = (
+        SELECT json_group_array(
+          TRIM(
+            pa.principe_normalized || 
+            CASE WHEN pa.dosage IS NOT NULL THEN ' ' || pa.dosage ELSE '' END ||
+            CASE WHEN pa.dosage_unit IS NOT NULL THEN ' ' || pa.dosage_unit ELSE '' END
+          )
+        )
+        FROM principes_actifs pa
+        JOIN medicaments m ON pa.cip_code = m.cip_code
+        WHERE m.cis_code = medicament_summary.cis_code
+        AND pa.principe_normalized IS NOT NULL AND pa.principe_normalized != ''
+        ORDER BY pa.principe_normalized
+      )
+      WHERE group_id IS NULL
+    `);
+
+    const count = this.db.query<{ count: number }, []>("SELECT COUNT(*) AS count FROM medicament_summary").get();
+    console.log(`✅ Aggregated ${count?.count} medicament summaries`);
+  }
+
+  /**
+   * Propagates group-level data (e.g., flags) to all members of the group.
+   * This ensures consistency, e.g., if most generics are 'List I', all should be.
+   */
+  public propagateGroupData() {
+    console.log("⚖️  Harmonizing missing data (Propagation by Group Majority)...");
+
+    // 1. Fetch raw data
+    const groupDataQuery = this.db.query<{
+      group_id: string;
+      is_list1: number;
+      is_list2: number;
+      is_narcotic: number;
+      is_hospital: number;
+      is_dental: number;
+      is_exception: number;
+      is_restricted: number;
+      atc_code: string | null;
+      conditions_prescription: string | null;
+    }, []>(`
+        SELECT group_id, is_list1, is_list2, is_narcotic, is_hospital, is_dental, is_exception, is_restricted, atc_code, conditions_prescription
+        FROM medicament_summary WHERE group_id IS NOT NULL
+      `).all();
+
+    // 2. Compute consensus
+    const groupConsensus = new Map<string, any>();
+    const groupsBuffer = new Map<string, typeof groupDataQuery>();
+
+    for (const row of groupDataQuery) {
+      if (!groupsBuffer.has(row.group_id)) groupsBuffer.set(row.group_id, []);
+      groupsBuffer.get(row.group_id)!.push(row);
+    }
+
+    for (const [groupId, members] of groupsBuffer.entries()) {
+      const count = members.length;
+      if (count === 0) continue;
+
+      const sumList1 = members.reduce((acc, m) => acc + m.is_list1, 0);
+      const sumList2 = members.reduce((acc, m) => acc + m.is_list2, 0);
+      const sumNarc = members.reduce((acc, m) => acc + m.is_narcotic, 0);
+      const sumHosp = members.reduce((acc, m) => acc + m.is_hospital, 0);
+      const sumDental = members.reduce((acc, m) => acc + m.is_dental, 0);
+      const sumException = members.reduce((acc, m) => acc + m.is_exception, 0);
+      const sumRestricted = members.reduce((acc, m) => acc + m.is_restricted, 0);
+
+      const getMode = (extractor: (m: typeof members[0]) => string | null) => {
+        const counts = new Map<string, number>();
+        for (const m of members) {
+          const val = extractor(m);
+          if (val && val.trim().length > 0) counts.set(val, (counts.get(val) || 0) + 1);
+        }
+        const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+        return sorted.length > 0 ? sorted[0][0] : null;
+      };
+
+      groupConsensus.set(groupId, {
+        list1: sumList1 / count > 0.5 ? 1 : 0,
+        list2: sumList2 / count > 0.5 ? 1 : 0,
+        narcotic: sumNarc / count > 0.5 ? 1 : 0,
+        hospital: sumHosp / count > 0.5 ? 1 : 0,
+        dental: sumDental / count > 0.5 ? 1 : 0,
+        exception: sumException / count > 0.5 ? 1 : 0,
+        restricted: sumRestricted / count > 0.5 ? 1 : 0,
+        atc: getMode(m => m.atc_code),
+        conditions: getMode(m => m.conditions_prescription)
+      });
+    }
+
+    // 3. Apply updates
+    const updateStmt = this.db.prepare(`
+      UPDATE medicament_summary
+      SET is_list1 = ?, is_list2 = ?, is_narcotic = ?, is_hospital = ?, is_dental = ?, is_exception = ?, is_restricted = ?,
+          atc_code = COALESCE(atc_code, ?), conditions_prescription = COALESCE(conditions_prescription, ?)
+      WHERE group_id = ?
+    `);
+
+    this.db.transaction(() => {
+      for (const [groupId, consensus] of groupConsensus.entries()) {
+        updateStmt.run(
+          consensus.list1, consensus.list2, consensus.narcotic, consensus.hospital, consensus.dental, consensus.exception, consensus.restricted,
+          consensus.atc, consensus.conditions, groupId
+        );
+      }
+    })();
+
+    // Recalculate OTC
+    this.db.run(`
+      UPDATE medicament_summary
+      SET is_otc = CASE WHEN (is_list1 = 0 AND is_list2 = 0 AND is_narcotic = 0) THEN 1 ELSE 0 END
+      WHERE group_id IS NOT NULL
+    `);
+
+    console.log(`✅ Propagated consensus data for ${groupConsensus.size} groups`);
+  }
+
+  /**
+   * Updates cluster_names and medicament_summary with cluster information.
+   */
+  public updateClusters(clusterMap: Map<string, ClusterMetadata>) {
+    console.log("📊 Updating clusters in DB...");
+
+    // 1. Build helper map
+    const groupIdToClusterId = new Map<string, string>();
+    for (const [groupId, meta] of clusterMap.entries()) {
+      groupIdToClusterId.set(groupId, meta.clusterId);
+    }
+
+    // 2. Insert into cluster_names
+    const insertClusterNameStmt = this.db.prepare(`
+      INSERT OR REPLACE INTO cluster_names (cluster_id, cluster_name, substance_code, cluster_princeps, secondary_princeps)
+      VALUES (?, ?, ?, ?, ?)
+    `);
+
+    // Helper map to deduplicate cluster inserts (multiple groups -> same cluster)
+    // clusterMap is GroupID -> Metadata. Multiple groups map to same ClusterMetadata object (same ref)?
+    // Yes, in computeClusters: groupToCluster.set(item.groupId, metadata); 
+    // metadata is shared.
+    const uniqueClusters = new Set<string>();
+
+    this.db.transaction(() => {
+      for (const [groupId, meta] of clusterMap.entries()) {
+        if (!uniqueClusters.has(meta.clusterId)) {
+          uniqueClusters.add(meta.clusterId);
+          const secondariesJson = meta.secondaryPrinceps && meta.secondaryPrinceps.length > 0
+            ? JSON.stringify(meta.secondaryPrinceps)
+            : null;
+          // Initial cluster_name is princepsLabel. Will be updated later if needed.
+          insertClusterNameStmt.run(meta.clusterId, meta.princepsLabel, meta.substanceCode, null, secondariesJson);
+        }
+      }
+    })();
+
+    // 3. Update medicament_summary
+    // We update cluster_id and princeps_de_reference based on the cluster map
+    const updateSummaryStmt = this.db.prepare(`
+      UPDATE medicament_summary
+      SET cluster_id = ?, princeps_de_reference = ?
+      WHERE group_id = ?
+    `);
+
+    // Also handle orphans?
+    // In index.ts, orphans had groupId = "ORPHAN_{cis}" and were handled specifically.
+    // Logic in index.ts:
+    // if (groupId.startsWith("ORPHAN_")) { ... WHERE cis_code = ? } else { ... WHERE group_id = ? }
+    // Let's replicate this logic.
+
+    const updateOrphanStmt = this.db.prepare(`
+      UPDATE medicament_summary
+      SET cluster_id = ?, princeps_de_reference = ?
+      WHERE cis_code = ?
+    `);
+
+    this.db.transaction(() => {
+      for (const [groupId, meta] of clusterMap.entries()) {
+        if (groupId.startsWith("ORPHAN_")) {
+          const cisCode = groupId.replace("ORPHAN_", "");
+          updateOrphanStmt.run(meta.clusterId, meta.princepsLabel, cisCode);
+        } else {
+          updateSummaryStmt.run(meta.clusterId, meta.princepsLabel, groupId);
+        }
+      }
+    })();
+
+    console.log(`✅ Updated clusters for ${clusterMap.size} groups/orphans`);
+  }
+
+  /**
+   * Computes the final cluster names using LCP (Longest Common Prefix) on clean princeps names.
+   * This ensures the cluster name is cleaner/shorter (e.g. "DOLIPRANE" instead of "DOLIPRANE 1000mg").
+   */
+  public computeAndStoreClusterPrinceps() {
+    console.log("🔍 Computing cluster_princeps via LCP...");
+
+    // Retrieve all clean princeps names per cluster with sort_order
+    const princepsNamesQuery = this.db.query<{
+      cluster_id: string;
+      princeps_name_clean: string;
+      sort_order: number;
+    }, []>(`
+      SELECT DISTINCT
+        ms.cluster_id,
+        COALESCE(gpc.princeps_name_clean, mnc.nom_clean, s.nom_specialite) as princeps_name_clean,
+        COALESCE(gm.sort_order, 0) as sort_order
+      FROM medicament_summary ms
+      JOIN group_members gm ON ms.group_id = gm.group_id
+      JOIN medicaments m ON gm.cip_code = m.cip_code
+      JOIN specialites s ON m.cis_code = s.cis_code
+      LEFT JOIN group_princeps_clean gpc ON ms.group_id = gpc.group_id AND gm.type = 0
+      LEFT JOIN medicament_names_clean mnc ON m.cis_code = mnc.cis_code
+      WHERE ms.cluster_id IS NOT NULL
+        AND ms.group_id IS NOT NULL
+        AND gm.type = 0 -- Only princeps
+        AND COALESCE(gpc.princeps_name_clean, mnc.nom_clean, s.nom_specialite) IS NOT NULL
+        AND LENGTH(TRIM(COALESCE(gpc.princeps_name_clean, mnc.nom_clean, s.nom_specialite))) > 0
+      ORDER BY ms.cluster_id, sort_order DESC, princeps_name_clean
+    `).all();
+
+    // Group by cluster
+    const clusterPrincepsMap = new Map<string, Array<{ name: string; sortOrder: number }>>();
+    for (const row of princepsNamesQuery) {
+      if (!clusterPrincepsMap.has(row.cluster_id)) {
+        clusterPrincepsMap.set(row.cluster_id, []);
+      }
+      const existing = clusterPrincepsMap.get(row.cluster_id)!;
+      const exists = existing.some(e => e.name === row.princeps_name_clean && e.sortOrder === row.sort_order);
+      if (!exists) {
+        existing.push({ name: row.princeps_name_clean, sortOrder: row.sort_order });
+      }
+    }
+
+    const updateClusterNameStmt = this.db.prepare(`
+      UPDATE cluster_names
+      SET cluster_princeps = ?
+      WHERE cluster_id = ?
+    `);
+
+    let updatedCount = 0;
+    this.db.transaction(() => {
+      for (const [clusterId, names] of clusterPrincepsMap.entries()) {
+        if (names.length === 0) continue;
+
+        // 1. Sort by sortOrder DESC (primary princeps first)
+        names.sort((a, b) => b.sortOrder - a.sortOrder);
+
+        // 2. Identify primary group (highest sortOrder)
+        const maxSort = names[0].sortOrder;
+        // Keep only names from the primary group for LCP (to avoid mixing distinct princeps brands)
+        const primaryNames = names.filter(n => n.sortOrder === maxSort).map(n => n.name);
+
+        // 3. Compute LCP
+        let lcpName = "";
+        if (primaryNames.length === 1) {
+          lcpName = primaryNames[0];
+        } else {
+          try {
+            lcpName = findCommonWordPrefix(primaryNames);
+          } catch (e) {
+            lcpName = primaryNames[0]; // Fallback
+          }
+        }
+
+        // 4. Fallback if LCP is too short
+        if (!lcpName || lcpName.length < 3) {
+          lcpName = primaryNames[0];
+        }
+
+        updateClusterNameStmt.run(lcpName, clusterId);
+        updatedCount++;
+      }
+    })();
+
+    console.log(`✅ Updated cluster_princeps for ${updatedCount} clusters`);
+
+    // Final touch: Set cluster_name = cluster_princeps (unified)
+    this.db.run(`UPDATE cluster_names SET cluster_name = cluster_princeps WHERE cluster_princeps IS NOT NULL`);
+  }
+
+  public computeGroupCanonicalCompositions() {
+    console.log("🗳️  Computing canonical group compositions (Majority Vote)...");
+    const rawCompositions = this.db.query<{
+      group_id: string;
+      cis_code: string;
+      principe: string;
+      dosage: string | null;
+      dosage_unit: string | null;
+    }, []>(`
+        SELECT 
+        gm.group_id,
+        m.cis_code,
+        pa.principe_normalized as principe,
+        pa.dosage,
+        pa.dosage_unit
+        FROM group_members gm
+        JOIN medicaments m ON gm.cip_code = m.cip_code
+        JOIN principes_actifs pa ON m.cip_code = pa.cip_code
+        WHERE gm.group_id IS NOT NULL 
+        AND pa.principe_normalized IS NOT NULL
+        AND pa.principe_normalized != ''
+    `).all();
+
+    const groupVotes = new Map<string, Map<string, number>>();
+    const signatureToData = new Map<string, Array<{ p: string; d: string | null }>>();
+    const cisCompoBuffer = new Map<string, Array<{ p: string; d: string | null }>>();
+
+    for (const row of rawCompositions) {
+      const key = `${row.group_id}|${row.cis_code}`;
+      if (!cisCompoBuffer.has(key)) cisCompoBuffer.set(key, []);
+      const dosageStr = row.dosage && row.dosage_unit
+        ? `${row.dosage} ${row.dosage_unit}`.trim()
+        : row.dosage || null;
+      cisCompoBuffer.get(key)!.push({ p: row.principe, d: dosageStr });
+    }
+
+    for (const [key, ingredients] of cisCompoBuffer.entries()) {
+      const groupId = key.split('|')[0];
+      ingredients.sort((a, b) => {
+        const nameCompare = a.p.localeCompare(b.p);
+        if (nameCompare !== 0) return nameCompare;
+        return (a.d || '').localeCompare(b.d || '');
+      });
+      const signature = JSON.stringify(ingredients);
+      if (!signatureToData.has(signature)) signatureToData.set(signature, ingredients);
+      if (!groupVotes.has(groupId)) groupVotes.set(groupId, new Map());
+      const votes = groupVotes.get(groupId)!;
+      votes.set(signature, (votes.get(signature) || 0) + 1);
+    }
+
+    const updateCompoStmt = this.db.prepare(`UPDATE medicament_summary SET principes_actifs_communs = ? WHERE group_id = ?`);
+    this.db.transaction(() => {
+      for (const [groupId, votes] of groupVotes.entries()) {
+        let bestSignature = "";
+        let maxVotes = -1;
+        for (const [sig, count] of votes.entries()) {
+          if (count > maxVotes) {
+            maxVotes = count;
+            bestSignature = sig;
+          }
+        }
+        if (bestSignature) {
+          const winnerData = signatureToData.get(bestSignature);
+          if (winnerData) {
+            const displayStrings = winnerData.map((i) => i.d ? `${i.p} ${i.d}`.trim() : i.p);
+            updateCompoStmt.run(JSON.stringify(displayStrings), groupId);
+          }
+        }
+      }
+    })();
+    console.log(`✅ Calculated canonical compositions for ${groupVotes.size} groups`);
+  }
+
+  public computeClusterCanonicalCompositions() {
+    console.log("🗳️  Harmonizing compositions at CLUSTER level (Substance Only)...");
+    const clusterSubstancesQuery = this.db.query<{
+      cluster_id: string;
+      group_id: string;
+      principe: string;
+    }, []>(`
+        SELECT DISTINCT
+          ms.cluster_id,
+          ms.group_id,
+          pa.principe_normalized as principe
+        FROM medicament_summary ms
+        JOIN group_members gm ON ms.group_id = gm.group_id
+        JOIN medicaments m ON gm.cip_code = m.cip_code
+        JOIN principes_actifs pa ON m.cip_code = pa.cip_code
+        WHERE ms.cluster_id IS NOT NULL
+          AND ms.group_id IS NOT NULL
+          AND pa.principe_normalized IS NOT NULL
+      `).all();
+
+    const clusterStructure = new Map<string, Map<string, string[]>>();
+    for (const row of clusterSubstancesQuery) {
+      if (!clusterStructure.has(row.cluster_id)) clusterStructure.set(row.cluster_id, new Map());
+      const groups = clusterStructure.get(row.cluster_id)!;
+      if (!groups.has(row.group_id)) groups.set(row.group_id, []);
+      groups.get(row.group_id)!.push(formatPrinciples(row.principe));
+    }
+
+    const clusterCanonicalCompo = new Map<string, string>();
+    for (const [clusterId, groups] of clusterStructure.entries()) {
+      const voteCounts = new Map<string, number>();
+      for (const [_, substances] of groups.entries()) {
+        substances.sort((a, b) => a.localeCompare(b));
+        const uniqueSubstances = Array.from(new Set(substances));
+        const signature = JSON.stringify(uniqueSubstances);
+        voteCounts.set(signature, (voteCounts.get(signature) || 0) + 1);
+      }
+      let winningSignature = "";
+      let maxVotes = -1;
+      for (const [sig, count] of voteCounts.entries()) {
+        if (count > maxVotes) {
+          maxVotes = count;
+          winningSignature = sig;
+        } else if (count === maxVotes) {
+          if (sig.length < winningSignature.length) winningSignature = sig;
+        }
+      }
+      if (winningSignature) clusterCanonicalCompo.set(clusterId, winningSignature);
+    }
+
+    const updateClusterCompoStmt = this.db.prepare(`UPDATE medicament_summary SET principes_actifs_communs = ? WHERE cluster_id = ?`);
+    const updateClusterNameStmt = this.db.prepare(`UPDATE cluster_names SET cluster_name = ? WHERE cluster_id = ?`);
+
+    this.db.transaction(() => {
+      for (const [clusterId, compoJson] of clusterCanonicalCompo.entries()) {
+        updateClusterCompoStmt.run(compoJson, clusterId);
+        try {
+          const substances = JSON.parse(compoJson);
+          if (Array.isArray(substances) && substances.length > 0) {
+            updateClusterNameStmt.run(substances.join(", "), clusterId);
+          }
+        } catch (e) { /* ignore */ }
+      }
+    })();
+    console.log(`✅ Calculated substance-only compositions for ${clusterCanonicalCompo.size} clusters`);
+  }
+
+  public injectSmrAsmr(smrMap: Map<string, { niveau: string; date: string }>, asmrMap: Map<string, { niveau: string; date: string }>) {
+    console.log("💉 Injecting SMR and ASMR levels and dates...");
+    const updateSmrStmt = this.db.prepare("UPDATE medicament_summary SET smr_niveau = ?, smr_date = ? WHERE cis_code = ?");
+    const updateAsmrStmt = this.db.prepare("UPDATE medicament_summary SET asmr_niveau = ?, asmr_date = ? WHERE cis_code = ?");
+
+    this.db.transaction(() => {
+      for (const [cis, smr] of smrMap.entries()) updateSmrStmt.run(smr.niveau, smr.date, cis);
+      for (const [cis, asmr] of asmrMap.entries()) updateAsmrStmt.run(asmr.niveau, asmr.date, cis);
+    })();
+    console.log(`✅ Injected SMR levels and dates for ${smrMap.size} CIS`);
+    console.log(`✅ Injected ASMR levels and dates for ${asmrMap.size} CIS`);
+  }
+
+  public populateClusterIndex() {
+    console.log("🏗️  Populating cluster-indexed tables for Cluster-First Architecture...");
+
+    // Fetch cluster metadata + representative substance composition
+    const clusterInfo = this.db.query<{
+      cluster_id: string;
+      cluster_name: string;
+      cluster_princeps: string | null;
+      secondary_princeps: string | null;
+      principes_actifs_communs: string | null;
+    }, []>(`
+      SELECT 
+        cn.cluster_id, 
+        cn.cluster_name, 
+        cn.cluster_princeps, 
+        cn.secondary_princeps,
+        ms.principes_actifs_communs
+      FROM cluster_names cn
+      LEFT JOIN medicament_summary ms 
+        ON cn.cluster_id = ms.cluster_id AND ms.is_princeps = 1
+      GROUP BY cn.cluster_id
+    `).all();
+
+    const clusterDataToInsert = clusterInfo.map(row => {
+      const substance = row.cluster_name || '';
+      const primaryPrinceps = row.cluster_princeps || '';
+      let secondaryPrincepsList: string[] = [];
+      if (row.secondary_princeps) {
+        try {
+          const parsed = JSON.parse(row.secondary_princeps);
+          if (Array.isArray(parsed)) secondaryPrincepsList = parsed.map((s: any) => String(s));
+        } catch (e) { console.warn(`⚠️  Failed to parse secondary_princeps for cluster ${row.cluster_id}:`, e); }
+      }
+
+      const countProductsRow = this.db.query('SELECT COUNT(*) AS count FROM medicament_summary WHERE cluster_id = ?').get(row.cluster_id) as { count: number };
+
+      return {
+        cluster_id: row.cluster_id,
+        title: substance,
+        subtitle: row.cluster_princeps ?? '',
+        count_products: countProductsRow?.count ?? 0,
+        search_vector: buildSearchVector(
+          substance,
+          primaryPrinceps,
+          secondaryPrincepsList,
+          row.principes_actifs_communs ?? undefined
+        )
+      };
+    });
+
+    this.insertClusterData(clusterDataToInsert);
+
+    const medicamentDetailData = this.db.query<{
+      cis_code: string;
+      cluster_id: string;
+      nom_canonique: string;
+      is_princeps: number;
+    }, []>(`SELECT cis_code, cluster_id, nom_canonique, is_princeps FROM medicament_summary WHERE cluster_id IS NOT NULL`).all();
+
+    this.insertClusterMedicamentDetails(medicamentDetailData.map(row => ({
+      cis_code: row.cis_code,
+      cluster_id: row.cluster_id,
+      nom_complet: row.nom_canonique,
+      is_princeps: row.is_princeps === 1
+    })));
+
+    console.log(`✅ Populated cluster_index with ${clusterDataToInsert.length} entries`);
+    console.log(`✅ Populated medicament_detail with ${medicamentDetailData.length} entries`);
+  }
+
+  // Type helper for generic query
+  public runQuery<T>(sql: string): T[] {
+    return this.db.query(sql).all() as T[];
   }
 
 

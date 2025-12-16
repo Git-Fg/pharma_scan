@@ -16,13 +16,18 @@ export interface ClusteringInput {
 
 /**
  * Build search vector for FTS5 indexing - THE ONLY place for search keyword generation
- * Concatenates substance, primary princeps, and secondary princeps
+ * Concatenates substance, primary princeps, secondary princeps, AND active principles
  * then applies heavy normalization for fuzzy matching
+ * 
+ * This enables DUAL search:
+ * - Brand search: "CLAMOXYL", "DOLIPRANE"
+ * - Substance search: "amoxicilline", "paracetamol"
  */
 export function buildSearchVector(
   substance: string,
   primaryPrinceps: string,
-  secondaryPrincepsList: string[]
+  secondaryPrincepsList: string[],
+  principesActifs?: string  // NEW: Active substance composition (e.g., "Amoxicilline 500 mg + Acide clavulanique 125 mg")
 ): string {
   // 1. Collect (Set for deduplication)
   const keywords = new Set<string>();
@@ -31,10 +36,26 @@ export function buildSearchVector(
   keywords.add(primaryPrinceps);
   secondaryPrincepsList.forEach(p => keywords.add(p));
 
-  // 2. Concatenation
+  // 2. NEW: Extract individual substance names from composition
+  if (principesActifs && principesActifs.trim()) {
+    // Split by '+' or ',' to get individual substances
+    const substances = principesActifs.split(/[+,]/).map(s => s.trim());
+    substances.forEach(s => {
+      if (s) {
+        // Extract just the substance name (before any dosage)
+        // e.g., "Amoxicilline 500 mg" -> "Amoxicilline"
+        const substanceName = s.split(/\s+\d/)[0].trim();
+        if (substanceName) {
+          keywords.add(substanceName);
+        }
+      }
+    });
+  }
+
+  // 3. Concatenation
   let vector = Array.from(keywords).join(' ');
 
-  // 3. "Kärcher" cleaning (Normalisation lourde)
+  // 4. "Kärcher" cleaning (Normalisation lourde)
   return vector
     .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Sans accents
     .toUpperCase()

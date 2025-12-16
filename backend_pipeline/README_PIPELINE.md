@@ -1,157 +1,59 @@
-# Pharma Scan Backend Pipeline
+# Guide des Scripts du Pipeline
 
-This document describes the backend pipeline for automating medication database updates.
+Ce document détaille les scripts techniques utilisés pour la maintenance et le développement du pipeline.
 
-## Overview
+## 📂 Organisation
 
-The backend pipeline consists of several tools:
+* **`src/`** : Code source du pipeline (Logique métier).
+* **`scripts/`** : Scripts shell et TS pour les opérations de maintenance (Download, Export).
+* **`tool/`** : Outils d'audit et de validation de la qualité des données.
 
-- `tool/release.ts`: Updates the medication database from GitHub releases
-- `tool/sync.ts`: Synchronizes generated files (schema, golden DB) to Flutter project locations
+## 🛠️ Scripts de Maintenance
 
-### Release Tool
+### 1. Téléchargement BDPM (`scripts/download_bdpm.ts`)
+* **Commande** : `bun run download`
+* **Rôle** : Télécharge les fichiers officiels depuis `base-donnees-publique.medicaments.gouv.fr`.
+* **Détail** :
+    * Utilise `fetch` pour récupérer les fichiers `.txt`.
+    * Convertit l'encodage Windows-1252 (original) en mémoire lors du parsing (géré par `parsing.ts` ensuite).
+    * Sauvegarde dans `data/`.
 
-The `tool/release.ts` script automates the process of updating the medication database from GitHub releases. It performs the following operations:
+### 2. Export du Schéma (`scripts/dump_schema.sh`)
+* **Commande** : `bun run export`
+* **Rôle** : Synchronise le schéma de la base de données avec l'application Flutter.
+* **Fonctionnement** :
+    * SQLite n'a pas de typage fort natif, mais l'app Flutter utilise **Drift**.
+    * Ce script extrait le schéma `CREATE TABLE` de `reference.db`.
+    * Il génère/met à jour un fichier `.drift` (si configuré) ou simplement prépare les définitions pour l'intégration mobile.
 
-1. Fetches the latest release information from GitHub
-2. Downloads the database asset and checksum file
-3. Verifies the SHA256 checksum
-4. Creates backups of existing databases
-5. Updates both backend and Flutter app databases
-6. Updates the version tracking file
+## 🔍 Outils d'Audit (`tool/`)
 
-### Sync Tool
+### 1. Audit Général (`tool/audit_data.ts`)
+* **Commande** : `bun run tool`
+* **Rôle** : Génère les artefacts de validation dans `data/audit/`.
+* **Sorties** :
+    * `1_clusters_catalog.json` : La "Carte d'identité" de chaque cluster (Nom, Princeps, Nombre de produits).
+    * `2_group_catalog.json` : Analyse des groupes génériques (Taux de conversion, Noms orphelins).
+    * `3_samples_detailed.json` : Échatillon de 200 produits pour vérification manuelle "Spot Check".
 
-The `tool/sync.ts` script synchronizes backend-generated files to the appropriate Flutter project locations:
+### 2. Audit Qualité Cluster (`tool/audit_LCP_quality.ts`)
+* **Exécution** : `bun run tool/audit_LCP_quality.ts`
+* **Rôle** : Détecte les anomalies de clustering.
+* **Vérifications** :
+    * **Short Names** : Alerte si un cluster a un nom < 4 caractères (ex: risque de mauvais découpage LCP).
+    * **Split Clusters** : Alerte si une même substance (ex: "PARACETAMOL") est éclatée en plusieurs clusters sans raison apparente (hors dosages différents).
 
-- Copies `backend_pipeline/src/db.ts` (Source of Truth) → `lib/core/database/reference_schema.drift` (Read-only mirror)
-- Copies `data/reference.db` → `test/assets/golden.db`
+### 3. Inspecteur (`tool/inspect_cluster.ts`)
+* **Exécution** : `bun run tool/inspect_cluster.ts`
+* **Rôle** : Script manuel pour investiguer des clusters spécifiques.
+* **Usage** : Modifier le tableau `targetClusters` dans le fichier pour cibler des IDs (ex: `CLS_xxxx`) et voir le contenu exact (membres, princeps, etc.).
 
-## Requirements
+## 🚀 Workflow de Release (CI/CD)
 
-- Bun (for running the TypeScript scripts)
-- See `package.json` for dependencies
+Le workflow typique pour mettre à jour la base de données :
 
-## Installation
-
-```bash
-# Install dependencies
-bun install
-```
-
-## Usage
-
-### Update Database
-
-Run the full pipeline to check for and download updates:
-
-```bash
-# Using bun
-bun run update-db
-```
-
-### Force Update
-
-Force an update even if already on the latest version:
-
-```bash
-bun run update-db-force
-```
-
-### Sync Generated Files
-
-Synchronize schema and golden DB to Flutter project locations:
-
-```bash
-bun run sync
-```
-
-### Using GitHub Token
-
-For private repositories or to avoid API rate limits:
-
-```bash
-bun run tool/release.ts --token YOUR_GITHUB_TOKEN
-```
-
-## Output Files
-
-The script updates the following database files:
-- `data/reference.db` - Backend database
-- `../assets/reference.db` - Flutter app database
-
-### Backup files:
-- `data/reference.db.backup` - Backup of previous backend database
-- `../assets/reference.db.backup` - Backup of previous Flutter database
-
-## Configuration
-
-The script can be configured by modifying the constants at the top of `tool/release.ts`:
-
-- `GITHUB_REPO`: GitHub repository name (default: "felixdm100/pharma_scan")
-- `DATABASE_NAME`: Expected database file name (default: "reference.db")
-- `CHECKSUMS_NAME`: Expected checksum file name (default: "checksums.txt")
-
-## Error Handling
-
-The pipeline includes robust error handling:
-
-- **Checksum verification**: Fails if checksum doesn't match
-- **Backup creation**: Automatically creates backups before updates
-- **Automatic rollback**: Restores from backup if update fails
-- **Logging**: Detailed logs saved to `pipeline.log`
-
-## Integration with CI/CD
-
-The script can be integrated into CI/CD pipelines:
-
-```yaml
-# Example GitHub Actions workflow
-- name: Update Database
-  run: |
-    cd backend_pipeline
-    bun run update-db --token ${{ secrets.GITHUB_TOKEN }}
-```
-
-## Development
-
-### Testing
-
-```bash
-# Test with force update (will download but may not update if same version)
-bun run update-db-force
-```
-
-### Logs
-
-Check the pipeline logs for debugging:
-
-```bash
-tail -f pipeline.log
-```
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Permission denied**: Ensure bun is installed and executable
-2. **Database locked**: Close any applications using the database before running
-3. **API rate limit**: Use a GitHub token to increase rate limits
-4. **Checksum mismatch**: The download may be corrupted - try again
-
-### Recovery
-
-If an update fails, the script automatically attempts to restore from backup. Manual recovery:
-
-```bash
-# Restore from backup
-cp data/reference.db.backup data/reference.db
-cp ../assets/reference.db.backup ../assets/reference.db
-```
-
-## Security Considerations
-
-- Always verify checksums before using downloaded databases
-- Use HTTPS for all downloads
-- Store GitHub tokens securely (environment variables, secrets manager)
-- Review database contents before deployment in production
+1. `bun run download` : Récupérer les nouvelles données.
+2. `bun run build` : Reconstruire `reference.db` et lancer les tests.
+3. `bun run tool` / `bun run tool/audit_LCP_quality.ts` : Vérifier qu'aucune régression de data n'est apparue (Split clusters, Noms bizarres).
+4. `bun run export` : Préparer le schéma si la structure a changé.
+5. Commit & Push.

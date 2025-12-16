@@ -364,6 +364,15 @@ export function computeCanonicalSubstance(rawLabel: string): string {
     // Uppercase and remove diacritics
     let canonical = removeDiacritics(rawLabel.toUpperCase().trim()).toUpperCase();
 
+    // Strip "équivalant à" or "équivalent à" and everything after
+    const equivalentMatch = /EQUIVALANT A|EQUIVALENT A/i.exec(canonical);
+    if (equivalentMatch) {
+        canonical = canonical.substring(0, equivalentMatch.index).trim();
+    }
+
+    // Strip trailing parenthetical content containing salts (e.g., "(CHLORHYDRATE DE)")
+    canonical = canonical.replace(/\s*\([^)]*(?:CHLORHYDRATE|SULFATE|MALEATE|TARTRATE|BESILATE|MESILATE|SUCCINATE|FUMARATE|OXALATE|CITRATE|ACETATE|LACTATE|VALERATE|PROPIONATE|BUTYRATE|PHOSPHATE|NITRATE|BROMHYDRATE|DE|D')[^)]*\)\s*$/gi, "");
+
     // Check if it's a pure inorganic name (preserve as-is)
     if (isPureInorganicName(canonical)) {
         return canonical.replace(/\s+/g, " ").trim();
@@ -692,4 +701,161 @@ export function normalizeCommonPrincipes(commonPrincipes: string): string {
 
     const normalizedList = Array.from(normalizedSet).sort();
     return normalizedList.join(" ");
+}
+
+/**
+ * Detects if a product is homeopathic based on its label, dosage, or manufacturer.
+ * Consolidates all heuristics (build + tooling) into a single source of truth.
+ */
+export function isHomeopathic(label: string, dosage: string = "", manufacturer: string = ""): boolean {
+    const combinedText = `${label} ${dosage} ${manufacturer}`.toUpperCase();
+
+    // 1. Laboratory-based detection (highest priority)
+    if (
+        combinedText.includes("LEHNING") ||
+        combinedText.includes("BOIRON") ||
+        combinedText.includes("HEEL") ||
+        combinedText.includes("WELEDA") ||
+        combinedText.includes("RECKEWEG") ||
+        combinedText.includes("UNDA") ||
+        combinedText.includes("LABORATOIRES HOMEOPATHIQU") ||
+        combinedText.includes("LABORATOIRES HOMEOPATHES")
+    ) {
+        return true;
+    }
+
+    // 2. Explicit homeopathic terms and common label hints
+    if (
+        combinedText.includes("HOMÉOPATHIQU") ||
+        combinedText.includes("HOMEOPATH") ||
+        combinedText.includes("POUR PRÉPARATIONS") ||
+        combinedText.includes("GRANULES") ||
+        combinedText.includes("GLOBULES") ||
+        combinedText.includes("TRITURATION") ||
+        combinedText.includes("MOTHER TINCTURE") ||
+        combinedText.includes("TEINTURE MÈRE")
+    ) {
+        return true;
+    }
+
+    // 3. Specific labelling codes (L-codes, COMPLEXE) used by Boiron/Lehning ranges
+    const hasLCode = /\bL\s?\d{2,3}\b/.test(combinedText) && combinedText.includes("SOLUTION BUVABLE");
+    const hasComplexe = /COMPLEXE\s*N[°O]?\s*\d*/.test(combinedText);
+    if (hasLCode || hasComplexe) {
+        return true;
+    }
+
+    // 4. Dilution pattern detection (most specific)
+    const dilutionPatterns = [
+        /\d+(?:CH|DH|K)\s*(?:À|A|ET)\s*\d+(?:CH|DH|K)/i, // Range: "2CH à 30CH"
+        /\d+(?:CH|DH|K)\s*(?:À|A|ET)\s*\d+(?:CH|DH|K)\s*(?:ET|OU)\s*\d+(?:CH|DH|K)/i, // Complex range
+        /\d+(?:CH|DH|K)(?:\s*[,;]\s*\d+(?:CH|DH|K))*/i, // Multiple dilutions
+        /\b(?:CH|DH|K)\s*\d+\b/i, // Reverse pattern
+        /\b\d+LM\b/i,
+        /\b\d+M\b(?![GL])/i, // M followed by non-G/L to avoid MG
+        /\b\d+X\b/i,
+        /\b\d+CK\b/i,
+        /\b\d+Q\b/i
+    ];
+
+    for (const pattern of dilutionPatterns) {
+        if (pattern.test(combinedText)) {
+            return true;
+        }
+    }
+
+    // 5. Single dilution (with strict context checks to avoid false positives)
+    const singleDilutionPattern = /\b\d+(?:CH|DH|K|LM|CK|Q|X)\b/i; // Removed M to avoid MG conflicts
+    if (singleDilutionPattern.test(combinedText)) {
+        if (
+            combinedText.includes("DEGRÉ DE DILUTION") ||
+            combinedText.includes("DILUTION COMPRISE ENTRE") ||
+            combinedText.includes("POUR PRÉPARATIONS") ||
+            combinedText.includes("HOMÉOPATHIQU") ||
+            combinedText.includes("HOMEOPATH") ||
+            (combinedText.includes("SOLUTION BUVABLE") && combinedText.includes("GOUTTES")) ||
+            (combinedText.includes("GOUTTES") && combinedText.length > 80)
+        ) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/**
+ * Cleans a product label for general display or processing.
+ * Removes common noise and normalizes spacing.
+ */
+export function cleanProductLabel(label: string): string {
+    if (!label) return "";
+    let clean = label.trim();
+    // Remove potential "cis_code" prefix if present in label (legacy artifact)
+    clean = clean.replace(/^\d{8}\s+/, "");
+
+    // Remove trailing commas or hyphens
+    clean = clean.replace(/[,.-]+$/, "").trim();
+
+    return clean;
+}
+
+/**
+ * Extracts generic brand name from a label.
+ * Heuristic: Take first part before dosage or form.
+ */
+export function extractBrand(label: string): string {
+    if (!label) return "";
+    let clean = label.trim();
+
+    // Split by comma (often separates name+dosage from form)
+    // "ABILIFY 1 mg/mL, solution buvable" -> "ABILIFY 1 mg/mL"
+    if (clean.includes(',')) {
+        clean = clean.split(',')[0].trim();
+    }
+
+    // Remove dosage
+    // "ABILIFY 1 mg/mL" -> "ABILIFY"
+    clean = clean.replace(/\s+\d+([.,]\d+)?\s*(mg|g|ml|mL|µg|mcg|ui|UI|%)\s*(\/|PAR)\s*(ml|mL|dose|g)?/gi, "")
+        .replace(/\s+\d+([.,]\d+)?\s*(mg|g|ml|mL|µg|mcg|ui|UI|%)/gi, "")
+        .trim();
+
+    return clean;
+}
+
+/**
+ * Normalizes manufacturer name for consistent grouping.
+ */
+export function normalizeManufacturerName(name: string): string {
+    if (!name) return "";
+    return name.toUpperCase().trim()
+        .replace(/^LABORATOIRES?\s+/, "")
+        .replace(/^LABO\s+/, "")
+        .replace(/\s+SAS$/, "")
+        .replace(/\s+SA$/, "")
+        .trim();
+}
+
+/**
+ * Determines if a product is considered 'stopped' (non-commercialisée)
+ * based on its marketing status and presentation counters.
+ */
+export function isStoppedProduct(metadata: {
+    marketing_status: string;
+    stopped_presentations: number;
+    active_presentations: number;
+    [key: string]: any;
+}): boolean {
+    const status = (metadata.marketing_status || "").toUpperCase();
+
+    // 1. If explicit status is 'NON COMMERCIALISÉE', it is stopped.
+    if (status.includes("NON COMMERCIALISÉE") || status.includes("NON COMMERCIALISEE")) {
+        return true;
+    }
+
+    // 2. If no active presentations match logic but we rely on status mostly.
+    if (metadata.active_presentations === 0 && metadata.stopped_presentations > 0) {
+        return true;
+    }
+
+    return false;
 }
