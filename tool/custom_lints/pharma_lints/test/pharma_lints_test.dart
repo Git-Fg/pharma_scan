@@ -1,7 +1,6 @@
 import 'package:custom_lint_builder/custom_lint_builder.dart';
 import 'package:test/test.dart';
 import 'package:pharma_lints/src/rules/design_system/avoid_direct_colors.dart';
-import 'package:pharma_lints/src/rules/design_system/avoid_print.dart';
 import 'package:pharma_lints/src/rules/architecture/enforce_architecture_layering.dart';
 import 'package:pharma_lints/src/rules/architecture/enforce_ui_isolation.dart';
 import 'package:pharma_lints/src/rules/architecture/enforce_hook_prefix.dart';
@@ -18,7 +17,6 @@ void main() {
     // Resolving all rules
     final rules = [
       const AvoidDirectColors(),
-      const AvoidPrint(),
       const EnforceArchitectureLayering(),
       const EnforceUiIsolation(),
       const EnforceHookPrefix(),

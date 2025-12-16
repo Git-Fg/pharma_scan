@@ -4,7 +4,6 @@ import 'package:custom_lint_builder/custom_lint_builder.dart';
 import 'src/rules/design_system/avoid_direct_colors.dart';
 import 'src/rules/design_system/avoid_layout_constants.dart';
 import 'src/rules/design_system/avoid_manual_typography.dart';
-import 'src/rules/design_system/avoid_print.dart';
 import 'src/rules/architecture/enforce_architecture_layering.dart';
 import 'src/rules/architecture/enforce_ui_isolation.dart';
 import 'src/rules/architecture/enforce_hook_prefix.dart';
@@ -18,7 +17,6 @@ class _PharmaScanLints extends PluginBase {
         const AvoidDirectColors(),
         const AvoidLayoutConstants(),
         const AvoidManualTypography(),
-        const AvoidPrint(),
         const EnforceArchitectureLayering(),
         const EnforceUiIsolation(),
         const EnforceHookPrefix(),

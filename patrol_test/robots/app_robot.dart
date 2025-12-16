@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:patrol/patrol.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
+import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/utils/test_tags.dart';
+import 'package:pharma_scan/main.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'base_robot.dart';
 import 'scanner_robot.dart';
@@ -26,9 +29,8 @@ class AppRobot extends BaseRobot {
   }
 
   // --- App Lifecycle ---
-  Future<void> startApp() async {
-    await $.pump();
-    await $.pumpAndSettle();
+  Future<void> startApp(Widget app) async {
+    await $.pumpWidgetAndSettle(app);
   }
 
   Future<void> handlePermissions() async {
@@ -108,8 +110,9 @@ class AppRobot extends BaseRobot {
 
   // --- Multi-screen Workflows ---
   /// Complete app initialization flow: start app, handle permissions, verify app loaded
-  Future<void> completeAppInitialization() async {
-    await startApp();
+  Future<void> completeAppInitialization(
+      {Widget app = const ProviderScope(child: PharmaScanApp())}) async {
+    await startApp(app);
     await handlePermissions();
     await expectAppStarted();
   }
@@ -231,14 +234,16 @@ class AppRobot extends BaseRobot {
   }
 
   // --- Enhanced App Initialization ---
-  Future<void> completeAppInitializationEnhanced() async {
-    await startApp();
+  Future<void> completeAppInitializationEnhanced(
+      {Widget app = const ProviderScope(child: PharmaScanApp())}) async {
+    await startApp(app);
     await handleAllPermissions();
     await waitForAppToFullyLoad();
   }
 
-  Future<void> completeAppInitializationWithoutPermissions() async {
-    await startApp();
+  Future<void> completeAppInitializationWithoutPermissions(
+      {Widget app = const ProviderScope(child: PharmaScanApp())}) async {
+    await startApp(app);
     await waitForAppToFullyLoad();
   }
 
@@ -279,7 +284,7 @@ class AppRobot extends BaseRobot {
 
     // 4. Verify in restock
     await navigateToTab('restock');
-    await restock.expectItemInRestock('DOLIPRANE');
+    await restock.waitUntilItemInRestock('DOLIPRANE');
   }
 
   Future<void> testAppResilience() async {
@@ -310,9 +315,10 @@ class AppRobot extends BaseRobot {
     }
   }
 
-  Future<void> resetAppToInitialState() async {
+  Future<void> resetAppToInitialState(
+      {Widget app = const ProviderScope(child: PharmaScanApp())}) async {
     await clearAppData();
-    await startApp();
+    await startApp(app);
     await handleAllPermissions();
     await waitForAppToFullyLoad();
   }

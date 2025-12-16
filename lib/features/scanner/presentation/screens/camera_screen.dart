@@ -16,6 +16,7 @@ import 'package:pharma_scan/core/services/haptic_service.dart';
 import 'package:pharma_scan/core/utils/hooks/use_async_feedback.dart';
 import 'package:pharma_scan/features/scanner/presentation/providers/scanner_controller_provider.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
+import 'package:pharma_scan/core/utils/test_tags.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/status_view.dart';
 import 'package:pharma_scan/core/widgets/sheets/history_sheet.dart';
 import 'package:pharma_scan/core/providers/initialization_provider.dart';
@@ -163,6 +164,7 @@ class CameraScreen extends HookConsumerWidget {
     );
 
     return SafeArea(
+      key: const Key(TestTags.scannerScreen),
       top: false,
       bottom: false,
       child: Stack(

@@ -108,31 +108,26 @@ class RestockRobot extends BaseRobot {
     await $(const Key(TestTags.restockList)).waitUntilVisible();
   }
 
-  Future<void> expectItemInRestock(String itemName) async {
+  Future<void> waitUntilItemInRestock(String itemName) async {
     await scrollToItem(itemName);
     await $(itemName).waitUntilVisible();
   }
 
-  Future<void> expectItemQuantity(String itemName, int expectedQuantity) async {
+  Future<String> getItemQuantity(String itemName) async {
     await tapItem(itemName);
     await $(#quantityDisplay).waitUntilVisible();
-
-    // Get the displayed quantity and verify
-    final quantityText = await $(#quantityDisplay).text;
-    expect(quantityText, equals(expectedQuantity.toString()));
+    return await $(#quantityDisplay).text ?? '0';
   }
 
-  Future<void> expectItemChecked(String itemName, bool isChecked) async {
+  Future<bool> isItemChecked(String itemName) async {
     await tapItem(itemName);
 
     final checkboxFinder = $(#checkbox);
     await checkboxFinder.waitUntilVisible();
 
-    // Verify checkbox value
+    // Patrol getter for widget properties
     final checkbox = checkboxFinder.evaluate().first.widget as Checkbox;
-    expect(checkbox.value, isChecked);
-
-    await $.pumpAndSettle();
+    return checkbox.value ?? false;
   }
 
   Future<void> expectEmptyRestockList() async {
@@ -452,7 +447,7 @@ class RestockRobot extends BaseRobot {
   }
 
   Future<void> expectItemSelected(String itemName) async {
-    await expectItemChecked(itemName, true);
+    expect(await isItemChecked(itemName), true);
   }
 
   Future<void> expectEmptyStateVisible() async {
@@ -475,6 +470,6 @@ class RestockRobot extends BaseRobot {
   }
 
   Future<void> expectItemQuantityZero(String itemName) async {
-    await expectItemQuantity(itemName, 0);
+    expect(await getItemQuantity(itemName), '0');
   }
 }

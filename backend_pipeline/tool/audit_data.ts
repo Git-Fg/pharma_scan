@@ -11,7 +11,11 @@ function main() {
   console.log("🕵️  Démarrage de l'audit de données...");
 
   // 1. Setup
-  mkdirSync(OUT_DIR, { recursive: true });
+  try {
+    mkdirSync(OUT_DIR, { recursive: true });
+  } catch (e) {
+    console.warn("⚠️ Warning creating audit dir:", e);
+  }
 
   if (!existsSync(DB_PATH)) {
     console.error(`❌ Base de données introuvable : ${DB_PATH}`);
@@ -21,163 +25,152 @@ function main() {
 
   const db = new Database(DB_PATH, { readonly: true });
 
-  // ---------------------------------------------------------
-  // PARTIE 1 : Catalogue des Clusters (Concepts Thérapeutiques)
-  // ---------------------------------------------------------
-  console.log("📊 Génération du catalogue des clusters...");
+  try {
+    // ---------------------------------------------------------
+    // PARTIE 1 : Catalogue des Clusters (Concepts Thérapeutiques)
+    // ---------------------------------------------------------
+    console.log("📊 Génération du catalogue des clusters...");
 
-  // Utiliser directement la vue SQL qui fait tout le travail
-  // Échantillonnage aléatoire limité à 500 clusters pour revue
-  // Order clusters by `cluster_princeps` alphabetically (case-insensitive)
-  const clustersQuery = db.query(`
-    SELECT * FROM v_clusters_audit
-    -- Fallback to unified_name when cluster_princeps is NULL
-    ORDER BY COALESCE(cluster_princeps, unified_name) COLLATE NOCASE ASC
-    LIMIT 500
-  `);
+    // Check if view exists
+    const viewExists = db.query("SELECT name FROM sqlite_master WHERE type='view' AND name='v_clusters_audit'").get();
+    if (!viewExists) {
+      console.error("❌ La vue 'v_clusters_audit' n'existe pas. Assurez-vous d'avoir reconstruit la BDD.");
+      process.exit(1);
+    }
 
-  // Les données sont déjà formatées dans la vue (JSON arrays, substance_label formaté)
-  // Il suffit de parser les JSON arrays en objets JavaScript
-  const clusters = clustersQuery.all().map((row: any) => {
-    const cleaned: any = { ...row };
+    const clustersQuery = db.query(`
+      SELECT * FROM v_clusters_audit
+      ORDER BY COALESCE(cluster_princeps, unified_name) COLLATE NOCASE ASC
+      LIMIT 1000
+    `);
 
-    // Convertir les chaînes séparées par '|' en tableaux JavaScript
-    const parsePipeSeparated = (str: string | null): string[] => {
-      if (!str) return [];
-      return str.split('|').filter(s => s.length > 0);
-    };
+    const clusters = clustersQuery.all().map((row: any) => {
+      const cleaned: any = { ...row };
 
-    cleaned.dosages_available = parsePipeSeparated(cleaned.dosages_available);
-    cleaned.all_princeps_names = parsePipeSeparated(cleaned.all_princeps_names);
-    cleaned.all_brand_names = parsePipeSeparated(cleaned.all_brand_names);
+      const parsePipeSeparated = (str: string | null): string[] => {
+        if (!str) return [];
+        return str.split('|').filter(s => s.length > 0);
+      };
 
-    // Parser substance_label depuis JSON array
-    if (cleaned.substance_label_json) {
-      try {
-        const substances = JSON.parse(cleaned.substance_label_json);
-        cleaned.substance_label = Array.isArray(substances) ? substances.join(", ") : cleaned.substance_label_json;
-      } catch {
-        cleaned.substance_label = cleaned.substance_label_json;
+      cleaned.dosages_available = parsePipeSeparated(cleaned.dosages_available);
+      cleaned.all_princeps_names = parsePipeSeparated(cleaned.all_princeps_names);
+      cleaned.all_brand_names = parsePipeSeparated(cleaned.all_brand_names);
+
+      // Helper helper
+      const safeJsonParse = (jsonString: string | null, defaultValue: any) => {
+        if (!jsonString) return defaultValue;
+        try {
+          return JSON.parse(jsonString);
+        } catch (e) {
+          return defaultValue;
+        }
       }
-    }
-    delete cleaned.substance_label_json;
 
-    // Parser secondary_princeps depuis JSON array
-    if (cleaned.secondary_princeps) {
-      try {
-        const secondaries = JSON.parse(cleaned.secondary_princeps);
-        cleaned.secondary_princeps = Array.isArray(secondaries) ? secondaries : [];
-      } catch {
-        cleaned.secondary_princeps = [];
+      // Parser substance_label depuis JSON array (si c'est du JSON)
+      // Dans v_clusters_audit: json_group_array(DISTINCT substance_name) -> "['A', 'B']"
+      const subs = safeJsonParse(cleaned.substance_label_json, null);
+      if (Array.isArray(subs)) {
+        cleaned.substance_label = subs.join(" + ");
+      } else {
+        cleaned.substance_label = cleaned.substance_label_json || cleaned.unified_name;
       }
-    } else {
-      cleaned.secondary_princeps = [];
-    }
+      delete cleaned.substance_label_json;
 
-    // Renommer unified_name en cluster_name pour cohérence avec l'ancien format
-    // et remplacer cluster_princeps par le nom unifié
-    cleaned.cluster_name = cleaned.unified_name || cleaned.cluster_name;
-    delete cleaned.unified_name;
+      // Parser secondary_princeps
+      cleaned.secondary_princeps = safeJsonParse(cleaned.secondary_princeps, []);
 
-    return cleaned;
-  });
+      // Renommer unified_name en cluster_name pour cohérence
+      cleaned.cluster_name = cleaned.unified_name || cleaned.cluster_name;
+      delete cleaned.unified_name;
 
-  writeFileSync(
-    join(OUT_DIR, "1_clusters_catalog.json"),
-    JSON.stringify(clusters, null, 2)
-  );
-  console.log(`✅ ${clusters.length} clusters exportés dans '1_clusters_catalog.json'`);
+      return cleaned;
+    });
 
-  // ---------------------------------------------------------
-  // PARTIE 2 : Catalogue des Groupes Génériques
-  // ---------------------------------------------------------
-  console.log("📋 Génération du catalogue des groupes génériques...");
+    writeFileSync(
+      join(OUT_DIR, "1_clusters_catalog.json"),
+      JSON.stringify(clusters, null, 2)
+    );
+    console.log(`✅ ${clusters.length} clusters exportés dans '1_clusters_catalog.json'`);
 
-  // Utiliser directement la vue SQL qui fait tout le travail
-  // Échantillonnage aléatoire limité à 500 groupes pour revue
-  const groupsQuery = db.query(`
-    SELECT * FROM v_groups_audit
-    ORDER BY RANDOM()
-    LIMIT 500
-  `);
+    // ---------------------------------------------------------
+    // PARTIE 2 : Catalogue des Groupes Génériques
+    // ---------------------------------------------------------
+    console.log("📋 Génération du catalogue des groupes génériques...");
 
-  // Les données sont déjà formatées dans la vue (JSON arrays)
-  const groups = groupsQuery.all().map((row: any) => {
-    const cleaned: any = { ...row };
+    const groupsQuery = db.query(`
+      SELECT * FROM v_groups_audit
+      ORDER BY RANDOM()
+      LIMIT 200
+    `);
 
-    // Convertir les chaînes séparées par '|' en tableaux JavaScript
-    const parsePipeSeparated = (str: string | null): string[] => {
-      if (!str) return [];
-      return str.split('|').filter(s => s.length > 0);
-    };
+    const groups = groupsQuery.all().map((row: any) => {
+      const cleaned: any = { ...row };
+      const parsePipeSeparated = (str: string | null) => str ? str.split('|').filter(Boolean) : [];
 
-    cleaned.forms_available = parsePipeSeparated(cleaned.forms_available);
+      cleaned.forms_available = parsePipeSeparated(cleaned.forms_available);
 
-    // Parser principes_actifs_communs si c'est une string JSON
-    if (typeof cleaned.principes_actifs_communs === 'string') {
-      try {
-        const parsed = JSON.parse(cleaned.principes_actifs_communs);
-        cleaned.principes_actifs_communs = Array.isArray(parsed) ? Array.from(new Set(parsed)) : parsed;
-      } catch {
-        // Garder la valeur originale si parsing échoue
+      // Parse JSON arrays
+      const safeJsonParse = (str: any) => {
+        try { return JSON.parse(str); } catch { return []; }
+      };
+
+      if (typeof cleaned.principes_actifs_communs === 'string' && (cleaned.principes_actifs_communs.startsWith('[') || cleaned.principes_actifs_communs.startsWith('{'))) {
+        cleaned.principes_actifs_communs = safeJsonParse(cleaned.principes_actifs_communs);
       }
-    }
 
-    return cleaned;
-  });
+      return cleaned;
+    });
 
-  writeFileSync(
-    join(OUT_DIR, "2_group_catalog.json"),
-    JSON.stringify(groups, null, 2)
-  );
-  console.log(`✅ ${groups.length} groupes exportés dans '2_group_catalog.json'`);
+    writeFileSync(
+      join(OUT_DIR, "2_group_catalog.json"),
+      JSON.stringify(groups, null, 2)
+    );
+    console.log(`✅ ${groups.length} groupes exportés dans '2_group_catalog.json'`);
 
-  // ---------------------------------------------------------
-  // PARTIE 3 : Échantillonnage Aléatoire (200 Exemples)
-  // ---------------------------------------------------------
-  console.log("🧪 Sélection de 200 exemples aléatoires...");
+    // ---------------------------------------------------------
+    // PARTIE 3 : Échantillonnage Aléatoire
+    // ---------------------------------------------------------
+    console.log("🧪 Sélection de 200 exemples aléatoires...");
 
-  // Échantillonnage aléatoire simple de 200 médicaments
-  const qSamples = db.query(`
-    SELECT * FROM v_samples_audit 
-    ORDER BY RANDOM() 
-    LIMIT 100
-  `);
-  const samples = qSamples.all();
+    const qSamples = db.query(`
+      SELECT * FROM v_samples_audit 
+      ORDER BY RANDOM() 
+      LIMIT 200
+    `);
+    const samples = qSamples.all();
 
-  // Parser principes_actifs_communs_json si présent (déjà validé dans la vue)
-  // Les nouveaux champs (smr_niveau, url_notice, has_safety_alert) sont déjà inclus via ms.*
-  const cleanSamples = samples.map((row: any) => {
-    if (row.principes_actifs_communs_json) {
-      try {
-        row.principes_actifs_communs = JSON.parse(row.principes_actifs_communs_json);
-      } catch {
-        // Ignore parsing errors
+    const cleanSamples = samples.map((row: any) => {
+      const r = { ...row };
+      if (r.principes_actifs_communs_json) {
+        try {
+          r.principes_actifs_communs = JSON.parse(r.principes_actifs_communs_json);
+        } catch {
+          // keep as is
+        }
       }
-    }
-    // Supprimer la colonne temporaire
-    delete row.principes_actifs_communs_json;
+      delete r.principes_actifs_communs_json;
 
-    // Normaliser les nouveaux champs pour l'audit
-    // smr_niveau, url_notice, has_safety_alert sont déjà présents via ms.*
-    // Convertir has_safety_alert en boolean si c'est un nombre (SQLite retourne 0/1)
-    if (typeof row.has_safety_alert === 'number') {
-      row.has_safety_alert = Boolean(row.has_safety_alert);
-    }
+      if (typeof r.has_safety_alert === 'number') {
+        r.has_safety_alert = Boolean(r.has_safety_alert);
+      }
+      return r;
+    });
 
-    return row;
-  });
+    writeFileSync(
+      join(OUT_DIR, "3_samples_detailed.json"),
+      JSON.stringify(cleanSamples, null, 2)
+    );
 
-  writeFileSync(
-    join(OUT_DIR, "3_samples_detailed.json"),
-    JSON.stringify(cleanSamples, null, 2)
-  );
+    console.log(`✅ ${cleanSamples.length} exemples exportés dans '3_samples_detailed.json'`);
+    console.log(`📂 Fichiers disponibles dans : ${OUT_DIR}`);
 
-  console.log(`✅ ${cleanSamples.length} exemples exportés dans '3_samples_detailed.json'`);
-  console.log(`📂 Fichiers disponibles dans : ${OUT_DIR}`);
-
-  // Fermeture de la base de données
-  db.close();
+  } catch (err) {
+    console.error("❌ Erreur pendant l'audit:", err);
+    process.exit(1);
+  } finally {
+    // Fermeture de la base de données
+    db.close();
+  }
 }
 
 main();

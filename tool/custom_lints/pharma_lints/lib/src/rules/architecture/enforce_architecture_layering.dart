@@ -19,84 +19,91 @@ class EnforceArchitectureLayering extends DartLintRule {
   ) {
     if (LintUtils.shouldIgnorePath(resolver.path)) return;
 
-    // Normalize path for Windows support
-    final path = resolver.path.replaceAll('\\', '/');
-
-    // Normalized path parts
-    final parts = path.split('/');
-    final libIndex = parts.indexOf('lib');
-    if (libIndex == -1 || libIndex + 2 >= parts.length) return;
-
-    final layer = parts[libIndex + 1]; // features, core, etc.
-    if (layer != 'features' && layer != 'core') return;
-
-    final currentFeature = (layer == 'features') ? parts[libIndex + 2] : null;
+    final currentScope = LintUtils.parse(resolver.path);
+    
+    // Only enforce rules if we are in a known layer
+    if (currentScope.layer == ArchitectureLayer.unknown) return;
+    if (currentScope.isTest) return;
 
     context.registry.addImportDirective((node) {
       final uri = node.uri.stringValue;
       if (uri == null) return;
 
+      // Parse the imported URI to check its layer
+      // We can't use LintUtils.parse(uri) directly because uri is relative or package:
+      // We need to resolve it or do string analysis on the URI.
+      
       // 1. Check direct package imports
-      if (uri.startsWith('package:pharma_scan/features/')) {
-        _checkFeatureImport(uri, layer, currentFeature, reporter, node);
-      } else if (uri.startsWith('package:pharma_scan/core/') &&
-          layer == 'core') {
-        // Core inside Core is fine generally, but maybe check for cycles?
+      if (uri.startsWith('package:pharma_scan/')) {
+        _checkPackageImport(uri, currentScope, reporter, node);
+      } 
+      // 2. Check relative imports
+      else if (!uri.startsWith('dart:') && !uri.startsWith('package:')) {
+         // Resolve relative path to absolute or project-relative
+         // This is tricky without resolving, but we can check if it goes "up" into another layer
+         // simpler heuristic: check for '/features/' or '/core/' in the path if it traverses up
+         if (uri.contains('/features/') || uri.contains('/core/')) {
+            _checkRelativeImport(uri, currentScope, reporter, node);
+         }
       }
+    });
+  }
 
-      // 2. Check relative imports (approximated)
-      // Only check if it's NOT a package import we already checked
-      else if (!uri.startsWith('package:pharma_scan/features/') &&
-          uri.contains('/features/')) {
-        // If we are in core, we shouldn't import features
-        if (layer == 'core')
+  void _checkPackageImport(
+    String importUri,
+    ArchitectureScope currentScope,
+    ErrorReporter reporter,
+    ImportDirective node,
+  ) {
+    if (importUri.startsWith('package:pharma_scan/features/')) {
+       final featureParts = importUri.split('/');
+       if (featureParts.length > 2) {
+          final importedFeature = featureParts[2];
+          
+          if (currentScope.layer == ArchitectureLayer.core) {
+            reporter.atOffset(
+              offset: node.offset,
+              length: node.length,
+              errorCode: LintCode(
+                  name: 'enforce_architecture_layering',
+                  problemMessage:
+                      '❌ CORE VIOLATION: Core cannot depend on Features ($importedFeature).'),
+            );
+          } else if (currentScope.layer == ArchitectureLayer.features) {
+             if (currentScope.featureName != null && importedFeature != currentScope.featureName) {
+                reporter.atOffset(
+                  offset: node.offset,
+                  length: node.length,
+                  errorCode: LintCode(
+                      name: 'enforce_architecture_layering',
+                      problemMessage:
+                          '❌ FEATURE VIOLATION: Feature (${currentScope.featureName}) cannot import unrelated Feature ($importedFeature).'),
+                );
+             }
+          }
+       }
+    }
+  }
+
+  void _checkRelativeImport(
+    String importUri,
+    ArchitectureScope currentScope,
+    ErrorReporter reporter,
+    ImportDirective node,
+  ) {
+    // Basic heuristic for relative imports crossing layers
+    // mostly concerned if we are in core and importing ../features/
+    if (currentScope.layer == ArchitectureLayer.core) {
+       if (importUri.contains('features/')) {
           reporter.atOffset(
             offset: node.offset,
             length: node.length,
             errorCode: LintCode(
                 name: 'enforce_architecture_layering',
                 problemMessage:
-                    '❌ CORE VIOLATION: Core cannot depend on Features ($uri).'),
+                    '❌ CORE VIOLATION: Core cannot depend on Features (via relative import).'),
           );
-      }
-    });
-  }
-
-  void _checkFeatureImport(
-    String importUri,
-    String currentLayer,
-    String? currentFeature,
-    ErrorReporter reporter,
-    ImportDirective node,
-  ) {
-    // Extract imported feature
-    // package:pharma_scan/features/scanner/...
-    final segments = importUri.split('/');
-    final featureIndex = segments.indexOf('features');
-    if (featureIndex == -1 || featureIndex + 1 >= segments.length) return;
-
-    final importedFeature = segments[featureIndex + 1];
-
-    if (currentLayer == 'core') {
-      reporter.atOffset(
-        offset: node.offset,
-        length: node.length,
-        errorCode: LintCode(
-            name: 'enforce_architecture_layering',
-            problemMessage:
-                '❌ CORE VIOLATION: Core cannot depend on Features ($importedFeature).'),
-      );
-    } else if (currentLayer == 'features' && currentFeature != null) {
-      if (importedFeature != currentFeature) {
-        reporter.atOffset(
-          offset: node.offset,
-          length: node.length,
-          errorCode: LintCode(
-              name: 'enforce_architecture_layering',
-              problemMessage:
-                  '❌ FEATURE VIOLATION: Feature ($currentFeature) cannot import unrelated Feature ($importedFeature).'),
-        );
-      }
+       }
     }
   }
 }

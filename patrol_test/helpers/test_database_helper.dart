@@ -32,12 +32,13 @@ class TestDatabaseHelper {
     if (await userDbFile.exists()) await userDbFile.delete();
     if (await refDbFile.exists()) await refDbFile.delete();
 
-    // 2. Copie de l'asset vers le système de fichiers
-    final byteData = await rootBundle.load('assets/test/reference.db');
-    final buffer = byteData.buffer;
+    // 2. Copie de l'asset vers le système de fichiers (Decompression GZIP)
+    final byteData = await rootBundle.load('assets/database/reference.db.gz');
+    final compressedBytes = byteData.buffer.asUint8List();
+    final decompressedBytes = GZipCodec().decode(compressedBytes);
 
     await refDbFile.writeAsBytes(
-      buffer.asUint8List(byteData.offsetInBytes, byteData.lengthInBytes),
+      decompressedBytes,
       flush: true,
     );
 

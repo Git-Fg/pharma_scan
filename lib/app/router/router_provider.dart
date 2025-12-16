@@ -7,7 +7,7 @@ part 'router_provider.g.dart';
 /// The global [AppRouter] instance.
 ///
 /// Use this in `main.dart` to configure `MaterialApp.router`.
-@Riverpod(keepAlive: true)
+@riverpod
 AppRouter appRouter(Ref ref) {
   return AppRouter();
 }
@@ -28,7 +28,7 @@ AppRouter appRouter(Ref ref) {
 ///
 /// The `Raw<>` wrapper prevents Riverpod from tracking dispose on the router,
 /// since it's a long-lived singleton managed by the app lifecycle.
-@Riverpod(keepAlive: true)
+@riverpod
 Raw<StackRouter> router(Ref ref) {
   return ref.read(appRouterProvider);
 }

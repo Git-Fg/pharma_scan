@@ -10,12 +10,7 @@ import 'package:patrol/src/platform/contracts/contracts.dart';
 import 'package:test_api/src/backend/invoker.dart';
 
 // START: GENERATED TEST IMPORTS
-import 'robot_pattern_demo_test.dart' as robot_pattern_demo_test;
-import 'tests/gp1_scanner_standalone_test.dart' as tests__gp1_scanner_standalone_test;
-import 'tests/gp2_search_explorer_test.dart' as tests__gp2_search_explorer_test;
-import 'tests/gp3_restock_cycle_test.dart' as tests__gp3_restock_cycle_test;
-import 'tests/gp4_explorer_deep_dive_test.dart' as tests__gp4_explorer_deep_dive_test;
-import 'tests/gp5_full_app_cycle_test.dart' as tests__gp5_full_app_cycle_test;
+import 'tests/golden_path_test.dart' as tests__golden_path_test;
 // END: GENERATED TEST IMPORTS
 
 Future<void> main() async {
@@ -75,12 +70,7 @@ Future<void> main() async {
   });
 
   // START: GENERATED TEST GROUPS
-  group('robot_pattern_demo_test', robot_pattern_demo_test.main);
-  group('tests.gp1_scanner_standalone_test', tests__gp1_scanner_standalone_test.main);
-  group('tests.gp2_search_explorer_test', tests__gp2_search_explorer_test.main);
-  group('tests.gp3_restock_cycle_test', tests__gp3_restock_cycle_test.main);
-  group('tests.gp4_explorer_deep_dive_test', tests__gp4_explorer_deep_dive_test.main);
-  group('tests.gp5_full_app_cycle_test', tests__gp5_full_app_cycle_test.main);
+  group('tests.golden_path_test', tests__golden_path_test.main);
   // END: GENERATED TEST GROUPS
 
   final dartTestGroup = await testExplorationCompleter.future;

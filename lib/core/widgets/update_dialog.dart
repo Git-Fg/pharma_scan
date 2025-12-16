@@ -29,9 +29,10 @@ class UpdateDialog extends ConsumerWidget {
               style: theme.textTheme.p,
             ),
             const SizedBox(height: 8),
+            _buildVersionRow('Version actuelle :',
+                versionResult.localDate ?? 'Inconnue', theme),
             _buildVersionRow(
-                'Version actuelle :', versionResult.localDate ?? 'Inconnue'),
-            _buildVersionRow('Nouvelle version :', versionResult.remoteTag),
+                'Nouvelle version :', versionResult.remoteTag, theme),
             const SizedBox(height: 12),
             Text(
               'Voulez-vous la télécharger maintenant ?',
@@ -76,12 +77,13 @@ class UpdateDialog extends ConsumerWidget {
     );
   }
 
-  Widget _buildVersionRow(String label, String value) {
+  Widget _buildVersionRow(String label, String value, ShadThemeData theme) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
-        Text(value),
+        Text(label,
+            style: theme.textTheme.p.copyWith(fontWeight: FontWeight.bold)),
+        Text(value, style: theme.textTheme.p),
       ],
     );
   }

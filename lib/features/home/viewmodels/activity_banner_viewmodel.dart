@@ -149,6 +149,10 @@ ActivityBannerState? activityBannerViewModel(Ref ref) {
         icon = LucideIcons.wifiOff;
         status = Strings.dataOperationsWaitingNetwork;
         description = Strings.syncWaitingNetwork;
+      case SyncPhase.waitingUser:
+        icon = LucideIcons.info;
+        status = 'Mise à jour disponible';
+        description = 'En attente de confirmation...';
       case SyncPhase.checking:
         icon = LucideIcons.search;
         status = Strings.dataOperationsCheckingUpdates;

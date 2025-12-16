@@ -3,6 +3,10 @@
 -- Généré automatiquement par scripts/dump_schema.sh
 
 -- Tables:
+CREATE TABLE _metadata (
+        key TEXT PRIMARY KEY,
+        value TEXT
+      ) STRICT;
 CREATE TABLE cis_routes (
         cis_code TEXT NOT NULL REFERENCES medicament_summary(cis_code) ON DELETE CASCADE,
         route_id INTEGER NOT NULL REFERENCES ref_routes(id),

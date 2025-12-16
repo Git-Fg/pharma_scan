@@ -71,7 +71,7 @@ class UnifiedActivityBanner extends StatelessWidget {
     return Padding(
       padding: EdgeInsets.fromLTRB(
         spacing.md,
-        0,
+        spacing.xs,
         spacing.md,
         spacing.xs,
       ),

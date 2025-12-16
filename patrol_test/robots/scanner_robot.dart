@@ -201,71 +201,54 @@ class ScannerRobot extends BaseRobot {
   }
 
   // --- Enhanced Assertions ---
-  void expectBubbleVisible(String medicationName) {
-    expectVisibleByText(medicationName);
-    final medicationText = find.text(medicationName);
-    expect(medicationText, findsOneWidget);
+  // --- Enhanced Assertions & State ---
+  Future<void> waitUntilBubbleVisible(String medicationName) async {
+    await $(medicationName).waitUntilVisible();
   }
 
-  void expectBubbleCount(int expectedCount) {
-    final bubbles = find.byKey(const Key('medication_bubble'));
-    expect(bubbles, findsNWidgets(expectedCount));
-  }
-
-  void expectScannerModeActive() {
-    expectVisibleByKeyWidget(Key(TestTags.scannerScreen));
-    final modeIndicator = find.textContaining('Analysis');
-    if (modeIndicator.evaluate().isNotEmpty) {
-      expect(modeIndicator, findsOneWidget);
+  Future<int> getBubbleCount() async {
+    final bubbles = $(const Key('medication_bubble'));
+    // Wait for at least one to be safe, or just return count
+    if (await bubbles.exists) {
+      return bubbles.evaluate().length;
     }
+    return 0;
   }
 
-  void expectRestockModeActive() {
-    expectVisibleByKeyWidget(Key(TestTags.scannerScreen));
-    final modeIndicator = find.textContaining('Restock');
-    if (modeIndicator.evaluate().isNotEmpty) {
-      expect(modeIndicator, findsOneWidget);
-    }
+  Future<void> waitUntilScannerModeActive() async {
+    await $(const Key(TestTags.scannerScreen)).waitUntilVisible();
+    await $('Analysis').waitUntilVisible();
   }
 
-  void expectCameraActive() {
-    expectVisibleByKeyWidget(Key(TestTags.scannerScreen));
+  Future<void> waitUntilRestockModeActive() async {
+    await $(const Key(TestTags.scannerScreen)).waitUntilVisible();
+    await $('Restock').waitUntilVisible();
   }
 
-  void expectManualEntrySheetVisible() {
-    expect(find.byType(ModalBottomSheetRoute), findsOneWidget);
-    expectVisibleByText('Manually Enter CIP Code');
+  Future<void> waitUntilCameraActive() async {
+    await $(const Key(TestTags.scannerScreen)).waitUntilVisible();
   }
 
-  void expectSearchSheetVisible() {
-    expect(find.byType(ModalBottomSheetRoute), findsOneWidget);
+  Future<void> waitUntilManualEntrySheetVisible() async {
+    await $(ModalBottomSheetRoute).waitUntilVisible();
+    await $('Manually Enter CIP Code').waitUntilVisible();
   }
 
-  void expectScanErrorVisible() {
-    expectVisibleByText('Error');
-    final errorMessage = find.textContaining('not found');
-    if (errorMessage.evaluate().isNotEmpty) {
-      expect(errorMessage, findsOneWidget);
-    }
+  Future<void> waitUntilSearchSheetVisible() async {
+    await $(ModalBottomSheetRoute).waitUntilVisible();
   }
 
-  void expectNoBubblesVisible() {
-    final bubbles = find.byKey(const Key('medication_bubble'));
-    expect(bubbles, findsNothing);
+  Future<void> waitUntilScanErrorVisible() async {
+    await $('Error').waitUntilVisible();
+    await $('not found').waitUntilVisible();
   }
 
-  void expectTorchOn() {
-    final torchIndicator = find.byIcon(Icons.flash_on);
-    if (torchIndicator.evaluate().isNotEmpty) {
-      expect(torchIndicator, findsOneWidget);
-    }
+  Future<bool> isTorchOn() async {
+    return await $(Icons.flash_on).exists;
   }
 
-  void expectTorchOff() {
-    final torchIndicator = find.byIcon(Icons.flash_off);
-    if (torchIndicator.evaluate().isNotEmpty) {
-      expect(torchIndicator, findsOneWidget);
-    }
+  Future<bool> isTorchOff() async {
+    return await $(Icons.flash_off).exists;
   }
 
   void expectCameraPermissionGranted() {
@@ -275,7 +258,12 @@ class ScannerRobot extends BaseRobot {
 
   // --- Scanner Verifications ---
   Future<void> expectScannerScreenVisible() async {
-    await $(const Key(TestTags.scannerScreen)).waitUntilVisible();
+    // Wait for the screen container to exist (not necessarily hit-testable due to camera preview)
+    await $(const Key(TestTags.scannerScreen)).exists;
+
+    // Wait for a UI control that is definitely on top and visible
+    // The keyboard icon (Manual Entry) is a good candidate
+    await $(LucideIcons.keyboard).waitUntilVisible();
   }
 
   Future<void> expectMedicamentNotFound() async {

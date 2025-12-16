@@ -71,17 +71,21 @@ class DataInitializationService {
   }
 
   /// Initializes the database by downloading from GitHub if needed.
+  /// Initializes the database using the bundled offline asset.
+  ///
+  /// This method is "Offline First":
+  /// 1. Checks current DB integrity.
+  /// 2. If valid, finishes immediately.
+  /// 3. If invalid or missing (or forced), hydrates from `assets/database/reference.db.gz`.
+  ///
+  /// Network downloads occur ONLY via `checkVersionStatus` + `performUpdate`,
+  /// triggered explicitly by the user or the update policy dialog.
   Future<void> initializeDatabase({bool forceRefresh = false}) async {
     try {
-      // 1. Check if database needs to be downloaded/updated
-      // We only download if:
-      // - forced
-      // - version is unknown (fresh install)
-      // - or integrity check fails (handled below)
       final currentVersion = await _appSettings.bdpmVersion;
       final hasVersion = currentVersion != null && currentVersion.isNotEmpty;
 
-      // Check integrity of existing DB if we think we have one
+      // 1. Check integrity of existing DB if we think we have one
       bool integrityOk = false;
       if (hasVersion && !forceRefresh) {
         try {
@@ -91,105 +95,82 @@ class DataInitializationService {
         } catch (_) {
           integrityOk = false;
           _logger
-              .warning('[DataInit] Integrity check failed, forcing download.');
+              .warning('[DataInit] Integrity check failed, requiring reset.');
         }
       }
 
-      final needsDownload = forceRefresh || !hasVersion || !integrityOk;
+      // 2. Decide if we need to initialize (Reset or Fresh Install)
+      final needsInitialization = forceRefresh || !hasVersion || !integrityOk;
 
-      if (!needsDownload) {
+      if (!needsInitialization) {
         _logger.info(
             '[DataInit] Database is present (version: $currentVersion) and healthy.');
         _emit(InitializationStep.ready, Strings.initializationReady);
         return;
       }
 
-      // Check if we can hydrate from assets before downloading
-      // Only if no DB exists (first run) or if we want to force reset from bundle (not implemented yet)
+      // 3. Hydrate from Bundled Asset
+      _logger.info('[DataInit] Initializing database from bundled asset...');
+      _emit(InitializationStep.downloading,
+          'Préparation de la base de données...');
+
+      // CRITICAL START: Close existing connection before replacing file
+      try {
+        // We explicitly close the DB to ensure no file locks/handles remain
+        // before we delete/overwrite the file.
+        // Even if we didn't check integrity, we might have an open connection.
+        final currentDb = _ref.read(databaseProvider());
+        await currentDb.close();
+      } catch (e) {
+        // If DB wasn't open or other error, mostly ignore but log
+        _logger.warning('[DataInit] Preparing close: $e');
+      }
+
+      // Invalidate provider so next read creates a fresh instance attached to the new file
+      _ref.invalidate(databaseProvider);
+      // Small delay to ensure OS releases handles (especially important on Windows/Android)
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      // CRITICAL END
+
       final docDir = await getApplicationDocumentsDirectory();
       final dbPath = p.join(docDir.path, DatabaseConfig.dbFilename);
       final dbFile = File(dbPath);
 
-      if (!await dbFile.exists()) {
+      // If resetting, ensure old file is gone
+      if (await dbFile.exists() && needsInitialization) {
         try {
-          _logger.info(
-              '[DataInit] No local database found. Checking for bundled asset...');
-          // Check if bundled asset exists
-          // Note: In Flutter, we can't easily check if an asset exists without trying to load it
-          // But since we control the build, we assume it's there if we put it in pubspec
-
-          final assetPath = 'assets/database/reference.db.gz';
-          // We use rootBundle to load the asset
-          // However, for large files, it's better to get the ByteData and write it
-
-          // Using specialized method to copy asset to file
-          await _copyFromAsset(assetPath, dbFile);
-
-          _logger.info('[DataInit] Database hydrated from bundled asset.');
-          _emit(InitializationStep.ready, Strings.initializationReady);
-
-          // Set version to "bundled" so we know where it came from
-          // Or even better, if we can read the version from the DB metadata later?
-          // For now, let's mark it as 'bundled'
-          await _appSettings.setBdpmVersion('bundled');
-
-          // Verify integrity of the copied DB
-          final db = _ref.read(databaseProvider());
-          await db.checkDatabaseIntegrity();
-
-          // Trigger sync found in existing flow
-          _triggerPostInitializationSync();
-          return;
+          await dbFile.delete();
         } catch (e) {
-          _logger.warning(
-              '[DataInit] Failed to copy from asset: $e. Falling back to download.');
-          // Fallthrough to download logic
+          _logger.warning('[DataInit] Could not delete old DB: $e');
         }
       }
 
-      _logger.info('[DataInit] Downloading fresh database from backend...');
-      _emit(InitializationStep.downloading, 'Téléchargement de la base...');
+      try {
+        const assetPath = 'assets/database/reference.db.gz';
 
-      // 3. Build download URL from GitHub latest release
-      final downloadUrl = await _resolveDownloadUrl();
-      if (downloadUrl == null) {
-        throw Exception('Could not resolve database download URL.');
+        // Use the optimized copy helper
+        await _copyFromAsset(assetPath, dbFile);
+
+        _logger.info('[DataInit] Database hydrated from bundled asset.');
+
+        // 4. Verify the new DB
+        final db = _ref.read(databaseProvider());
+        await db.checkDatabaseIntegrity();
+
+        // 5. Mark as initialized (bundled version)
+        // We use a special tag or 'bundled' if we don't extract the real tag yet.
+        // Ideally we should query the metadata table for the real version?
+        // For safety, we mark as 'bundled' and let SyncProvider check for updates later.
+        await _appSettings.setBdpmVersion('bundled');
+
+        _emit(InitializationStep.ready, Strings.initializationReady);
+        _triggerPostInitializationSync();
+      } catch (e) {
+        _logger.error('[DataInit] Failed to initialize from asset.', e);
+        _emit(InitializationStep.error,
+            'Erreur d\'initialisation. Vérifiez l\'espace de stockage.');
+        throw Exception('Offline initialization failed: $e');
       }
-
-      // 4. Download compressed file
-      final bytesEither = await _downloadService.downloadToBytes(downloadUrl);
-      final compressedBytes = bytesEither.fold(
-        ifLeft: (f) => throw Exception('Download failed: ${f.message}'),
-        ifRight: (bytes) => bytes,
-      );
-
-      // 5. Perform update with secure lifecycle
-      await _performUpdate(compressedBytes);
-
-      // 6. Verify the downloaded database
-      final newDb = _ref.read(databaseProvider());
-      await newDb.checkDatabaseIntegrity();
-
-      // 7. Save version tag
-      // 7. Save version tag
-      // If we downloaded via initialization (not update), use a placeholder if we don't know the tag yet.
-      // Ideally we would fetch the tag from the release we just downloaded from, but _resolveDownloadUrl
-      // assumes 'latest'.
-      // For now, set a marker so next launch doesn't loop. The SyncController will correct it to the real tag.
-      if (currentVersion == null) {
-        await _appSettings.setBdpmVersion('initial-install');
-      } else {
-        // Keep existing version or update if we had one?
-        // If we re-downloaded due to integrity failure, we might want to reset or keep.
-        // Let's assume 'initial-install' is safe.
-        await _appSettings.setBdpmVersion(currentVersion);
-      }
-
-      _logger.info('[DataInit] Database initialization complete.');
-      _emit(InitializationStep.ready, Strings.initializationReady);
-
-      // Trigger sync after successful initialization
-      _triggerPostInitializationSync();
     } catch (e, stackTrace) {
       _logger.error(
         '[DataInit] Error during initialization',
@@ -239,14 +220,6 @@ class DataInitializationService {
 
     // 6. La nouvelle instance sera créée automatiquement lors du prochain accès
     _logger.info('[DataInit] Database file replacement complete');
-  }
-
-  Future<String?> _resolveDownloadUrl() async {
-    // Build URL to the asset in latest GitHub release
-    const baseUrl = 'https://github.com/${DatabaseConfig.repoOwner}/'
-        '${DatabaseConfig.repoName}/releases/latest/download/'
-        '${DatabaseConfig.compressedDbFilename}';
-    return baseUrl;
   }
 
   // _decompressAndReplace supprimé (remplacé par _performUpdate)

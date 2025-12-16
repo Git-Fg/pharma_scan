@@ -9,18 +9,18 @@ const DATA_DIR = "./data";
 
 // Mapping explicite : URL Source -> Nom Local Forcé
 const FILES_TO_DOWNLOAD = [
-  { remotePath: "/download/file/CIS_bdpm.txt", localName: "CIS_bdpm.txt" },
-  { remotePath: "/download/file/CIS_CIP_bdpm.txt", localName: "CIS_CIP_bdpm.txt" },
-  { remotePath: "/download/file/CIS_COMPO_bdpm.txt", localName: "CIS_COMPO_bdpm.txt" },
-  { remotePath: "/download/file/CIS_GENER_bdpm.txt", localName: "CIS_GENER_bdpm.txt" },
-  { remotePath: "/download/file/CIS_CPD_bdpm.txt", localName: "CIS_CPD_bdpm.txt" },
-  { remotePath: "/download/file/CIS_HAS_SMR_bdpm.txt", localName: "CIS_HAS_SMR_bdpm.txt" },
-  { remotePath: "/download/file/CIS_HAS_ASMR_bdpm.txt", localName: "CIS_HAS_ASMR_bdpm.txt" },
-  { remotePath: "/download/file/HAS_LiensPageCT_bdpm.txt", localName: "HAS_LiensPageCT_bdpm.txt" },
-  { remotePath: "/download/file/CIS_CIP_Dispo_Spec.txt", localName: "CIS_CIP_Dispo_Spec.txt" },
-  { remotePath: "/download/file/CIS_MITM.txt", localName: "CIS_MITM.txt" },
+  { remotePath: "/download/file/CIS_bdpm.txt", localName: "CIS_bdpm.txt", encoding: "windows-1252" },
+  { remotePath: "/download/file/CIS_CIP_bdpm.txt", localName: "CIS_CIP_bdpm.txt", encoding: "utf-8" },
+  { remotePath: "/download/file/CIS_COMPO_bdpm.txt", localName: "CIS_COMPO_bdpm.txt", encoding: "windows-1252" },
+  { remotePath: "/download/file/CIS_GENER_bdpm.txt", localName: "CIS_GENER_bdpm.txt", encoding: "windows-1252" },
+  { remotePath: "/download/file/CIS_CPD_bdpm.txt", localName: "CIS_CPD_bdpm.txt", encoding: "windows-1252" },
+  { remotePath: "/download/file/CIS_HAS_SMR_bdpm.txt", localName: "CIS_HAS_SMR_bdpm.txt", encoding: "windows-1252" },
+  { remotePath: "/download/file/CIS_HAS_ASMR_bdpm.txt", localName: "CIS_HAS_ASMR_bdpm.txt", encoding: "windows-1252" },
+  { remotePath: "/download/file/HAS_LiensPageCT_bdpm.txt", localName: "HAS_LiensPageCT_bdpm.txt", encoding: "windows-1252" },
+  { remotePath: "/download/file/CIS_CIP_Dispo_Spec.txt", localName: "CIS_CIP_Dispo_Spec.txt", encoding: "windows-1252" },
+  { remotePath: "/download/file/CIS_MITM.txt", localName: "CIS_MITM.txt", encoding: "windows-1252" },
   // CAS SPÉCIAL : le serveur renvoie souvent un nom horodaté pour ce fichier
-  { remotePath: "/download/CIS_InfoImportantes.txt", localName: "CIS_InfoImportante.txt" },
+  { remotePath: "/download/CIS_InfoImportantes.txt", localName: "CIS_InfoImportante.txt", encoding: "utf-8" },
 ];
 
 export async function downloadBdpm(opts: { force?: boolean } = {}): Promise<void> {
@@ -63,11 +63,19 @@ export async function downloadBdpm(opts: { force?: boolean } = {}): Promise<void
         const contentLength = response.headers.get?.('content-length') || 'unknown';
         process.stdout.write(`(from: ${finalUrl}, size: ${contentLength}) `);
 
-        // IMPORTANT: Les fichiers BDPM sont encodés en Windows-1252 (aka CP1252)
-        // On doit les décoder puis les ré-encoder en UTF-8 pour éviter les problèmes d'encodage
+        // Les fichiers BDPM sont généralement encodés en Windows-1252 (aka CP1252)
+        // Sauf exceptions notées explicitement (ex: CIS_CIP_bdpm.txt est en UTF-8)
         const buffer = await response.arrayBuffer();
-        const decodedText = iconv.decode(Buffer.from(buffer), 'windows-1252');
-        const utf8Buffer = iconv.encode(decodedText, 'utf-8');
+
+        let utf8Buffer: Uint8Array;
+        if (file.encoding === "utf-8") {
+          // Déjà en UTF-8, on ne touche à rien (ou on s'assure juste que c'est propre, mais fetch renvoie les bytes bruts)
+          utf8Buffer = new Uint8Array(buffer);
+        } else {
+          // Conversion Windows-1252 -> UTF-8
+          const decodedText = iconv.decode(Buffer.from(buffer), file.encoding || 'windows-1252');
+          utf8Buffer = iconv.encode(decodedText, 'utf-8');
+        }
 
         const bytesWritten = await write(localPath, utf8Buffer);
         const sizeKo = (bytesWritten / 1024).toFixed(1);

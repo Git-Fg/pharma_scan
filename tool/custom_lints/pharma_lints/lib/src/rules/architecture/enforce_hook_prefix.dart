@@ -21,60 +21,67 @@ class EnforceHookPrefix extends DartLintRule {
   ) {
     if (LintUtils.shouldIgnorePath(resolver.path)) return;
 
-    // Logic:
-    // 1. Visit FunctionDeclaration or MethodDeclaration
-    // 2. Scan body for MethodInvocation starting with 'use' (excluding known non-hooks if any)
-    // 3. If found, check if parent function starts with 'use' or is 'build'.
-
-    // We will simplify: If a function calls a hook, it must be named 'use...' or be a 'build' method.
-
-    context.registry.addFunctionDeclaration((node) {
-      _checkBody(
-          node.name.lexeme, node.functionExpression.body, reporter, node);
+    context.registry.addCompilationUnit((node) {
+      final visitor = _HookUsageVisitor(reporter);
+      node.accept(visitor);
     });
-
-    context.registry.addMethodDeclaration((node) {
-      _checkBody(node.name.lexeme, node.body, reporter, node);
-    });
-  }
-
-  void _checkBody(String functionName, FunctionBody body,
-      ErrorReporter reporter, AstNode node) {
-    // If function already starts with 'use', acceptable.
-    if (functionName.startsWith('use')) return;
-    // If function is 'build', acceptable (typical widget build).
-    if (functionName == 'build') return;
-
-    bool usesHooks = false;
-
-    // We need to traverse the body to find hooks.
-    // Creating a visitor just for this body.
-    final visitor = _HookUsageVisitor();
-    body.visitChildren(visitor);
-    usesHooks = visitor.usesHooks;
-
-    if (usesHooks) {
-      reporter.atOffset(
-        offset: node.offset,
-        length: node.length,
-        errorCode: _code,
-      );
-    }
   }
 }
 
 class _HookUsageVisitor extends RecursiveAstVisitor<void> {
-  bool usesHooks = false;
+  final ErrorReporter _reporter;
+  final List<String> _functionStack = [];
+
+  _HookUsageVisitor(this._reporter);
+
+  @override
+  void visitFunctionDeclaration(FunctionDeclaration node) {
+    _functionStack.add(node.name.lexeme);
+    super.visitFunctionDeclaration(node);
+    _functionStack.removeLast();
+  }
+
+  @override
+  void visitMethodDeclaration(MethodDeclaration node) {
+    _functionStack.add(node.name.lexeme);
+    super.visitMethodDeclaration(node);
+    _functionStack.removeLast();
+  }
 
   @override
   void visitMethodInvocation(MethodInvocation node) {
-    if (usesHooks) return; // Already found one
     final name = node.methodName.name;
-    if (name.startsWith('use') && name != 'use' && name.length > 3) {
-      // Very basic heuristic for hook detection (useEffect, useState, etc.)
-      // Exclude simple words? No, standard is strict prefix.
-      usesHooks = true;
+
+    // Optimized hook detection: startswith 'use' AND second char is Uppercase (CamelCase)
+    // Regex eq: ^use[A-Z]
+    if (name.startsWith('use') &&
+        name.length > 3 &&
+        _isUpperCase(name.codeUnitAt(3))) {
+      _checkHookUsage(node, name);
     }
+
     super.visitMethodInvocation(node);
+  }
+
+  bool _isUpperCase(int charCode) {
+    return charCode >= 65 && charCode <= 90;
+  }
+
+  void _checkHookUsage(MethodInvocation node, String hookName) {
+    if (_functionStack.isEmpty) return;
+
+    final currentFunction = _functionStack.last;
+
+    // Allowed contexts:
+    // 1. Function starts with 'use' (custom hook)
+    // 2. Function is 'build' (widget build method)
+    if (currentFunction.startsWith('use')) return;
+    if (currentFunction == 'build') return;
+
+    _reporter.atOffset(
+      offset: node.offset,
+      length: node.length,
+      errorCode: EnforceHookPrefix._code,
+    );
   }
 }

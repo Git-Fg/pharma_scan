@@ -7,8 +7,15 @@ final clusterSearchProvider =
     StreamProvider.family.autoDispose<List<ClusterEntity>, String>(
   (ref, query) async* {
     final db = ref.watch(databaseProvider());
-    await for (final clusters in db.explorerDao.watchClusters(query)) {
-      yield clusters;
+    if (query.isEmpty) {
+      await for (final clusters
+          in db.explorerDao.watchAllClustersOrderedByPrinceps()) {
+        yield clusters;
+      }
+    } else {
+      await for (final clusters in db.explorerDao.watchClusters(query)) {
+        yield clusters;
+      }
     }
   },
 );

@@ -33,21 +33,21 @@ targets:
             - lib/core/services/**.dart
             - lib/core/network/**.dart
             - lib/core/database/providers.dart
-            - lib/core/router/router_provider.dart
+            - lib/app/router/router_provider.dart
             - lib/features/**/providers/**.dart
             - lib/features/**/viewmodels/**.dart
 
       auto_route_generator:auto_route_generator:
         enabled: true
         generate_for:
-          - lib/core/router/app_router.dart
+          - lib/app/router/app_router.dart
           - lib/features/**/screens/**.dart
           - lib/features/**/views/**.dart
 
       auto_route_generator:auto_router_generator:
         enabled: true
         generate_for:
-          - lib/core/router/app_router.dart
+          - lib/app/router/app_router.dart
 
       dart_mappable_builder:
         generate_for:

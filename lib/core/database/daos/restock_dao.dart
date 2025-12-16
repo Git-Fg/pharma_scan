@@ -268,8 +268,8 @@ class RestockDao extends DatabaseAccessor<AppDatabase> with $RestockDaoMixin {
 
   /// Stream des items de réapprovisionnement via la vue view_restock_items
   Stream<List<RestockItemEntity>> watchRestockItems() {
-    return attachedDatabase
-        .select(attachedDatabase.viewRestockItems)
+    return attachedDatabase.restockViewsDrift
+        .restockItemsWithDetails()
         .watch()
         .map((rows) =>
             rows.map((row) => RestockItemEntity.fromData(row)).toList());

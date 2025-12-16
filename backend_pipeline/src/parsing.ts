@@ -266,7 +266,7 @@ function selectBestComponentForLink(rows: CompositionRow[]): CompositionRow | nu
  */
 export async function parseCompositions(
   rows: Iterable<string[]> | AsyncIterable<string[]>
-): Promise<Map<string, string>> {
+): Promise<{ flattened: Map<string, string>; codes: Map<string, string[]> }> { // <--- Changed return type
   // Structure: Map<CIS, Map<LinkID, List<Rows>>>
   const buffer = new Map<string, Map<string, CompositionRow[]>>();
 
@@ -303,6 +303,7 @@ export async function parseCompositions(
 
   // Flatten logic
   const result = new Map<string, string>();
+  const cisToCodes = new Map<string, string[]>(); // <--- New Map
 
   for (const [cis, linksMap] of buffer.entries()) {
     // 1. Collecter les vainqueurs par LinkID (FT > SA)
@@ -321,8 +322,14 @@ export async function parseCompositions(
     // 2. CONSOLIDATION : Fusionner les variantes d'hydratation et de sels minéraux
     // Map<NomSubstanceBase, CompositionRow>
     const consolidatedComponents = new Map<string, CompositionRow>();
+    const uniqueCodes = new Set<string>(); // <--- New Set for codes
 
     for (const comp of rawWinners) {
+      // Collect the official substance code (Column 3 in BDPM)
+      if (comp.substanceCode && comp.substanceCode.trim()) {
+        uniqueCodes.add(comp.substanceCode.trim());
+      }
+
       // On nettoie le nom pour la comparaison (ex: "AMOXICILLINE ANHYDRE" -> "AMOXICILLINE", 
       // "X POTASSIQUE" -> "X", "X SODIQUE" -> "X")
       const baseNameKey = normalizeToBaseSubstance(comp.denomination);
@@ -354,6 +361,11 @@ export async function parseCompositions(
       }
     }
 
+    // Store the codes for this CIS
+    if (uniqueCodes.size > 0) {
+      cisToCodes.set(cis, Array.from(uniqueCodes).sort());
+    }
+
     // 3. Conversion en liste
     const finalComponents = Array.from(consolidatedComponents.values());
 
@@ -377,7 +389,7 @@ export async function parseCompositions(
     result.set(cis, parts.join(' + '));
   }
 
-  return result;
+  return { flattened: result, codes: cisToCodes };
 }
 
 // --- 2. Principes Actifs Parser (Yields PrincipesActifs Rows) ---
@@ -654,6 +666,49 @@ export async function parseGeneriques(
   }
 
   return { groups: generiqueGroups, members: groupMembers };
+}
+
+/**
+ * NOUVEAU: Extraction légère des métadonnées de tri/type pour le clustering Golden Source
+ */
+export async function parseGenericsMetadata(
+  rows: Iterable<string[]> | AsyncIterable<string[]>,
+  validCisSet: Set<string>
+): Promise<Map<string, { label: string; type: number; sortIndex: number; cisExists: boolean }>> {
+
+  const cisToGroup = new Map<string, { label: string; type: number; sortIndex: number; cisExists: boolean }>();
+
+  for await (const row of rows) {
+    // Structure CIS_GENER_bdpm.txt :
+    // 0: Id Grp, 1: Libellé Grp, 2: CIS, 3: Type, 4: Tri
+
+    // Safety check for row length
+    if (row.length < 5) continue;
+
+    const cis = row[2]?.trim();
+    if (!cis) continue;
+
+    const typeRaw = row[3]?.trim() || "99";
+    const sortRaw = row[4]?.trim() || "999";
+
+    const type = parseInt(typeRaw, 10);
+    const sortIndex = parseInt(sortRaw, 10);
+    const label = row[1]?.trim() || "Groupe Inconnu";
+
+    // Vérifie si ce CIS est "vivant" dans notre base principale
+    const cisExists = validCisSet.has(cis);
+
+    // On stocke simplement. Si un CIS apparaît plusieurs fois (rare mais possible dans des groupes différents?),
+    // on écrase. En théorie un CIS appartient à un seul groupe générique.
+    cisToGroup.set(cis, {
+      label,
+      type: isNaN(type) ? 99 : type,
+      sortIndex: isNaN(sortIndex) ? 999 : sortIndex,
+      cisExists
+    });
+  }
+
+  return cisToGroup;
 }
 
 // --- 4. ATC Codes Parser (CIS_MITM.txt) ---

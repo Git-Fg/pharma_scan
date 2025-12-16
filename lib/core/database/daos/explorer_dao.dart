@@ -16,8 +16,27 @@ class ExplorerDao extends DatabaseAccessor<AppDatabase> {
 
   /// Search clusters using FTS5 with trigram tokenizer
   /// Returns clusters that match the query conceptually
+  /// When query is empty, returns all clusters (limited)
   Stream<List<ClusterEntity>> watchClusters(String query) {
-    if (query.isEmpty) return Stream.value([]);
+    // When query is empty, return all clusters (alphabetically, limited)
+    if (query.isEmpty) {
+      return customSelect(
+        '''
+        SELECT * FROM cluster_index
+        ORDER BY title ASC
+        LIMIT 100
+        ''',
+        readsFrom: {attachedDatabase.clusterIndex},
+      ).watch().map((rows) => rows
+          .map((row) => ClusterEntity(ClusterIndexData(
+                clusterId: row.read<String>('cluster_id'),
+                title: row.read<String>('title'),
+                subtitle: row.readNullable<String>('subtitle'),
+                countProducts: row.readNullable<int>('count_products'),
+                searchVector: row.readNullable<String>('search_vector'),
+              )))
+          .toList());
+    }
 
     final cleanQuery = simpleNormalize(query);
 
@@ -62,6 +81,27 @@ class ExplorerDao extends DatabaseAccessor<AppDatabase> {
               clusterId: row.readNullable<String>('cluster_id'),
               nomComplet: row.read<String>('nom_complet'),
               isPrinceps: row.read<int>('is_princeps'),
+            )))
+        .toList());
+  }
+
+  /// Watch all clusters ordered by their princeps name (subtitle)
+  /// Used for the main A-Z explorer list
+  Stream<List<ClusterEntity>> watchAllClustersOrderedByPrinceps() {
+    return customSelect(
+      '''
+      SELECT * FROM ui_explorer_list
+      ORDER BY subtitle COLLATE NOCASE ASC
+      ''',
+      readsFrom: {attachedDatabase.uiExplorerList},
+    ).watch().map((rows) => rows
+        .map((row) => ClusterEntity(ClusterIndexData(
+              clusterId: row.read<String>('cluster_id'),
+              title: row.read<String>('title'),
+              subtitle: row.readNullable<String>('subtitle'),
+              countProducts:
+                  0, // ui_explorer_list doesn't have this, but that's fine for the list view
+              searchVector: null,
             )))
         .toList());
   }

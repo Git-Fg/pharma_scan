@@ -2,10 +2,10 @@ import 'package:pharma_scan/core/database/restock_views.drift.dart';
 import 'package:pharma_scan/core/domain/types/ids.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 
-/// Extension type wrapping [ViewRestockItem] for zero-cost abstraction.
-extension type RestockItemEntity(ViewRestockItem data) {
+/// Extension type wrapping [RestockItemsWithDetailsResult] for zero-cost abstraction.
+extension type RestockItemEntity(RestockItemsWithDetailsResult data) {
   // Factory expecting the exact Drift row type
-  factory RestockItemEntity.fromData(ViewRestockItem data) =>
+  factory RestockItemEntity.fromData(RestockItemsWithDetailsResult data) =>
       RestockItemEntity(data);
 
   // Directly validated getters
@@ -32,9 +32,17 @@ extension type RestockItemEntity(ViewRestockItem data) {
 
     if (value is String) {
       final lower = value.toLowerCase().trim();
-      if (lower == '1' || lower == 'true' || lower == 't' || lower == 'yes' || lower == 'y') {
+      if (lower == '1' ||
+          lower == 'true' ||
+          lower == 't' ||
+          lower == 'yes' ||
+          lower == 'y') {
         return true;
-      } else if (lower == '0' || lower == 'false' || lower == 'f' || lower == 'no' || lower == 'n') {
+      } else if (lower == '0' ||
+          lower == 'false' ||
+          lower == 'f' ||
+          lower == 'no' ||
+          lower == 'n') {
         return false;
       }
     }

@@ -484,15 +484,38 @@ export function applyPharmacologicalMask(fullLabel: string, formLabel: string | 
         // On coupe tout ce qui est à partir de la forme
         let clean = fullLabel.substring(0, index);
 
-        // Nettoyage des résidus de ponctuation en fin de chaîne (virgules, espaces)
+        // Nettoyage des résidus de ponctuation en fin de chaîne (virgules, espaces, parenthèses, deux-points)
         // Ex: "DOLIPRANE 1000 mg, " -> "DOLIPRANE 1000 mg"
-        clean = clean.replace(/[\s,;-]+$/, "");
+        // Ex: "DOLIPRANE (comprimé)" -> "DOLIPRANE (" -> "DOLIPRANE"
+        // Ex: "TRUC : solution" -> "TRUC :" -> "TRUC"
+        clean = clean.replace(/[\s,;:\(\)-]+$/, "");
 
         return clean.trim();
     }
 
     // Fallback : Si la forme exacte n'est pas trouvée (cas rares de fautes de frappe ANSM),
     // on renvoie le libellé complet ou on tente un split sur la virgule.
+
+    // 2. Fallback avec liste de mots-clés (heuristique "Dumb Split")
+    const FALLBACK_FORM_TERMS = [
+        "comprim", "solution", "poudre", "degr", "suspension",
+        "collyre", "gel", "capsule", "granul", "dispositif",
+        "sirop", "pommade", "suppositoire", "gaz", "lyophilisat",
+        "pastille", "dispersion", "ovule", "gomme", "vernis",
+        "trousse", "liquide", "granules", "empl", "shampooing",
+        "film", "microgranules"
+    ];
+
+    for (const term of FALLBACK_FORM_TERMS) {
+        // On cherche ", <term>" pour éviter les faux positifs au milieu d'un mot
+        const fallbackIndex = normLabel.indexOf(", " + term);
+        if (fallbackIndex > -1) {
+            let clean = fullLabel.substring(0, fallbackIndex);
+            clean = clean.replace(/[\s,;:\(\)-]+$/, "");
+            return clean.trim();
+        }
+    }
+
     return fullLabel.split(",")[0].trim();
 }
 

@@ -11,6 +11,7 @@ import 'package:pharma_scan/core/providers/preferences_provider.dart';
 import 'package:pharma_scan/core/services/haptic_service.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
+import 'package:pharma_scan/core/utils/test_tags.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/status_view.dart';
 import 'package:pharma_scan/features/restock/presentation/providers/restock_provider.dart';
 import 'package:pharma_scan/features/restock/presentation/widgets/restock_list_item.dart';
@@ -191,6 +192,7 @@ class RestockScreen extends HookConsumerWidget {
         });
 
         return CustomScrollView(
+          key: const Key(TestTags.restockList),
           controller: scrollController,
           slivers: slivers,
         );

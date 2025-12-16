@@ -99,14 +99,14 @@ class UpdatePolicyMutation extends _$UpdatePolicyMutation {
   Future<void> setPolicy(String policy) async {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
-      await ref.read(updatePolicyNotifierProvider.notifier).setPolicy(policy);
-      ref.invalidate(updatePolicyProvider);
+      await ref.read(updatePolicyProvider.notifier).setPolicy(policy);
+      ref.invalidate(activeUpdatePolicyProvider);
     });
   }
 }
 
 @riverpod
 Future<String> activeUpdatePolicy(Ref ref) async {
-  final raw = await ref.watch(updatePolicyNotifierProvider.future);
+  final raw = await ref.watch(updatePolicyProvider.future);
   return raw ?? 'ask';
 }

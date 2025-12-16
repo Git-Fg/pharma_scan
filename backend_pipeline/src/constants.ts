@@ -437,3 +437,15 @@ export const ATC_POLYMORPHIC_CLUSTERS: Record<string, string[]> = {
   BUPRENORPHINE: ["N07", "N02"],
   HYDROCORTISONE: ["A07", "H02"]
 };
+
+/**
+ * Common words to be filtered out from cluster names to ensure clean, brand-centric labels.
+ * Merges noise words, galenic forms, and common units.
+ */
+export const COMMON_WORDS = new Set<string>([
+  ...NOISE_WORDS.map(w => w.toLowerCase()),
+  ...GALENIC_FORM_KEYWORDS,
+  "mg", "ml", "g", "%", "cp", "cpr", "amp", "fl", "bt",
+  "doses", "unite", "unites", "compr", "gél", "gelul",
+  "sach", "susp", "buv", "inject", "perf", "sol"
+]);

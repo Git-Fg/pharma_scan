@@ -147,14 +147,14 @@ void main() {
       verify(() => mockDb.checkDatabaseIntegrity()).called(1);
     });
 
-    test('DB file exists but integrity check fails -> Downloads fresh DB',
+    test('DB file exists but integrity check fails -> Re-hydrates from Asset',
         () async {
       when(() => mockAppSettings.bdpmVersion).thenAnswer((_) async => 'v1.0.0');
 
       // Create DB file that will fail integrity
       File(p.join(testDir.path, DatabaseConfig.dbFilename)).createSync();
 
-      // First call fails (integrity check), subsequent calls succeed
+      // First call fails (integrity check), subsequent calls succeed (after hydration)
       var integrityCallCount = 0;
       when(() => mockDb.checkDatabaseIntegrity()).thenAnswer((_) async {
         integrityCallCount++;
@@ -163,14 +163,16 @@ void main() {
         }
       });
 
-      final gzipBytes = GZipCodec().encode([1, 2, 3]);
-      when(() => mockDownloadService.downloadToBytes(any()))
-          .thenAnswer((_) async => Right(gzipBytes));
+      // Mock Asset Bundle success
+      final dummyData = [10, 20, 30];
+      final compressedData = GZipCodec().encode(dummyData);
+      final byteData = ByteData.sublistView(Uint8List.fromList(compressedData));
+      when(() => mockAssetBundle.load(any())).thenAnswer((_) async => byteData);
 
       final streamFuture = expectLater(
         service.onStepChanged,
         emitsInOrder([
-          InitializationStep.downloading,
+          InitializationStep.downloading, // Used for 'Preparing...' message
           InitializationStep.ready,
         ]),
       );
@@ -178,19 +180,26 @@ void main() {
       await service.initializeDatabase();
       await streamFuture;
 
-      // Should download after integrity failure
-      verify(() => mockDownloadService.downloadToBytes(any())).called(1);
-      verify(() => mockDb.checkDatabaseIntegrity()).called(greaterThan(0));
+      // Should hydrate from asset
+      verify(() => mockAssetBundle.load('assets/database/reference.db.gz'))
+          .called(1);
+      // Should NOT download
+      verifyNever(() => mockDownloadService.downloadToBytes(any()));
+
+      // Should check integrity again after hydration
+      verify(() => mockDb.checkDatabaseIntegrity()).called(greaterThan(1));
     });
 
-    test('Force refresh -> Downloads even with valid existing DB', () async {
+    test('Force refresh -> Re-hydrates from Asset', () async {
       when(() => mockAppSettings.bdpmVersion).thenAnswer((_) async => 'v1.0.0');
 
       File(p.join(testDir.path, DatabaseConfig.dbFilename)).createSync();
 
-      final gzipBytes = GZipCodec().encode([1, 2, 3]);
-      when(() => mockDownloadService.downloadToBytes(any()))
-          .thenAnswer((_) async => Right(gzipBytes));
+      // Mock Asset Bundle success
+      final dummyData = [10, 20, 30];
+      final compressedData = GZipCodec().encode(dummyData);
+      final byteData = ByteData.sublistView(Uint8List.fromList(compressedData));
+      when(() => mockAssetBundle.load(any())).thenAnswer((_) async => byteData);
 
       final streamFuture = expectLater(
         service.onStepChanged,
@@ -203,7 +212,8 @@ void main() {
       await service.initializeDatabase(forceRefresh: true);
       await streamFuture;
 
-      verify(() => mockDownloadService.downloadToBytes(any())).called(1);
+      verify(() => mockAssetBundle.load(any())).called(1);
+      verifyNever(() => mockDownloadService.downloadToBytes(any()));
     });
   });
 
@@ -220,6 +230,7 @@ void main() {
       final streamFuture = expectLater(
         service.onStepChanged,
         emitsInOrder([
+          InitializationStep.downloading,
           InitializationStep.ready,
         ]),
       );
@@ -244,37 +255,30 @@ void main() {
       // Verify version set to bundled
       verify(() => mockAppSettings.setBdpmVersion('bundled')).called(1);
     });
-    test('Fresh install + Missing Asset -> Falls back to download', () async {
+    test('Fresh install + Missing Asset -> Throws Exception', () async {
       when(() => mockAppSettings.bdpmVersion).thenAnswer((_) async => null);
 
       // Mock Asset Bundle failure
       when(() => mockAssetBundle.load(any()))
           .thenThrow(Exception('Asset not found'));
 
-      final gzipBytes = GZipCodec().encode([1, 2, 3]);
-      when(() => mockDownloadService.downloadToBytes(any()))
-          .thenAnswer((_) async => Right(gzipBytes));
-
       final streamFuture = expectLater(
         service.onStepChanged,
         emitsInOrder([
           InitializationStep.downloading,
-          InitializationStep.ready,
+          InitializationStep.error,
         ]),
       );
 
-      await service.initializeDatabase();
+      await expectLater(service.initializeDatabase(), throwsException);
       await streamFuture;
 
-      // Verify attempted to load asset first
+      // Verify attempted to load asset
       verify(() => mockAssetBundle.load('assets/database/reference.db.gz'))
           .called(1);
 
-      // Verify fell back to download
-      verify(() => mockDownloadService.downloadToBytes(any())).called(1);
-
-      // Verify version was set (initial-install marker)
-      verify(() => mockAppSettings.setBdpmVersion(any())).called(1);
+      // Verify did NOT fall back to download
+      verifyNever(() => mockDownloadService.downloadToBytes(any()));
     });
 
     test('DB exists but file is present -> Does NOT load asset', () async {
@@ -297,8 +301,7 @@ void main() {
       verifyNever(() => mockDownloadService.downloadToBytes(any()));
     });
 
-    test(
-        'Asset load succeeds but integrity check fails -> Falls back to download',
+    test('Asset load succeeds but integrity check fails -> Throws Exception',
         () async {
       when(() => mockAppSettings.bdpmVersion).thenAnswer((_) async => null);
 
@@ -307,27 +310,20 @@ void main() {
       final byteData = ByteData.sublistView(Uint8List.fromList(compressedData));
       when(() => mockAssetBundle.load(any())).thenAnswer((_) async => byteData);
 
-      // Integrity check fails for bundled asset, succeeds after download
-      var integrityCallCount = 0;
-      when(() => mockDb.checkDatabaseIntegrity()).thenAnswer((_) async {
-        integrityCallCount++;
-        if (integrityCallCount == 1) {
-          throw Exception('Corrupt bundled asset');
-        }
-      });
+      // Integrity check fails for bundled asset
+      // First check (before init) passes (or is skipped if no version),
+      // Second check (after hydration) fails
+      when(() => mockDb.checkDatabaseIntegrity())
+          .thenThrow(Exception('Corrupt bundled asset'));
 
-      final gzipBytes = GZipCodec().encode([4, 5, 6]);
-      when(() => mockDownloadService.downloadToBytes(any()))
-          .thenAnswer((_) async => Right(gzipBytes));
-
-      await service.initializeDatabase();
+      await expectLater(service.initializeDatabase(), throwsException);
 
       // Should have attempted asset load
       verify(() => mockAssetBundle.load('assets/database/reference.db.gz'))
           .called(1);
 
-      // Should have fallen back to download after integrity failure
-      verify(() => mockDownloadService.downloadToBytes(any())).called(1);
+      // Should NOT fall back to download
+      verifyNever(() => mockDownloadService.downloadToBytes(any()));
     });
   });
 

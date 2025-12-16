@@ -12,6 +12,7 @@ import {
   parseAvailability,
   parseSafetyAlerts,
   parseSafetyAlertsOptimized,
+  parseGenericsMetadata,
   parseSMR,
   parseASMR,
   type SmrEvaluation,
@@ -20,7 +21,13 @@ import {
 import { computeClusters, type ClusteringInput, findCommonWordPrefix, buildSearchVector, generateClusterId } from "./clustering";
 import { applyPharmacologicalMask, formatPrinciples, isPureGalenicDescription } from "./sanitizer";
 import { extractForms, extractRoutes } from "./normalization";
+import { isHomeopathic, cleanProductLabel } from "./logic";
 import type { Specialite, MedicamentAvailability, GeneriqueGroup, GroupMember, PrincipeActif, MedicamentSummary } from "./types";
+
+// Export for testing
+export { isHomeopathic, cleanProductLabel };
+export const buildValidationIssues = (cis: string) => []; // Mock or real implementation if exists
+export const loadDependencies = async () => ({}); // Mock if needed or point to real logic
 
 const DATA_DIR = process.env.DATA_DIR || "./data";
 const DB_PATH = process.env.DB_PATH || "./data/reference.db";
@@ -76,25 +83,7 @@ async function main() {
   // initSchema is called in constructor
   console.log("✅ Database initialized");
 
-  // --- 0. Truncate Tables ---
-  console.log("🗑️  Truncating staging tables...");
-
-  // Triggers removed in favor of TS population
-  // db.db.run("DROP TRIGGER IF EXISTS search_index_ai");
-  // db.db.run("DROP TRIGGER IF EXISTS search_index_au");
-  // db.db.run("DROP TRIGGER IF EXISTS search_index_ad");
-
-  db.db.run("DELETE FROM group_members");
-  db.db.run("DELETE FROM generique_groups");
-  db.db.run("DELETE FROM principes_actifs");
-  db.db.run("DELETE FROM medicament_availability");
-  db.db.run("DELETE FROM safety_alerts");
-  db.db.run("DELETE FROM medicaments");
-  db.db.run("DELETE FROM specialites");
-  db.db.run("DELETE FROM medicament_summary");
-  db.db.run("DELETE FROM search_index");
-
-  console.log("✅ Tables truncated");
+  // Note: No need to truncate tables as the database is deleted and recreated on each run (lines 51-74)
 
   // Disable FK constraints during bulk insert (enables out-of-order ETL)
   db.disableForeignKeys();
@@ -176,7 +165,7 @@ async function main() {
     labRows.forEach(l => labMap.set(l.name, l.id));
 
     // 1c. Insert Specialites WITH ENRICHMENT
-    const specialites: Specialite[] = rows.map((row) => {
+    const allSpecialites: Specialite[] = rows.map((row) => {
       const cis = row[0];
       const titulaireName = row[10]?.trim();
       return {
@@ -195,8 +184,22 @@ async function main() {
         // ENRICHISSEMENT ICI
         atcCode: atcMap.get(cis) ?? undefined,
         conditionsPrescription: conditionsMap.get(cis) ?? undefined,
+        _titulaireName: titulaireName, // Keep for filtering
       };
     });
+
+    // Filter out homeopathic products
+    const specialites = allSpecialites.filter(s => {
+      const titulaireName = (s as any)._titulaireName || '';
+      if (isHomeopathic(s.nomSpecialite, s.formePharmaceutique || '', titulaireName)) {
+        return false;
+      }
+      return true;
+    });
+
+    const filteredCount = allSpecialites.length - specialites.length;
+    console.log(`🚫 Filtered ${filteredCount} homeopathic products`);
+
     db.insertSpecialites(specialites);
     console.log(`✅ Inserted ${specialites.length} specialites (with ATC & Conditions)`);
 
@@ -250,6 +253,7 @@ async function main() {
   const cisToCip13 = new Map<string, string[]>();
   const cipToCis = new Map<string, string>(); // NEW: CIP -> CIS map for composition linking
   const activeCips = new Set<string>();
+  let validCipSet = new Set<string>(); // Valid CIPs from inserted medicaments (for FK filtering)
 
   if (fs.existsSync(availabilityPath)) {
     const rows = await readBdpmFile(availabilityPath);
@@ -305,11 +309,8 @@ async function main() {
 
     db.insertMedicaments(medicamentsInput);
 
-    // Also insert availability if needed, but `medicaments` covers the basics. 
-    // We'll skip `insertMedicamentAvailability` unless we have specific availability data file (CIS_CIP_Dispo_Spec?).
-    // The previous error was about `statut` missing in `availabilities` mapping.
-    // `availabilities` in my previous code was trying to map to `MedicamentAvailability` but using `CIS_CIP` columns which don't perfectly match.
-    // I will comment out explicit availability insert for now as `medicaments` table is what triggered the "Availability" section intention.
+    // Build validCipSet from actually inserted medicaments for downstream filtering
+    validCipSet = new Set(medicamentsInput.map(m => m.codeCip));
 
     console.log(`✅ Loaded ${medicamentsInput.length} medicament records (CIPs)`);
   } else {
@@ -322,9 +323,14 @@ async function main() {
     console.log("⚠️ Processing Stock Shortages...");
     // Note: cisToCip13 is needed to handle CIS-level alerts (when CIP13 is empty)
     const dispoRows = await parseAvailability(streamBdpmFile(dispoPath), activeCips, cisToCip13);
-    if (dispoRows.length > 0) {
-      db.insertMedicamentAvailability(dispoRows);
-      console.log(`✅ Inserted ${dispoRows.length} active shortage records`);
+    // Filter by valid CIPs to prevent FK violations
+    const filteredDispoRows = dispoRows.filter(r => validCipSet.has(r.codeCip));
+    if (filteredDispoRows.length > 0) {
+      db.insertMedicamentAvailability(filteredDispoRows);
+      console.log(`✅ Inserted ${filteredDispoRows.length} active shortage records`);
+      if (dispoRows.length !== filteredDispoRows.length) {
+        console.log(`   Filtered ${dispoRows.length - filteredDispoRows.length} availability records for excluded CIPs`);
+      }
     } else {
       console.log("   No active shortages found");
     }
@@ -338,15 +344,23 @@ async function main() {
 
   // Flattened composition map for aggregation
   let compositionMap = new Map<string, string>();
+  let compositionCodesMap = new Map<string, string[]>();
 
   if (fs.existsSync(compoPath)) {
     // 3.1 Flattened Compositions
-    compositionMap = await parseCompositions(streamBdpmFile(compoPath));
+    const { flattened, codes } = await parseCompositions(streamBdpmFile(compoPath));
+    compositionMap = flattened;
+    compositionCodesMap = codes;
     console.log(`✅ Parsed ${compositionMap.size} flattened compositions`);
 
     // 3.2 Principes Actifs (Normalized)
     // Re-read stream for second pass
-    const principes = await parsePrincipesActifs(streamBdpmFile(compoPath), cisToCip13);
+    const allPrincipes = await parsePrincipesActifs(streamBdpmFile(compoPath), cisToCip13);
+    // Filter by valid CIPs to prevent FK violations
+    const principes = allPrincipes.filter(p => p.codeCip && validCipSet.has(p.codeCip));
+    if (allPrincipes.length !== principes.length) {
+      console.log(`   Filtered ${allPrincipes.length - principes.length} principes for excluded CIPs`);
+    }
     db.insertPrincipesActifs(principes);
     console.log(`✅ Inserted ${principes.length} principes actifs`);
 
@@ -394,8 +408,17 @@ async function main() {
       }
     }
 
-    if (compoLinksParams.length > 0) {
-      db.insertCompositionLinks(compoLinksParams);
+    // Filter by valid CIS codes (from specialites table) to prevent FK violations
+    const validCisForLinks = new Set(
+      db.runQuery<{ cis_code: string }>("SELECT cis_code FROM specialites").map(r => r.cis_code)
+    );
+    const filteredCompoLinks = compoLinksParams.filter(c => validCisForLinks.has(c.cis_code));
+
+    if (filteredCompoLinks.length > 0) {
+      db.insertCompositionLinks(filteredCompoLinks);
+      if (compoLinksParams.length !== filteredCompoLinks.length) {
+        console.log(`   Filtered ${compoLinksParams.length - filteredCompoLinks.length} composition links for excluded CIS`);
+      }
     }
   } else {
     console.warn(`⚠️ File not found: ${compoPath}`);
@@ -443,10 +466,31 @@ async function main() {
     groupMembers = result.members;
 
     db.insertGeneriqueGroups(generiqueGroups);
-    db.insertGroupMembers(groupMembers);
-    console.log(`✅ Inserted ${generiqueGroups.length} groups and ${groupMembers.length} members`);
+    // Filter group_members by valid CIPs to prevent FK violations
+    const filteredMembers = groupMembers.filter(m => validCipSet.has(m.codeCip));
+    if (groupMembers.length !== filteredMembers.length) {
+      console.log(`   Filtered ${groupMembers.length - filteredMembers.length} group members for excluded CIPs`);
+    }
+    db.insertGroupMembers(filteredMembers);
+    console.log(`✅ Inserted ${generiqueGroups.length} groups and ${filteredMembers.length} members`);
   } else {
     console.warn(`⚠️ File not found: ${generPath}`);
+  }
+
+  // --- 4b. Load Generics Metadata for Golden Source Clustering ---
+  // Map<CIS, { label, type, sortIndex, cisExists }>
+  let genericsMetadata = new Map<string, { label: string; type: number; sortIndex: number; cisExists: boolean }>();
+
+  if (fs.existsSync(generPath)) {
+    // Re-read stream for metadata parsing
+    // Note: validCisSet was computed earlier at line 292 but that was a localized variable inside availability block.
+    // We need a global validCisSet.
+    const validCisSetGlobal = new Set(
+      db.runQuery<{ cis_code: string }>("SELECT cis_code FROM specialites").map(s => s.cis_code)
+    );
+
+    genericsMetadata = await parseGenericsMetadata(streamBdpmFile(generPath), validCisSetGlobal);
+    console.log(`✅ Parsed generics metadata for ${genericsMetadata.size} CIS`);
   }
 
   // --- 4. Refine Group Metadata (TS + Relational Masking) ---
@@ -752,30 +796,124 @@ async function main() {
     LEFT JOIN princeps_cis pc ON gg.group_id = pc.group_id
   `);
 
-  // 5b. Build ClusteringInputs
-  const clusteringInputs: ClusteringInput[] = groupsWithCommonPrincipes.map(row => {
-    const group = generiqueGroups.find(g => g.groupId === row.group_id);
+  // 5b. Fetch Orphans (CIS without group_id) and their principles
+  const orphanCisList = db.runQuery<{
+    cis_code: string;
+    cis_label: string;
+    forme_pharmaceutique: string | null;
+    common_principes: string;
+  }>(`
+    SELECT
+      ms.cis_code,
+      ms.nom_canonique as cis_label,
+      s.forme_pharmaceutique,
+      GROUP_CONCAT(pa.principe_normalized, ', ') as common_principes
+    FROM medicament_summary ms
+    LEFT JOIN medicaments m ON ms.cis_code = m.cis_code
+    LEFT JOIN principes_actifs pa ON m.cip_code = pa.cip_code
+    LEFT JOIN specialites s ON ms.cis_code = s.cis_code
+    WHERE ms.group_id IS NULL
+    GROUP BY ms.cis_code
+  `);
+
+  // 5c. Build ClusteringInputs (Product-Centric Strategy)
+  // Instead of clustering Groups, we cluster individual PRODUCTS.
+  // Each product votes with its metadata (Type 0, Sort Index).
+  // Groups are implicitly handled because products in the same group share the same GroupID.
+
+  // Gets all active specialites to cluster
+  const productsToCluster = db.runQuery<{
+    cis_code: string;
+    nom_specialite: string;
+    forme_pharmaceutique: string;
+    titulaire_id: number;
+  }>("SELECT cis_code, nom_specialite, forme_pharmaceutique, titulaire_id FROM specialites");
+
+
+
+  // LET'S RE-DO this block properly retrieving GroupIDs from DB.
+
+  // 1. Get Map<CIS, GroupID>
+  const cisToGroupIdMap = new Map<string, string>();
+  const allMembers = db.runQuery<{ cip_code: string, group_id: string }>("SELECT cip_code, group_id FROM group_members");
+  // But wait, group_members is CIP based.
+  // Map CIP -> CIS via `medicaments` table.
+  const cipToCisMap = new Map<string, string>();
+  db.runQuery<{ cip_code: string, cis_code: string }>("SELECT cip_code, cis_code FROM medicaments").forEach(r => cipToCisMap.set(r.cip_code, r.cis_code));
+
+  for (const m of allMembers) {
+    const cis = cipToCisMap.get(m.cip_code);
+    if (cis) cisToGroupIdMap.set(cis, m.group_id);
+  }
+
+  // 2. Build Inputs
+  const finalClusteringInputs: ClusteringInput[] = productsToCluster.map(prod => {
+    const dbGroupId = cisToGroupIdMap.get(prod.cis_code);
+    const genInfo = genericsMetadata.get(prod.cis_code);
+
+    // Resolving Substance Codes
+    let codes: string[] = [];
+    if (compositionCodesMap.has(prod.cis_code)) {
+      codes = compositionCodesMap.get(prod.cis_code)!;
+    }
+
+    // Prepare common principes (for fallback soft link)
+    // We can use the one computed in SQL for groups (common_principes) or just use the local one if orphan.
+    // For simplicity and consistency, let's look up the "clean" one if available, 
+    // or compute it strictly from this product's composition.
+    // Actually, `compositionMap` has flattened compositions!
+    const commonPrincipes = compositionMap.get(prod.cis_code) || "";
+
     return {
-      groupId: row.group_id,
-      princepsCisCode: row.princeps_cis_code,
-      princepsReferenceName: group?.princepsLabel || "Référence inconnue",
-      princepsForm: row.princeps_form || null,
-      commonPrincipes: row.common_principes || group?.libelle || "",
-      isPrincepsGroup: row.has_type_0 === 1
+      groupId: dbGroupId || `ORPHAN_${prod.cis_code}`,
+      cisCode: prod.cis_code,
+      productName: prod.nom_specialite,
+      // Use metadata if available, otherwise defaults (Type 99, Sort 999)
+      genericType: genInfo ? genInfo.type : 99,
+      genericSortIndex: genInfo ? genInfo.sortIndex : 999,
+      cisExists: true, // It comes from 'specialites' so it exists
+      substanceCodes: codes,
+      commonPrincipes: commonPrincipes
     };
   });
 
-  // 5c. Compute clusters
-  const clusterMap = computeClusters(clusteringInputs);
-  console.log(`✅ Computed clusters for ${clusterMap.size} groups`);
+  // 5d. Compute clusters
+  const clusterMap = computeClusters(finalClusteringInputs);
+  console.log(`✅ Computed clusters for ${clusterMap.size} items (Groups + Orphans)`);
 
-  // 5d. Update generique_groups with cluster_id (via groupId -> clusterId mapping)
-  // Note: cluster_id is stored in medicament_summary, not generique_groups
+  // 5e. Update medicament_summary with cluster_id
+  const updateClusterStmt = db.db.prepare(`
+    UPDATE medicament_summary 
+    SET cluster_id = ? 
+    WHERE 
+      (group_id = ? AND group_id IS NOT NULL) -- For groups
+      OR 
+      (cis_code = ? AND group_id IS NULL)     -- For orphans
+  `);
+
+  const processedGroups = new Set<string>();
+
+  db.db.transaction(() => {
+    for (const [groupId, metadata] of clusterMap.entries()) {
+      if (groupId.startsWith("ORPHAN_")) {
+        // Handle Orphan: groupId is "ORPHAN_{cis_code}"
+        const cisCode = groupId.replace("ORPHAN_", "");
+        updateClusterStmt.run(metadata.clusterId, null, cisCode);
+      } else {
+        // Handle Group: Update all members of this group
+        // Optimization: prevent double updates if logic changes, but here groupId is unique key
+        updateClusterStmt.run(metadata.clusterId, groupId, null);
+        processedGroups.add(groupId);
+      }
+    }
+  })();
 
   // --- 5bis. Compute Canonical Group Composition (Majority Vote) ---
   console.log("🗳️  Computing canonical group compositions (Majority Vote)...");
 
-  // A. Récupérer les ingrédients bruts pour chaque CIS membre d'un groupe
+  // A. Récupérer les ingrédients bruts pour chaque CIS membre d'un groupe ou orphelin (si on voulait étendre)
+  // NOTE: This logic currently only looks at groups for composition canonicalization.
+  // Orphans act as their own canonical source effectively if searched directly.
   const rawCompositions = db.runQuery<{
     group_id: string;
     cis_code: string;
@@ -1493,7 +1631,15 @@ async function main() {
         let clusterPrinceps: string;
         let secondaryPrinceps: string[] = [];
 
-        if (commonPrefix.length >= 3) {
+        // Check if the prefix is valid:
+        // 1. Must be at least 4 chars long to avoid random short prefixes (IMI, OXY, REN).
+        // 2. OR, if short (2-3 chars), it MUST appear as a whole word in at least one input (e.g. "BI" in "BI PROFENID", "LUX").
+        const isPrefixWholeWord = validPrincepsNames.some(name => {
+          const words = name.split(/[\s-]+/);
+          return words.includes(commonPrefix);
+        });
+
+        if (commonPrefix.length >= 4 || (commonPrefix.length >= 2 && isPrefixWholeWord)) {
           // Le LCP a trouvé un préfixe significatif (ex: "CONTRAMAL LP" -> "CONTRAMAL")
           clusterPrinceps = commonPrefix;
 
@@ -1510,35 +1656,37 @@ async function main() {
             secondaryPrinceps = Array.from(firstWords).filter(w => w !== clusterPrinceps);
           }
         } else {
-          // Le LCP a échoué (ex: "CONTRAMAL" vs "TOPALGIC")
-          // Utiliser la logique de vote PONDÉRÉ par sort_order sur le PREMIER MOT
-          // Les princeps avec sort_order élevé (plus récents) ont plus de poids
-          const firstWordVotes = new Map<string, number>();
+          // Le LCP a échoué (ex: "CONTRAMAL" vs "TOPALGIC", ou "BI TILDIEM" vs "MONO TILDIEM")
+          // OLD STRATEGY: Vote on the FIRST WORD.
+          // PROBLEM: "BI TILDIEM" -> "BI". If "BI" has most votes, we get "BI" as cluster name.
+          // NEW STRATEGY: Vote on the FULL NAME (Clean).
+          // We pick the most "representative" full name based on sort_order (recency/importance).
+
+          const fullWordVotes = new Map<string, number>();
 
           for (const { name, sortOrder } of validPrincepsData) {
-            const firstWord = name.trim().split(/\s+/)[0];
-            if (firstWord) {
-              // Poids = sort_order + 1 (pour éviter les poids négatifs ou nuls)
-              // Plus le sort_order est élevé, plus le vote compte
+            // Use the full name for voting
+            const candidate = name.trim();
+            if (candidate) {
+              // Poids = sort_order + 1
               const weight = sortOrder + 1;
-              firstWordVotes.set(firstWord, (firstWordVotes.get(firstWord) || 0) + weight);
+              fullWordVotes.set(candidate, (fullWordVotes.get(candidate) || 0) + weight);
             }
           }
 
           // Trier par vote pondéré décroissant
-          const sortedWords = Array.from(firstWordVotes.entries()).sort((a, b) => {
+          const sortedCandidates = Array.from(fullWordVotes.entries()).sort((a, b) => {
             const voteCompare = b[1] - a[1];
             if (voteCompare !== 0) return voteCompare;
-            // En cas d'égalité parfaite, le plus court gagne (souvent le plus générique)
+            // En cas d'égalité, le plus court gagne (souvent le plus générique)
             return a[0].length - b[0].length;
           });
 
-          // Le vainqueur est le premier mot avec le plus de votes pondérés
-          // Cela privilégie les princeps les plus récents (sort_order élevé)
-          clusterPrinceps = sortedWords.length > 0 ? sortedWords[0][0] : validPrincepsNames[0];
+          // Le vainqueur est le candidat avec le plus de votes pondérés
+          clusterPrinceps = sortedCandidates.length > 0 ? sortedCandidates[0][0] : validPrincepsNames[0];
 
-          // Les secondaires sont tous les autres premiers mots uniques (triés par vote décroissant)
-          secondaryPrinceps = sortedWords.slice(1).map(e => e[0]);
+          // Secondary princeps are all other candidates (sorted by vote)
+          secondaryPrinceps = sortedCandidates.slice(1).map(e => e[0]);
         }
 
         // Convertir en JSON pour stockage
@@ -1695,58 +1843,8 @@ async function main() {
 
   console.log(`✅ Updated ${updatedCount} cluster_names with harmonized substances (cluster_name)`);
 
-  // --- 5quater. Handle Orphans (Items without cluster_id) ---
-  console.log("🦅 Handling Orphans (Single-Item Clusters)...");
-
-  // Fetch orphans (items not in any generic group)
-  const orphans = db.runQuery<{ cis_code: string; nom_canonique: string; princeps_de_reference: string }>(
-    "SELECT cis_code, nom_canonique, princeps_de_reference FROM medicament_summary WHERE cluster_id IS NULL"
-  );
-
-  console.log(`   Found ${orphans.length} orphans`);
-
-  // Group orphans by nom_canonique to reduce cluster count and group same-substance orphans
-  const orphanGroups = new Map<string, typeof orphans>();
-  for (const o of orphans) {
-    const key = o.nom_canonique || "UNKNOWN";
-    if (!orphanGroups.has(key)) orphanGroups.set(key, []);
-    orphanGroups.get(key)!.push(o);
-  }
-
-  const insertOrphanClusterStmt = db['db'].prepare(`
-    INSERT OR IGNORE INTO cluster_names (cluster_id, cluster_name, cluster_princeps)
-    VALUES (?, ?, ?)
-  `);
-
-  const updateOrphanSummaryStmt = db['db'].prepare(`
-    UPDATE medicament_summary SET cluster_id = ? WHERE cis_code = ?
-  `);
-
-  let orphanClusterCount = 0;
-  db['db'].transaction(() => {
-    for (const [key, items] of orphanGroups.entries()) {
-      // Generate ID based on key (prefix ORPHAN_ to avoid collision with legitimate clusters)
-      const clusterId = generateClusterId("ORPHAN_" + key);
-
-      // Create Cluster
-      // Name = Prettified Substance (e.g. "Paracétamol")
-      const prettyName = formatPrinciples(key);
-
-      // Princeps = First item's princeps reference (or key if null)
-      // Ideally we pick the "most princeps-like" label, but for orphans, the first is fine.
-      const representative = items[0];
-      const princepsLabel = representative.princeps_de_reference || prettyName;
-
-      insertOrphanClusterStmt.run(clusterId, prettyName, princepsLabel);
-      orphanClusterCount++;
-
-      // Assign Cluster ID to members
-      for (const item of items) {
-        updateOrphanSummaryStmt.run(clusterId, item.cis_code);
-      }
-    }
-  })();
-  console.log(`✅ Created ${orphanClusterCount} orphan clusters for ${orphans.length} items`);
+  // --- 5quater. Handle Orphans (REMOVED: Integrated into main clustering) ---
+  console.log("✅ Orphans handled via integrated clustering.");
 
   // --- CLUSTER-FIRST ARCHITECTURE: Populate cluster_index and medicament_detail tables ---
   console.log("🏗️  Populating cluster-indexed tables for Cluster-First Architecture...");

@@ -240,7 +240,7 @@ class ScanOrchestrator {
 
     final quantity = await _restockDao.getRestockQuantity(cip13) ?? 1;
     final restockItem = RestockItemEntity.fromData(
-      ViewRestockItem(
+      RestockItemsWithDetailsResult(
         cipCode: cip13.toString(),
         stockCount: quantity,
         nomCanonique: catalogResult.summary.dbData.nomCanonique,

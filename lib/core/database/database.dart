@@ -4,6 +4,8 @@ import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
+import 'package:flutter/services.dart';
+import 'package:archive/archive.dart';
 
 import 'package:pharma_scan/core/database/daos/app_settings_dao.dart';
 import 'package:pharma_scan/core/database/tables/app_settings_table.dart';
@@ -27,20 +29,36 @@ import 'package:pharma_scan/core/database/user_schema.drift.dart';
   daos: [CatalogDao, DatabaseDao, RestockDao, ExplorerDao, AppSettingsDao],
 )
 class AppDatabase extends $AppDatabase {
-  AppDatabase(this.logger) : super(_openConnection());
+  AppDatabase(this.logger) : super(_openConnection(logger));
 
   /// Constructeur pour les tests utilisant une base de données en mémoire
   AppDatabase.forTesting(QueryExecutor executor, this.logger) : super(executor);
 
   final LoggerService logger;
 
-  static QueryExecutor _openConnection() {
+  static QueryExecutor _openConnection(LoggerService logger) {
     return LazyDatabase(() async {
       final dbFolder = await getApplicationDocumentsDirectory();
 
       // 1. Define paths for BOTH databases
       final userDbFile = File(p.join(dbFolder.path, 'user.db'));
       final referenceDbFile = File(p.join(dbFolder.path, 'reference.db'));
+
+      // Check for hydration
+      if (!await referenceDbFile.exists()) {
+        logger.info('Reference DB missing, hydrating from assets...');
+        try {
+          final data = await rootBundle.load('assets/database/reference.db.gz');
+          final bytes = data.buffer.asUint8List();
+          final decoded = GZipDecoder().decodeBytes(bytes);
+          await referenceDbFile.writeAsBytes(decoded, flush: true);
+          logger.info('Hydration complete.');
+        } catch (e, stack) {
+          logger.error('Failed to hydrate DB', e, stack);
+          // If hydration fails, we probably shouldn't proceed with an empty DB
+          throw Exception('Failed to hydrate reference database: $e');
+        }
+      }
 
       // 2. Open USER.DB as the primary connection
       return NativeDatabase(
@@ -81,7 +99,8 @@ class AppDatabase extends $AppDatabase {
         await customStatement('PRAGMA synchronous=NORMAL');
         await customStatement('PRAGMA mmap_size=300000000');
         await customStatement('PRAGMA temp_store=MEMORY');
-        // Check integrity of the attached reference DB
+
+        // Check integrity of the attached reference DB first
         await _verifyReferenceIntegrity();
       },
     );

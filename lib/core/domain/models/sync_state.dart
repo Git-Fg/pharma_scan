@@ -1,9 +1,12 @@
 /// Models defining the state and progress of the synchronization process.
 library;
 
+import 'package:pharma_scan/core/services/data_initialization_service.dart';
+
 enum SyncPhase {
   idle,
   waitingNetwork,
+  waitingUser,
   checking,
   downloading,
   applying,
@@ -35,6 +38,7 @@ class SyncProgress {
     this.startTime,
     this.totalBytes,
     this.receivedBytes,
+    this.pendingUpdate,
   });
 
   final SyncPhase phase;
@@ -45,6 +49,7 @@ class SyncProgress {
   final DateTime? startTime;
   final int? totalBytes;
   final int? receivedBytes;
+  final VersionCheckResult? pendingUpdate;
 
   static const idle = SyncProgress(
     phase: SyncPhase.idle,

@@ -158,124 +158,121 @@ class MedicationListTile extends StatelessWidget {
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final itemWidth =
-              constraints.hasBoundedWidth && constraints.maxWidth.isFinite
-                  ? constraints.maxWidth
-                  : MediaQuery.sizeOf(context).width;
-
-          return SizedBox(
-            width: itemWidth,
-            child: InkWell(
-              onTap: onTap,
-              child: Container(
-                width: itemWidth,
-                constraints: const BoxConstraints(minHeight: 72),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
+          return InkWell(
+            onTap: onTap,
+            child: Container(
+              constraints: BoxConstraints(
+                minHeight: 72,
+                maxWidth:
+                    constraints.hasBoundedWidth && constraints.maxWidth.isFinite
+                        ? constraints.maxWidth
+                        : MediaQuery.sizeOf(context).width,
+              ),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: theme.colorScheme.border),
                 ),
-                decoration: BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(color: theme.colorScheme.border),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Transform.scale(
+                    scale: 0.9,
+                    child: ProductTypeBadge(memberType: item.memberType),
                   ),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Transform.scale(
-                      scale: 0.9,
-                      child: ProductTypeBadge(memberType: item.memberType),
-                    ),
-                    const Gap(12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
+                  const Gap(12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          name,
+                          textAlign: TextAlign.start,
+                          style: theme.textTheme.p.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const Gap(4),
+                        if (subtitle.isNotEmpty)
                           Text(
-                            name,
-                            textAlign: TextAlign.start,
-                            style: theme.textTheme.p.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
-                            maxLines: 2,
+                            subtitle,
+                            maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                          ),
-                          const Gap(4),
-                          if (subtitle.isNotEmpty)
-                            Text(
-                              subtitle,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.small.copyWith(
-                                color: theme.colorScheme.mutedForeground,
-                                fontWeight: FontWeight.w600,
-                              ),
+                            style: theme.textTheme.small.copyWith(
+                              color: theme.colorScheme.mutedForeground,
+                              fontWeight: FontWeight.w600,
                             ),
-                          const Gap(4),
-                          Row(
-                            children: [
-                              if (priceText != null) ...[
-                                ShadBadge(
-                                  child: Text(priceText),
-                                ),
-                                const Gap(4),
-                              ],
-                              if (refundText != null) ...[
-                                ShadBadge.outline(
-                                  child: Text(refundText),
-                                ),
-                                const Gap(4),
-                              ],
-                              if (priceText == null && refundText == null)
-                                Text(
-                                  Strings.refundNotAvailable,
-                                  style: theme.textTheme.small.copyWith(
-                                    color: theme.colorScheme.mutedForeground,
-                                  ),
-                                ),
+                          ),
+                        const Gap(4),
+                        Row(
+                          children: [
+                            if (priceText != null) ...[
+                              ShadBadge(
+                                child: Text(priceText),
+                              ),
+                              const Gap(4),
                             ],
-                          ),
-                          if (statusBadge != null ||
-                              stockBadge != null ||
-                              showNavigationIndicator) ...[
-                            const Gap(4),
-                            SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              child: Row(
-                                children: [
-                                  if (statusBadge != null)
-                                    ShadBadge.destructive(
-                                      child: Text(statusBadge),
-                                    ),
-                                  if (statusBadge != null &&
-                                      (stockBadge != null ||
-                                          showNavigationIndicator))
-                                    const SizedBox(
-                                      width: 4,
-                                    ),
-                                  if (stockBadge != null)
-                                    ShadBadge.outline(
-                                      child: Text(stockBadge),
-                                    ),
-                                  if (stockBadge != null &&
-                                      showNavigationIndicator)
-                                    const SizedBox(
-                                      width: 4,
-                                    ),
-                                  if (showNavigationIndicator)
-                                    const Icon(
-                                      LucideIcons.chevronRight,
-                                      size: 16,
-                                    ),
-                                ],
+                            if (refundText != null) ...[
+                              ShadBadge.outline(
+                                child: Text(refundText),
                               ),
-                            ),
+                              const Gap(4),
+                            ],
+                            if (priceText == null && refundText == null)
+                              Text(
+                                Strings.refundNotAvailable,
+                                style: theme.textTheme.small.copyWith(
+                                  color: theme.colorScheme.mutedForeground,
+                                ),
+                              ),
                           ],
+                        ),
+                        if (statusBadge != null ||
+                            stockBadge != null ||
+                            showNavigationIndicator) ...[
+                          const Gap(4),
+                          SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              children: [
+                                if (statusBadge != null)
+                                  ShadBadge.destructive(
+                                    child: Text(statusBadge),
+                                  ),
+                                if (statusBadge != null &&
+                                    (stockBadge != null ||
+                                        showNavigationIndicator))
+                                  const SizedBox(
+                                    width: 4,
+                                  ),
+                                if (stockBadge != null)
+                                  ShadBadge.outline(
+                                    child: Text(stockBadge),
+                                  ),
+                                if (stockBadge != null &&
+                                    showNavigationIndicator)
+                                  const SizedBox(
+                                    width: 4,
+                                  ),
+                                if (showNavigationIndicator)
+                                  const Icon(
+                                    LucideIcons.chevronRight,
+                                    size: 16,
+                                  ),
+                              ],
+                            ),
+                          ),
                         ],
-                      ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           );

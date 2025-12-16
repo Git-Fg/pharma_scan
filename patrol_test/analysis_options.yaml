@@ -1,0 +1,18 @@
+include: ../analysis_options.yaml
+
+linter:
+  rules:
+    avoid_print: false
+    prefer_const_constructors: false
+    prefer_final_locals: false
+    no_leading_underscores_for_local_identifiers: false
+    unawaited_futures: false
+    prefer_expression_function_bodies: false
+    avoid_dynamic_calls: false
+
+analyzer:
+  errors:
+    avoid_print: ignore
+    unawaited_futures: ignore
+    unused_local_variable: ignore
+    avoid_dynamic_calls: ignore

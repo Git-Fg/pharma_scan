@@ -58,7 +58,19 @@ class SyncController extends _$SyncController {
     return _performDatabaseUpdate();
   }
 
-  Future<bool> _performDatabaseUpdate() async {
+  Future<void> confirmUpdate() async {
+    if (state.phase != SyncPhase.waitingUser) return;
+
+    // Proceed with the update using force=true to bypass the internal check we just did
+    await _performDatabaseUpdate(force: true);
+  }
+
+  Future<void> cancelUpdate() async {
+    if (state.phase != SyncPhase.waitingUser) return;
+    state = SyncProgress.idle;
+  }
+
+  Future<bool> _performDatabaseUpdate({bool force = false}) async {
     final syncStartTime = DateTime.now();
 
     state = SyncProgress(
@@ -75,13 +87,41 @@ class SyncController extends _$SyncController {
       // Use DataInitializationService to handle database updates
       final dataInitService = ref.read(dataInitializationServiceProvider);
 
+      // Check for updates first unless forced
+      if (!force) {
+        final status = await dataInitService.checkVersionStatus();
+
+        if (status != null &&
+            status.updateAvailable &&
+            !status.blockedByPolicy) {
+          ref
+              .read(loggerProvider)
+              .info('Update available, waiting for user confirmation');
+          state = SyncProgress(
+            phase: SyncPhase.waitingUser,
+            code: SyncStatusCode.checkingUpdates,
+            startTime: syncStartTime,
+            pendingUpdate: status,
+          );
+          return false;
+        } else if (status != null && !status.updateAvailable) {
+          ref.read(loggerProvider).info('Database is already up to date');
+          state = SyncProgress(
+            phase: SyncPhase.success,
+            code: SyncStatusCode.successAlreadyCurrent,
+            startTime: syncStartTime,
+          );
+          return false;
+        }
+      }
+
       state = SyncProgress(
         phase: SyncPhase.downloading,
         code: SyncStatusCode.checkingUpdates,
         startTime: syncStartTime,
       );
 
-      final updated = await dataInitService.updateDatabase();
+      final updated = await dataInitService.updateDatabase(force: force);
 
       if (updated) {
         state = SyncProgress(
