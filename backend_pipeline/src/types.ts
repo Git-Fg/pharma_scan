@@ -100,7 +100,7 @@ export const RawMitmSchema = z
   ])
   .rest(z.string());
 
-// --- 3. Raw Type Aliases ---
+// --- 3. Raw Type Aliases (Tuples) ---
 export type RawSpecialite = z.infer<typeof RawSpecialiteSchema>;
 export type RawPresentation = z.infer<typeof RawPresentationSchema>;
 export type RawGroup = z.infer<typeof RawGroupSchema>;
@@ -108,6 +108,50 @@ export type RawConditions = z.infer<typeof RawConditionsSchema>;
 export type RawAvailability = z.infer<typeof RawAvailabilitySchema>;
 export type RawComposition = z.infer<typeof RawCompositionSchema>;
 export type RawMitm = z.infer<typeof RawMitmSchema>;
+
+// --- 3a. Parsed Data Models (Ingestion Output) ---
+export const ParsedCISSchema = z.object({
+  cis: CisIdSchema,
+  originalName: z.string(),
+  shape: z.string(),
+  cleanName: z.string(),
+  lab: z.string(),
+  isHomeo: z.boolean(),
+  homeoReason: z.string().nullable(),
+  status: z.string(),
+  commercialStatus: z.string(),
+  // Enhanced fields
+  voies: z.string(),
+  procedure: z.string(),
+  dateAmm: z.string(),
+  isSurveillance: z.boolean(),
+  titulaireId: z.number().default(0)
+});
+export type ParsedCIS = z.infer<typeof ParsedCISSchema>;
+
+export const ParsedGenerSchema = z.object({
+  groupId: GroupIdSchema,
+  groupLabel: z.string(),
+  cis: CisIdSchema,
+  type: z.string(),
+  sortOrder: z.string()
+});
+export type ParsedGener = z.infer<typeof ParsedGenerSchema>;
+
+export const ParsedCIPSchema = z.object({
+  cis: CisIdSchema,
+  cip7: z.string(),
+  presentationLabel: z.string(),
+  status: z.string(),
+  commercialisationStatus: z.string(),
+  dateCommercialisation: z.string(),
+  cip13: Cip13Schema,
+  agrement: z.string(),
+  tauxRemboursement: z.string(),
+  prix: z.string(),
+  priceFormatted: z.number().nullable()
+});
+export type ParsedCIP = z.infer<typeof ParsedCIPSchema>;
 
 // --- 3b. Reference Maps (Join-first BDPM rows) ---
 export type RefComposition = {
@@ -250,171 +294,182 @@ export enum GenericType {
   UNKNOWN = 99
 }
 
-// New interfaces matching Flutter app schema
-export interface Specialite {
-  cisCode: string;
-  nomSpecialite: string;
-  procedureType: string;
-  statutAdministratif?: string;
-  formePharmaceutique?: string;
-  voiesAdministration?: string;
-  etatCommercialisation?: string;
-  titulaireId?: number;
-  conditionsPrescription?: string;
-  dateAmm?: string;
-  atcCode?: string;
-  isSurveillance?: boolean;
-}
+// --- Database Row Schemas (Zod-first approach) ---
 
-export interface Medicament {
-  codeCip: string;
-  cisCode: string;
-  presentationLabel?: string;
-  commercialisationStatut?: string;
-  tauxRemboursement?: string;
-  prixPublic?: number;
-  agrementCollectivites?: string;
-}
+export const SpecialiteSchema = z.object({
+  cisCode: z.string(),
+  nomSpecialite: z.string(),
+  procedureType: z.string(),
+  statutAdministratif: z.string().optional(),
+  formePharmaceutique: z.string().optional(),
+  voiesAdministration: z.string().optional(),
+  etatCommercialisation: z.string().optional(),
+  titulaireId: z.number().optional(),
+  conditionsPrescription: z.string().optional(),
+  dateAmm: z.string().optional(),
+  atcCode: z.string().optional(),
+  isSurveillance: z.boolean().optional()
+}).strict();
+export type Specialite = z.infer<typeof SpecialiteSchema>;
 
-export interface MedicamentAvailability {
-  codeCip: string;
-  statut: string;
-  dateDebut?: string;
-  dateFin?: string;
-  lien?: string;
-}
+export const MedicamentSchema = z.object({
+  codeCip: z.string(),
+  cisCode: z.string(),
+  presentationLabel: z.string().optional(),
+  commercialisationStatut: z.string().optional(),
+  tauxRemboursement: z.string().optional(),
+  prixPublic: z.number().optional(),
+  agrementCollectivites: z.string().optional()
+}).strict();
+export type Medicament = z.infer<typeof MedicamentSchema>;
 
-// Info Importante (CIS_InfoImportante.txt)
-export interface SafetyAlert {
-  cisCode: string;
-  dateDebut: string;
-  dateFin: string;
-  texte: string;
-}
+export const MedicamentAvailabilitySchema = z.object({
+  codeCip: z.string(),
+  statut: z.string(),
+  dateDebut: z.string().optional(),
+  dateFin: z.string().optional(),
+  lien: z.string().optional()
+}).strict();
+export type MedicamentAvailability = z.infer<typeof MedicamentAvailabilitySchema>;
 
-// SMR/ASMR (CIS_HAS_SMR_bdpm.txt, CIS_HAS_ASMR_bdpm.txt)
-export interface HasEvaluation {
-  cisCode: string;
-  niveau: string; // SMR: "Important", "Modéré", "Faible", "Insuffisant" | ASMR: "I", "II", "III", "IV", "V"
-  motif?: string;
-  dateAvis?: string;
-}
+export const SafetyAlertSchema = z.object({
+  cisCode: z.string(),
+  dateDebut: z.string(),
+  dateFin: z.string(),
+  texte: z.string()
+}).strict();
+export type SafetyAlert = z.infer<typeof SafetyAlertSchema>;
 
-export interface PrincipeActif {
-  id?: number;
-  codeCip: string;
-  principe: string;
-  principeNormalized?: string;
-  dosage?: string;
-  dosageUnit?: string;
-}
+export const HasEvaluationSchema = z.object({
+  cisCode: z.string(),
+  niveau: z.string(),
+  motif: z.string().optional(),
+  dateAvis: z.string().optional()
+}).strict();
+export type HasEvaluation = z.infer<typeof HasEvaluationSchema>;
 
-export interface GeneriqueGroup {
-  groupId: string;
-  libelle: string;
-  princepsLabel?: string;
-  moleculeLabel?: string;
-  rawLabel?: string;
-  parsingMethod?: string;
-}
+export const PrincipeActifSchema = z.object({
+  id: z.number().optional(),
+  codeCip: z.string(),
+  principe: z.string(),
+  principeNormalized: z.string().optional(),
+  dosage: z.string().optional(),
+  dosageUnit: z.string().optional()
+}).strict();
+export type PrincipeActif = z.infer<typeof PrincipeActifSchema>;
 
-export interface GroupMember {
-  codeCip: string;
-  groupId: string;
-  type: number; // 0 princeps, 1 standard, 2 complémentarité, 4 substituable
-  sortOrder?: number; // Colonne 5 de CIS_GENER : ordre de tri (plus élevé = plus récent/primaire)
-}
+export const GeneriqueGroupSchema = z.object({
+  groupId: z.string(),
+  libelle: z.string(),
+  princepsLabel: z.string().optional(),
+  moleculeLabel: z.string().optional(),
+  rawLabel: z.string().optional(),
+  parsingMethod: z.string().optional()
+}).strict();
+export type GeneriqueGroup = z.infer<typeof GeneriqueGroupSchema>;
 
-export interface MedicamentSummary {
-  cisCode: string;
-  nomCanonique: string;
-  isPrinceps: boolean;
-  groupId?: string; // nullable for medications without groups
-  memberType?: number; // raw BDPM generic type
-  principesActifsCommuns?: string | Uint8Array; // JSONB array of common active ingredients
-  princepsDeReference: string; // reference princeps name for group
-  parentPrincepsCis?: string; // reference princeps CIS code
-  formePharmaceutique?: string; // for filtering
-  formId?: number; // NEW Normalized ID
-  isFormInferred?: boolean; // NEW Flag (default false)
-  voiesAdministration?: string; // semicolon routes
-  princepsBrandName: string;
-  procedureType?: string;
-  titulaireId?: number;
-  conditionsPrescription?: string;
-  dateAmm?: string;
-  isSurveillance?: boolean;
-  formattedDosage?: string;
-  atcCode?: string;
-  status?: string;
-  priceMin?: number;
-  priceMax?: number;
-  aggregatedConditions?: string;
-  ansmAlertUrl?: string;
-  isHospitalOnly?: boolean;
-  isDental?: boolean;
-  isList1?: boolean;
-  isList2?: boolean;
-  isNarcotic?: boolean;
-  isException?: boolean;
-  isRestricted?: boolean;
-  isOtc?: boolean;
-  representativeCip?: string;
-  clusterId?: string; // NEW - for clustering
-  smrNiveau?: string; // Service Médical Rendu (ex: "Important", "Modéré", "Faible", "Insuffisant")
-  smrDate?: string; // Date de l'avis SMR (format YYYYMMDD)
-  asmrNiveau?: string; // Amélioration du Service Médical Rendu (ex: "I", "II", "III", "IV", "V")
-  asmrDate?: string; // Date de l'avis ASMR (format YYYYMMDD)
-  urlNotice?: string; // Lien vers PDF Notice officielle
-  hasSafetyAlert?: boolean; // Flag rapide pour UI (présence d'alerte de sécurité active)
-  rowid?: number; // For FTS content_rowid
-}
+export const GroupMemberSchema = z.object({
+  codeCip: z.string(),
+  groupId: z.string(),
+  type: z.number(),
+  sortOrder: z.number().optional()
+}).strict();
+export type GroupMember = z.infer<typeof GroupMemberSchema>;
 
-export interface Laboratory {
-  id?: number;
-  name: string;
-}
+export const MedicamentSummarySchema = z.object({
+  cisCode: z.string(),
+  nomCanonique: z.string(),
+  isPrinceps: z.boolean(),
+  groupId: z.string().optional(),
+  memberType: z.number().optional(),
+  principesActifsCommuns: z.union([z.string(), z.instanceof(Uint8Array)]).optional(),
+  princepsDeReference: z.string(),
+  parentPrincepsCis: z.string().optional(),
+  formePharmaceutique: z.string().optional(),
+  formId: z.number().optional(),
+  isFormInferred: z.boolean().optional(),
+  voiesAdministration: z.string().optional(),
+  princepsBrandName: z.string(),
+  procedureType: z.string().optional(),
+  titulaireId: z.number().optional(),
+  conditionsPrescription: z.string().optional(),
+  dateAmm: z.string().optional(),
+  isSurveillance: z.boolean().optional(),
+  formattedDosage: z.string().optional(),
+  atcCode: z.string().optional(),
+  status: z.string().optional(),
+  priceMin: z.number().optional(),
+  priceMax: z.number().optional(),
+  aggregatedConditions: z.string().optional(),
+  ansmAlertUrl: z.string().optional(),
+  isHospitalOnly: z.boolean().optional(),
+  isDental: z.boolean().optional(),
+  isList1: z.boolean().optional(),
+  isList2: z.boolean().optional(),
+  isNarcotic: z.boolean().optional(),
+  isException: z.boolean().optional(),
+  isRestricted: z.boolean().optional(),
+  isOtc: z.boolean().optional(),
+  representativeCip: z.string().optional(),
+  clusterId: z.string().optional(),
+  smrNiveau: z.string().optional(),
+  smrDate: z.string().optional(),
+  asmrNiveau: z.string().optional(),
+  asmrDate: z.string().optional(),
+  urlNotice: z.string().optional(),
+  hasSafetyAlert: z.boolean().optional(),
+  rowid: z.number().optional()
+}).strict();
+export type MedicamentSummary = z.infer<typeof MedicamentSummarySchema>;
 
-// Additional interfaces from Flutter app
-export interface RestockItem {
-  id?: number;
-  cisCode: string;
-  cipCode: string;
-  nomCanonique: string;
-  isPrinceps: boolean;
-  princepsDeReference: string;
-  formePharmaceutique?: string;
-  voiesAdministration?: string;
-  formattedDosage?: string;
-  representativeCip?: string;
-  expiryDate?: string;
-  stockCount: number;
-  location?: string;
-  notes?: string;
-  createdAt: string;
-  updatedAt: string;
-}
+export const LaboratorySchema = z.object({
+  id: z.number().optional(),
+  name: z.string()
+}).strict();
+export type Laboratory = z.infer<typeof LaboratorySchema>;
 
-export interface ScannedBox {
-  id?: number;
-  boxLabel: string;
-  cisCode?: string;
-  cipCode?: string;
-  scanTimestamp: string;
-}
+export const RestockItemSchema = z.object({
+  id: z.number().optional(),
+  cisCode: z.string(),
+  cipCode: z.string(),
+  nomCanonique: z.string(),
+  isPrinceps: z.boolean(),
+  princepsDeReference: z.string(),
+  formePharmaceutique: z.string().optional(),
+  voiesAdministration: z.string().optional(),
+  formattedDosage: z.string().optional(),
+  representativeCip: z.string().optional(),
+  expiryDate: z.string().optional(),
+  stockCount: z.number(),
+  location: z.string().optional(),
+  notes: z.string().optional(),
+  createdAt: z.string(),
+  updatedAt: z.string()
+}).strict();
+export type RestockItem = z.infer<typeof RestockItemSchema>;
 
-export interface AppSettings {
-  key: string;
-  value: Uint8Array;
-}
+export const ScannedBoxSchema = z.object({
+  id: z.number().optional(),
+  boxLabel: z.string(),
+  cisCode: z.string().optional(),
+  cipCode: z.string().optional(),
+  scanTimestamp: z.string()
+}).strict();
+export type ScannedBox = z.infer<typeof ScannedBoxSchema>;
 
-// Cluster-First Architecture Interface
-export interface ClusterData {
-  id: string;              // Ex: "CLS_IBUPROFENE_400"
-  display_title: string;   // Ex: "Ibuprofène 400mg" (Substance Clean)
-  display_subtitle: string;// Ex: "Réf: Advil" (Princeps Principal)
-  search_vector: string;   // Ex: "IBUPROFENE ADVIL NUROFEN SPEDIFEN ANTARENE"
-}
+export const AppSettingsSchema = z.object({
+  key: z.string(),
+  value: z.instanceof(Uint8Array)
+}).strict();
+export type AppSettings = z.infer<typeof AppSettingsSchema>;
+
+export const ClusterDataSchema = z.object({
+  id: z.string(),
+  display_title: z.string(),
+  display_subtitle: z.string(),
+  search_vector: z.string()
+}).strict();
+export type ClusterData = z.infer<typeof ClusterDataSchema>;
 
 export type RegulatoryInfo = {
   list1: boolean;
@@ -429,3 +484,11 @@ export type NamingSource =
   | "TYPE_0_LINK"
   | "GENER_PARSING"
   | "STANDALONE";
+
+export const ClusterMetadataSchema = z.object({
+  clusterId: z.string(),
+  substanceCode: z.string(),
+  princepsLabel: z.string(),
+  secondaryPrinceps: z.array(z.string())
+}).strict();
+export type ClusterMetadata = z.infer<typeof ClusterMetadataSchema>;

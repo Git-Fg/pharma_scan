@@ -14,9 +14,11 @@ import type {
   SafetyAlert
 } from "./types";
 import { formatPrinciples } from "./sanitizer";
-import { findCommonWordPrefix, type ClusterMetadata, buildSearchVector } from "./clustering";
+import { type ClusterMetadata } from "./types";
+import { readBdpmFile, streamBdpmFile, buildSearchVector, findCommonWordPrefix } from "./utils";
+import type { FinalCluster } from "./pipeline/06_integration";
 
-export const DEFAULT_DB_PATH = path.join("data", "reference.db");
+export const DEFAULT_DB_PATH = path.join("output", "reference.db");
 
 export class ReferenceDatabase {
   public db: Database;
@@ -626,14 +628,171 @@ export class ReferenceDatabase {
     const stmt = this.db.prepare(sql);
 
     return (rows: ReadonlyArray<T>) => {
-      const transaction = this.db.transaction((data: ReadonlyArray<T>) => {
-        for (const row of data) {
-          const values = columns.map((col) => row[col]);
-          stmt.run(...values as SQLQueryBindings[]);
-        }
-      });
-      transaction(rows);
+      const BATCH_SIZE = 2000;
+      for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+        const batch = rows.slice(i, i + BATCH_SIZE);
+        const transaction = this.db.transaction((data: ReadonlyArray<T>) => {
+          for (const row of data) {
+            const values = columns.map((col) => row[col]);
+            stmt.run(...values as SQLQueryBindings[]);
+          }
+        });
+        transaction(batch);
+        console.log(`   ... inserted ${Math.min(i + BATCH_SIZE, rows.length)} / ${rows.length} rows into ${table}`);
+      }
     };
+  }
+
+  public insertFinalClusters(clusters: FinalCluster[]) {
+    console.log(`📊 Inserting ${clusters.length} final clusters...`);
+
+    // 1. Prepare statements
+    const insertName = this.db.prepare(`
+      INSERT OR REPLACE INTO cluster_names (cluster_id, cluster_name, substance_code, cluster_princeps, secondary_princeps)
+      VALUES ($id, $name, $substance, $princeps, $secondary)
+    `);
+
+    const insertIndex = this.db.prepare(`
+      INSERT OR REPLACE INTO cluster_index (cluster_id, title, subtitle, count_products, search_vector)
+      VALUES ($id, $title, $subtitle, $count, $vector)
+    `);
+
+    const insertSearch = this.db.prepare(`
+      INSERT OR REPLACE INTO search_index (cluster_id, search_vector)
+      VALUES ($id, $vector)
+    `);
+
+    const updateSummary = this.db.prepare(`
+        UPDATE medicament_summary 
+        SET cluster_id = $clusterId,
+            princeps_de_reference = COALESCE(NULLIF(princeps_de_reference, ''), $princepsRef)
+        WHERE cis_code = $cis
+    `);
+
+    // 2. Transaction
+    const runTransaction = this.db.transaction(() => {
+      for (const c of clusters) {
+        const princepsRef = c.sampleNames[0] || c.displayName;
+        const secondaryJson = JSON.stringify(c.secondaryPrinceps);
+
+        // A. Insert Names
+        insertName.run({
+          $id: c.superClusterId,
+          $name: c.displayName,
+          $substance: c.chemicalId,
+          $princeps: princepsRef,
+          $secondary: secondaryJson
+        });
+
+        // B. Build Search Vector
+        const vector = buildSearchVector(
+          c.displayName,
+          princepsRef,
+          c.secondaryPrinceps,
+          ""
+        );
+
+        // C. Insert Index & FTS
+        insertIndex.run({
+          $id: c.superClusterId,
+          $title: c.displayName,
+          $subtitle: `Ref: ${princepsRef}`,
+          $count: c.totalCIS,
+          $vector: vector
+        });
+
+        insertSearch.run({
+          $id: c.superClusterId,
+          $vector: vector
+        });
+
+        // D. Update Members
+        const allCis = [...c.sourceCIS, ...c.orphansCIS];
+        for (const cis of allCis) {
+          updateSummary.run({
+            $clusterId: c.superClusterId,
+            $princepsRef: princepsRef,
+            $cis: cis
+          });
+        }
+      }
+    });
+
+    runTransaction();
+    console.log(`✅ Cluster persistence complete.`);
+  }
+
+  public refreshMaterializedViews() {
+    console.log('🔄 Refreshing materialized views...');
+    this.db.exec("DELETE FROM ui_explorer_list");
+    this.db.exec("INSERT INTO ui_explorer_list SELECT * FROM view_explorer_list");
+
+    this.db.exec("DELETE FROM ui_stats");
+    this.db.exec(`
+        INSERT INTO ui_stats (id, total_princeps, total_generiques, total_principes, last_updated)
+        SELECT 1, 
+            (SELECT COUNT(*) FROM medicament_summary WHERE is_princeps = 1),
+            (SELECT COUNT(*) FROM medicament_summary WHERE is_princeps = 0),
+            (SELECT COUNT(*) FROM ref_substances),
+            CURRENT_TIMESTAMP
+    `);
+
+    // Attempt to populate ui_group_details if possible (best effort based on schema)
+    // This query mirrors the table definition joins
+    this.db.exec("DELETE FROM ui_group_details");
+    this.db.exec(`
+      INSERT INTO ui_group_details
+      SELECT 
+        gm.group_id,
+        gm.cip_code,
+        ms.cis_code,
+        ms.nom_canonique,
+        ms.princeps_de_reference,
+        ms.princeps_brand_name,
+        ms.is_princeps,
+        ms.status,
+        ms.forme_pharmaceutique,
+        ms.voies_administration,
+        ms.principes_actifs_communs,
+        ms.formatted_dosage,
+        '' as summary_titulaire, -- Deprecated/Empty in summary
+        l.name as official_titulaire,
+        '' as nom_specialite, -- Not in summary
+        ms.procedure_type,
+        ms.conditions_prescription,
+        ms.is_surveillance,
+        ms.atc_code,
+        ms.member_type,
+        m.prix_public,
+        m.taux_remboursement,
+        ms.ansm_alert_url,
+        ms.is_hospital,
+        ms.is_dental,
+        ms.is_list1,
+        ms.is_list2,
+        ms.is_narcotic,
+        ms.is_exception,
+        ms.is_restricted,
+        ms.is_otc,
+        ma.statut as availability_status,
+        ms.smr_niveau,
+        ms.smr_date,
+        ms.asmr_niveau,
+        ms.asmr_date,
+        ms.url_notice,
+        ms.has_safety_alert,
+        gg.raw_label,
+        gg.parsing_method,
+        gg.princeps_label as princeps_cis_reference
+      FROM group_members gm
+      JOIN medicaments m ON gm.cip_code = m.cip_code
+      JOIN medicament_summary ms ON m.cis_code = ms.cis_code
+      JOIN generique_groups gg ON gm.group_id = gg.group_id
+      LEFT JOIN laboratories l ON ms.titulaire_id = l.id
+      LEFT JOIN medicament_availability ma ON gm.cip_code = ma.cip_code
+    `);
+
+    console.log('✅ Materialized views refreshed');
   }
 
   public initMetadataTable() {
@@ -818,6 +977,51 @@ export class ReferenceDatabase {
     console.log(`✅ Inserted ${indexToDbId.size} safety_alert records and ${links?.length ?? 0} links`);
   }
 
+
+
+  public populateMedicamentSummary() {
+    console.log('🏗️ Populating medicament_summary from specialites...');
+
+    this.db.exec(`
+        INSERT OR IGNORE INTO medicament_summary (
+            cis_code, 
+            nom_canonique, 
+            princeps_de_reference, 
+            princeps_brand_name, 
+            forme_pharmaceutique, 
+            voies_administration, 
+            status, 
+            procedure_type, 
+            titulaire_id, 
+            conditions_prescription, 
+            date_amm, 
+            is_surveillance, 
+            atc_code,
+            is_hospital,
+            is_otc
+        )
+        SELECT 
+            s.cis_code, 
+            s.nom_specialite, 
+            '', 
+            '', 
+            s.forme_pharmaceutique, 
+            s.voies_administration, 
+            s.etat_commercialisation, 
+            s.procedure_type,
+            s.titulaire_id, 
+            s.conditions_prescription, 
+            s.date_amm, 
+            s.is_surveillance, 
+            s.atc_code,
+            0,
+            1
+        FROM specialites s;
+      `);
+
+    console.log('✅ medicament_summary populated.');
+  }
+
   public insertPrincipesActifs(rows: ReadonlyArray<PrincipeActif>) {
     console.log(`📊 Inserting ${rows.length} principes actifs...`);
 
@@ -931,17 +1135,34 @@ export class ReferenceDatabase {
     console.log(`✅ Inserted ${rows.length} medicament summaries`);
   }
 
-  public insertLaboratories(rows: ReadonlyArray<Laboratory>) {
-    console.log(`📊 Inserting ${rows.length} laboratories...`);
+  public updateMedicamentSummaryPrinciples(profiles: Map<string, { substances: { name: string }[] }>) {
+    console.log(`🧪 Updating medicament_summary principles for ${profiles.size} profiles...`);
 
-    const transformedRows = rows.map(row => ({
-      id: row.id,
-      name: row.name
-    }));
+    // Batch updates for performance
+    const BATCH_SIZE = 2000;
+    const entries = Array.from(profiles.entries());
+    const stmt = this.db.prepare(`
+      UPDATE medicament_summary 
+      SET principes_actifs_communs = ? 
+      WHERE cis_code = ?
+    `);
 
-    this.prepareInsert<any>("laboratories", Object.keys(transformedRows[0] || {}) as any)(transformedRows);
-    console.log(`✅ Inserted ${rows.length} laboratories`);
+    for (let i = 0; i < entries.length; i += BATCH_SIZE) {
+      const batch = entries.slice(i, i + BATCH_SIZE);
+      const transaction = this.db.transaction((items: [string, { substances: { name: string }[] }][]) => {
+        for (const [cis, profile] of items) {
+          // Format: "Amoxicilline, Acide clavulanique"
+          const principles = profile.substances.map(s => s.name).join(", ");
+          stmt.run(principles, cis);
+        }
+      });
+      transaction(batch);
+      process.stdout.write(`   ... updated ${Math.min(i + BATCH_SIZE, entries.length)} / ${entries.length} rows\r`);
+    }
+    console.log(`\n✅ Updated principles for ${entries.length} CIS`);
   }
+
+
 
   // --- PHASE 2 INSERT METHODS ---
   public insertRefForms(rows: ReadonlyArray<{ id: number; label: string }>) {
@@ -1226,6 +1447,32 @@ export class ReferenceDatabase {
     console.log(`✅ UI group details populated with ${count?.count ?? 0} entries`);
   }
 
+  public insertLaboratories(data: { id?: number; name: string }[]) {
+    console.log(`📊 Inserting ${data.length} laboratories...`);
+    const stmt = this.db.prepare("INSERT OR IGNORE INTO laboratories (name) VALUES (?)");
+
+    // Explicit ID insertion if provided (for Unknown lab id=0)
+    const stmtWithId = this.db.prepare("INSERT OR IGNORE INTO laboratories (id, name) VALUES (?, ?)");
+
+    const transaction = this.db.transaction((labs: { id?: number; name: string }[]) => {
+      for (const lab of labs) {
+        if (lab.id !== undefined) {
+          stmtWithId.run(lab.id, lab.name);
+        } else {
+          stmt.run(lab.name);
+        }
+      }
+    });
+
+    transaction(data);
+    console.log(`✅ Inserted ${data.length} laboratories`);
+  }
+
+  public getLaboratoryMap(): Map<string, number> {
+    const rows = this.db.prepare("SELECT id, name FROM laboratories").all() as { id: number; name: string }[];
+    return new Map(rows.map(row => [row.name, row.id]));
+  }
+
   /**
    * Populates the ui_stats table with pre-computed database statistics.
    * Replaces Flutter's complex COUNT() queries with a single row fetch.
@@ -1404,6 +1651,10 @@ export class ReferenceDatabase {
         row.count_products,
         row.search_vector
       );
+
+      if (row.title.includes('TAGAMET')) {
+        console.log(`[DB-DEBUG] Inserting Tagamet vector: "${row.search_vector}"`);
+      }
     }
 
     console.log(`✅ Inserted ${rows.length} cluster entries`);

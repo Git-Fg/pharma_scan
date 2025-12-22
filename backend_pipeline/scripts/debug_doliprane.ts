@@ -1,53 +1,10 @@
 
+import fs from 'fs';
 import { ReferenceDatabase } from "../src/db";
 import { parseGenericsMetadata, parseGeneriques } from "../src/parsing";
-import { streamBdpmFile } from "../src/parsing"; // Wait, streamBdpmFile is not exported from parsing.ts? It's likely in utils or internal.
-// Checking imports in index.ts:
-// import { parse } from "csv-parse";
-// import fs from "fs";
-// ...
-// Actually index.ts has definitions or imports.
-// streamBdpmFile is not exported from parsing.ts in current file view.
-// It is used in index.ts but likely defined in index.ts or imported. 
-// Let's check index.ts imports again.
-// Line 1-24 imports.
-// streamBdpmFile is likely a helper in index.ts or imported from somewhere. 
-// Ah, looking at Step 6 view of index.ts:
-// It uses `streamBdpmFile(generPath)`.
-// It is NOT in the imports list shown in Step 6 (lines 1-20).
-// Wait, Step 6 lines 1-20:
-/*
-import {
-  parseCompositions,
-  ...
-} from "./parsing";
-*/
-// It must be defined in `index.ts` itself or I missed it.
+import { streamBdpmFile } from "../src/utils";
 
-// Let's assume I can copy `streamBdpmFile` logic or use fs.
-import fs from 'fs';
-import path from 'path';
-import { parse } from 'csv-parse';
-import iconv from 'iconv-lite';
-
-async function streamBdpmFile(filePath: string) {
-    const parser = fs
-        .createReadStream(filePath)
-        .pipe(iconv.decodeStream('win1252')) // BDPM is Windows-1252
-        .pipe(
-            parse({
-                delimiter: '\t',
-                relax_quotes: true,
-                relax_column_count: true,
-                trim: true,
-                from_line: 1, // Skip header? No BDPM usually has no header or we handle row 0 logic.
-                // Actually BDPM text files often have no header.
-            })
-        );
-    return parser;
-}
-
-const DB_PATH = "./data/reference.db";
+const DB_PATH = "./output/reference.db";
 const GENER_PATH = "./data/CIS_GENER_bdpm.txt";
 
 async function main() {

@@ -6,8 +6,7 @@ Ce document constitue la référence technique absolue pour le développement de
 
 Tout développeur doit impérativement respecter les règles suivantes sous peine de corruption de données :
 
-1.  **Encodage Caractères** : `Windows-1252` (CP1252).
-    *   **Impératif** : Ne pas lire en UTF-8. Les fichiers contiennent des caractères accentués (é, è, à) encodés sur un octet selon la page de code Windows occidentale. Une lecture UTF-8 brisera ces caractères (ex: `Ã©`).
+1.  **Encodage Caractères** : `Windows-1252` (CP1252) - généré au niveau du téléchargement des fichiers txt.
 2.  **Format de Fichier** : TSV (Tab Separated Values).
     *   **Séparateur** : Tabulation (`\t`) uniquement.
     *   **Pas de Qualificateurs** : Il n'y a **jamais** de guillemets autour des chaînes de caractères, même si elles contiennent des espaces ou des points-virgules.

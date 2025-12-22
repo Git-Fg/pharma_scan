@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { DEFAULT_DB_PATH } from "../src/db";
 
 // Configuration
-const OUT_DIR = join("data", "audit");
+const OUT_DIR = join("output", "audit");
 const DB_PATH = DEFAULT_DB_PATH;
 
 function main() {

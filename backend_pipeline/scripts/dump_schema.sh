@@ -6,7 +6,7 @@
 set -e
 
 # Chemins
-DB_PATH="data/reference.db"
+DB_PATH="output/reference.db"
 FLUTTER_SCHEMA_PATH="../lib/core/database/reference_schema.drift"
 
 
@@ -54,7 +54,7 @@ echo "🧹 Cleaned up temporary files"
 echo "📦 Synchronizing Database Artifacts..."
 
 # Source (Backend output)
-SRC_DB="data/reference.db"
+SRC_DB="output/reference.db"
 
 # Destination (Flutter Test Assets)
 TEST_ASSET_DEST="../assets/test/reference.db"

@@ -2,7 +2,7 @@
 import { readFileSync } from "fs";
 import { join } from "path";
 
-const AUDIT_FILE = join("data", "audit", "1_clusters_catalog.json");
+const AUDIT_FILE = join("output", "audit", "1_clusters_catalog.json");
 
 interface Cluster {
     cluster_id: string;
