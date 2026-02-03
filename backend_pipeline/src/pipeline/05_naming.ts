@@ -1,5 +1,6 @@
 import type { SuperCluster } from './04_clustering';
 import type { PrincepsElection } from './03_election';
+import { computeCanonicalSubstance } from '../sanitizer';
 
 export interface NamedCluster extends SuperCluster {
     displayName: string;
@@ -133,9 +134,11 @@ export async function runNaming(
             }
         }
 
+        const finalDisplayName = computeCanonicalSubstance(displayName);
+
         namedClusters.push({
             ...cluster,
-            displayName,
+            displayName: finalDisplayName,
             namingMethod,
             sampleNames: princepsNames.slice(0, 5)
         });

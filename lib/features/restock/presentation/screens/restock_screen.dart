@@ -7,7 +7,6 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:pharma_scan/core/hooks/use_app_header.dart';
 import 'package:pharma_scan/core/hooks/use_tab_reselection.dart';
 
-import 'package:pharma_scan/core/providers/preferences_provider.dart';
 import 'package:pharma_scan/core/services/haptic_service.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
@@ -15,6 +14,7 @@ import 'package:pharma_scan/core/utils/test_tags.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/status_view.dart';
 import 'package:pharma_scan/features/restock/presentation/providers/restock_provider.dart';
 import 'package:pharma_scan/features/restock/presentation/widgets/restock_list_item.dart';
+import 'package:pharma_scan/features/restock/presentation/widgets/add_restock_item_sheet.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 @RoutePage()
@@ -27,10 +27,8 @@ class RestockScreen extends HookConsumerWidget {
     final spacing = context.spacing;
 
     final restockAsync = ref.watch(sortedRestockProvider);
-    final sortingAsync = ref.watch(sortingPreferenceProvider);
-    final haptics = ref.watch(hapticServiceProvider);
 
-    final sortingPreference = sortingAsync;
+    final haptics = ref.watch(hapticServiceProvider);
 
     Future<bool> confirmDestructiveAction({
       required String title,
@@ -43,7 +41,7 @@ class RestockScreen extends HookConsumerWidget {
           return ShadDialog.alert(
             title: Text(title),
             description: Padding(
-              padding: EdgeInsets.only(bottom: spacing.xs),
+              padding: .only(bottom: spacing.xs),
               child: Text(description),
             ),
             actions: [
@@ -96,9 +94,10 @@ class RestockScreen extends HookConsumerWidget {
     );
 
     useAppHeader(
-      title: Text(
-        Strings.restockTitle,
-        style: context.typo.h4,
+      title: Semantics(
+        header: true,
+        label: Strings.restockTitle,
+        child: Text(Strings.restockTitle, style: context.typo.h4),
       ),
       actions: [
         ShadTooltip(
@@ -106,6 +105,15 @@ class RestockScreen extends HookConsumerWidget {
           child: ShadIconButton.ghost(
             icon: const Icon(LucideIcons.check),
             onPressed: onClearChecked,
+          ),
+        ),
+        ShadTooltip(
+          builder: (context) => const Text('Remplir (Debug)'),
+          child: ShadIconButton.ghost(
+            icon: const Icon(LucideIcons.flaskConical),
+            onPressed: () {
+              ref.read(restockProvider.notifier).debugPopulate();
+            },
           ),
         ),
         ShadTooltip(
@@ -128,83 +136,148 @@ class RestockScreen extends HookConsumerWidget {
               slivers: [
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: EdgeInsets.symmetric(
+                    padding: .symmetric(
                       horizontal: spacing.md,
                       vertical: spacing.sm,
                     ),
                     child: Text(
-                      letter,
-                      style: context.typo.small.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                      'SECTION ${letter.toUpperCase()}',
+                      style: context.typo.small.copyWith(fontWeight: .bold),
                     ),
                   ),
                 ),
                 SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final item = groupItems[index];
-                      final notifier = ref.read(restockProvider.notifier);
-                      return RestockListItem(
-                        item: item,
-                        showPrincepsSubtitle:
-                            sortingPreference == SortingPreference.princeps &&
-                                item.princepsLabel != null,
-                        haptics: haptics,
-                        onIncrement: () => notifier.increment(item),
-                        onDecrement: () => notifier.decrement(item),
-                        onAddTen: () => notifier.addBulk(item, 10),
-                        onSetQuantity: (value) =>
-                            notifier.setQuantity(item, value),
-                        onToggleChecked: () => notifier.toggleChecked(item),
-                        onDismissed: (direction) async {
-                          final removedItem = item;
-                          await notifier.deleteItem(removedItem);
-                          if (!context.mounted) return;
-                          ShadToaster.of(context).show(
-                            ShadToast(
-                              title: const Text(Strings.itemDeleted),
-                              description: Text(
-                                '${item.quantity} x ${item.label}',
-                              ),
-                              action: ShadButton.outline(
-                                size: ShadButtonSize.sm,
-                                width: 120,
-                                onPressed: () async {
-                                  await notifier.restoreItem(removedItem);
-                                  if (!context.mounted) return;
-                                  await ShadToaster.of(context).hide();
-                                },
-                                child: const Text(Strings.undo),
-                              ),
-                              duration: const Duration(seconds: 4),
+                  delegate: SliverChildBuilderDelegate((context, index) {
+                    final item = groupItems[index];
+                    final notifier = ref.read(restockProvider.notifier);
+                    return RestockListItem(
+                      item: item,
+                      showPrincepsSubtitle: true,
+                      haptics: haptics,
+                      onIncrement: () => notifier.increment(item),
+                      onDecrement: () => notifier.decrement(item),
+                      onAddTen: () => notifier.addBulk(item, 10),
+                      onSetQuantity: (value) =>
+                          notifier.setQuantity(item, value),
+                      onToggleChecked: () => notifier.toggleChecked(item),
+                      onDismissed: (direction) async {
+                        final removedItem = item;
+                        await notifier.deleteItem(removedItem);
+                        if (!context.mounted) return;
+                        ShadToaster.of(context).show(
+                          ShadToast(
+                            title: const Text(Strings.itemDeleted),
+                            description: Text(
+                              '${item.quantity} x ${item.label}',
                             ),
-                          );
-                        },
-                      );
-                    },
-                    childCount: groupItems.length,
-                  ),
+                            action: ShadButton.outline(
+                              size: ShadButtonSize.sm,
+                              width: 120,
+                              onPressed: () async {
+                                await notifier.restoreItem(removedItem);
+                                if (!context.mounted) return;
+                                await ShadToaster.of(context).hide();
+                              },
+                              child: const Text(Strings.undo),
+                            ),
+                            duration: const Duration(seconds: 4),
+                          ),
+                        );
+                      },
+                    );
+                  }, childCount: groupItems.length),
                 ),
               ],
             ),
           );
         });
 
-        return CustomScrollView(
-          key: const Key(TestTags.restockList),
-          controller: scrollController,
-          slivers: slivers,
+        return Stack(
+          children: [
+            CustomScrollView(
+              key: const Key(TestTags.restockList),
+              controller: scrollController,
+              slivers: [
+                ...slivers,
+                // Add padding at the bottom for the FAB
+                const SliverPadding(padding: EdgeInsets.only(bottom: 120)),
+              ],
+            ),
+            Positioned(
+              bottom: spacing.lg + MediaQuery.viewPaddingOf(context).bottom,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: _FloatingAddButton(
+                  onPressed: () {
+                    showModalBottomSheet<void>(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (context) => const AddRestockItemSheet(),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
         );
       },
-      loading: () => const Center(
-        child: StatusView(type: StatusType.loading),
-      ),
+      loading: () => const Center(child: StatusView(type: StatusType.loading)),
       error: (error, _) => Center(
         child: StatusView(
           type: StatusType.error,
           title: Strings.error,
           description: error.toString(),
+        ),
+      ),
+    );
+  }
+}
+
+class _FloatingAddButton extends StatelessWidget {
+  const _FloatingAddButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = context.colors.primary;
+    return SizedBox(
+      width: 72,
+      height: 72,
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [color, color.withValues(alpha: 0.8)],
+          ),
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: color.withValues(alpha: 0.3),
+              blurRadius: 20,
+              spreadRadius: 2,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onPressed,
+            customBorder: const CircleBorder(),
+            child: Semantics(
+              label: Strings.restockAddItemTitle,
+              button: true,
+              child: Icon(
+                LucideIcons.plus,
+                size: 32,
+                color: context.colors.primaryForeground,
+              ),
+            ),
+          ),
         ),
       ),
     );

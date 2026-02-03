@@ -1,0 +1,83 @@
+{
+  "description": "Group detail view - All medications in the same generic group",
+  "backend_source": {
+    "table": "ui_group_details",
+    "group_id": "GEN_12345",
+    "cis_codes": ["60231100", "61244250", "62345678"]
+  },
+  "expected_android_ui": {
+    "group_explorer_screen": {
+      "header": {
+        "title": "PARACÉTAMOL",
+        "molecule_name": "PARACÉTAMOL",
+        "total_count": 47,
+        "princeps_name": "Doliprane"
+      },
+      "medications_list": [
+        {
+          "row_type": "princeps",
+          "name": "DOLIPRANE",
+          "brand_name": "Doliprane",
+          "form": "Comprimé",
+          "dosage": "500 mg",
+          "price": "2,50 €",
+          "lab": "SANOFI",
+          "badge": "PRINCEPS",
+          "is_reference": true
+        },
+        {
+          "row_type": "generic",
+          "name": "PARACÉTAMOL BIOGARAN",
+          "brand_name": "Doliprane",
+          "form": "Comprimé", 
+          "dosage": "500 mg",
+          "price": "1,89 €",
+          "lab": "BIOGARAN",
+          "badge": "GÉNÉRIQUE",
+          "reference_to": "DOLIPRANE"
+        },
+        {
+          "row_type": "generic",
+          "name": "EFFERALGAN",
+          "brand_name": "Efferalgan",
+          "form": "Comprimé effervescent",
+          "dosage": "500 mg",
+          "price": "3,20 €",
+          "lab": "UPSAMA",
+          "badge": "GÉNÉRIQUE",
+          "reference_to": "DOLIPRANE"
+        }
+      ]
+    }
+  },
+  "backend_columns": {
+    "ui_group_details": [
+      {
+        "group_id": "GEN_12345",
+        "cip_code": "3400930107279",
+        "cis_code": "60231100",
+        "nom_canonique": "DOLIPRANE",
+        "princeps_de_reference": "PARACÉTAMOL",
+        "princeps_brand_name": "Doliprane",
+        "is_princeps": 1,
+        "forme_pharmaceutique": "comprimé",
+        "formatted_dosage": "500 mg",
+        "prix_public": 2.50,
+        "summary_titulaire": "SANOFI"
+      },
+      {
+        "group_id": "GEN_12345",
+        "cip_code": "3400936884620",
+        "cis_code": "61244250",
+        "nom_canonique": "PARACÉTAMOL BIOGARAN",
+        "princeps_de_reference": "DOLIPRANE",
+        "princeps_brand_name": "Doliprane",
+        "is_princeps": 0,
+        "forme_pharmaceutique": "comprimé",
+        "formatted_dosage": "500 mg",
+        "prix_public": 1.89,
+        "summary_titulaire": "BIOGARAN"
+      }
+    ]
+  }
+}

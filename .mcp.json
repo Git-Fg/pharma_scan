@@ -1,0 +1,79 @@
+{
+  "mcpServers": {
+    "exa": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "https://mcp.exa.ai/mcp"
+      ]
+    },
+    "git": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": [
+        "mcp-server-git",
+        "--repository",
+        "/Users/felix/Documents/Flutter/pharma_scan/"
+      ]
+    },
+    "context7": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@upstash/context7-mcp"
+      ]
+    },
+    "mobile-mcp": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@mobilenext/mobile-mcp@latest"
+      ]
+    },
+    "deepwiki": {
+      "command": "npx",
+      "args": [
+        "deepwiki-mcp@latest"
+      ]
+    },
+    "simplewebfetch": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "/Users/felix/Documents/claude-plugins-custom/thecattoolkit_v3/Custom_MCP/simpleWebFetch/dist/server.js"
+      ],
+      "env": {}
+    },
+    "vscode-mcp-server": {
+      "command": "npx",
+      "args": [
+        "mcp-remote@next",
+        "http://localhost:3000/mcp"
+      ]
+    },
+    "llm-orchestrator": {
+      "command": "node",
+      "args": [
+        "/Users/felix/Documents/claude-plugins-custom/thecattoolkit_v3/Custom_MCP/mcp-llm-orchestrator/dist/index.js"
+      ]
+    },
+    "sequential-thinking": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-sequential-thinking"
+      ],
+      "env": {}
+    },
+    "dart-mcp-server": {
+      "command": "dart",
+      "args": [
+        "mcp-server"
+      ],
+      "env": {}
+    }
+  }
+}

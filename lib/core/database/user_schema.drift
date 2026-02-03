@@ -6,7 +6,7 @@ CREATE TABLE restock_items (
         cip_code TEXT PRIMARY KEY NOT NULL,
         cis_code TEXT NOT NULL,
         nom_canonique TEXT NOT NULL,
-        is_princeps INTEGER NOT NULL,
+        is_princeps INTEGER NOT NULL DEFAULT 0 CHECK(is_princeps IN(0, 1)),
         princeps_de_reference TEXT,
         forme_pharmaceutique TEXT,
         voies_administration TEXT,
@@ -18,7 +18,7 @@ CREATE TABLE restock_items (
         notes TEXT,
         created_at TEXT NOT NULL DEFAULT (datetime('now')),
         updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-      );
+      ) STRICT;
 
 CREATE TABLE scanned_boxes (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -26,7 +26,7 @@ CREATE TABLE scanned_boxes (
         cis_code TEXT,
         cip_code TEXT,
         scan_timestamp TEXT NOT NULL DEFAULT (datetime('now'))
-      );
+      ) STRICT;
 
 -- Indexes for user tables
 CREATE INDEX idx_restock_items_cis_code ON restock_items(cis_code);

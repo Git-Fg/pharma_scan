@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:ui' as ui;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -48,25 +49,20 @@ class ScannerControls extends ConsumerWidget {
       :isInitializing,
     ) = switch (state) {
       ScannerInitializing(:final mode) => (
-          mode: mode,
-          isCameraRunning: false,
-          torchState: TorchState.off,
-          isInitializing: true,
-        ),
-      ScannerActive(
-        :final mode,
-        :final torchState,
-        :final isCameraRunning,
-      ) =>
-        (
-          mode: mode,
-          isCameraRunning: isCameraRunning,
-          torchState: torchState,
-          isInitializing: false,
-        ),
+        mode: mode,
+        isCameraRunning: false,
+        torchState: TorchState.off,
+        isInitializing: true,
+      ),
+      ScannerActive(:final mode, :final torchState, :final isCameraRunning) => (
+        mode: mode,
+        isCameraRunning: isCameraRunning,
+        torchState: torchState,
+        isInitializing: false,
+      ),
     };
-    final buttonColor = mode == ScannerMode.restock
-        ? context.textNegative
+    final buttonColor = mode == .restock
+        ? context.colors.destructive
         : context.actionPrimary;
     final bottomInset = MediaQuery.paddingOf(context).bottom;
     final spacing = context.spacing;
@@ -81,116 +77,127 @@ class ScannerControls extends ConsumerWidget {
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 600),
               child: ClipRRect(
-                borderRadius: context.radiusMedium,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: context.surfacePrimary.withValues(alpha: 0.9),
-                    border: Border.all(
-                      color: context.actionSurface.withValues(alpha: 0.5),
+                borderRadius: context.radiusXLarge,
+                child: BackdropFilter(
+                  filter: ui.ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: context.surfacePrimary.withValues(alpha: 0.85),
+                      border: Border.all(
+                        color: context.actionSurface.withValues(alpha: 0.4),
+                        width: 1.5,
+                      ),
                     ),
-                  ),
-                  child: Padding(
-                    padding: EdgeInsets.all(spacing.lg),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      spacing: spacing.md,
-                      children: [
-                        Center(
-                          child: ScannerModeToggle(
-                            mode: mode,
-                            onToggle: onToggleMode,
+                    child: Padding(
+                      padding: .all(spacing.lg),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        spacing: spacing.md,
+                        children: [
+                          Center(
+                            child: ScannerModeToggle(
+                              mode: mode,
+                              onToggle: onToggleMode,
+                            ),
                           ),
-                        ),
-                        Center(
-                          child: ScannerActionButton(
-                            isCameraRunning: isCameraRunning,
-                            isInitializing: isInitializing,
-                            onPressed: onToggleCamera,
-                            buttonColor: buttonColor,
+                          Center(
+                            child: ScannerActionButton(
+                              isCameraRunning: isCameraRunning,
+                              isInitializing: isInitializing,
+                              onPressed: onToggleCamera,
+                              buttonColor: buttonColor,
+                            ),
                           ),
-                        ),
-                        Padding(
-                          padding: EdgeInsets.only(top: spacing.sm),
-                          child: Row(
-                            spacing: spacing.sm,
-                            children: [
-                              Expanded(
-                                child: Semantics(
-                                  button: true,
-                                  label: Strings.importBarcodeFromGallery,
-                                  child: FittedBox(
-                                    fit: BoxFit.scaleDown,
-                                    child: ShadButton.secondary(
-                                      onPressed:
-                                          isInitializing ? null : onGallery,
-                                      leading: const Icon(Icons.image),
-                                      child: Text(Strings.gallery),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              if (isCameraRunning) ...[
-                                Gap(spacing.sm),
-                                Semantics(
-                                  button: true,
-                                  label: torchState == TorchState.on
-                                      ? Strings.turnOffTorch
-                                      : Strings.turnOnTorch,
-                                  child: ShadButton.secondary(
-                                    onPressed:
-                                        isCameraRunning && !isInitializing
-                                            ? onToggleTorch
-                                            : null,
-                                    child: Icon(
-                                      torchState == TorchState.on
-                                          ? Icons.flash_on
-                                          : Icons.flash_off,
-                                      size: 18,
-                                    ),
-                                  ),
-                                ),
-                                Gap(spacing.sm),
-                                Semantics(
-                                  button: true,
-                                  label: 'Zoom',
-                                  child: ShadButton.secondary(
-                                    onPressed:
-                                        isCameraRunning && !isInitializing
-                                            ? onToggleZoom
-                                            : null,
-                                    child: Text(
-                                      '2x',
-                                      style: context.typo.small.copyWith(
-                                        fontWeight: FontWeight.bold,
+                          Padding(
+                            padding: .only(top: spacing.sm),
+                            child: Row(
+                              spacing: spacing.sm,
+                              children: [
+                                Expanded(
+                                  child: Semantics(
+                                    button: true,
+                                    label: Strings.importBarcodeFromGallery,
+                                    child: SizedBox(
+                                      height: 56,
+                                      child: ShadButton.secondary(
+                                        width: double.infinity,
+                                        onPressed: isInitializing
+                                            ? null
+                                            : onGallery,
+                                        leading: const Icon(LucideIcons.image),
+                                        child: Text(Strings.gallery),
                                       ),
                                     ),
                                   ),
                                 ),
-                                Gap(spacing.sm),
-                              ] else
-                                Gap(spacing.md),
-                              Expanded(
-                                child: Semantics(
-                                  button: true,
-                                  label: Strings.manuallyEnterCipCode,
-                                  child: FittedBox(
-                                    fit: BoxFit.scaleDown,
+                                if (isCameraRunning) ...[
+                                  Gap(spacing.sm),
+                                  Semantics(
+                                    button: true,
+                                    label: torchState == TorchState.on
+                                        ? Strings.turnOffTorch
+                                        : Strings.turnOnTorch,
                                     child: ShadButton.secondary(
-                                      key:
-                                          const Key(TestTags.manualEntryButton),
                                       onPressed:
-                                          isInitializing ? null : onManualEntry,
-                                      leading: const Icon(Icons.keyboard),
-                                      child: Text(Strings.manualEntry),
+                                          isCameraRunning && !isInitializing
+                                          ? onToggleTorch
+                                          : null,
+                                      child: Icon(
+                                        torchState == TorchState.on
+                                            ? LucideIcons.zap
+                                            : LucideIcons.zapOff,
+                                        size: 18,
+                                      ),
+                                    ),
+                                  ),
+                                  Gap(spacing.sm),
+                                  Semantics(
+                                    button: true,
+                                    label: 'Zoom',
+                                    child: ShadButton.secondary(
+                                      onPressed:
+                                          isCameraRunning && !isInitializing
+                                          ? onToggleZoom
+                                          : null,
+                                      child: Text(
+                                        '2x',
+                                        style: context.typo.small.copyWith(
+                                          fontWeight: .bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  Gap(spacing.sm),
+                                ] else
+                                  Gap(spacing.md),
+                                Expanded(
+                                  child: Semantics(
+                                    button: true,
+                                    label: Strings.manuallyEnterCipCode,
+                                    child: SizedBox(
+                                      height: 56,
+                                      child: ShadButton.secondary(
+                                        width: double.infinity,
+                                        key: const Key(
+                                          TestTags.manualEntryButton,
+                                        ),
+                                        onPressed: isInitializing
+                                            ? null
+                                            : onManualEntry,
+                                        leading: const Icon(
+                                          LucideIcons.keyboard,
+                                        ),
+                                        child: Text(Strings.manualEntry),
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -225,14 +232,18 @@ class ScannerActionButton extends StatelessWidget {
       height: 88,
       child: Container(
         decoration: BoxDecoration(
-          color: buttonColor,
-          borderRadius:
-              BorderRadius.circular(44), // Moitié de la taille pour un cercle
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [buttonColor, buttonColor.withValues(alpha: 0.85)],
+          ),
+          borderRadius: .circular(44),
           boxShadow: [
             BoxShadow(
-              color: buttonColor.withValues(alpha: 0.35),
-              blurRadius: 20,
-              offset: const Offset(0, 12),
+              color: buttonColor.withValues(alpha: 0.4),
+              blurRadius: 24,
+              spreadRadius: 4,
+              offset: const Offset(0, 8),
             ),
           ],
         ),
@@ -240,10 +251,10 @@ class ScannerActionButton extends StatelessWidget {
           color: Colors.transparent,
           child: InkWell(
             onTap: isInitializing ? null : onPressed,
-            borderRadius: BorderRadius.circular(44),
+            borderRadius: .circular(44),
             child: Icon(
-              isCameraRunning ? Icons.camera_alt : Icons.qr_code_scanner,
-              size: 48, // AppDimens.iconXl was 48 (assuming)
+              isCameraRunning ? LucideIcons.camera : LucideIcons.scanLine,
+              size: 40,
               color: context.actionOnPrimary,
             ),
           ),
@@ -266,50 +277,58 @@ class ScannerModeToggle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isRestock = mode == ScannerMode.restock;
-    final color = isRestock ? context.textNegative : context.actionPrimary;
-    final icon = isRestock ? Icons.inventory : Icons.search;
-    final label =
-        isRestock ? Strings.scannerModeRestock : Strings.scannerModeAnalysis;
+    final color = isRestock
+        ? context.colors.destructive
+        : context.actionPrimary;
+    final icon = isRestock ? LucideIcons.packagePlus : LucideIcons.search;
+    final label = isRestock ? 'Rangement' : 'Analyse';
     final spacing = context.spacing;
 
     return FittedBox(
       child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 32),
+        constraints: const BoxConstraints(minHeight: 44),
         child: GestureDetector(
           onTap: onToggle,
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(color: color.withValues(alpha: 0.6)),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  color.withValues(alpha: 0.12),
+                  color.withValues(alpha: 0.05),
+                ],
+              ),
+              borderRadius: .circular(999),
+              border: Border.all(color: color.withValues(alpha: 0.5)),
+              boxShadow: [
+                BoxShadow(
+                  color: color.withValues(alpha: 0.15),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
             child: Padding(
-              padding: EdgeInsets.symmetric(
-                horizontal: spacing.md,
-                vertical: spacing.xs / 2, // spacing2xs implies 2px
-              ),
+              padding: .symmetric(horizontal: spacing.md, vertical: spacing.xs),
               child: Row(
                 key: ValueKey(mode),
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    icon,
-                    size: 16, // AppDimens.iconSm was likely 16 or 20
-                    color: color,
-                  )
-                      .animate()
-                      .fadeIn(duration: const Duration(milliseconds: 180)),
-                  Gap(spacing.xs / 2),
+                  Icon(icon, size: 16, color: color).animate().fadeIn(
+                    duration: const Duration(milliseconds: 180),
+                  ),
+                  Gap(spacing.xs),
                   Text(
                     label,
                     style: context.typo.small.copyWith(
                       color: color,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: .w600,
                       fontSize: 14,
                     ),
-                  )
-                      .animate()
-                      .fadeIn(duration: const Duration(milliseconds: 180)),
+                  ).animate().fadeIn(
+                    duration: const Duration(milliseconds: 180),
+                  ),
                 ],
               ),
             ),

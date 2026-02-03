@@ -48,7 +48,7 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> {
 
     // 1. Try exact match (Fastest)
     var cache = await attachedDatabase.managers.productScanCache
-        .filter((f) => f.cipCode.cipCode.equals(cipString))
+        .filter((f) => f.cipCode.equals(cipString))
         .getSingleOrNull();
 
     // 2. Fallback: Search by CIP7 if exact match fails

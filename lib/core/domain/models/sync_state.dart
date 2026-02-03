@@ -51,10 +51,7 @@ class SyncProgress {
   final int? receivedBytes;
   final VersionCheckResult? pendingUpdate;
 
-  static const idle = SyncProgress(
-    phase: SyncPhase.idle,
-    code: SyncStatusCode.idle,
-  );
+  static const idle = SyncProgress(phase: .idle, code: .idle);
 
   Duration? get elapsed =>
       startTime != null ? DateTime.now().difference(startTime!) : null;
@@ -66,7 +63,7 @@ class SyncProgress {
     }
     final totalMicros = elapsedDuration.inMicroseconds / progress!;
     final remainingMicros = totalMicros - elapsedDuration.inMicroseconds;
-    if (remainingMicros <= 0) return Duration.zero;
-    return Duration(microseconds: remainingMicros.round());
+    if (remainingMicros <= 0) return .zero;
+    return .new(microseconds: remainingMicros.round());
   }
 }

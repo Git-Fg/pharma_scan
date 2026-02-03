@@ -8,9 +8,9 @@ SELECT
   ri.cip_code,
   ri.stock_count,
   ri.notes,
-  ms.nom_canonique,
-  ms.princeps_de_reference,
-  ms.is_princeps,
+  COALESCE(ms.nom_canonique, ri.nom_canonique) AS nom_canonique,
+  COALESCE(ms.princeps_de_reference, ri.princeps_de_reference) AS princeps_de_reference,
+  COALESCE(ms.is_princeps, ri.is_princeps) AS is_princeps,
   ms.forme_pharmaceutique,
   s.forme_pharmaceutique AS specialite_forme
 FROM restock_items ri

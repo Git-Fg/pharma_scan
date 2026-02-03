@@ -6,9 +6,10 @@ import 'package:gap/gap.dart';
 /// bespoke padding logic in each screen.
 class AdaptiveBottomPanel extends StatelessWidget {
   const AdaptiveBottomPanel({
-    required this.children, super.key,
+    required this.children,
+    super.key,
     this.gap = 14,
-    this.padding = const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+    this.padding = const .symmetric(horizontal: 20, vertical: 16),
   });
 
   final List<Widget> children;

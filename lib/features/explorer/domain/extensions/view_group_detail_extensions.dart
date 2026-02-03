@@ -5,7 +5,7 @@ import 'package:pharma_scan/core/utils/text_utils.dart';
 import 'package:pharma_scan/core/utils/formatters.dart';
 import 'package:pharma_scan/core/domain/entities/group_detail_entity.dart';
 
-/// Helper method to decode JSON strings to List<String>
+/// Helper method to decode JSON strings to `List<String>`
 List<String> decodeJsonStringList(String? jsonString) {
   if (jsonString == null || jsonString.isEmpty) return [];
   try {
@@ -80,7 +80,8 @@ extension GroupDetailListExtensions on List<GroupDetailEntity> {
     List<String> commonPrincipes,
     List<String> distinctDosages,
     List<String> distinctFormulations,
-  }) toGroupHeaderMetadata() {
+  })
+  toGroupHeaderMetadata() {
     if (isEmpty) {
       return (
         title: '',
@@ -164,10 +165,8 @@ extension GroupDetailListExtensions on List<GroupDetailEntity> {
   }
 
   /// Partition list into princeps and generics
-  ({
-    List<GroupDetailEntity> princeps,
-    List<GroupDetailEntity> generics,
-  }) partitionByPrinceps() {
+  ({List<GroupDetailEntity> princeps, List<GroupDetailEntity> generics})
+  partitionByPrinceps() {
     final princeps = <GroupDetailEntity>[];
     final generics = <GroupDetailEntity>[];
 
@@ -200,10 +199,7 @@ extension GroupDetailListExtensions on List<GroupDetailEntity> {
 }
 
 /// Smart comparator for medications (shortage first, then hospital-only, then name)
-int _smartMedicationComparator(
-  GroupDetailEntity a,
-  GroupDetailEntity b,
-) {
+int _smartMedicationComparator(GroupDetailEntity a, GroupDetailEntity b) {
   final aShortage = a.trimmedAvailabilityStatus != null;
   final bShortage = b.trimmedAvailabilityStatus != null;
   if (aShortage != bShortage) {

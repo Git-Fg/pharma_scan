@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:pharma_scan/core/config/app_config.dart';
 import 'package:pharma_scan/core/models/scan_models.dart';
-import 'package:pharma_scan/features/scanner/domain/scanner_mode.dart';
+import 'package:pharma_scan/core/domain/types/scanner_mode.dart';
 import 'package:signals_flutter/signals_flutter.dart';
 
 /// High-performance scanner logic store using Dart Signals.
@@ -25,7 +25,7 @@ class ScannerStore {
   // 1. CORE SIGNALS (State)
   final bubbles = signal<List<ScanResult>>([]);
   final scannedCodes = signal<Set<String>>({}); // Set for O(1) lookups
-  final mode = signal<ScannerMode>(ScannerMode.analysis);
+  final mode = signal<ScannerMode>(.analysis);
 
   // 2. COMPUTED SIGNALS (Derived State - TypeScript magic!)
   // These automatically update when dependencies change, no manual dependency arrays needed

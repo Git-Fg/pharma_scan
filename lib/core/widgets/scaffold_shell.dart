@@ -1,34 +1,17 @@
-// ignore_for_file: enforce_architecture_layering
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:pharma_scan/core/providers/app_bar_provider.dart';
+import 'package:pharma_scan/core/utils/app_bar_config.dart';
 import 'package:pharma_scan/core/providers/navigation_provider.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/utils/test_tags.dart';
 import 'package:pharma_scan/core/widgets/shadcn_bottom_nav.dart';
-import 'package:pharma_scan/features/home/widgets/unified_activity_banner.dart';
-import 'package:pharma_scan/features/home/viewmodels/activity_banner_viewmodel.dart';
+import 'package:pharma_scan/core/widgets/unified_activity_banner.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 /// Scaffold shell that encapsulates the main app structure with consistent navigation and header logic.
-///
-/// This widget centralizes:
-/// - Keyboard detection and bottom navigation visibility
-/// - AppBar configuration through useAppHeader
-/// - Bottom navigation with tab reselection handling
-/// - Activity banner integration
-///
-/// Usage:
-/// ```dart
-/// ScaffoldShell(
-///   child: AutoTabsRouter(
-///     routes: const [Tab1Route(), Tab2Route()],
-///     builder: (context, child) => child,
-///   ),
-/// )
-/// ```
 class ScaffoldShell extends ConsumerWidget {
   const ScaffoldShell({
     required this.child,
@@ -58,8 +41,13 @@ class ScaffoldShell extends ConsumerWidget {
       ref.read(tabReselectionProvider.notifier).ping(index);
     }
 
-    // AppBar configuration
-    final appBarConfig = ref.watch(appBarStateProvider);
+    // AppBar configuration resolution
+    // We pick the config for the currently active tab index
+    final configs = ref.watch(appBarStateProvider);
+    final appBarConfig =
+        configs[tabsRouter.activeIndex] ??
+        const AppBarConfig(title: Text(Strings.appName), isVisible: true);
+
     final canPop = AutoRouter.of(context).canPop();
 
     return Scaffold(
@@ -120,9 +108,6 @@ class ScaffoldShell extends ConsumerWidget {
 }
 
 /// ActivityBannerWrapper that handles the UnifiedActivityBanner positioning
-///
-/// This widget provides consistent activity banner integration across the app
-/// by managing SafeArea and positioning logic.
 class ActivityBannerWrapper extends ConsumerWidget {
   const ActivityBannerWrapper({
     required this.child,

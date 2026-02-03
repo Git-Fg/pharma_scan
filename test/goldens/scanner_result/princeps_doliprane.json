@@ -1,0 +1,47 @@
+{
+  "description": "DOLIPRANE 500mg - Classic Princeps medication (most popular)",
+  "backend_source": {
+    "table": "product_scan_cache",
+    "cip_code": "3400930107279",
+    "cis_code": "60231100"
+  },
+  "expected_android_ui": {
+    "scanner_result_screen": {
+      "title": "DOLIPRANE",
+      "subtitle": "Paracétamol 500mg",
+      "badge": {
+        "text": "PRINCEPS",
+        "type": "success",
+        "color": "#0F766E"
+      },
+      "form_display": "Comprimé",
+      "price": "2,50 €",
+      "laboratory": "SANOFI",
+      "warning_icons": [],
+      "availability": "Commercialisé"
+    },
+    "group_detail_screen": {
+      "group_title": "PARACÉTAMOL",
+      "items_in_group": 47,
+      "this_item": {
+        "name": "DOLIPRANE",
+        "is_princeps": true,
+        "brand": "Doliprane",
+        "form": "Comprimé",
+        "price": "2,50 €"
+      }
+    }
+  },
+  "backend_columns": {
+    "product_scan_cache": {
+      "nom_canonique": "DOLIPRANE",
+      "princeps_de_reference": "PARACÉTAMOL",
+      "princeps_brand_name": "Doliprane",
+      "is_princeps": 1,
+      "is_narcotic": 0,
+      "forme_pharmaceutique": "comprimé",
+      "prix_public": 2.50,
+      "lab_name": "SANOFI"
+    }
+  }
+}

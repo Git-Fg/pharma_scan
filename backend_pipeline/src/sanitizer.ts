@@ -843,7 +843,7 @@ export function isStoppedProduct(metadata: {
     marketing_status: string;
     stopped_presentations: number;
     active_presentations: number;
-    [key: string]: any;
+    [key: string]: unknown;
 }): boolean {
     const status = (metadata.marketing_status || "").toUpperCase();
 

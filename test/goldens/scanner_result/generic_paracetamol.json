@@ -1,0 +1,51 @@
+{
+  "description": "Generic Paracetamol - Shows as GENERIC with reference to Doliprane",
+  "backend_source": {
+    "table": "product_scan_cache",
+    "cip_code": "3400936884620",
+    "cis_code": "61244250"
+  },
+  "expected_android_ui": {
+    "scanner_result_screen": {
+      "title": "PARACÉTAMOL BIOGARAN",
+      "subtitle": "Princeps: DOLIPRANE",
+      "badge": {
+        "text": "GÉNÉRIQUE",
+        "type": "secondary",
+        "color": "#6B7280"
+      },
+      "form_display": "Comprimé",
+      "price": "1,89 €",
+      "laboratory": "BIOGARAN",
+      "warning_icons": [],
+      "availability": "Commercialisé"
+    },
+    "group_detail_screen": {
+      "group_title": "PARACÉTAMOL",
+      "items_in_group": 47,
+      "this_item": {
+        "name": "PARACÉTAMOL BIOGARAN",
+        "is_princeps": false,
+        "brand": "Doliprane",
+        "form": "Comprimé",
+        "price": "1,89 €"
+      },
+      "princeps_reference": {
+        "name": "DOLIPRANE",
+        "cis_code": "60231100"
+      }
+    }
+  },
+  "backend_columns": {
+    "product_scan_cache": {
+      "nom_canonique": "PARACÉTAMOL BIOGARAN",
+      "princeps_de_reference": "DOLIPRANE",
+      "princeps_brand_name": "Doliprane",
+      "is_princeps": 0,
+      "is_narcotic": 0,
+      "forme_pharmaceutique": "comprimé",
+      "prix_public": 1.89,
+      "lab_name": "BIOGARAN"
+    }
+  }
+}

@@ -35,9 +35,7 @@ class GenericsSection extends HookWidget {
           }).toList();
 
     return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 16,
-      ),
+      padding: const .symmetric(horizontal: 16),
       child: ShadAccordion<String>.multiple(
         initialValue: const <String>[],
         children: [
@@ -60,23 +58,17 @@ class GenericsSection extends HookWidget {
                   ),
                 ),
                 const Gap(8),
-                ShadBadge(
-                  child: Text('${filteredGenerics.length}'),
-                ),
+                ShadBadge(child: Text('${filteredGenerics.length}')),
               ],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Padding(
-                  padding: const EdgeInsets.only(
-                    bottom: 12,
-                  ),
+                  padding: const .only(bottom: 12),
                   child: ShadInput(
                     controller: filterController,
-                    placeholder: const Text(
-                      Strings.genericFilterPlaceholder,
-                    ),
+                    placeholder: const Text(Strings.genericFilterPlaceholder),
                     leading: Icon(
                       LucideIcons.search,
                       size: 16,
@@ -122,8 +114,9 @@ class MedicationListTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = context.shadTheme;
     final name = item.displayName;
-    final cipText =
-        item.cipCode.isNotEmpty ? '${Strings.cip} ${item.cipCode}' : '';
+    final cipText = item.cipCode.isNotEmpty
+        ? '${Strings.cip} ${item.cipCode}'
+        : '';
     final lab = item.parsedTitulaire.isEmpty
         ? Strings.unknownHolder
         : item.parsedTitulaire;
@@ -132,17 +125,18 @@ class MedicationListTile extends StatelessWidget {
       lab,
     ].where((value) => value.isNotEmpty).join(' • ');
 
-    final priceText =
-        item.prixPublic != null ? formatEuro(item.prixPublic!) : null;
+    final priceText = item.prixPublic != null
+        ? formatEuro(item.prixPublic!)
+        : null;
     final refundText = item.trimmedRefundRate;
 
     final statusBadge = item.isList1
         ? Strings.badgeList1
         : item.isList2
-            ? Strings.badgeList2
-            : item.isHospitalOnly
-                ? Strings.hospitalBadge
-                : null;
+        ? Strings.badgeList2
+        : item.isHospitalOnly
+        ? Strings.hospitalBadge
+        : null;
     final stockBadge = item.trimmedAvailabilityStatus != null
         ? Strings.stockAlert(item.trimmedAvailabilityStatus!)
         : null;
@@ -165,13 +159,10 @@ class MedicationListTile extends StatelessWidget {
                 minHeight: 72,
                 maxWidth:
                     constraints.hasBoundedWidth && constraints.maxWidth.isFinite
-                        ? constraints.maxWidth
-                        : MediaQuery.sizeOf(context).width,
+                    ? constraints.maxWidth
+                    : MediaQuery.sizeOf(context).width,
               ),
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 12,
-              ),
+              padding: const .symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
                 border: Border(
                   bottom: BorderSide(color: theme.colorScheme.border),
@@ -192,9 +183,7 @@ class MedicationListTile extends StatelessWidget {
                         Text(
                           name,
                           textAlign: TextAlign.start,
-                          style: theme.textTheme.p.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
+                          style: theme.textTheme.p.copyWith(fontWeight: .w700),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -206,22 +195,18 @@ class MedicationListTile extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.small.copyWith(
                               color: theme.colorScheme.mutedForeground,
-                              fontWeight: FontWeight.w600,
+                              fontWeight: .w600,
                             ),
                           ),
                         const Gap(4),
                         Row(
                           children: [
                             if (priceText != null) ...[
-                              ShadBadge(
-                                child: Text(priceText),
-                              ),
+                              ShadBadge(child: Text(priceText)),
                               const Gap(4),
                             ],
                             if (refundText != null) ...[
-                              ShadBadge.outline(
-                                child: Text(refundText),
-                              ),
+                              ShadBadge.outline(child: Text(refundText)),
                               const Gap(4),
                             ],
                             if (priceText == null && refundText == null)
@@ -248,18 +233,12 @@ class MedicationListTile extends StatelessWidget {
                                 if (statusBadge != null &&
                                     (stockBadge != null ||
                                         showNavigationIndicator))
-                                  const SizedBox(
-                                    width: 4,
-                                  ),
+                                  const SizedBox(width: 4),
                                 if (stockBadge != null)
-                                  ShadBadge.outline(
-                                    child: Text(stockBadge),
-                                  ),
+                                  ShadBadge.outline(child: Text(stockBadge)),
                                 if (stockBadge != null &&
                                     showNavigationIndicator)
-                                  const SizedBox(
-                                    width: 4,
-                                  ),
+                                  const SizedBox(width: 4),
                                 if (showNavigationIndicator)
                                   const Icon(
                                     LucideIcons.chevronRight,

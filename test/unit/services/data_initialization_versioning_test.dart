@@ -42,30 +42,30 @@ void main() {
         'CREATE TABLE IF NOT EXISTS _metadata (key TEXT PRIMARY KEY, value TEXT) STRICT;');
 
     // Setup mocks
-    registerFallbackValue(Uri.parse('http://example.com'));
+    registerFallbackValue(Options());
     registerFallbackValue(RequestOptions(path: ''));
 
     // Default Dio response
-    when(() => mockDio
-            .get<Map<String, dynamic>>(any(), options: any(named: 'options')))
-        .thenAnswer((_) async => Response(
-              requestOptions: RequestOptions(path: ''),
-              statusCode: 200,
-              data: {
-                'tag_name': '2025-01-01T12:00:00Z',
-                'assets': [
-                  {
-                    'name': 'reference.db.gz',
-                    'browser_download_url': 'http://example.com/db.gz'
-                  }
-                ]
-              },
-            ));
+    when(() => mockDio.get<Map<String, dynamic>>(
+          any(),
+          options: any(named: 'options'),
+        )).thenAnswer((_) async => Response<Map<String, dynamic>>(
+          requestOptions: RequestOptions(path: ''),
+          statusCode: 200,
+          data: {
+            'tag_name': '2025-01-01T12:00:00Z',
+            'assets': <Map<String, dynamic>>[
+              {
+                'name': 'reference.db.gz',
+                'browser_download_url': 'http://example.com/db.gz'
+              }
+            ]
+          },
+        ));
 
-    // Create container with overrides
     container = ProviderContainer(
       overrides: [
-        // Can't override family provider directly, but we can override via dependency injection
+        databaseProvider.overrideWith((ref, path) => db),
         loggerProvider.overrideWithValue(mockLogger),
         fileDownloadServiceProvider.overrideWithValue(mockDownloadService),
         dioProvider.overrideWithValue(mockDio),

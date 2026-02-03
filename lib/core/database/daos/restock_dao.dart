@@ -55,10 +55,12 @@ class RestockDao extends DatabaseAccessor<AppDatabase> with $RestockDaoMixin {
         createdAt: Value(DateTime.now().toIso8601String()),
         updatedAt: Value(DateTime.now().toIso8601String()),
       ),
-      onConflict: DoUpdate((old) => RestockItemsCompanion.custom(
-            stockCount: old.stockCount + Constant(increment),
-            updatedAt: Constant(DateTime.now().toIso8601String()),
-          )),
+      onConflict: DoUpdate(
+        (old) => RestockItemsCompanion.custom(
+          stockCount: old.stockCount + Constant(increment),
+          updatedAt: Constant(DateTime.now().toIso8601String()),
+        ),
+      ),
     );
   }
 
@@ -69,7 +71,7 @@ class RestockDao extends DatabaseAccessor<AppDatabase> with $RestockDaoMixin {
 
     // Use managers to fetch from the optimized read cache
     final cachedProduct = await attachedDatabase.managers.productScanCache
-        .filter((f) => f.cipCode.cipCode.equals(cipString))
+        .filter((f) => f.cipCode.equals(cipString))
         .getSingleOrNull();
 
     if (cachedProduct == null) {
@@ -176,10 +178,7 @@ class RestockDao extends DatabaseAccessor<AppDatabase> with $RestockDaoMixin {
   }
 
   /// Vérifie si un scan est un doublon (basé sur box_label dans le schéma SQL)
-  Future<bool> isDuplicate({
-    required Cip13 cip,
-    required String serial,
-  }) async {
+  Future<bool> isDuplicate({required Cip13 cip, required String serial}) async {
     final cipString = cip.toString();
     final rows = await attachedDatabase.managers.scannedBoxes
         .filter(
@@ -231,6 +230,23 @@ class RestockDao extends DatabaseAccessor<AppDatabase> with $RestockDaoMixin {
     return item?.stockCount;
   }
 
+  /// Adds a manual item to restock when not found in database.
+  Future<void> addManualToRestock({
+    required String princeps,
+    String? generic,
+    int quantity = 1,
+  }) async {
+    final cipCode = 'MAN-${DateTime.now().millisecondsSinceEpoch}';
+    await _upsertRestockItem(
+      cipCode: cipCode,
+      cisCode: '',
+      nomCanonique: generic ?? princeps,
+      isPrinceps: generic == null || generic.isEmpty,
+      princepsDeReference: princeps,
+      increment: quantity,
+    );
+  }
+
   /// Enregistre un scan dans scanned_boxes (structure du schéma SQL)
   Future<ScanOutcome> recordScan({
     required Cip13 cip,
@@ -257,10 +273,10 @@ class RestockDao extends DatabaseAccessor<AppDatabase> with $RestockDaoMixin {
           scanTimestamp: Value(DateTime.now().toIso8601String()),
         ),
       );
-      return ScanOutcome.added;
+      return .added;
     } catch (e) {
       if (e.isUniqueConstraintViolation()) {
-        return ScanOutcome.duplicate;
+        return .duplicate;
       }
       rethrow;
     }
@@ -271,8 +287,9 @@ class RestockDao extends DatabaseAccessor<AppDatabase> with $RestockDaoMixin {
     return attachedDatabase.restockViewsDrift
         .restockItemsWithDetails()
         .watch()
-        .map((rows) =>
-            rows.map((row) => RestockItemEntity.fromData(row)).toList());
+        .map(
+          (rows) => rows.map((row) => RestockItemEntity.fromData(row)).toList(),
+        );
   }
 
   // Removed _mapRowToRestockItem as it is no longer needed.
@@ -286,7 +303,7 @@ class RestockDao extends DatabaseAccessor<AppDatabase> with $RestockDaoMixin {
   }) async {
     if (serial == null || serial.isEmpty) {
       await addToRestock(cip);
-      return ScanOutcome.added;
+      return .added;
     }
 
     try {
@@ -299,10 +316,10 @@ class RestockDao extends DatabaseAccessor<AppDatabase> with $RestockDaoMixin {
         );
         await addToRestock(cip);
       });
-      return ScanOutcome.added;
+      return .added;
     } catch (e) {
       if (e.isUniqueConstraintViolation()) {
-        return ScanOutcome.duplicate;
+        return .duplicate;
       }
       rethrow;
     }

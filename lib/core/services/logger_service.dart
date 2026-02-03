@@ -1,12 +1,15 @@
-import 'package:riverpod/riverpod.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 
+part 'logger_service.g.dart';
+
 /// Provider for LoggerService - singleton instance managed by Riverpod
-final loggerProvider = Provider<LoggerService>((ref) {
+@Riverpod(keepAlive: true)
+LoggerService logger(Ref ref) {
   final service = LoggerService();
   service.init();
   return service;
-});
+}
 
 class LoggerService {
   LoggerService();
@@ -27,9 +30,7 @@ class LoggerService {
       return;
     }
 
-    _talker = TalkerFlutter.init(
-      settings: TalkerSettings(),
-    );
+    _talker = TalkerFlutter.init(settings: TalkerSettings());
   }
 
   void debug(String message) {

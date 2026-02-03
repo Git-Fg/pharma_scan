@@ -1,6 +1,5 @@
 import 'package:dart_mappable/dart_mappable.dart';
 import 'package:pharma_scan/core/providers/core_providers.dart';
-import 'package:pharma_scan/core/mixins/safe_async_notifier_mixin.dart';
 import 'package:pharma_scan/core/domain/models/generic_group_entity.dart';
 import 'package:pharma_scan/features/explorer/domain/models/search_filters_model.dart';
 import 'package:pharma_scan/features/explorer/presentation/providers/search_provider.dart';
@@ -19,7 +18,7 @@ class GenericGroupsState with GenericGroupsStateMappable {
 }
 
 @Riverpod(keepAlive: true)
-class GenericGroupsNotifier extends _$GenericGroupsNotifier with SafeAsyncNotifierMixin {
+class GenericGroupsNotifier extends _$GenericGroupsNotifier {
   @override
   Future<GenericGroupsState> build() async {
     final filters = ref.watch(searchFiltersProvider);
@@ -29,7 +28,7 @@ class GenericGroupsNotifier extends _$GenericGroupsNotifier with SafeAsyncNotifi
   }
 
   Future<GenericGroupsState> _fetchAllGroups(SearchFilters filters) async {
-    final result = await safeExecute(() async {
+    final result = await AsyncValue.guard(() async {
       final catalogDao = ref.read(catalogDaoProvider);
 
       final routeKeywords = filters.voieAdministration != null
@@ -44,24 +43,23 @@ class GenericGroupsNotifier extends _$GenericGroupsNotifier with SafeAsyncNotifi
         limit: 10000,
       );
 
-      if (!isMounted()) {
+      if (!ref.mounted) {
         return GenericGroupsState(items: []);
       }
 
-      // Ensure downstream listeners receive a fresh list instance on each fetch.
       return GenericGroupsState(items: List<GenericGroupEntity>.of(groups));
     });
 
-    if (!isMounted()) {
+    if (!ref.mounted) {
       return const GenericGroupsState(items: []);
     }
 
     if (result.hasError) {
-      logError(
-        '[GenericGroupsNotifier] Failed to fetch generic groups',
-        result.error!,
-        result.stackTrace ?? StackTrace.current,
-      );
+      ref.read(loggerProvider).error(
+            '[GenericGroupsNotifier] Failed to fetch generic groups',
+            result.error!,
+            result.stackTrace ?? StackTrace.current,
+          );
       return const GenericGroupsState(items: []);
     }
 

@@ -55,19 +55,16 @@ class RestockListItem extends StatelessWidget {
       background: Container(
         color: context.colors.primary,
         alignment: Alignment.centerLeft,
-        padding: EdgeInsets.symmetric(horizontal: spacing.md),
-        child: const Icon(
-          LucideIcons.check,
-          color: Colors.white,
-        ),
+        padding: .symmetric(horizontal: spacing.md),
+        child: Icon(LucideIcons.check, color: context.colors.primaryForeground),
       ),
       secondaryBackground: Container(
         color: context.colors.destructive,
         alignment: Alignment.centerRight,
-        padding: EdgeInsets.symmetric(horizontal: spacing.md),
-        child: const Icon(
+        padding: .symmetric(horizontal: spacing.md),
+        child: Icon(
           LucideIcons.trash2,
-          color: Colors.white,
+          color: context.colors.destructiveForeground,
           size: 24, // Standard large icon
         ),
       ),
@@ -98,16 +95,14 @@ class RestockListItem extends StatelessWidget {
         },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          constraints: const BoxConstraints(
-            minHeight: _minTileHeight,
-          ),
+          constraints: const BoxConstraints(minHeight: _minTileHeight),
           decoration: BoxDecoration(
             color: backgroundColor,
             borderRadius: theme.radius,
             border: Border.all(color: borderColor),
           ),
           child: Padding(
-            padding: EdgeInsets.all(spacing.md),
+            padding: .all(spacing.md),
             child: Row(
               children: [
                 Container(
@@ -115,7 +110,7 @@ class RestockListItem extends StatelessWidget {
                   height: 32,
                   decoration: BoxDecoration(
                     color: formColor,
-                    borderRadius: BorderRadius.circular(2),
+                    borderRadius: .circular(2),
                   ),
                 ),
                 SizedBox(width: spacing.md),
@@ -127,20 +122,17 @@ class RestockListItem extends StatelessWidget {
                       Text(
                         item.label,
                         style: context.typo.p.copyWith(
-                          decoration:
-                              isZero ? TextDecoration.lineThrough : null,
+                          decoration: isZero
+                              ? TextDecoration.lineThrough
+                              : null,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                       if (showPrincepsSubtitle && item.princepsLabel != null)
                         Text(
-                          Strings.restockSubtitlePrinceps(
-                            item.princepsLabel!,
-                          ),
-                          style: context.typo.muted.copyWith(
-                            fontSize: 12,
-                          ),
+                          Strings.restockSubtitlePrinceps(item.princepsLabel!),
+                          style: context.typo.muted.copyWith(fontSize: 12),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -175,14 +167,9 @@ class RestockListItem extends StatelessWidget {
                     ),
                     SizedBox(width: spacing.xs / 2),
                     GestureDetector(
-                      onTap: () => _showQuantityDialog(
-                        context,
-                        item.quantity,
-                      ),
+                      onTap: () => _showQuantityDialog(context, item.quantity),
                       child: Container(
-                        constraints: const BoxConstraints(
-                          minWidth: 32,
-                        ),
+                        constraints: const BoxConstraints(minWidth: 32),
                         padding: EdgeInsets.symmetric(
                           horizontal: spacing.xs / 2,
                           vertical: spacing.xs / 2,
@@ -191,7 +178,7 @@ class RestockListItem extends StatelessWidget {
                         child: Text(
                           item.quantity.toString(),
                           style: theme.textTheme.large.copyWith(
-                            fontWeight: FontWeight.bold,
+                            fontWeight: .bold,
                             color: isZero
                                 ? theme.colorScheme.mutedForeground
                                 : theme.colorScheme.primary,
@@ -216,10 +203,8 @@ class RestockListItem extends StatelessWidget {
                     SizedBox(width: spacing.xs / 2),
                     TextButton(
                       style: TextButton.styleFrom(
-                        minimumSize: const Size(44, 32),
-                        padding: EdgeInsets.symmetric(
-                          horizontal: spacing.xs / 2,
-                        ),
+                        minimumSize: const .new(44, 32),
+                        padding: .symmetric(horizontal: spacing.xs / 2),
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
                       onPressed: () async {

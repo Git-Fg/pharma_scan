@@ -121,32 +121,27 @@ class FeedbackService {
             const SizedBox(width: 16), // Medium spacing
             Expanded(
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: .start,
+                mainAxisSize: .min,
                 children: [
                   Text(
                     title,
-                    style: context.typo.large.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: context.typo.large.copyWith(fontWeight: .bold),
                   ),
-                  Text(
-                    message,
-                    style: context.typo.small,
-                  ),
+                  Text(message, style: context.typo.small),
                 ],
               ),
             ),
           ],
         ),
         backgroundColor: backgroundColor,
-        behavior: SnackBarBehavior.floating,
+        behavior: .floating,
         shape: RoundedRectangleBorder(
           side: BorderSide(color: borderColor),
-          borderRadius: BorderRadius.circular(8.0),
+          borderRadius: .circular(8.0),
         ),
         duration: duration,
-        margin: const EdgeInsets.all(16.0),
+        margin: const .all(16.0),
       ),
     );
   }
@@ -158,21 +153,20 @@ class FeedbackService {
     required String content,
     String confirmText = 'Confirmer',
     String cancelText = 'Annuler',
-    ShadButtonVariant confirmVariant = ShadButtonVariant.destructive,
+    ShadButtonVariant confirmVariant = .destructive,
     bool barrierDismissible = true,
   }) async {
-    final haptics = ProviderScope.containerOf(context, listen: false)
-        .read(hapticServiceProvider);
+    final haptics = ProviderScope.containerOf(
+      context,
+      listen: false,
+    ).read(hapticServiceProvider);
 
     return showDialog<bool>(
       context: context,
       barrierDismissible: barrierDismissible,
       builder: (context) {
         return AlertDialog(
-          title: Text(
-            title,
-            style: context.typo.h4,
-          ),
+          title: Text(title, style: context.typo.h4),
           content: Text(
             content,
             style: context.typo.large.copyWith(
@@ -188,20 +182,20 @@ class FeedbackService {
               child: Text(cancelText),
             ),
             switch (confirmVariant) {
-              ShadButtonVariant.destructive => ShadButton.destructive(
-                  onPressed: () {
-                    haptics.selection();
-                    Navigator.of(context).pop(true);
-                  },
-                  child: Text(confirmText),
-                ),
+              .destructive => ShadButton.destructive(
+                onPressed: () {
+                  haptics.selection();
+                  Navigator.of(context).pop(true);
+                },
+                child: Text(confirmText),
+              ),
               _ => ShadButton(
-                  onPressed: () {
-                    haptics.selection();
-                    Navigator.of(context).pop(true);
-                  },
-                  child: Text(confirmText),
-                ),
+                onPressed: () {
+                  haptics.selection();
+                  Navigator.of(context).pop(true);
+                },
+                child: Text(confirmText),
+              ),
             },
           ],
         );
@@ -217,18 +211,17 @@ class FeedbackService {
     String confirmText = 'OK',
     bool barrierDismissible = true,
   }) async {
-    final haptics = ProviderScope.containerOf(context, listen: false)
-        .read(hapticServiceProvider);
+    final haptics = ProviderScope.containerOf(
+      context,
+      listen: false,
+    ).read(hapticServiceProvider);
 
     return showDialog<void>(
       context: context,
       barrierDismissible: barrierDismissible,
       builder: (context) {
         return AlertDialog(
-          title: Text(
-            title,
-            style: context.typo.h4,
-          ),
+          title: Text(title, style: context.typo.h4),
           content: Text(
             content,
             style: context.typo.large.copyWith(

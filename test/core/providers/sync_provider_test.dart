@@ -2,7 +2,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:pharma_scan/core/database/daos/app_settings_dao.dart';
 import 'package:pharma_scan/core/domain/models/sync_state.dart';
-import 'package:pharma_scan/core/providers/app_settings_provider.dart';
 import 'package:pharma_scan/core/providers/core_providers.dart';
 import 'package:pharma_scan/core/providers/sync_provider.dart';
 import 'package:pharma_scan/core/services/data_initialization_service.dart';

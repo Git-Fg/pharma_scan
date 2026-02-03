@@ -4,8 +4,8 @@
 		{
 			"label": "sync:backend",
 			"type": "shell",
-			"detail": "Synchronize schema and golden DB from backend pipeline",
-			"command": "cd backend_pipeline && bun run tool/sync.ts && cp data/reference.db ../assets/test/reference.db",
+			"detail": "Synchronize schema and golden DB from backend pipeline (JSON + Dart + artifacts)",
+			"command": "cd backend_pipeline && bun run export && cp output/reference.db ../assets/test/reference.db",
 			"problemMatcher": [],
 			"presentation": {
 				"reveal": "silent",
@@ -17,7 +17,7 @@
 			"label": "sync:test-db",
 			"type": "shell",
 			"detail": "Copy latest reference DB to test assets",
-			"command": "cp backend_pipeline/data/reference.db assets/test/reference.db",
+			"command": "cp backend_pipeline/output/reference.db assets/test/reference.db",
 			"problemMatcher": [],
 			"presentation": {
 				"reveal": "silent",

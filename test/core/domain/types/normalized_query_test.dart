@@ -3,18 +3,18 @@ import 'package:pharma_scan/core/domain/types/semantic_types.dart';
 
 void main() {
   group('NormalizedQuery', () {
-    test('Normalizes diacritics correctly', () {
+    test('Preserves diacritics (handled by SQLite)', () {
       const input = 'Paracétamol';
       final result = NormalizedQuery.fromString(input);
 
-      expect(result, 'paracetamol');
+      expect(result, 'Paracétamol');
     });
 
-    test('Converts to lowercase', () {
+    test('Preserves case (handled by SQLite)', () {
       const input = 'DOLIPRANE';
       final result = NormalizedQuery.fromString(input);
 
-      expect(result, 'doliprane');
+      expect(result, 'DOLIPRANE');
     });
 
     test('Trims whitespace', () {
@@ -24,11 +24,12 @@ void main() {
       expect(result, 'amoxicilline');
     });
 
-    test('Replaces multiple spaces with single space', () {
+    // Thin Client: We do NOT normalize internal whitespace anymore
+    test('Preserves internal whitespace', () {
       const input = 'doliprane   1000   mg';
       final result = NormalizedQuery.fromString(input);
 
-      expect(result, 'doliprane 1000 mg');
+      expect(result, 'doliprane   1000   mg');
     });
 
     test('Returns empty string for empty input', () {
@@ -39,44 +40,38 @@ void main() {
       expect(result2, '');
     });
 
-    test('Replaces non-alphanumeric characters with spaces', () {
+    test('Preserves special characters', () {
       const input = 'DOLIPRANE®';
       final result = NormalizedQuery.fromString(input);
 
-      expect(result, 'doliprane');
+      expect(result, 'DOLIPRANE®');
     });
 
-    test('Handles complex pharmaceutical names with accents and symbols', () {
+    test('Preserves complex characters', () {
       const input = 'Amoxicilline/Acide clavulanique';
       final result = NormalizedQuery.fromString(input);
 
-      expect(result, 'amoxicilline acide clavulanique');
+      expect(result, 'Amoxicilline/Acide clavulanique');
     });
 
-    test('Preserves pharmaceutical terms with salts', () {
+    test('Preserves salt prefixes', () {
       const input = 'Chlorhydrate de Paracétamol';
       final result = NormalizedQuery.fromString(input);
 
-      expect(result, 'chlorhydrate de paracetamol');
+      expect(result, 'Chlorhydrate de Paracétamol');
     });
 
     test('Converts normalized query to FTS query string', () {
       final q = NormalizedQuery.fromString('doliprane 1000 mg');
-      expect(q.toFtsQuery(), '"doliprane" AND "1000" AND "mg"');
+      // Thin Client: Enclose in quotes for trigram phrase matching
+      expect(q.toFtsQuery(), '"doliprane 1000 mg"');
     });
 
-    test('Empty normalized query returns empty FTS string', () {
+    test('Empty normalized query returns empty quoted string', () {
+      // Logic in semantic_types.dart: returns '"$_value"'
+      // If value is empty, it returns '""'.
       final q = NormalizedQuery.fromString('   ');
-      expect(q.toFtsQuery(), '');
-    });
-
-    test('Uses canonical sanitizer normalization', () {
-      // Test that NormalizedQuery delegates to Sanitizer.normalizeForSearch
-      // These are the exact same test cases that should be in the sanitizer test
-      const input = 'DOLIPRANE® 500mg';
-      final result = NormalizedQuery.fromString(input);
-
-      expect(result, 'doliprane 500mg');
+      expect(q.toFtsQuery(), '""');
     });
   });
 }

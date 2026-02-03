@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
@@ -9,9 +10,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart' hide ScanWindowOverlay;
 import 'package:pharma_scan/core/hooks/use_app_header.dart';
 import 'package:pharma_scan/features/scanner/presentation/hooks/use_scanner_side_effects.dart';
-import 'package:pharma_scan/core/presentation/hooks/use_scanner_input.dart';
+
 import 'package:pharma_scan/app/router/app_router.dart';
-import 'package:pharma_scan/core/services/data_initialization_service.dart';
 import 'package:pharma_scan/core/services/haptic_service.dart';
 import 'package:pharma_scan/core/utils/hooks/use_async_feedback.dart';
 import 'package:pharma_scan/features/scanner/presentation/providers/scanner_controller_provider.dart';
@@ -40,7 +40,7 @@ class CameraScreen extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isCameraActive = useState(false);
     final scannerState = ref.watch(scannerProvider);
-    final scannerMode = scannerState.value?.mode ?? ScannerMode.analysis;
+    final scannerMode = scannerState.value?.mode ?? .analysis;
 
     TabsRouter? tabsRouter;
     try {
@@ -57,17 +57,14 @@ class CameraScreen extends HookConsumerWidget {
       }
     }
 
-    useEffect(
-      () {
-        if (tabsRouter != null) {
-          // Force rebuild when tab changes
-          tabsRouter.addListener(onTabChanged);
-          return () => tabsRouter?.removeListener(onTabChanged);
-        }
-        return null;
-      },
-      [tabsRouter],
-    );
+    useEffect(() {
+      if (tabsRouter != null) {
+        // Force rebuild when tab changes
+        tabsRouter.addListener(onTabChanged);
+        return () => tabsRouter?.removeListener(onTabChanged);
+      }
+      return null;
+    }, [tabsRouter]);
 
     // Scanner side effects handling (extracted to dedicated hook)
     useScannerSideEffects(context: context, ref: ref);
@@ -99,7 +96,7 @@ class CameraScreen extends HookConsumerWidget {
         builder: (sheetContext) => const _GallerySheet(),
       );
 
-      if (action == _GallerySheetResult.pick && context.mounted) {
+      if (action == .pick && context.mounted) {
         await ScannerUtils.pickAndScanImage(
           ref,
           context,
@@ -112,7 +109,7 @@ class CameraScreen extends HookConsumerWidget {
     Future<void> toggleCamera() async {
       final initStepAsync = ref.read(initializationStepProvider);
       final initStep = initStepAsync.value;
-      if (initStep != null && initStep != InitializationStep.ready) {
+      if (initStep != null && initStep != .ready) {
         return;
       }
 
@@ -122,20 +119,28 @@ class CameraScreen extends HookConsumerWidget {
     final zoomScale = useState(0.0);
 
     Future<void> toggleTorch() async {
-      await scannerController.toggleTorch();
+      try {
+        await scannerController.toggleTorch();
+      } catch (_) {
+        // Ignore errors on unsupported platforms
+      }
     }
 
     Future<void> toggleZoom() async {
       // Toggle between 0.0 (1x) and 0.5 (~2x)
-      final newScale = zoomScale.value < 0.2 ? 0.5 : 0.0;
-      zoomScale.value = newScale;
-      await scannerController.setZoomScale(newScale);
+      try {
+        final newScale = zoomScale.value < 0.2 ? 0.5 : 0.0;
+        zoomScale.value = newScale;
+        await scannerController.setZoomScale(newScale);
+      } catch (_) {
+        // Ignore zoom errors (e.g. on Web)
+      }
     }
 
     Future<void> toggleMode() async {
-      final nextMode = scannerMode == ScannerMode.analysis
-          ? ScannerMode.restock
-          : ScannerMode.analysis;
+      final ScannerMode nextMode = scannerMode == .analysis
+          ? .restock
+          : .analysis;
       ref.read(scannerProvider.notifier).setMode(nextMode);
       await ref.read(hapticServiceProvider).selection();
     }
@@ -148,20 +153,16 @@ class CameraScreen extends HookConsumerWidget {
 
     final initStepAsync = ref.watch(initializationStepProvider);
     final initStep = initStepAsync.value;
-    final isInitializing =
-        initStep != null && initStep != InitializationStep.ready;
+    final isInitializing = initStep != null && initStep != .ready;
     final scannerUiState = isInitializing
         ? ScannerInitializing(mode: scannerMode)
         : ScannerActive(
             mode: scannerMode,
-            torchState: TorchState.off,
+            torchState: .off,
             isCameraRunning: isCameraActive.value,
           );
 
-    useAppHeader(
-      title: const SizedBox.shrink(),
-      isVisible: false,
-    );
+    useAppHeader(title: const SizedBox.shrink(), isVisible: false);
 
     return SafeArea(
       key: const Key(TestTags.scannerScreen),
@@ -175,13 +176,11 @@ class CameraScreen extends HookConsumerWidget {
               onDetect: onDetect,
               tapToFocus: true,
               errorBuilder: (context, error) => const Padding(
-                padding: EdgeInsets.symmetric(
-                  horizontal: 24,
-                ),
+                padding: .symmetric(horizontal: 24),
                 child: Center(
                   child: StatusView(
-                    type: StatusType.error,
-                    icon: Icons.videocam_off,
+                    type: .error,
+                    icon: LucideIcons.videoOff,
                     title: Strings.cameraUnavailable,
                     description: Strings.checkPermissionsMessage,
                   ),
@@ -191,28 +190,66 @@ class CameraScreen extends HookConsumerWidget {
           else if (isInitializing)
             const Center(
               child: StatusView(
-                type: StatusType.loading,
-                icon: Icons.hourglass_empty,
+                type: .loading,
+                icon: LucideIcons.hourglass,
                 title: Strings.initializationInProgress,
                 description: Strings.initializationDescription,
               ),
             )
           else
             Align(
-              alignment: const Alignment(0, -0.3),
+              alignment: const Alignment(0, -0.2),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    Icons.qr_code_scanner,
-                    size: 80,
-                    color: context.textMuted,
+                  Container(
+                    width: 140,
+                    height: 140,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          context.actionPrimary.withValues(alpha: 0.15),
+                          context.actionPrimary.withValues(alpha: 0.05),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(40),
+                      border: Border.all(
+                        color: context.actionPrimary.withValues(alpha: 0.2),
+                        width: 1.5,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: context.actionPrimary.withValues(alpha: 0.1),
+                          blurRadius: 32,
+                          spreadRadius: 4,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: Icon(
+                      LucideIcons.scanLine,
+                      size: 64,
+                      color: context.actionPrimary.withValues(alpha: 0.9),
+                    ),
                   ),
-                  const Gap(20),
+                  Gap(context.spacing.lg),
                   Text(
                     Strings.readyToScan,
-                    style: context.typo.h3.copyWith(
-                      color: context.textSecondary,
+                    textAlign: TextAlign.center,
+                    style: context.typo.h2.copyWith(
+                      color: context.colors.foreground,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                  Gap(context.spacing.xs),
+                  Text(
+                    'Positionnez le code dans le cadre',
+                    textAlign: TextAlign.center,
+                    style: context.typo.p.copyWith(
+                      color: context.colors.mutedForeground,
                     ),
                   ),
                 ],
@@ -222,57 +259,74 @@ class CameraScreen extends HookConsumerWidget {
             ScanWindowOverlay(mode: scannerMode),
           const ScannerBubbles(),
           Positioned(
-            top: MediaQuery.paddingOf(context).top + 16,
+            top: MediaQuery.paddingOf(context).top + 20,
             left: 16,
-            child: ClipRRect(
-              borderRadius: context.radiusMedium,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: context.surfacePrimary.withValues(alpha: 0.82),
-                  border: Border.all(
-                    color: context.actionSurface.withValues(alpha: 0.3),
+            child: ClipOval(
+              child: BackdropFilter(
+                filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: context.surfacePrimary.withValues(alpha: 0.7),
+                    border: Border.all(
+                      color: context.actionSurface.withValues(alpha: 0.2),
+                      width: 1,
+                    ),
+                    shape: BoxShape.circle,
+                    boxShadow: context.shadowMedium,
                   ),
-                  borderRadius: context.radiusMedium,
-                ),
-                child: Semantics(
-                  button: true,
-                  label: Strings.historyTitle,
-                  child: ShadButton.ghost(
-                    onPressed: () {
-                      // Pour l'instant, nous ouvrons un panneau latéral simple
-                      // La migration complète du ShadSheet nécessiterait une implémentation personnalisée
-                      showModalBottomSheet<void>(
-                        context: context,
-                        isScrollControlled: true,
-                        builder: (sheetContext) => const HistorySheet(),
-                      );
-                    },
-                    child: const Icon(Icons.history),
+                  child: Semantics(
+                    button: true,
+                    label: Strings.historyTitle,
+                    child: SizedBox(
+                      width: 52,
+                      height: 52,
+                      child: IconButton(
+                        onPressed: () {
+                          showModalBottomSheet<void>(
+                            context: context,
+                            isScrollControlled: true,
+                            builder: (sheetContext) => const HistorySheet(),
+                          );
+                        },
+                        icon: const Icon(LucideIcons.history),
+                        color: context.colors.foreground,
+                        padding: EdgeInsets.zero,
+                      ),
+                    ),
                   ),
                 ),
               ),
             ),
           ),
           Positioned(
-            top: MediaQuery.paddingOf(context).top + 16,
+            top: MediaQuery.paddingOf(context).top + 20,
             right: 16,
-            child: ClipRRect(
-              borderRadius: context.radiusMedium,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: context.surfacePrimary.withValues(alpha: 0.82),
-                  border: Border.all(
-                    color: context.actionSurface.withValues(alpha: 0.3),
+            child: ClipOval(
+              child: BackdropFilter(
+                filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: context.surfacePrimary.withValues(alpha: 0.7),
+                    border: Border.all(
+                      color: context.actionSurface.withValues(alpha: 0.2),
+                      width: 1,
+                    ),
+                    shape: BoxShape.circle,
                   ),
-                  borderRadius: context.radiusMedium,
-                ),
-                child: Semantics(
-                  button: true,
-                  label: Strings.settings,
-                  child: ShadButton.ghost(
-                    onPressed: () =>
-                        AutoRouter.of(context).push(const SettingsRoute()),
-                    child: const Icon(Icons.settings),
+                  child: Semantics(
+                    button: true,
+                    label: Strings.settings,
+                    child: SizedBox(
+                      width: 52,
+                      height: 52,
+                      child: IconButton(
+                        onPressed: () =>
+                            AutoRouter.of(context).push(const SettingsRoute()),
+                        icon: const Icon(LucideIcons.settings),
+                        color: context.colors.foreground,
+                        padding: EdgeInsets.zero,
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -301,30 +355,25 @@ class _GallerySheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(16.0),
+      padding: const .all(16.0),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            Strings.importFromGallery,
-            style: context.typo.h4,
-          ),
-          const Gap(8),
+          Text(Strings.importFromGallery, style: context.typo.h4),
+          Gap(context.spacing.sm),
           Text(
             Strings.pharmascanAnalyzesOnly,
-            style: context.typo.small.copyWith(color: context.textSecondary),
+            style: context.typo.small.copyWith(
+              color: context.colors.mutedForeground,
+            ),
           ),
-          const Gap(16),
+          Gap(context.spacing.md),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(
-                Icons.shield,
-                color: context.actionPrimary,
-                size: 20,
-              ),
-              const Gap(12),
+              Icon(LucideIcons.shield, color: context.actionPrimary, size: 20),
+              Gap(context.spacing.md),
               Expanded(
                 child: Text(
                   Strings.noPhotoStoredMessage,
@@ -333,7 +382,7 @@ class _GallerySheet extends StatelessWidget {
               ),
             ],
           ),
-          const Gap(16),
+          Gap(context.spacing.md),
           Semantics(
             button: true,
             label: Strings.choosePhotoFromGallery,
@@ -367,12 +416,16 @@ class _ManualCipSheet extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isSubmitting = useState(false);
     final viewInsets = MediaQuery.viewInsetsOf(context);
-    final screenWidth = MediaQuery.sizeOf(context).width;
     late Future<void> Function(String code) submit;
 
-    final scanner = useScannerInput(
-      onSubmitted: (code) => unawaited(submit(code)),
-    );
+    final controller = useTextEditingController();
+    final focusNode = useFocusNode();
+
+    // Auto-focus on mount
+    useEffect(() {
+      focusNode.requestFocus();
+      return null;
+    }, []);
 
     submit = (String code) async {
       if (isSubmitting.value) return;
@@ -385,7 +438,7 @@ class _ManualCipSheet extends HookConsumerWidget {
           Strings.cipMustBe13Digits,
           title: Strings.cipMustBe13Digits,
         );
-        scanner.focusNode.requestFocus();
+        focusNode.requestFocus();
         return;
       }
 
@@ -410,115 +463,103 @@ class _ManualCipSheet extends HookConsumerWidget {
       }
     };
 
-    return ShadResponsiveBuilder(
-      builder: (context, breakpoint) {
-        final maxWidth = screenWidth >= 512.0 ? 512.0 : screenWidth;
-
-        return Padding(
-          padding: viewInsets,
-          child: Align(
-            alignment: Alignment.topCenter,
-            child: SizedBox(
-              width: maxWidth,
-              child: Container(
-                constraints: BoxConstraints(maxWidth: maxWidth),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      Strings.manualCipEntry,
-                      style: context.typo.h3,
-                    ),
-                    const Gap(8),
-                    Text(
-                      Strings.manualCipDescription,
-                      style:
-                          context.typo.p.copyWith(color: context.textSecondary),
-                    ),
-                    const Gap(16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        Semantics(
-                          button: true,
-                          label: isSubmitting.value
-                              ? Strings.searchingInProgress
-                              : Strings.searchMedicamentWithCip,
-                          enabled: !isSubmitting.value,
-                          child: ShadButton(
-                            onPressed: isSubmitting.value
-                                ? null
-                                : () => scanner.submit(scanner.controller.text),
-                            leading: isSubmitting.value
-                                ? const SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                          Colors.white),
-                                    ),
-                                  )
-                                : null,
-                            child: Text(Strings.search),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const Gap(16),
-                    SingleChildScrollView(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Text(
-                            Strings.manualEntryFieldLabel,
-                            style: context.typo.small.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const Gap(4),
-                          Semantics(
-                            textField: true,
-                            label: Strings.manualEntryFieldLabel,
-                            hint: Strings.cipPlaceholder,
-                            value: scanner.controller.text,
-                            child: TextField(
-                              controller: scanner.controller,
-                              focusNode: scanner.focusNode,
-                              decoration: InputDecoration(
-                                hintText: Strings.cipPlaceholder,
-                                border: OutlineInputBorder(
-                                  borderRadius: context.radiusMedium,
-                                ),
-                              ),
-                              autofocus: true,
-                              keyboardType: TextInputType.number,
-                              textInputAction: TextInputAction.search,
-                              maxLength: 13,
-                              inputFormatters: [
-                                FilteringTextInputFormatter.digitsOnly,
-                                LengthLimitingTextInputFormatter(13),
-                              ],
-                              onSubmitted: scanner.submit,
-                            ),
-                          ),
-                          const Gap(16),
-                          Text(
-                            Strings.searchStartsAutomatically,
-                            style: context.typo.small,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+    return Padding(
+      padding: viewInsets,
+      child: Container(
+        padding: const .all(24),
+        decoration: BoxDecoration(
+          color: context.surfacePrimary,
+          borderRadius: const .vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(Strings.manualCipEntry, style: context.typo.h3),
+            Gap(context.spacing.sm),
+            Text(
+              Strings.manualCipDescription,
+              style: context.typo.p.copyWith(
+                color: context.colors.mutedForeground,
               ),
             ),
-          ),
-        );
-      },
+            Gap(context.spacing.lg),
+            Row(
+              children: [
+                Expanded(
+                  child: Semantics(
+                    textField: true,
+                    label: Strings.manualEntryFieldLabel,
+                    hint: Strings.cipPlaceholder,
+                    value: controller.text,
+                    child: TextField(
+                      controller: controller,
+                      focusNode: focusNode,
+                      decoration: InputDecoration(
+                        hintText: Strings.cipPlaceholder,
+                        border: OutlineInputBorder(
+                          borderRadius: context.radiusMedium,
+                        ),
+                        contentPadding: const .symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                      ),
+                      autofocus: false,
+                      keyboardType: .number,
+                      textInputAction: .search,
+                      maxLength: 13,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(13),
+                      ],
+                      onSubmitted: (val) => unawaited(submit(val)),
+                    ),
+                  ),
+                ),
+                Gap(context.spacing.md),
+                Semantics(
+                  button: true,
+                  label: isSubmitting.value
+                      ? Strings.searchingInProgress
+                      : Strings.searchMedicamentWithCip,
+                  enabled: !isSubmitting.value,
+                  child: ElevatedButton(
+                    onPressed: isSubmitting.value
+                        ? null
+                        : () => unawaited(submit(controller.text)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: context.colors.primary,
+                      foregroundColor: context.colors.primaryForeground,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: context.radiusMedium,
+                      ),
+                    ),
+                    child: isSubmitting.value
+                        ? SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                context.colors.primaryForeground,
+                              ),
+                            ),
+                          )
+                        : Text(Strings.search),
+                  ),
+                ),
+              ],
+            ),
+            Gap(context.spacing.md),
+            Text(
+              Strings.searchStartsAutomatically,
+              style: context.typo.small.copyWith(color: context.colors.muted),
+            ),
+            Gap(context.spacing.md),
+          ],
+        ),
+      ),
     );
   }
 }

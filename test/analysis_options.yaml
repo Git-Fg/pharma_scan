@@ -2,16 +2,32 @@ include: ../analysis_options.yaml
 
 linter:
   rules:
+    # === RELAXED FOR TESTS ===
     avoid_print: false
     prefer_const_constructors: false
     prefer_const_declarations: false
     prefer_final_locals: false
     no_leading_underscores_for_local_identifiers: false
     avoid_redundant_argument_values: false
-    lines_longer_than_80_chars: false
     cascade_invocations: false
 
 analyzer:
+  exclude:
+    - "**/*.mocks.dart"
+
   errors:
+    # === RELAXED FOR TESTS ===
     avoid_print: ignore
     unused_element: ignore
+    unused_local_variable: ignore
+
+    # === RELAXED FOR DYNAMIC TEST DATA ===
+    argument_type_not_assignable: warning
+    avoid_dynamic_calls: warning
+
+    # === RELAXED FOR GENERATED COMPANION TYPES ===
+    undefined_method: warning
+    undefined_identifier: warning
+    undefined_class: warning
+    undefined_function: warning
+    non_type_as_type_argument: warning

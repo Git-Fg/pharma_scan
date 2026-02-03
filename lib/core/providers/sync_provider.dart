@@ -19,19 +19,19 @@ class SyncController extends _$SyncController {
   /// Triggers the database synchronization from GitHub Releases.
   /// Returns `true` if updates were applied, `false` otherwise.
   Future<bool> startSync({bool force = false}) async {
-    if (state.phase != SyncPhase.idle &&
-        state.phase != SyncPhase.error &&
-        state.phase != SyncPhase.success) {
+    if (state.phase != .idle &&
+        state.phase != .error &&
+        state.phase != .success) {
       ref.read(loggerProvider).info('Sync already in progress. Skipping.');
       return false;
     }
 
-    final frequencyRaw = ref.read(updateFrequencyProvider);
+    final frequencyRaw = ref.read(updateFrequencyProvider).value;
     final frequency = UpdateFrequency.values.firstWhere(
       (f) => f.name == frequencyRaw,
       orElse: () => UpdateFrequency.daily,
     );
-    if (!force && frequency == UpdateFrequency.none) {
+    if (!force && frequency == .none) {
       ref
           .read(loggerProvider)
           .info('Sync skipped: disabled by user preference');
@@ -46,9 +46,11 @@ class SyncController extends _$SyncController {
 
     if (!force &&
         lastCheck != null &&
-        frequency.interval != Duration.zero &&
+        frequency.interval != .zero &&
         now.difference(lastCheck) < frequency.interval) {
-      ref.read(loggerProvider).info(
+      ref
+          .read(loggerProvider)
+          .info(
             'Sync skipped: next check scheduled for '
             '${lastCheck.add(frequency.interval).toIso8601String()}',
           );
@@ -59,23 +61,23 @@ class SyncController extends _$SyncController {
   }
 
   Future<void> confirmUpdate() async {
-    if (state.phase != SyncPhase.waitingUser) return;
+    if (state.phase != .waitingUser) return;
 
     // Proceed with the update using force=true to bypass the internal check we just did
     await _performDatabaseUpdate(force: true);
   }
 
   Future<void> cancelUpdate() async {
-    if (state.phase != SyncPhase.waitingUser) return;
-    state = SyncProgress.idle;
+    if (state.phase != .waitingUser) return;
+    state = .idle;
   }
 
   Future<bool> _performDatabaseUpdate({bool force = false}) async {
     final syncStartTime = DateTime.now();
 
     state = SyncProgress(
-      phase: SyncPhase.checking,
-      code: SyncStatusCode.checkingUpdates,
+      phase: .checking,
+      code: .checkingUpdates,
       startTime: syncStartTime,
     );
 
@@ -98,8 +100,8 @@ class SyncController extends _$SyncController {
               .read(loggerProvider)
               .info('Update available, waiting for user confirmation');
           state = SyncProgress(
-            phase: SyncPhase.waitingUser,
-            code: SyncStatusCode.checkingUpdates,
+            phase: .waitingUser,
+            code: .checkingUpdates,
             startTime: syncStartTime,
             pendingUpdate: status,
           );
@@ -107,8 +109,8 @@ class SyncController extends _$SyncController {
         } else if (status != null && !status.updateAvailable) {
           ref.read(loggerProvider).info('Database is already up to date');
           state = SyncProgress(
-            phase: SyncPhase.success,
-            code: SyncStatusCode.successAlreadyCurrent,
+            phase: .success,
+            code: .successAlreadyCurrent,
             startTime: syncStartTime,
           );
           return false;
@@ -116,8 +118,8 @@ class SyncController extends _$SyncController {
       }
 
       state = SyncProgress(
-        phase: SyncPhase.downloading,
-        code: SyncStatusCode.checkingUpdates,
+        phase: .downloading,
+        code: .checkingUpdates,
         startTime: syncStartTime,
       );
 
@@ -125,16 +127,16 @@ class SyncController extends _$SyncController {
 
       if (updated) {
         state = SyncProgress(
-          phase: SyncPhase.success,
-          code: SyncStatusCode.successUpdatesApplied,
+          phase: .success,
+          code: .successUpdatesApplied,
           startTime: syncStartTime,
         );
         ref.read(loggerProvider).info('Database update completed successfully');
         return true;
       } else {
         state = SyncProgress(
-          phase: SyncPhase.success,
-          code: SyncStatusCode.successAlreadyCurrent,
+          phase: .success,
+          code: .successAlreadyCurrent,
           startTime: syncStartTime,
         );
         ref.read(loggerProvider).info('Database is already up to date');
@@ -142,9 +144,9 @@ class SyncController extends _$SyncController {
       }
     } on Exception catch (error, stackTrace) {
       state = SyncProgress(
-        phase: SyncPhase.error,
-        code: SyncStatusCode.error,
-        errorType: SyncErrorType.download,
+        phase: .error,
+        code: .error,
+        errorType: .download,
         startTime: syncStartTime,
       );
 
@@ -159,11 +161,9 @@ class SyncController extends _$SyncController {
         try {
           await appSettings.setLastSyncTime(clock());
         } on Exception catch (e, s) {
-          ref.read(loggerProvider).error(
-                '[SyncController] Failed to update sync timestamp',
-                e,
-                s,
-              );
+          ref
+              .read(loggerProvider)
+              .error('[SyncController] Failed to update sync timestamp', e, s);
         }
         unawaited(_scheduleReset());
       }
@@ -173,10 +173,10 @@ class SyncController extends _$SyncController {
   Future<void> _scheduleReset() async {
     await Future<void>.delayed(const Duration(seconds: 3));
     if (!ref.mounted) return;
-    if (state.phase != SyncPhase.checking &&
-        state.phase != SyncPhase.downloading &&
-        state.phase != SyncPhase.applying) {
-      state = SyncProgress.idle;
+    if (state.phase != .checking &&
+        state.phase != .downloading &&
+        state.phase != .applying) {
+      state = .idle;
     }
   }
 }

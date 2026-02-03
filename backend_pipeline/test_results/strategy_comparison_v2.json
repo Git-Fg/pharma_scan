@@ -1,0 +1,722 @@
+[
+  {
+    "strategy": "advanced_multiphase",
+    "total": 500,
+    "success": 500,
+    "failed": 0,
+    "avgConfidence": 0.963019999999995,
+    "samples": [
+      {
+        "cis_code": "61266250",
+        "original": "A 313 200 000 UI POUR CENT, pommade",
+        "cleanBrand": "A 313 200",
+        "cleanGeneric": "CONCENTRAT DE VITAMINE A SYNTHÃTIQUE, FORME HUILEUSE",
+        "form": "pommade",
+        "confidence": 0.95,
+        "method": "advanced_full"
+      },
+      {
+        "cis_code": "62869109",
+        "original": "A 313 50 000 U.I., capsule molle",
+        "cleanBrand": "A 313 50 000 U.I.",
+        "cleanGeneric": "CONCENTRAT DE VITAMINE A SYNTHÃTIQUE, FORME HUILEUSE",
+        "form": "capsule molle",
+        "confidence": 0.95,
+        "method": "advanced_full"
+      },
+      {
+        "cis_code": "69103878",
+        "original": "A.D.N. BOIRON, degrÃ© de dilution compris entre 4CH et 30CH ou entre 8DH et 60DH",
+        "cleanBrand": "A.D.N. BOIRON",
+        "cleanGeneric": "A.D.N. POUR PRÃPARATIONS HOMÃOPATHIQUES",
+        "form": "comprimÃ© et solution(s) et granules et poudre et pommade",
+        "confidence": 0.95,
+        "method": "advanced_full"
+      },
+      {
+        "cis_code": "61876780",
+        "original": "ABACAVIR ARROW 300 mg, comprimÃ© pelliculÃ© sÃ©cable",
+        "cleanBrand": "ABACAVIR ARROW",
+        "cleanGeneric": "SULFATE D'ABACAVIR",
+        "form": "comprimÃ© pelliculÃ© sÃ©cable",
+        "confidence": 0.98,
+        "method": "advanced_full"
+      },
+      {
+        "cis_code": "63797011",
+        "original": "ABACAVIR SANDOZ 300 mg, comprimÃ© pelliculÃ© sÃ©cable",
+        "cleanBrand": "ABACAVIR SANDOZ",
+        "cleanGeneric": "ABACAVIR",
+        "form": "comprimÃ© pelliculÃ© sÃ©cable",
+        "confidence": 0.98,
+        "method": "advanced_full"
+      },
+      {
+        "cis_code": "62401060",
+        "original": "ABACAVIR VIATRIS 300 mg, comprimÃ© pelliculÃ© sÃ©cable",
+        "cleanBrand": "ABACAVIR VIATRIS",
+        "cleanGeneric": "ABACAVIR",
+        "form": "comprimÃ© pelliculÃ© sÃ©cable",
+        "confidence": 0.98,
+        "method": "advanced_full"
+      },
+      {
+        "cis_code": "68257528",
+        "original": "ABACAVIR/LAMIVUDINE ACCORD 600 mg/300 mg, comprimÃ© pelliculÃ©",
+        "cleanBrand": "ABACAVIR/LAMIVUDINE ACCORD 600 mg/300 mg",
+        "cleanGeneric": "LAMIVUDINE",
+        "form": "comprimÃ© pelliculÃ©",
+        "confidence": 0.98,
+        "method": "advanced_full"
+      },
+      {
+        "cis_code": "62828870",
+        "original": "ABACAVIR/LAMIVUDINE ARROW 600 mg/300 mg, comprimÃ© pelliculÃ©",
+        "cleanBrand": "ABACAVIR/LAMIVUDINE ARROW 600 mg/300 mg",
+        "cleanGeneric": "LAMIVUDINE",
+        "form": "comprimÃ© pelliculÃ©",
+        "confidence": 0.98,
+        "method": "advanced_full"
+      },
+      {
+        "cis_code": "63431640",
+        "original": "ABACAVIR/LAMIVUDINE BIOGARAN 600 mg/300 mg, comprimÃ© pelliculÃ©",
+        "cleanBrand": "ABACAVIR/LAMIVUDINE BIOGARAN 600 mg/300 mg",
+        "cleanGeneric": "LAMIVUDINE",
+        "form": "comprimÃ© pelliculÃ©",
+        "confidence": 0.98,
+        "method": "advanced_full"
+      },
+      {
+        "cis_code": "65196479",
+        "original": "ABACAVIR/LAMIVUDINE EG 600 mg/300 mg, comprimÃ© pelliculÃ©",
+        "cleanBrand": "ABACAVIR/LAMIVUDINE EG 600 mg/300 mg",
+        "cleanGeneric": "LAMIVUDINE",
+        "form": "comprimÃ© pelliculÃ©",
+        "confidence": 0.98,
+        "method": "advanced_full"
+      },
+      {
+        "cis_code": "62170486",
+        "original": "ABACAVIR/LAMIVUDINE MYLAN 600 mg/300 mg, comprimÃ© pelliculÃ©",
+        "cleanBrand": "ABACAVIR/LAMIVUDINE MYLAN 600 mg/300 mg",
+        "cleanGeneric": "LAMIVUDINE",
+        "form": "comprimÃ© pelliculÃ©",
+        "confidence": 0.98,
+        "method": "advanced_full"
+      },
+      {
+        "cis_code": "67720261",
+        "original": "ABACAVIR/LAMIVUDINE SANDOZ 600 mg/300 mg, comprimÃ© pelliculÃ©",
+        "cleanBrand": "ABACAVIR/LAMIVUDINE SANDOZ 600 mg/300 mg",
+        "cleanGeneric": "LAMIVUDINE",
+        "form": "comprimÃ© pelliculÃ©",
+        "confidence": 0.98,
+        "method": "advanced_full"
+      },
+      {
+        "cis_code": "65857902",
+        "original": "ABACAVIR/LAMIVUDINE TEVA 600 mg/300 mg, comprimÃ© pelliculÃ©",
+        "cleanBrand": "ABACAVIR/LAMIVUDINE TEVA 600 mg/300 mg",
+        "cleanGeneric": "LAMIVUDINE",
+        "form": "comprimÃ© pelliculÃ©",
+        "confidence": 0.98,
+        "method": "advanced_full"
+      },
+      {
+        "cis_code": "67567004",
+        "original": "ABACAVIR/LAMIVUDINE VIATRIS 600 mg/300 mg, comprimÃ© pelliculÃ©",
+        "cleanBrand": "ABACAVIR/LAMIVUDINE VIATRIS 600 mg/300 mg",
+        "cleanGeneric": "LAMIVUDINE",
+        "form": "comprimÃ© pelliculÃ©",
+        "confidence": 0.98,
+        "method": "advanced_full"
+      },
+      {
+        "cis_code": "62202005",
+        "original": "ABACAVIR/LAMIVUDINE ZENTIVA 600 mg/300 mg, comprimÃ© pelliculÃ©",
+        "cleanBrand": "ABACAVIR/LAMIVUDINE ZENTIVA 600 mg/300 mg",
+        "cleanGeneric": "LAMIVUDINE",
+        "form": "comprimÃ© pelliculÃ©",
+        "confidence": 0.98,
+        "method": "advanced_full"
+      }
+    ]
+  },
+  {
+    "strategy": "composition_based",
+    "total": 500,
+    "success": 500,
+    "failed": 0,
+    "avgConfidence": 0.9499999999999923,
+    "samples": [
+      {
+        "cis_code": "61266250",
+        "original": "A 313 200 000 UI POUR CENT, pommade",
+        "cleanBrand": "A 313 200",
+        "cleanGeneric": "CONCENTRAT DE VITAMINE A SYNTHÃTIQUE, FORME HUILEUSE",
+        "form": "pommade",
+        "confidence": 0.95,
+        "method": "composition_full"
+      },
+      {
+        "cis_code": "62869109",
+        "original": "A 313 50 000 U.I., capsule molle",
+        "cleanBrand": "A 313 50 000 U.I",
+        "cleanGeneric": "CONCENTRAT DE VITAMINE A SYNTHÃTIQUE, FORME HUILEUSE",
+        "form": "capsule molle",
+        "confidence": 0.95,
+        "method": "composition_full"
+      },
+      {
+        "cis_code": "69103878",
+        "original": "A.D.N. BOIRON, degrÃ© de dilution compris entre 4CH et 30CH ou entre 8DH et 60DH",
+        "cleanBrand": "A.D.N. BOIRON",
+        "cleanGeneric": "A.D.N. POUR PRÃPARATIONS HOMÃOPATHIQUES",
+        "form": "comprimÃ© et solution(s) et granules et poudre et pommade",
+        "confidence": 0.95,
+        "method": "composition_full"
+      },
+      {
+        "cis_code": "61876780",
+        "original": "ABACAVIR ARROW 300 mg, comprimÃ© pelliculÃ© sÃ©cable",
+        "cleanBrand": "ABACAVIR ARROW",
+        "cleanGeneric": "SULFATE D'ABACAVIR",
+        "form": "comprimÃ© pelliculÃ© sÃ©cable",
+        "confidence": 0.95,
+        "method": "composition_full"
+      },
+      {
+        "cis_code": "63797011",
+        "original": "ABACAVIR SANDOZ 300 mg, comprimÃ© pelliculÃ© sÃ©cable",
+        "cleanBrand": "ABACAVIR SANDOZ",
+        "cleanGeneric": "ABACAVIR",
+        "form": "comprimÃ© pelliculÃ© sÃ©cable",
+        "confidence": 0.95,
+        "method": "composition_full"
+      },
+      {
+        "cis_code": "62401060",
+        "original": "ABACAVIR VIATRIS 300 mg, comprimÃ© pelliculÃ© sÃ©cable",
+        "cleanBrand": "ABACAVIR VIATRIS",
+        "cleanGeneric": "ABACAVIR",
+        "form": "comprimÃ© pelliculÃ© sÃ©cable",
+        "confidence": 0.95,
+        "method": "composition_full"
+      },
+      {
+        "cis_code": "68257528",
+        "original": "ABACAVIR/LAMIVUDINE ACCORD 600 mg/300 mg, comprimÃ© pelliculÃ©",
+        "cleanBrand": "ABACAVIR/LAMIVUDINE ACCORD",
+        "cleanGeneric": "LAMIVUDINE",
+        "form": "comprimÃ© pelliculÃ©",
+        "confidence": 0.95,
+        "method": "composition_full"
+      },
+      {
+        "cis_code": "62828870",
+        "original": "ABACAVIR/LAMIVUDINE ARROW 600 mg/300 mg, comprimÃ© pelliculÃ©",
+        "cleanBrand": "ABACAVIR/LAMIVUDINE ARROW",
+        "cleanGeneric": "LAMIVUDINE",
+        "form": "comprimÃ© pelliculÃ©",
+        "confidence": 0.95,
+        "method": "composition_full"
+      },
+      {
+        "cis_code": "63431640",
+        "original": "ABACAVIR/LAMIVUDINE BIOGARAN 600 mg/300 mg, comprimÃ© pelliculÃ©",
+        "cleanBrand": "ABACAVIR/LAMIVUDINE BIOGARAN",
+        "cleanGeneric": "LAMIVUDINE",
+        "form": "comprimÃ© pelliculÃ©",
+        "confidence": 0.95,
+        "method": "composition_full"
+      },
+      {
+        "cis_code": "65196479",
+        "original": "ABACAVIR/LAMIVUDINE EG 600 mg/300 mg, comprimÃ© pelliculÃ©",
+        "cleanBrand": "ABACAVIR/LAMIVUDINE EG",
+        "cleanGeneric": "LAMIVUDINE",
+        "form": "comprimÃ© pelliculÃ©",
+        "confidence": 0.95,
+        "method": "composition_full"
+      },
+      {
+        "cis_code": "62170486",
+        "original": "ABACAVIR/LAMIVUDINE MYLAN 600 mg/300 mg, comprimÃ© pelliculÃ©",
+        "cleanBrand": "ABACAVIR/LAMIVUDINE MYLAN",
+        "cleanGeneric": "LAMIVUDINE",
+        "form": "comprimÃ© pelliculÃ©",
+        "confidence": 0.95,
+        "method": "composition_full"
+      },
+      {
+        "cis_code": "67720261",
+        "original": "ABACAVIR/LAMIVUDINE SANDOZ 600 mg/300 mg, comprimÃ© pelliculÃ©",
+        "cleanBrand": "ABACAVIR/LAMIVUDINE SANDOZ",
+        "cleanGeneric": "LAMIVUDINE",
+        "form": "comprimÃ© pelliculÃ©",
+        "confidence": 0.95,
+        "method": "composition_full"
+      },
+      {
+        "cis_code": "65857902",
+        "original": "ABACAVIR/LAMIVUDINE TEVA 600 mg/300 mg, comprimÃ© pelliculÃ©",
+        "cleanBrand": "ABACAVIR/LAMIVUDINE TEVA",
+        "cleanGeneric": "LAMIVUDINE",
+        "form": "comprimÃ© pelliculÃ©",
+        "confidence": 0.95,
+        "method": "composition_full"
+      },
+      {
+        "cis_code": "67567004",
+        "original": "ABACAVIR/LAMIVUDINE VIATRIS 600 mg/300 mg, comprimÃ© pelliculÃ©",
+        "cleanBrand": "ABACAVIR/LAMIVUDINE VIATRIS",
+        "cleanGeneric": "LAMIVUDINE",
+        "form": "comprimÃ© pelliculÃ©",
+        "confidence": 0.95,
+        "method": "composition_full"
+      },
+      {
+        "cis_code": "62202005",
+        "original": "ABACAVIR/LAMIVUDINE ZENTIVA 600 mg/300 mg, comprimÃ© pelliculÃ©",
+        "cleanBrand": "ABACAVIR/LAMIVUDINE ZENTIVA",
+        "cleanGeneric": "LAMIVUDINE",
+        "form": "comprimÃ© pelliculÃ©",
+        "confidence": 0.95,
+        "method": "composition_full"
+      }
+    ]
+  },
+  {
+    "strategy": "hybrid",
+    "total": 500,
+    "success": 500,
+    "failed": 0,
+    "avgConfidence": 0.8999999999999925,
+    "samples": [
+      {
+        "cis_code": "61266250",
+        "original": "A 313 200 000 UI POUR CENT, pommade",
+        "cleanBrand": "A 313 200 000 UI POUR CENT",
+        "cleanGeneric": "CONCENTRAT DE VITAMINE A SYNTHÃTIQUE, FORME HUILEUSE",
+        "form": "pommade",
+        "confidence": 0.9,
+        "method": "hybrid_full"
+      },
+      {
+        "cis_code": "62869109",
+        "original": "A 313 50 000 U.I., capsule molle",
+        "cleanBrand": "A 313 50 000 U.I.",
+        "cleanGeneric": "CONCENTRAT DE VITAMINE A SYNTHÃTIQUE, FORME HUILEUSE",
+        "form": "capsule molle",
+        "confidence": 0.9,
+        "method": "hybrid_full"
+      },
+      {
+        "cis_code": "69103878",
+        "original": "A.D.N. BOIRON, degrÃ© de dilution compris entre 4CH et 30CH ou entre 8DH et 60DH",
+        "cleanBrand": "A.D.N. BOIRON",
+        "cleanGeneric": "A.D.N. POUR PRÃPARATIONS HOMÃOPATHIQUES",
+        "form": "degrÃ© de dilution compris entre 4CH et 30CH ou entre 8DH et 60DH",
+        "confidence": 0.9,
+        "method": "hybrid_full"
+      },
+      {
+        "cis_code": "61876780",
+        "original": "ABACAVIR ARROW 300 mg, comprimÃ© pelliculÃ© sÃ©cable",
+        "cleanBrand": "ABACAVIR ARROW 300 mg",
+        "cleanGeneric": "SULFATE D'ABACAVIR",
+        "form": "comprimÃ© pelliculÃ© sÃ©cable",
+        "confidence": 0.9,
+        "method": "hybrid_full"
+      },
+      {
+        "cis_code": "63797011",
+        "original": "ABACAVIR SANDOZ 300 mg, comprimÃ© pelliculÃ© sÃ©cable",
+        "cleanBrand": "ABACAVIR SANDOZ 300 mg",
+        "cleanGeneric": "ABACAVIR",
+        "form": "comprimÃ© pelliculÃ© sÃ©cable",
+        "confidence": 0.9,
+        "method": "hybrid_full"
+      },
+      {
+        "cis_code": "62401060",
+        "original": "ABACAVIR VIATRIS 300 mg, comprimÃ© pelliculÃ© sÃ©cable",
+        "cleanBrand": "ABACAVIR VIATRIS 300 mg",
+        "cleanGeneric": "ABACAVIR",
+        "form": "comprimÃ© pelliculÃ© sÃ©cable",
+        "confidence": 0.9,
+        "method": "hybrid_full"
+      },
+      {
+        "cis_code": "68257528",
+        "original": "ABACAVIR/LAMIVUDINE ACCORD 600 mg/300 mg, comprimÃ© pelliculÃ©",
+        "cleanBrand": "ABACAVIR/LAMIVUDINE ACCORD 600 mg/300 mg",
+        "cleanGeneric": "LAMIVUDINE",
+        "form": "comprimÃ© pelliculÃ©",
+        "confidence": 0.9,
+        "method": "hybrid_full"
+      },
+      {
+        "cis_code": "62828870",
+        "original": "ABACAVIR/LAMIVUDINE ARROW 600 mg/300 mg, comprimÃ© pelliculÃ©",
+        "cleanBrand": "ABACAVIR/LAMIVUDINE ARROW 600 mg/300 mg",
+        "cleanGeneric": "LAMIVUDINE",
+        "form": "comprimÃ© pelliculÃ©",
+        "confidence": 0.9,
+        "method": "hybrid_full"
+      },
+      {
+        "cis_code": "63431640",
+        "original": "ABACAVIR/LAMIVUDINE BIOGARAN 600 mg/300 mg, comprimÃ© pelliculÃ©",
+        "cleanBrand": "ABACAVIR/LAMIVUDINE BIOGARAN 600 mg/300 mg",
+        "cleanGeneric": "LAMIVUDINE",
+        "form": "comprimÃ© pelliculÃ©",
+        "confidence": 0.9,
+        "method": "hybrid_full"
+      },
+      {
+        "cis_code": "65196479",
+        "original": "ABACAVIR/LAMIVUDINE EG 600 mg/300 mg, comprimÃ© pelliculÃ©",
+        "cleanBrand": "ABACAVIR/LAMIVUDINE EG 600 mg/300 mg",
+        "cleanGeneric": "LAMIVUDINE",
+        "form": "comprimÃ© pelliculÃ©",
+        "confidence": 0.9,
+        "method": "hybrid_full"
+      },
+      {
+        "cis_code": "62170486",
+        "original": "ABACAVIR/LAMIVUDINE MYLAN 600 mg/300 mg, comprimÃ© pelliculÃ©",
+        "cleanBrand": "ABACAVIR/LAMIVUDINE MYLAN 600 mg/300 mg",
+        "cleanGeneric": "LAMIVUDINE",
+        "form": "comprimÃ© pelliculÃ©",
+        "confidence": 0.9,
+        "method": "hybrid_full"
+      },
+      {
+        "cis_code": "67720261",
+        "original": "ABACAVIR/LAMIVUDINE SANDOZ 600 mg/300 mg, comprimÃ© pelliculÃ©",
+        "cleanBrand": "ABACAVIR/LAMIVUDINE SANDOZ 600 mg/300 mg",
+        "cleanGeneric": "LAMIVUDINE",
+        "form": "comprimÃ© pelliculÃ©",
+        "confidence": 0.9,
+        "method": "hybrid_full"
+      },
+      {
+        "cis_code": "65857902",
+        "original": "ABACAVIR/LAMIVUDINE TEVA 600 mg/300 mg, comprimÃ© pelliculÃ©",
+        "cleanBrand": "ABACAVIR/LAMIVUDINE TEVA 600 mg/300 mg",
+        "cleanGeneric": "LAMIVUDINE",
+        "form": "comprimÃ© pelliculÃ©",
+        "confidence": 0.9,
+        "method": "hybrid_full"
+      },
+      {
+        "cis_code": "67567004",
+        "original": "ABACAVIR/LAMIVUDINE VIATRIS 600 mg/300 mg, comprimÃ© pelliculÃ©",
+        "cleanBrand": "ABACAVIR/LAMIVUDINE VIATRIS 600 mg/300 mg",
+        "cleanGeneric": "LAMIVUDINE",
+        "form": "comprimÃ© pelliculÃ©",
+        "confidence": 0.9,
+        "method": "hybrid_full"
+      },
+      {
+        "cis_code": "62202005",
+        "original": "ABACAVIR/LAMIVUDINE ZENTIVA 600 mg/300 mg, comprimÃ© pelliculÃ©",
+        "cleanBrand": "ABACAVIR/LAMIVUDINE ZENTIVA 600 mg/300 mg",
+        "cleanGeneric": "LAMIVUDINE",
+        "form": "comprimÃ© pelliculÃ©",
+        "confidence": 0.9,
+        "method": "hybrid_full"
+      }
+    ]
+  },
+  {
+    "strategy": "princeps_based",
+    "total": 500,
+    "success": 500,
+    "failed": 0,
+    "avgConfidence": 0.879080000000005,
+    "samples": [
+      {
+        "cis_code": "61266250",
+        "original": "A 313 200 000 UI POUR CENT, pommade",
+        "cleanBrand": "A 313 200 000 UI POUR CENT",
+        "cleanGeneric": "A 313 200 000 UI POUR CENT",
+        "form": "pommade",
+        "confidence": 0.8,
+        "method": "comma_split"
+      },
+      {
+        "cis_code": "62869109",
+        "original": "A 313 50 000 U.I., capsule molle",
+        "cleanBrand": "A 313 50 000 U.I.",
+        "cleanGeneric": "A 313 50 000 U.I.",
+        "form": "capsule molle",
+        "confidence": 0.8,
+        "method": "comma_split"
+      },
+      {
+        "cis_code": "69103878",
+        "original": "A.D.N. BOIRON, degrÃ© de dilution compris entre 4CH et 30CH ou entre 8DH et 60DH",
+        "cleanBrand": "A.D.N. BOIRON",
+        "cleanGeneric": "A.D.N. BOIRON",
+        "form": "degrÃ© de dilution compris entre 4CH et 30CH ou entre 8DH et 60DH",
+        "confidence": 0.8,
+        "method": "comma_split"
+      },
+      {
+        "cis_code": "61876780",
+        "original": "ABACAVIR ARROW 300 mg, comprimÃ© pelliculÃ© sÃ©cable",
+        "cleanBrand": "ABACAVIR ARROW 300 mg",
+        "cleanGeneric": "ABACAVIR (SULFATE D')",
+        "form": "comprimÃ© pelliculÃ© sÃ©cable",
+        "confidence": 0.98,
+        "method": "princeps_canonical"
+      },
+      {
+        "cis_code": "63797011",
+        "original": "ABACAVIR SANDOZ 300 mg, comprimÃ© pelliculÃ© sÃ©cable",
+        "cleanBrand": "ABACAVIR SANDOZ 300 mg",
+        "cleanGeneric": "ABACAVIR (SULFATE D')",
+        "form": "comprimÃ© pelliculÃ© sÃ©cable",
+        "confidence": 0.98,
+        "method": "princeps_canonical"
+      },
+      {
+        "cis_code": "62401060",
+        "original": "ABACAVIR VIATRIS 300 mg, comprimÃ© pelliculÃ© sÃ©cable",
+        "cleanBrand": "ABACAVIR VIATRIS 300 mg",
+        "cleanGeneric": "ABACAVIR (SULFATE D')",
+        "form": "comprimÃ© pelliculÃ© sÃ©cable",
+        "confidence": 0.98,
+        "method": "princeps_canonical"
+      },
+      {
+        "cis_code": "68257528",
+        "original": "ABACAVIR/LAMIVUDINE ACCORD 600 mg/300 mg, comprimÃ© pelliculÃ©",
+        "cleanBrand": "ABACAVIR/LAMIVUDINE ACCORD 600 mg/300 mg",
+        "cleanGeneric": "LAMIVUDINE",
+        "form": "comprimÃ© pelliculÃ©",
+        "confidence": 0.98,
+        "method": "princeps_canonical"
+      },
+      {
+        "cis_code": "62828870",
+        "original": "ABACAVIR/LAMIVUDINE ARROW 600 mg/300 mg, comprimÃ© pelliculÃ©",
+        "cleanBrand": "ABACAVIR/LAMIVUDINE ARROW 600 mg/300 mg",
+        "cleanGeneric": "LAMIVUDINE",
+        "form": "comprimÃ© pelliculÃ©",
+        "confidence": 0.98,
+        "method": "princeps_canonical"
+      },
+      {
+        "cis_code": "63431640",
+        "original": "ABACAVIR/LAMIVUDINE BIOGARAN 600 mg/300 mg, comprimÃ© pelliculÃ©",
+        "cleanBrand": "ABACAVIR/LAMIVUDINE BIOGARAN 600 mg/300 mg",
+        "cleanGeneric": "LAMIVUDINE",
+        "form": "comprimÃ© pelliculÃ©",
+        "confidence": 0.98,
+        "method": "princeps_canonical"
+      },
+      {
+        "cis_code": "65196479",
+        "original": "ABACAVIR/LAMIVUDINE EG 600 mg/300 mg, comprimÃ© pelliculÃ©",
+        "cleanBrand": "ABACAVIR/LAMIVUDINE EG 600 mg/300 mg",
+        "cleanGeneric": "LAMIVUDINE",
+        "form": "comprimÃ© pelliculÃ©",
+        "confidence": 0.98,
+        "method": "princeps_canonical"
+      },
+      {
+        "cis_code": "62170486",
+        "original": "ABACAVIR/LAMIVUDINE MYLAN 600 mg/300 mg, comprimÃ© pelliculÃ©",
+        "cleanBrand": "ABACAVIR/LAMIVUDINE MYLAN 600 mg/300 mg",
+        "cleanGeneric": "LAMIVUDINE",
+        "form": "comprimÃ© pelliculÃ©",
+        "confidence": 0.98,
+        "method": "princeps_canonical"
+      },
+      {
+        "cis_code": "67720261",
+        "original": "ABACAVIR/LAMIVUDINE SANDOZ 600 mg/300 mg, comprimÃ© pelliculÃ©",
+        "cleanBrand": "ABACAVIR/LAMIVUDINE SANDOZ 600 mg/300 mg",
+        "cleanGeneric": "LAMIVUDINE",
+        "form": "comprimÃ© pelliculÃ©",
+        "confidence": 0.98,
+        "method": "princeps_canonical"
+      },
+      {
+        "cis_code": "65857902",
+        "original": "ABACAVIR/LAMIVUDINE TEVA 600 mg/300 mg, comprimÃ© pelliculÃ©",
+        "cleanBrand": "ABACAVIR/LAMIVUDINE TEVA 600 mg/300 mg",
+        "cleanGeneric": "LAMIVUDINE",
+        "form": "comprimÃ© pelliculÃ©",
+        "confidence": 0.98,
+        "method": "princeps_canonical"
+      },
+      {
+        "cis_code": "67567004",
+        "original": "ABACAVIR/LAMIVUDINE VIATRIS 600 mg/300 mg, comprimÃ© pelliculÃ©",
+        "cleanBrand": "ABACAVIR/LAMIVUDINE VIATRIS 600 mg/300 mg",
+        "cleanGeneric": "LAMIVUDINE",
+        "form": "comprimÃ© pelliculÃ©",
+        "confidence": 0.98,
+        "method": "princeps_canonical"
+      },
+      {
+        "cis_code": "62202005",
+        "original": "ABACAVIR/LAMIVUDINE ZENTIVA 600 mg/300 mg, comprimÃ© pelliculÃ©",
+        "cleanBrand": "ABACAVIR/LAMIVUDINE ZENTIVA 600 mg/300 mg",
+        "cleanGeneric": "LAMIVUDINE",
+        "form": "comprimÃ© pelliculÃ©",
+        "confidence": 0.98,
+        "method": "princeps_canonical"
+      }
+    ]
+  },
+  {
+    "strategy": "comma_split",
+    "total": 500,
+    "success": 500,
+    "failed": 0,
+    "avgConfidence": 0.798200000000007,
+    "samples": [
+      {
+        "cis_code": "61266250",
+        "original": "A 313 200 000 UI POUR CENT, pommade",
+        "cleanBrand": "A 313 200 000 UI POUR CENT",
+        "cleanGeneric": "A 313 200 000 UI POUR CENT",
+        "form": "pommade",
+        "confidence": 0.8,
+        "method": "comma_split"
+      },
+      {
+        "cis_code": "62869109",
+        "original": "A 313 50 000 U.I., capsule molle",
+        "cleanBrand": "A 313 50 000 U.I.",
+        "cleanGeneric": "A 313 50 000 U.I.",
+        "form": "capsule molle",
+        "confidence": 0.8,
+        "method": "comma_split"
+      },
+      {
+        "cis_code": "69103878",
+        "original": "A.D.N. BOIRON, degrÃ© de dilution compris entre 4CH et 30CH ou entre 8DH et 60DH",
+        "cleanBrand": "A.D.N. BOIRON",
+        "cleanGeneric": "A.D.N. BOIRON",
+        "form": "degrÃ© de dilution compris entre 4CH et 30CH ou entre 8DH et 60DH",
+        "confidence": 0.8,
+        "method": "comma_split"
+      },
+      {
+        "cis_code": "61876780",
+        "original": "ABACAVIR ARROW 300 mg, comprimÃ© pelliculÃ© sÃ©cable",
+        "cleanBrand": "ABACAVIR ARROW 300 mg",
+        "cleanGeneric": "ABACAVIR ARROW 300 mg",
+        "form": "comprimÃ© pelliculÃ© sÃ©cable",
+        "confidence": 0.8,
+        "method": "comma_split"
+      },
+      {
+        "cis_code": "63797011",
+        "original": "ABACAVIR SANDOZ 300 mg, comprimÃ© pelliculÃ© sÃ©cable",
+        "cleanBrand": "ABACAVIR SANDOZ 300 mg",
+        "cleanGeneric": "ABACAVIR SANDOZ 300 mg",
+        "form": "comprimÃ© pelliculÃ© sÃ©cable",
+        "confidence": 0.8,
+        "method": "comma_split"
+      },
+      {
+        "cis_code": "62401060",
+        "original": "ABACAVIR VIATRIS 300 mg, comprimÃ© pelliculÃ© sÃ©cable",
+        "cleanBrand": "ABACAVIR VIATRIS 300 mg",
+        "cleanGeneric": "ABACAVIR VIATRIS 300 mg",
+        "form": "comprimÃ© pelliculÃ© sÃ©cable",
+        "confidence": 0.8,
+        "method": "comma_split"
+      },
+      {
+        "cis_code": "68257528",
+        "original": "ABACAVIR/LAMIVUDINE ACCORD 600 mg/300 mg, comprimÃ© pelliculÃ©",
+        "cleanBrand": "ABACAVIR/LAMIVUDINE ACCORD 600 mg/300 mg",
+        "cleanGeneric": "ABACAVIR/LAMIVUDINE ACCORD 600 mg/300 mg",
+        "form": "comprimÃ© pelliculÃ©",
+        "confidence": 0.8,
+        "method": "comma_split"
+      },
+      {
+        "cis_code": "62828870",
+        "original": "ABACAVIR/LAMIVUDINE ARROW 600 mg/300 mg, comprimÃ© pelliculÃ©",
+        "cleanBrand": "ABACAVIR/LAMIVUDINE ARROW 600 mg/300 mg",
+        "cleanGeneric": "ABACAVIR/LAMIVUDINE ARROW 600 mg/300 mg",
+        "form": "comprimÃ© pelliculÃ©",
+        "confidence": 0.8,
+        "method": "comma_split"
+      },
+      {
+        "cis_code": "63431640",
+        "original": "ABACAVIR/LAMIVUDINE BIOGARAN 600 mg/300 mg, comprimÃ© pelliculÃ©",
+        "cleanBrand": "ABACAVIR/LAMIVUDINE BIOGARAN 600 mg/300 mg",
+        "cleanGeneric": "ABACAVIR/LAMIVUDINE BIOGARAN 600 mg/300 mg",
+        "form": "comprimÃ© pelliculÃ©",
+        "confidence": 0.8,
+        "method": "comma_split"
+      },
+      {
+        "cis_code": "65196479",
+        "original": "ABACAVIR/LAMIVUDINE EG 600 mg/300 mg, comprimÃ© pelliculÃ©",
+        "cleanBrand": "ABACAVIR/LAMIVUDINE EG 600 mg/300 mg",
+        "cleanGeneric": "ABACAVIR/LAMIVUDINE EG 600 mg/300 mg",
+        "form": "comprimÃ© pelliculÃ©",
+        "confidence": 0.8,
+        "method": "comma_split"
+      },
+      {
+        "cis_code": "62170486",
+        "original": "ABACAVIR/LAMIVUDINE MYLAN 600 mg/300 mg, comprimÃ© pelliculÃ©",
+        "cleanBrand": "ABACAVIR/LAMIVUDINE MYLAN 600 mg/300 mg",
+        "cleanGeneric": "ABACAVIR/LAMIVUDINE MYLAN 600 mg/300 mg",
+        "form": "comprimÃ© pelliculÃ©",
+        "confidence": 0.8,
+        "method": "comma_split"
+      },
+      {
+        "cis_code": "67720261",
+        "original": "ABACAVIR/LAMIVUDINE SANDOZ 600 mg/300 mg, comprimÃ© pelliculÃ©",
+        "cleanBrand": "ABACAVIR/LAMIVUDINE SANDOZ 600 mg/300 mg",
+        "cleanGeneric": "ABACAVIR/LAMIVUDINE SANDOZ 600 mg/300 mg",
+        "form": "comprimÃ© pelliculÃ©",
+        "confidence": 0.8,
+        "method": "comma_split"
+      },
+      {
+        "cis_code": "65857902",
+        "original": "ABACAVIR/LAMIVUDINE TEVA 600 mg/300 mg, comprimÃ© pelliculÃ©",
+        "cleanBrand": "ABACAVIR/LAMIVUDINE TEVA 600 mg/300 mg",
+        "cleanGeneric": "ABACAVIR/LAMIVUDINE TEVA 600 mg/300 mg",
+        "form": "comprimÃ© pelliculÃ©",
+        "confidence": 0.8,
+        "method": "comma_split"
+      },
+      {
+        "cis_code": "67567004",
+        "original": "ABACAVIR/LAMIVUDINE VIATRIS 600 mg/300 mg, comprimÃ© pelliculÃ©",
+        "cleanBrand": "ABACAVIR/LAMIVUDINE VIATRIS 600 mg/300 mg",
+        "cleanGeneric": "ABACAVIR/LAMIVUDINE VIATRIS 600 mg/300 mg",
+        "form": "comprimÃ© pelliculÃ©",
+        "confidence": 0.8,
+        "method": "comma_split"
+      },
+      {
+        "cis_code": "62202005",
+        "original": "ABACAVIR/LAMIVUDINE ZENTIVA 600 mg/300 mg, comprimÃ© pelliculÃ©",
+        "cleanBrand": "ABACAVIR/LAMIVUDINE ZENTIVA 600 mg/300 mg",
+        "cleanGeneric": "ABACAVIR/LAMIVUDINE ZENTIVA 600 mg/300 mg",
+        "form": "comprimÃ© pelliculÃ©",
+        "confidence": 0.8,
+        "method": "comma_split"
+      }
+    ]
+  }
+]

@@ -5,6 +5,7 @@ import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/formatters.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/product_badges.dart';
+import 'package:pharma_scan/core/widgets/ui_kit/stat_chip.dart';
 import 'package:pharma_scan/core/domain/entities/group_detail_entity.dart';
 import 'package:pharma_scan/core/domain/extensions/medication_status_extensions.dart';
 import 'package:pharma_scan/features/explorer/domain/extensions/view_group_detail_extensions.dart';
@@ -44,14 +45,12 @@ class PrincepsHeroCard extends StatelessWidget {
         borderRadius: theme.radius,
       ),
       child: ShadCard(
-        padding: const EdgeInsets.all(16),
+        padding: const .all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (isFallbackGeneric) ...[
-              ShadBadge.secondary(
-                child: Text(Strings.heroFallbackGeneric),
-              ),
+              ShadBadge.secondary(child: Text(Strings.heroFallbackGeneric)),
               const Gap(4),
             ],
             Column(
@@ -61,7 +60,7 @@ class PrincepsHeroCard extends StatelessWidget {
                   princeps.displayName,
                   style: theme.textTheme.h3.copyWith(
                     color: theme.colorScheme.foreground,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: .w700,
                   ),
                   softWrap: true,
                 ),
@@ -77,7 +76,7 @@ class PrincepsHeroCard extends StatelessWidget {
                   '${Strings.laboratoryLabel}: $labDisplay',
                   style: theme.textTheme.small.copyWith(
                     color: theme.colorScheme.mutedForeground,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: .w600,
                   ),
                   softWrap: true,
                 ),
@@ -92,8 +91,7 @@ class PrincepsHeroCard extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: _buildStatChip(
-                    context,
+                  child: StatChip(
                     label: Strings.priceShort,
                     value: priceText,
                     icon: LucideIcons.banknote,
@@ -101,8 +99,7 @@ class PrincepsHeroCard extends StatelessWidget {
                 ),
                 const Gap(12),
                 Expanded(
-                  child: _buildStatChip(
-                    context,
+                  child: StatChip(
                     label: Strings.refundShort,
                     value: refundText,
                     icon: LucideIcons.percent,
@@ -135,44 +132,6 @@ class PrincepsHeroCard extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildStatChip(
-    BuildContext context, {
-    required String label,
-    required String value,
-    required IconData icon,
-  }) {
-    final theme = context.shadTheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 12,
-        vertical: 4,
-      ),
-      decoration: BoxDecoration(
-        borderRadius: theme.radius,
-        border: Border.all(color: theme.colorScheme.border),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            icon,
-            size: 14,
-            color: theme.colorScheme.mutedForeground,
-          ),
-          const Gap(6),
-          Expanded(
-            child: Text(
-              value,
-              style: theme.textTheme.small.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-              softWrap: true,
-            ),
-          ),
-        ],
       ),
     );
   }

@@ -1,0 +1,71 @@
+{
+  "description": "Explorer list cluster view - Multiple products grouped by chemical composition",
+  "backend_source": {
+    "table": "cluster_index",
+    "cluster_id": "PARACETAMOL_500",
+    "representative_cis": "60231100"
+  },
+  "expected_android_ui": {
+    "explorer_screen": {
+      "cluster_card": {
+        "title": "PARACÉTAMOL",
+        "subtitle": "Doliprane, Efferalgan, Dafalgan...",
+        "product_count_badge": "47 médicaments",
+        "princeps_indicator": true
+      },
+      "list_item": {
+        "display_text": "PARACÉTAMOL (47)",
+        "secondary_text": "Doliprane, Paracétamol Biogaran...",
+        "has_warning": false
+      }
+    },
+    "cluster_detail_screen": {
+      "title": "PARACÉTAMOL",
+      "princeps_highlight": {
+        "name": "DOLIPRANE",
+        "brand": "Doliprane",
+        "is_reference": true
+      },
+      "generics_list": [
+        {
+          "name": "PARACÉTAMOL BIOGARAN",
+          "price": "1,89 €",
+          "form": "Comprimé"
+        },
+        {
+          "name": "EFFERALGAN 500mg",
+          "price": "3,20 €",
+          "form": "Comprimé effervescent"
+        }
+      ]
+    }
+  },
+  "backend_columns": {
+    "cluster_index": {
+      "cluster_id": "PARACETAMOL_500",
+      "title": "PARACÉTAMOL",
+      "subtitle": "Doliprane, Efferalgan, Dafalgan et 44 autres",
+      "count_products": 47,
+      "search_vector": "paracetamol doliprane efferalgan dafalgan 500mg comprime"
+    },
+    "ui_explorer_list": {
+      "cluster_id": "PARACETAMOL_500",
+      "title": "PARACÉTAMOL",
+      "subtitle": "Analgésique - Antipyrétique",
+      "is_narcotic": 0,
+      "variant_count": 47
+    }
+  },
+  "medicament_detail": [
+    {
+      "cis_code": "60231100",
+      "nom_complet": "DOLIPRANE 500MG CPR",
+      "is_princeps": 1
+    },
+    {
+      "cis_code": "61244250",
+      "nom_complet": "PARACETAMOL BIOGARAN 500MG CPR",
+      "is_princeps": 0
+    }
+  ]
+}

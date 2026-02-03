@@ -8,7 +8,7 @@ import 'package:pharma_scan/core/domain/types/ids.dart';
 import 'package:pharma_scan/core/models/scan_models.dart';
 import 'package:pharma_scan/features/scanner/domain/logic/scan_orchestrator.dart';
 import 'package:pharma_scan/features/scanner/domain/logic/scan_traffic_control.dart';
-import 'package:pharma_scan/features/scanner/domain/scanner_mode.dart';
+import 'package:pharma_scan/core/domain/types/scanner_mode.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 // Mocks

@@ -1,5 +1,19 @@
 import 'package:flutter/material.dart';
 
+import 'package:pharma_scan/core/config/app_config.dart' as config;
+
+/// Semantic color constants for brand-specific colors
+/// These define the app's semantic color palette for status and feedback
+abstract final class _SemanticColorTokens {
+  static const surfacePositive = Color(0xFFE6F4EA);
+  static const surfaceWarning = Color(0xFFFFF4E6);
+  static const surfaceNegative = Color(0xFFFCE8E6);
+  static const surfaceInfo = Color(0xFFE8F0FE);
+  static const textPositive = Color(0xFF137333);
+  static const textWarning = Color(0xFFBF5700);
+  static const textNegative = Color(0xFFC5221F);
+}
+
 /// Extension pour accéder aux couleurs sémantiques
 extension SemanticColors on BuildContext {
   // Couleurs de fond
@@ -7,19 +21,19 @@ extension SemanticColors on BuildContext {
   Color get surfaceSecondary =>
       Theme.of(this).colorScheme.surfaceContainerHighest;
   Color get surfaceTertiary => Theme.of(this).colorScheme.inverseSurface;
-  Color get surfacePositive => const Color(0xFFE6F4EA); // Vert pâle
-  Color get surfaceWarning => const Color(0xFFFFF4E6); // Orange pâle
-  Color get surfaceNegative => const Color(0xFFFCE8E6); // Rouge pâle
-  Color get surfaceInfo => const Color(0xFFE8F0FE); // Bleu pâle
+  Color get surfacePositive => _SemanticColorTokens.surfacePositive;
+  Color get surfaceWarning => _SemanticColorTokens.surfaceWarning;
+  Color get surfaceNegative => _SemanticColorTokens.surfaceNegative;
+  Color get surfaceInfo => _SemanticColorTokens.surfaceInfo;
 
   // Couleurs de texte
   Color get textPrimary => Theme.of(this).colorScheme.onSurface;
   Color get textSecondary => Theme.of(this).colorScheme.onSurfaceVariant;
   Color get textMuted =>
       Theme.of(this).colorScheme.onSurface.withValues(alpha: 0.6);
-  Color get textPositive => const Color(0xFF137333); // Vert foncé
-  Color get textWarning => const Color(0xFFBF5700); // Orange foncé
-  Color get textNegative => const Color(0xFFC5221F); // Rouge foncé
+  Color get textPositive => _SemanticColorTokens.textPositive;
+  Color get textWarning => _SemanticColorTokens.textWarning;
+  Color get textNegative => _SemanticColorTokens.textNegative;
   Color get textOnPositive => Colors.white;
   Color get textOnNegative => Colors.white;
 
@@ -36,34 +50,34 @@ extension SemanticColors on BuildContext {
 
 /// Extension pour accéder aux rayons de bord arrondi
 extension BorderRadiusTokens on BuildContext {
-  BorderRadius get radiusSmall => BorderRadius.circular(4.0);
-  BorderRadius get radiusMedium => BorderRadius.circular(8.0);
-  BorderRadius get radiusLarge => BorderRadius.circular(12.0);
-  BorderRadius get radiusXLarge => BorderRadius.circular(16.0);
-  BorderRadius get radiusFull => BorderRadius.circular(9999.0);
+  BorderRadius get radiusSmall => .circular(4.0);
+  BorderRadius get radiusMedium => .circular(8.0);
+  BorderRadius get radiusLarge => .circular(12.0);
+  BorderRadius get radiusXLarge => .circular(16.0);
+  BorderRadius get radiusFull => .circular(config.UiSizes.radiusFull);
 }
 
 /// Extension pour accéder aux ombres
 extension ShadowTokens on BuildContext {
   List<BoxShadow> get shadowLight => [
-        BoxShadow(
-          color: Colors.black.withValues(alpha: 0.05),
-          blurRadius: 4,
-          offset: const Offset(0, 2),
-        ),
-      ];
+    BoxShadow(
+      color: Theme.of(this).colorScheme.surface.withValues(alpha: 0.1),
+      blurRadius: 4,
+      offset: const Offset(0, 2),
+    ),
+  ];
   List<BoxShadow> get shadowMedium => [
-        BoxShadow(
-          color: Colors.black.withValues(alpha: 0.1),
-          blurRadius: 8,
-          offset: const Offset(0, 4),
-        ),
-      ];
+    BoxShadow(
+      color: Theme.of(this).colorScheme.surface.withValues(alpha: 0.1),
+      blurRadius: 8,
+      offset: const Offset(0, 4),
+    ),
+  ];
   List<BoxShadow> get shadowHeavy => [
-        BoxShadow(
-          color: Colors.black.withValues(alpha: 0.15),
-          blurRadius: 16,
-          offset: const Offset(0, 8),
-        ),
-      ];
+    BoxShadow(
+      color: Theme.of(this).colorScheme.surface.withValues(alpha: 0.15),
+      blurRadius: 16,
+      offset: const Offset(0, 8),
+    ),
+  ];
 }

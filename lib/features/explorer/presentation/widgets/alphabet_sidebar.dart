@@ -2,9 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
 
-class AlphabetSidebar extends StatefulWidget {
+class AlphabetSidebar extends HookWidget {
   const AlphabetSidebar({
     required this.onLetterChanged,
     super.key,
@@ -40,57 +41,51 @@ class AlphabetSidebar extends StatefulWidget {
   final ValueChanged<String> onLetterChanged;
 
   @override
-  State<AlphabetSidebar> createState() => _AlphabetSidebarState();
-}
-
-class _AlphabetSidebarState extends State<AlphabetSidebar> {
-  int? _selectedIndex;
-  final GlobalKey _key = GlobalKey();
-
-  void _handleEvent(Offset localPosition, double totalHeight) {
-    final itemHeight = totalHeight / widget.letters.length;
-    final index = (localPosition.dy / itemHeight).floor();
-
-    if (index >= 0 &&
-        index < widget.letters.length &&
-        index != _selectedIndex) {
-      setState(() => _selectedIndex = index);
-      widget.onLetterChanged(widget.letters[index]);
-      unawaited(HapticFeedback.selectionClick());
-    }
-  }
-
-  void _clearSelection() {
-    setState(() => _selectedIndex = null);
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final selectedIndex = useState<int?>(null);
+    final key = useMemoized(GlobalKey.new);
     final theme = context.shadTheme;
     final primaryColor = theme.colorScheme.primary;
+
+    void handleEvent(Offset localPosition, double totalHeight) {
+      final itemHeight = totalHeight / letters.length;
+      final index = (localPosition.dy / itemHeight).floor();
+
+      if (index >= 0 &&
+          index < letters.length &&
+          index != selectedIndex.value) {
+        selectedIndex.value = index;
+        onLetterChanged(letters[index]);
+        unawaited(HapticFeedback.selectionClick());
+      }
+    }
+
+    void clearSelection() {
+      selectedIndex.value = null;
+    }
 
     return Align(
       alignment: Alignment.centerRight,
       child: GestureDetector(
-        onVerticalDragDown: (details) => _handleEvent(
+        onVerticalDragDown: (details) => handleEvent(
           details.localPosition,
-          _key.currentContext!.size!.height,
+          key.currentContext!.size!.height,
         ),
-        onVerticalDragUpdate: (details) => _handleEvent(
+        onVerticalDragUpdate: (details) => handleEvent(
           details.localPosition,
-          _key.currentContext!.size!.height,
+          key.currentContext!.size!.height,
         ),
-        onVerticalDragEnd: (_) => _clearSelection(),
-        onVerticalDragCancel: _clearSelection,
-        onTapUp: (_) => _clearSelection(),
-        onTapDown: (details) => _handleEvent(
+        onVerticalDragEnd: (_) => clearSelection(),
+        onVerticalDragCancel: clearSelection,
+        onTapUp: (_) => clearSelection(),
+        onTapDown: (details) => handleEvent(
           details.localPosition,
-          _key.currentContext!.size!.height,
+          key.currentContext!.size!.height,
         ),
         child: Container(
-          key: _key,
-          color: Colors.transparent,
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 20),
+          key: key,
+          color: context.colors.background.withValues(alpha: 0),
+          padding: const .symmetric(horizontal: 8, vertical: 20),
           width: 48,
           child: LayoutBuilder(
             builder: (context, constraints) {
@@ -98,12 +93,12 @@ class _AlphabetSidebarState extends State<AlphabetSidebar> {
                 clipBehavior: Clip.none,
                 alignment: Alignment.centerRight,
                 children: [
-                  if (_selectedIndex != null)
+                  if (selectedIndex.value != null)
                     Positioned(
                       right: 45,
                       top:
-                          (_selectedIndex! *
-                              (constraints.maxHeight / widget.letters.length)) -
+                          (selectedIndex.value! *
+                              (constraints.maxHeight / letters.length)) -
                           32,
                       child: Container(
                         width: 64,
@@ -114,34 +109,34 @@ class _AlphabetSidebarState extends State<AlphabetSidebar> {
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.2),
+                              color: theme.colorScheme.foreground.withValues(
+                                alpha: 0.2,
+                              ),
                               blurRadius: 10,
-                              offset: const Offset(0, 4),
+                              offset: const .new(0, 4),
                             ),
                           ],
                         ),
                         child: Text(
-                          widget.letters[_selectedIndex!],
+                          letters[selectedIndex.value!],
                           style: theme.textTheme.h2.copyWith(
                             color: theme.colorScheme.primaryForeground,
-                            fontWeight: FontWeight.bold,
+                            fontWeight: .bold,
                           ),
                         ),
                       ),
                     ),
                   Column(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: widget.letters.asMap().entries.map((entry) {
-                      final isSelected = entry.key == _selectedIndex;
+                    children: letters.asMap().entries.map((entry) {
+                      final isSelected = entry.key == selectedIndex.value;
                       return Expanded(
                         child: Center(
                           child: Text(
                             entry.value,
                             style: theme.textTheme.small.copyWith(
                               fontSize: 12,
-                              fontWeight: isSelected
-                                  ? FontWeight.w800
-                                  : FontWeight.w600,
+                              fontWeight: isSelected ? .w800 : .w600,
                               color: isSelected
                                   ? primaryColor
                                   : theme.colorScheme.mutedForeground,

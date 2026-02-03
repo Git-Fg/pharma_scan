@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/services.dart';
+import 'package:pharma_scan/core/config/app_config.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'haptic_service.g.dart';
@@ -25,14 +26,14 @@ class HapticService {
   Future<void> restockSuccess() async {
     if (!_enabled) return;
     await HapticFeedback.mediumImpact();
-    await Future<void>.delayed(const Duration(milliseconds: 120));
+    await Future<void>.delayed(AppConfig.mediumHaptic);
     await HapticFeedback.mediumImpact();
   }
 
   Future<void> duplicate() async {
     if (!_enabled) return;
     await HapticFeedback.heavyImpact();
-    await Future<void>.delayed(const Duration(milliseconds: 140));
+    await Future<void>.delayed(AppConfig.heavyHaptic);
     await HapticFeedback.heavyImpact();
   }
 
@@ -72,7 +73,7 @@ class HapticService {
   Future<void> deleteImpact() async {
     if (!_enabled) return;
     await HapticFeedback.heavyImpact();
-    await Future<void>.delayed(const Duration(milliseconds: 80));
+    await Future<void>.delayed(AppConfig.lightHaptic);
     await HapticFeedback.heavyImpact();
   }
 

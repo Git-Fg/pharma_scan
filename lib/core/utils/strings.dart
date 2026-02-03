@@ -497,8 +497,9 @@ class Strings {
     String molecule, {
     required bool hasGenerics,
   }) {
-    final genericsText =
-        hasGenerics ? 'Génériques disponibles' : 'Aucun générique';
+    final genericsText = hasGenerics
+        ? 'Génériques disponibles'
+        : 'Aucun générique';
     return 'Princeps: $name. PA: $molecule. $genericsText';
   }
 
@@ -545,8 +546,7 @@ class Strings {
   static const String restockCopiedTitle = 'Copié !';
   static const String restockCopiedDescription =
       'Format commande prêt à coller.';
-  static String restockSubtitlePrinceps(String princeps) =>
-      'Ranger avec : $princeps';
+  static String restockSubtitlePrinceps(String princeps) => princeps;
   static const String itemDeleted = 'Élément supprimé';
 
   static String genericSummaryItem(String name, int count) {
@@ -648,4 +648,15 @@ class Strings {
   static const String copiedToClipboard = 'Copié dans le presse-papiers';
   static const String copyCipLabel = 'Copier le code CIP';
   static const String copyNameLabel = 'Copier le nom du médicament';
+
+  // Add Restock Item
+  static const String restockAddItemTitle = 'Ajouter un produit';
+  static const String restockAddByCip = 'Par CIP';
+  static const String restockAddBySearch = 'Recherche';
+  static const String restockAddManual = 'Manuel';
+  static const String restockPrincepsField = 'Nom Princeps (ex: Doliprane)';
+  static const String restockGenericField = 'Nom Générique (ex: Paracétamol)';
+  static const String restockAddButton = 'Ajouter à la liste';
+  static const String restockMandatory = 'Obligatoire';
+  static const String restockRecommended = 'Recommandé';
 }

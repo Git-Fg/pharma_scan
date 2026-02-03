@@ -79,15 +79,14 @@ tool/report/
 .pytest_cache
 backend_pipeline/output/
 backend_pipeline/.venv/
-backend_pipeline/__pycache__/  
+backend_pipeline/__pycache__/
 backend_pipeline/uv.lock
 backend_pipeline/data
 test/assets/golden.db
 
-# AO
-.claude
-.cursor
-CLAUDE.md
+# Generated database code
+lib/core/database/generated/*.dart
+!lib/core/database/generated/.gitkeep
 
 test-results.json
 
@@ -95,31 +94,3 @@ reports
 coverage
 
 assets/test/reference.db
-
-# AI
-
-.agent
-.geminiignore
-.mcp.json
-.rooignore
-AGENTS.md
-CLAUDE.md
-QWEN.md
-credentials/
-.agent
-.agents
-.claude
-.github/agents
-.github/prompts
-.github/instructions
-.github/subagents
-.github/copilot-instructions.md
-.roo
-.vscode/mcp.json
-AGENTS.md
-CLAUDE.md
-QWEN.md
-.rooignore
-.geminiignore
-.qwen
-AGENTS.md

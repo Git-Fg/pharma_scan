@@ -52,7 +52,9 @@ WHERE ugd.group_id != :targetGroupId
   AND ms.principes_actifs_communs IS NOT NULL
   AND ms.principes_actifs_communs != '[]'
   AND ms.principes_actifs_communs != ''
+  AND json_valid(ms.principes_actifs_communs)
   AND json_array_length(ms.principes_actifs_communs) > :targetLength
+  AND json_valid(:targetPrinciples)
   AND NOT EXISTS (
     SELECT 1
     FROM json_each(:targetPrinciples) as target

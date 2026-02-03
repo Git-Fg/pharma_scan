@@ -11,3 +11,6 @@ class DatabaseScreen extends StatelessWidget {
     return const DatabaseSearchView();
   }
 }
+
+// Note: The database title heading is implemented in DatabaseSearchView
+// as this screen is a simple wrapper that delegates to that view.

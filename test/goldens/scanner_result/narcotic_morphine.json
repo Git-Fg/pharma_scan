@@ -1,0 +1,53 @@
+{
+  "description": "Morphine - Narcotic with warning indicators",
+  "backend_source": {
+    "table": "product_scan_cache",
+    "cip_code": "3400930206118",
+    "cis_code": "60315100"
+  },
+  "expected_android_ui": {
+    "scanner_result_screen": {
+      "title": "MORPHINE",
+      "subtitle": "Morphine chlorhydrate 10mg/ml",
+      "badge": {
+        "text": "PRINCEPS",
+        "type": "success",
+        "color": "#0F766E"
+      },
+      "form_display": "Solution injectable",
+      "price": null,
+      "laboratory": "AGUETTANT",
+      "warning_icons": [
+        {
+          "type": "narcotic",
+          "icon": "shield_alert",
+          "color": "#DC2626",
+          "tooltip": "Stupéfiant - Réglementation stricte"
+        },
+        {
+          "type": "list1",
+          "icon": "file_warning",
+          "color": "#F59E0B",
+          "tooltip": "Liste I - Prescription restreinte"
+        }
+      ],
+      "conditions_prescription": "Prescription hospitalière",
+      "availability": "Commercialisé"
+    }
+  },
+  "backend_columns": {
+    "product_scan_cache": {
+      "nom_canonique": "MORPHINE AGUETTANT",
+      "princeps_de_reference": "MORPHINE",
+      "princeps_brand_name": "Morphine",
+      "is_princeps": 1,
+      "is_narcotic": 1,
+      "is_list1": 1,
+      "is_list2": 0,
+      "forme_pharmaceutique": "solution injectable",
+      "prix_public": null,
+      "lab_name": "AGUETTANT",
+      "conditions_prescription": "Prescription hospitalière"
+    }
+  }
+}

@@ -2,7 +2,7 @@
 ///
 /// Provides type safety for medication commercialization status strings from the database.
 /// This eliminates string matching throughout the codebase and ensures type safety.
-extension type CommercializationStatus(String _value) {
+extension type CommercializationStatus(String _value) implements String {
   /// Creates a commercialization status from a raw database string
   ///
   /// Parses common variations and normalizes them to a known set of values.

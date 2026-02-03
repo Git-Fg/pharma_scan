@@ -1,0 +1,67 @@
+🔍 Scanning for Architectural Violations...
+⚠️ Found 16 potential violations:
+
+[architecture_layering] ./lib/core/widgets/scaffold_shell.dart:11
+   Code: import 'package:pharma_scan/features/home/widgets/unified_activity_banner.dart';
+   Hint: Core cannot import Features. Features cannot import other Features.
+
+[architecture_layering] ./lib/core/widgets/scaffold_shell.dart:12
+   Code: import 'package:pharma_scan/features/home/viewmodels/activity_banner_viewmodel.dart';
+   Hint: Core cannot import Features. Features cannot import other Features.
+
+[dot_shorthands] ./lib/core/widgets/scaffold_shell.dart:71
+   Code: preferredSize: const Size.fromHeight(56),
+   Hint: Missing dot-shorthands for common types (BorderRadius, Colors, FontWeight, Offset).
+
+[dot_shorthands] ./lib/features/settings/screens/settings_screen.dart:839
+   Code: borderRadius: BorderRadius.circular(999),
+   Hint: Missing dot-shorthands for common types (BorderRadius, Colors, FontWeight, Offset).
+
+[dot_shorthands] ./lib/features/settings/screens/settings_screen.dart:878
+   Code: borderRadius: BorderRadius.circular(999),
+   Hint: Missing dot-shorthands for common types (BorderRadius, Colors, FontWeight, Offset).
+
+[dot_shorthands] ./lib/features/home/widgets/unified_activity_banner.dart:72
+   Code: padding: EdgeInsets.fromLTRB(
+   Hint: Missing dot-shorthands for common types (BorderRadius, Colors, FontWeight, Offset).
+
+[dot_shorthands] ./lib/features/home/widgets/unified_activity_banner.dart:110
+   Code: borderRadius: BorderRadius.circular(999),
+   Hint: Missing dot-shorthands for common types (BorderRadius, Colors, FontWeight, Offset).
+
+[dot_shorthands] ./lib/features/explorer/presentation/screens/database_search_view.dart:108
+   Code: padding: const EdgeInsets.only(bottom: 100),
+   Hint: Missing dot-shorthands for common types (BorderRadius, Colors, FontWeight, Offset).
+
+[dot_shorthands] ./lib/features/explorer/presentation/screens/database_search_view.dart:144
+   Code: padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+   Hint: Missing dot-shorthands for common types (BorderRadius, Colors, FontWeight, Offset).
+
+[dot_shorthands] ./lib/features/explorer/presentation/screens/database_search_view.dart:192
+   Code: padding: EdgeInsets.only(
+   Hint: Missing dot-shorthands for common types (BorderRadius, Colors, FontWeight, Offset).
+
+[dot_shorthands] ./lib/features/explorer/presentation/widgets/medication_detail_sheet.dart:187
+   Code: padding: const EdgeInsets.all(16),
+   Hint: Missing dot-shorthands for common types (BorderRadius, Colors, FontWeight, Offset).
+
+[dot_shorthands] ./lib/features/explorer/presentation/widgets/group_detail/group_header.dart:191
+   Code: fontWeight: FontWeight.w600,
+   Hint: Missing dot-shorthands for common types (BorderRadius, Colors, FontWeight, Offset).
+
+[dot_shorthands] ./lib/features/explorer/presentation/widgets/group_detail/group_actions_bar.dart:37
+   Code: padding: const EdgeInsets.only(top: 16),
+   Hint: Missing dot-shorthands for common types (BorderRadius, Colors, FontWeight, Offset).
+
+[dot_shorthands] ./lib/features/restock/presentation/screens/restock_screen.dart:46
+   Code: padding: EdgeInsets.only(bottom: spacing.xs),
+   Hint: Missing dot-shorthands for common types (BorderRadius, Colors, FontWeight, Offset).
+
+[dot_shorthands] ./lib/features/scanner/presentation/widgets/scanner_bubbles.dart:76
+   Code: padding: EdgeInsets.only(
+   Hint: Missing dot-shorthands for common types (BorderRadius, Colors, FontWeight, Offset).
+
+[design_system_colors] ./lib/features/scanner/presentation/widgets/scan_window_overlay.dart:27
+   Code: final scrimColor = Colors.black.withValues(alpha: 0.3);
+   Hint: Avoid hardcoded Colors. Use context.colors instead.
+

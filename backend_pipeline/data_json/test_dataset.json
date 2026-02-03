@@ -1,0 +1,18 @@
+{
+  "metadata": {
+    "description": "Test dataset for processing strategy validation",
+    "test_cips": [
+      "3400935955838",
+      "3400934809408",
+      "3400931863014",
+      "3400930985830",
+      "3400930234259",
+      "3400949500963"
+    ],
+    "generated_at": "2026-02-03T11:47:24.984Z"
+  },
+  "specialites": [],
+  "presentations": [],
+  "generiques": [],
+  "composition": []
+}

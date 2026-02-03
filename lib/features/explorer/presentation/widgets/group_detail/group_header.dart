@@ -11,10 +11,7 @@ import 'package:pharma_scan/features/explorer/presentation/providers/group_explo
 import 'package:pharma_scan/features/explorer/presentation/widgets/group_detail/group_actions_bar.dart';
 
 class GroupHeader extends StatelessWidget {
-  const GroupHeader({
-    required this.state,
-    super.key,
-  });
+  const GroupHeader({required this.state, super.key});
 
   final GroupExplorerState state;
 
@@ -24,19 +21,14 @@ class GroupHeader extends StatelessWidget {
     final metadataBadges = <Widget>[
       if (state.distinctForms.isNotEmpty)
         ...state.distinctForms.map(
-          (form) => ShadBadge.secondary(
-            child: Text(Strings.formWithValue(form)),
-          ),
+          (form) =>
+              ShadBadge.secondary(child: Text(Strings.formWithValue(form))),
         ),
     ];
     final conditionBadges = state.aggregatedConditions
         .map((condition) => condition.trim())
         .where((condition) => condition.isNotEmpty)
-        .map(
-          (condition) => ShadBadge.outline(
-            child: Text(condition),
-          ),
-        )
+        .map((condition) => ShadBadge.outline(child: Text(condition)))
         .toList();
 
     final firstPrinceps = state.princeps.firstOrNull;
@@ -64,12 +56,7 @@ class GroupHeader extends StatelessWidget {
     final refundValue = state.refundLabel;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        16,
-        12,
-        16,
-        0,
-      ),
+      padding: const .fromLTRB(16, 12, 16, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -92,16 +79,13 @@ class GroupHeader extends StatelessWidget {
           ),
           const Gap(4),
           ShadBadge.outline(
-            child: Text(Strings.summaryLine(
-                state.princeps.length, state.generics.length)),
+            child: Text(
+              Strings.summaryLine(state.princeps.length, state.generics.length),
+            ),
           ),
           if (allBadges.isNotEmpty) ...[
             const Gap(12),
-            Wrap(
-              spacing: 4,
-              runSpacing: 4,
-              children: allBadges,
-            ),
+            Wrap(spacing: 4, runSpacing: 4, children: allBadges),
           ],
           const Gap(12),
           _MetadataTiles(priceLabel: priceLabel, refundValue: refundValue),
@@ -122,10 +106,7 @@ class GroupHeader extends StatelessWidget {
 }
 
 class _MetadataTiles extends StatelessWidget {
-  const _MetadataTiles({
-    required this.priceLabel,
-    required this.refundValue,
-  });
+  const _MetadataTiles({required this.priceLabel, required this.refundValue});
 
   final String priceLabel;
   final String refundValue;
@@ -133,10 +114,7 @@ class _MetadataTiles extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ShadCard(
-      padding: const EdgeInsets.symmetric(
-        vertical: 12,
-        horizontal: 16,
-      ),
+      padding: const .symmetric(vertical: 12, horizontal: 16),
       child: Row(
         children: [
           Expanded(
@@ -161,11 +139,7 @@ class _MetadataTiles extends StatelessWidget {
 }
 
 class _MetadataItem extends StatelessWidget {
-  const _MetadataItem({
-    required this.icon,
-    required this.label,
-    this.value,
-  });
+  const _MetadataItem({required this.icon, required this.label, this.value});
 
   final IconData icon;
   final String label;
@@ -178,21 +152,14 @@ class _MetadataItem extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(
-          icon,
-          size: 18,
-          color: context.colors.mutedForeground,
-        ),
+        Icon(icon, size: 18, color: context.colors.mutedForeground),
         const Gap(12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(label, style: muted),
-              Text(
-                value ?? '',
-                style: textTheme.small,
-              ),
+              Text(value ?? '', style: textTheme.small),
             ],
           ),
         ),
@@ -221,7 +188,7 @@ class _TechnicalInfo extends StatelessWidget {
             Strings.technicalInformation,
             style: theme.textTheme.small.copyWith(
               color: theme.colorScheme.mutedForeground,
-              fontWeight: FontWeight.w600,
+              fontWeight: .w600,
             ),
           ),
           child: Container(
@@ -229,10 +196,7 @@ class _TechnicalInfo extends StatelessWidget {
               border: Border.all(color: theme.colorScheme.border),
               borderRadius: theme.radius,
             ),
-            padding: const EdgeInsets.symmetric(
-              vertical: 12,
-              horizontal: 16,
-            ),
+            padding: const .symmetric(vertical: 12, horizontal: 16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -248,10 +212,7 @@ class _TechnicalInfo extends StatelessWidget {
                     ),
                   ),
                   const Gap(2),
-                  Text(
-                    state.rawLabelAnsm!,
-                    style: theme.textTheme.p,
-                  ),
+                  Text(state.rawLabelAnsm!, style: theme.textTheme.p),
                   const Gap(4),
                 ],
                 if (state.princepsCisReference?.isNotEmpty ?? false) ...[
@@ -262,10 +223,7 @@ class _TechnicalInfo extends StatelessWidget {
                     ),
                   ),
                   const Gap(2),
-                  Text(
-                    state.princepsCisReference!,
-                    style: theme.textTheme.p,
-                  ),
+                  Text(state.princepsCisReference!, style: theme.textTheme.p),
                 ],
               ],
             ),
@@ -275,16 +233,11 @@ class _TechnicalInfo extends StatelessWidget {
     );
   }
 
-  ShadBadge _buildParsingMethodBadge(
-    ShadThemeData theme,
-    String method,
-  ) {
+  ShadBadge _buildParsingMethodBadge(ShadThemeData theme, String method) {
     final label = _parsingMethodLabel(method);
     switch (method) {
       case 'relational':
-        return ShadBadge(
-          child: Text(label, style: theme.textTheme.small),
-        );
+        return ShadBadge(child: Text(label, style: theme.textTheme.small));
       case 'text_split':
         return ShadBadge.outline(
           child: Text(label, style: theme.textTheme.small),
@@ -293,10 +246,7 @@ class _TechnicalInfo extends StatelessWidget {
       case 'fallback':
       default:
         return ShadBadge.secondary(
-          child: Text(
-            label,
-            style: theme.textTheme.small,
-          ),
+          child: Text(label, style: theme.textTheme.small),
         );
     }
   }

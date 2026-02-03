@@ -8,10 +8,7 @@ import 'package:shadcn_ui/shadcn_ui.dart';
 /// Drawer widget to display detailed medication content for a cluster
 /// Uses lazy loading to fetch content only when opened
 class MedicationDrawer extends ConsumerWidget {
-  const MedicationDrawer({
-    required this.clusterId,
-    super.key,
-  });
+  const MedicationDrawer({required this.clusterId, super.key});
 
   final String clusterId;
 
@@ -20,54 +17,41 @@ class MedicationDrawer extends ConsumerWidget {
     final productsAsync = ref.watch(clusterContentProvider(clusterId));
     final spacing = context.spacing;
 
-    return ShadSheet(
-      title: const Text("Détail du groupe"),
-      child: productsAsync.when(
-        loading: () => const Center(
-          child: CircularProgressIndicator(),
-        ),
-        data: (products) => Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: spacing.md,
-            vertical: spacing.md,
-          ),
-          child: ListView.separated(
-            shrinkWrap: true,
-            itemCount: products.length,
-            separatorBuilder: (context, index) => Gap(spacing.xs),
-            itemBuilder: (ctx, idx) {
-              final product = products[idx];
-              return ProductRow(
-                name: product.name,
-                isPrinceps: product.isPrinceps,
-                cisCode: product.cisCode,
-              );
-            },
-          ),
-        ),
-        error: (error, stack) => Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                LucideIcons.triangleAlert,
-                color: context.colors.destructive,
-                size: 48,
+    return productsAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      data: (products) => ListView.separated(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: products.length,
+        separatorBuilder: (context, index) => Gap(spacing.xs),
+        itemBuilder: (ctx, idx) {
+          final product = products[idx];
+          return ProductRow(
+            name: product.name,
+            isPrinceps: product.isPrinceps,
+            cisCode: product.cisCode,
+          );
+        },
+      ),
+      error: (error, stack) => Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              LucideIcons.triangleAlert,
+              color: context.colors.destructive,
+              size: 48,
+            ),
+            Gap(spacing.sm),
+            Text(Strings.errorLoadingCluster, style: context.typo.p),
+            Gap(spacing.xs),
+            Text(
+              error.toString(),
+              style: context.typo.small.copyWith(
+                color: context.colors.mutedForeground,
               ),
-              Gap(spacing.sm),
-              Text(
-                Strings.errorLoadingCluster,
-                style: context.typo.p,
-              ),
-              Gap(spacing.xs),
-              Text(
-                error.toString(),
-                style: context.typo.small.copyWith(
-                  color: context.colors.mutedForeground,
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -91,7 +75,7 @@ class ProductRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final spacing = context.spacing;
     return Container(
-      padding: EdgeInsets.all(spacing.sm),
+      padding: .all(spacing.sm),
       decoration: BoxDecoration(
         color: isPrinceps ? context.colors.secondary : context.colors.card,
         borderRadius: context.shadTheme.radius,
@@ -102,12 +86,7 @@ class ProductRow extends StatelessWidget {
       child: Row(
         children: [
           if (isPrinceps)
-            ShadBadge(
-              child: Text(
-                Strings.princeps,
-                style: context.typo.small,
-              ),
-            ),
+            ShadBadge(child: Text(Strings.princeps, style: context.typo.small)),
           Gap(spacing.xs),
           Expanded(
             child: Text(
@@ -115,7 +94,7 @@ class ProductRow extends StatelessWidget {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: context.typo.p.copyWith(
-                fontWeight: isPrinceps ? FontWeight.w600 : FontWeight.normal,
+                fontWeight: isPrinceps ? .w600 : .normal,
               ),
             ),
           ),

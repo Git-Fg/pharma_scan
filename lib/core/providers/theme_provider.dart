@@ -10,34 +10,34 @@ enum ThemeSetting { system, light, dark }
 
 ThemeSetting themeSettingFromStorage(String? raw) {
   if (raw == null || raw.isEmpty) {
-    return ThemeSetting.system;
+    return .system;
   }
   return ThemeSetting.values.firstWhere(
     (value) => value.name == raw,
-    orElse: () => ThemeSetting.system,
+    orElse: () => .system,
   );
 }
 
 ThemeSetting themeSettingFromThemeMode(ThemeMode mode) {
   switch (mode) {
-    case ThemeMode.light:
-      return ThemeSetting.light;
-    case ThemeMode.dark:
-      return ThemeSetting.dark;
-    case ThemeMode.system:
-      return ThemeSetting.system;
+    case .light:
+      return .light;
+    case .dark:
+      return .dark;
+    case .system:
+      return .system;
   }
 }
 
 extension ThemeSettingMapper on ThemeSetting {
   ThemeMode get asThemeMode {
     switch (this) {
-      case ThemeSetting.light:
-        return ThemeMode.light;
-      case ThemeSetting.dark:
-        return ThemeMode.dark;
-      case ThemeSetting.system:
-        return ThemeMode.system;
+      case .light:
+        return .light;
+      case .dark:
+        return .dark;
+      case .system:
+        return .system;
     }
   }
 }

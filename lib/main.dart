@@ -1,17 +1,20 @@
 import 'dart:async';
 
 import 'package:auto_route/auto_route.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:pharma_scan/core/providers/theme_provider.dart';
 import 'package:pharma_scan/app/router/app_router.dart';
 import 'package:pharma_scan/app/router/router_provider.dart';
-import 'package:pharma_scan/core/services/logger_service.dart';
-import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/providers/initialization_provider.dart';
+import 'package:pharma_scan/core/providers/theme_provider.dart';
 import 'package:pharma_scan/core/services/haptic_service.dart';
+import 'package:pharma_scan/core/services/logger_service.dart';
+import 'package:pharma_scan/core/ui/services/accessibility_service.dart';
+import 'package:pharma_scan/core/ui/theme/brand_colors.dart';
+import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/features/scanner/presentation/providers/scanner_provider.dart';
 import 'package:quick_actions/quick_actions.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
@@ -53,140 +56,142 @@ class PharmaScanApp extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    useEffect(
-      () {
-        unawaited(
-          Future.microtask(() async {
-            await ref.read(initializationProvider.notifier).retry();
-          }),
-        );
-        return null;
-      },
-      [],
-    );
+    useEffect(() {
+      unawaited(
+        Future.microtask(() async {
+          await ref.read(initializationProvider.notifier).retry();
+        }),
+      );
+      return null;
+    }, []);
     final appRouter = ref.watch(appRouterProvider);
     final themeMode = ref.watch(themeProvider);
 
-    useEffect(
-      () {
-        const quickActions = QuickActions();
-        unawaited(
-          quickActions.initialize((type) {
-            switch (type) {
-              case 'action_scan':
-                unawaited(() async {
-                  final navContext =
-                      appRouter.navigatorKey.currentContext ?? context;
-                  // Inlined logic from navigation_helpers to avoid Core -> Feature violation
-                  ref
-                      .read(scannerProvider.notifier)
-                      .setMode(ScannerMode.restock);
-                  try {
-                    AutoTabsRouter.of(navContext).setActiveIndex(0);
-                  } on Object {
-                    // Not inside a tab scaffold
-                  }
-                  await ref.read(hapticServiceProvider).restockSuccess();
-                  await appRouter.navigate(const ScannerTabRoute());
-                }());
-              case 'action_search':
-                unawaited(appRouter.navigate(const ExplorerTabRoute()));
-            }
-          }),
-        );
-        unawaited(
-          quickActions.setShortcutItems(const [
-            ShortcutItem(
-              type: 'action_scan',
-              localizedTitle: Strings.shortcutScanToRestock,
-              icon: 'scan',
-            ),
-            ShortcutItem(
-              type: 'action_search',
-              localizedTitle: Strings.shortcutSearchDatabase,
-              icon: 'search',
-            ),
-          ]),
-        );
-        return null;
-      },
-      [appRouter],
-    );
+    useEffect(() {
+      const quickActions = QuickActions();
+      unawaited(
+        quickActions.initialize((type) {
+          switch (type) {
+            case 'action_scan':
+              unawaited(() async {
+                final navContext =
+                    appRouter.navigatorKey.currentContext ?? context;
+                ref.read(scannerProvider.notifier).setMode(.restock);
+                try {
+                  AutoTabsRouter.of(navContext).setActiveIndex(0);
+                } on Object {
+                  // Not inside a tab scaffold
+                }
+                await ref.read(hapticServiceProvider).restockSuccess();
+                await appRouter.navigate(const ScannerTabRoute());
+              }());
+            case 'action_search':
+              unawaited(appRouter.navigate(const ExplorerTabRoute()));
+          }
+        }),
+      );
+      unawaited(
+        quickActions.setShortcutItems(const [
+          ShortcutItem(
+            type: 'action_scan',
+            localizedTitle: Strings.shortcutScanToRestock,
+            icon: 'scan',
+          ),
+          ShortcutItem(
+            type: 'action_search',
+            localizedTitle: Strings.shortcutSearchDatabase,
+            icon: 'search',
+          ),
+        ]),
+      );
+      return null;
+    }, [appRouter]);
 
-    return ShadApp.custom(
-      themeMode: themeMode,
-      theme: ShadThemeData(
-        brightness: Brightness.light,
-        colorScheme: const ShadGreenColorScheme.light(
-          // ignore: avoid_direct_colors
-          primary: Color(0xFF0F766E),
+    return Semantics(
+      label: Strings.appName,
+      child: ShadApp.custom(
+        themeMode: themeMode,
+        theme: ShadThemeData(
+          brightness: Brightness.light,
+          colorScheme: const ShadGreenColorScheme.light(
+            primary: BrandColors.primaryLight,
+            destructive: Color(0xFFC5221F),
+          ),
+          radius: .circular(12),
+          inputTheme: const ShadInputTheme(
+            padding: .symmetric(horizontal: 16, vertical: 12),
+          ),
+          cardTheme: const ShadCardTheme(padding: .all(16)),
+          primaryButtonTheme: const ShadButtonTheme(
+            height: 56,
+            width: double.infinity,
+          ),
+          primaryToastTheme: const ShadToastTheme(
+            alignment: Alignment.topCenter,
+          ),
+          destructiveToastTheme: const ShadToastTheme(
+            alignment: Alignment.topCenter,
+          ),
         ),
-        // Global radius configuration
-        radius: BorderRadius.circular(12),
-        // Component defaults using AppDimens values for consistency
-        inputTheme: const ShadInputTheme(
-          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        darkTheme: ShadThemeData(
+          brightness: Brightness.dark,
+          colorScheme: const ShadGreenColorScheme.dark(
+            primary: BrandColors.primaryDark,
+            destructive: Color(0xFFF85149),
+          ),
+          radius: .circular(12),
+          inputTheme: const ShadInputTheme(
+            padding: .symmetric(horizontal: 16, vertical: 12),
+          ),
+          cardTheme: const ShadCardTheme(padding: .all(16)),
+          primaryButtonTheme: const ShadButtonTheme(
+            height: 56,
+            width: double.infinity,
+          ),
+          primaryToastTheme: const ShadToastTheme(
+            alignment: Alignment.topCenter,
+          ),
+          destructiveToastTheme: const ShadToastTheme(
+            alignment: Alignment.topCenter,
+          ),
         ),
-        cardTheme: const ShadCardTheme(
-          padding: EdgeInsets.all(16),
-        ),
-        // Set touch target sizes
-        primaryButtonTheme: const ShadButtonTheme(
-          height: 56,
-          width: double.infinity, // Full width by default on mobile
-        ),
-        primaryToastTheme: const ShadToastTheme(
-          alignment: Alignment.topCenter,
-        ),
-        destructiveToastTheme: const ShadToastTheme(
-          alignment: Alignment.topCenter,
-        ),
+        appBuilder: (context) {
+          final mediaQuery = MediaQuery.of(context);
+          final disableAnimations = mediaQuery.disableAnimations;
+
+          return MediaQuery(
+            data: mediaQuery.copyWith(
+              textScaler: AccessibilityService.textScaler(context).clamp(
+                minScaleFactor: AccessibilityService.minTextScaleFactor,
+                maxScaleFactor: AccessibilityService.maxTextScaleFactor,
+              ),
+            ),
+            child: MaterialApp.router(
+              title: Strings.appName,
+              theme: Theme.of(context),
+              darkTheme: Theme.of(context),
+              supportedLocales: const [Locale('fr', '')],
+              localizationsDelegates: const [
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+              ],
+              locale: const Locale('fr', ''),
+              routerConfig: appRouter.config(),
+              builder: (context, child) {
+                return ShadToaster(
+                  child: MediaQuery(
+                    data: MediaQuery.of(
+                      context,
+                    ).copyWith(disableAnimations: disableAnimations),
+                    child: child!,
+                  ),
+                );
+              },
+            ),
+          );
+        },
       ),
-      darkTheme: ShadThemeData(
-        brightness: Brightness.dark,
-        colorScheme: const ShadGreenColorScheme.dark(
-          // ignore: avoid_direct_colors
-          primary: Color(0xFF14B8A6),
-        ),
-        // Global radius configuration
-        radius: BorderRadius.circular(12),
-        // Component defaults using AppDimens values for consistency
-        inputTheme: const ShadInputTheme(
-          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        ),
-        cardTheme: const ShadCardTheme(
-          padding: EdgeInsets.all(16), // spacingMd from AppDimens
-        ),
-        // Set touch target sizes
-        primaryButtonTheme: const ShadButtonTheme(
-          height: 56,
-          width: double.infinity, // Full width by default on mobile
-        ),
-        primaryToastTheme: const ShadToastTheme(
-          alignment: Alignment.topCenter,
-        ),
-        destructiveToastTheme: const ShadToastTheme(
-          alignment: Alignment.topCenter,
-        ),
-      ),
-      appBuilder: (context) {
-        return MaterialApp.router(
-          title: Strings.appName,
-          theme: Theme.of(context),
-          darkTheme: Theme.of(context),
-          supportedLocales: const [Locale('fr', '')],
-          localizationsDelegates: const [
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
-          ],
-          locale: const Locale('fr', ''),
-          routerConfig: appRouter.config(),
-          builder: (context, child) {
-            return ShadToaster(child: child!);
-          },
-        );
-      },
     );
   }
 }

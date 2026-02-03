@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:gap/gap.dart';
+import 'package:pharma_scan/core/config/app_config.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/domain/models/generic_group_entity.dart';
 import 'package:pharma_scan/core/ui/organisms/app_sheet.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
-
-const double _groupHeaderHeight = 108;
 
 class MoleculeGroupTile extends HookWidget {
   const MoleculeGroupTile({
@@ -38,10 +37,7 @@ class MoleculeGroupTile extends HookWidget {
         title: moleculeName,
         child: SingleChildScrollView(
           child: Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: spacing.md,
-              vertical: spacing.md,
-            ),
+            padding: .symmetric(horizontal: spacing.md, vertical: spacing.md),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: sortedGroups
@@ -63,11 +59,9 @@ class MoleculeGroupTile extends HookWidget {
         behavior: HitTestBehavior.opaque,
         onTap: openSheet,
         child: SizedBox(
-          height: _groupHeaderHeight,
+          height: UiSizes.groupHeaderHeight,
           child: Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: spacing.md,
-            ),
+            padding: .symmetric(horizontal: spacing.md),
             child: Row(
               children: [
                 ShadBadge.outline(
@@ -82,9 +76,7 @@ class MoleculeGroupTile extends HookWidget {
                     children: [
                       Text(
                         moleculeName,
-                        style: context.typo.p.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
+                        style: context.typo.p.copyWith(fontWeight: .w600),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -129,8 +121,9 @@ class MoleculeGroupTile extends HookWidget {
   int _naturalCompare(String a, String b) {
     final aParts = _splitNatural(a);
     final bParts = _splitNatural(b);
-    final minLength =
-        aParts.length < bParts.length ? aParts.length : bParts.length;
+    final minLength = aParts.length < bParts.length
+        ? aParts.length
+        : bParts.length;
 
     for (var i = 0; i < minLength; i++) {
       final aPart = aParts[i];

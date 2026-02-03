@@ -3,6 +3,7 @@ import type { ChemicalProfile } from './02_profiling';
 import type { NamedCluster } from './05_naming';
 import type { PrincepsElection } from './03_election';
 import { findLongestCommonSubstring } from './05_naming';
+import { computeCanonicalSubstance } from '../sanitizer';
 
 export interface FinalCluster extends NamedCluster {
     orphansCIS: string[];
@@ -130,10 +131,12 @@ export async function runIntegration(
         const profile = profiles.get(cisList[0])!;
 
         // Use the first orphan's name as the cluster name (simplified)
-        let displayName = cisData.find(c => c.cis === cisList[0])?.originalName.split(',')[0] || "Unknown";
+        let rawDisplayName = cisData.find(c => c.cis === cisList[0])?.originalName.split(',')[0] || "Unknown";
 
         // Remove dosage from name if possible to be generic
-        displayName = displayName.replace(/\d+\s*(mg|g|ml|%)\b/gi, '').trim();
+        rawDisplayName = rawDisplayName.replace(/\d+\s*(mg|g|ml|%)\b/gi, '').trim();
+
+        const displayName = computeCanonicalSubstance(rawDisplayName);
 
         const substanceNames = profile.substances.map(s => s.name).join(' ');
 
@@ -217,15 +220,19 @@ export async function runIntegration(
         const substanceNames = profile?.substances.map(s => s.name).join(' ') || "";
 
         if (processedExistingClusters.length < 5) {
-            console.log(`[DEBUG] Clust ${cluster.displayName}: CIS=${sampleCis} Prof=${!!profile} Subs="${substanceNames}"`);
+            // Debug logging for cluster processing (remove in production)
         }
+
+        const rawNames = cluster.sourceCIS.slice(0, 5)
+            .map(cis => cisData.find(c => c.cis === cis)?.originalName.split(',')[0] || '')
+            .filter(n => n);
 
         const searchVector = [
             cluster.displayName,
             ...consolidatedSecondaries,
-            substanceNames
+            substanceNames,
+            ...rawNames
         ].join(' ').toUpperCase();
-
 
 
         processedExistingClusters.push({

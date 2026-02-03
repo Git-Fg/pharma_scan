@@ -17,66 +17,62 @@ void useScannerSideEffects({
   required BuildContext context,
   required WidgetRef ref,
 }) {
-  useEffect(
-    () {
-      final scannerNotifier = ref.read(scannerProvider.notifier);
-      final feedback = ref.read(hapticServiceProvider);
+  useEffect(() {
+    final scannerNotifier = ref.read(scannerProvider.notifier);
+    final feedback = ref.read(hapticServiceProvider);
 
-      final subscription = scannerNotifier.sideEffects.listen((effect) async {
-        if (!context.mounted) return;
+    final subscription = scannerNotifier.sideEffects.listen((effect) async {
+      if (!context.mounted) return;
 
-        switch (effect) {
-          case ScannerToast(:final message):
-            ShadToaster.of(context).show(
-              ShadToast(
-                title: Text(message),
+      switch (effect) {
+        case ScannerToast(:final message):
+          ShadToaster.of(context).show(ShadToast(title: Text(message)));
+
+        case ScannerHaptic(:final type):
+          switch (type) {
+            case ScannerHapticType.analysisSuccess:
+              await feedback.analysisSuccess();
+            case ScannerHapticType.restockSuccess:
+              await feedback.restockSuccess();
+            case ScannerHapticType.warning:
+              await feedback.warning();
+            case ScannerHapticType.error:
+              await feedback.error();
+            case ScannerHapticType.duplicate:
+              await feedback.duplicate();
+            case ScannerHapticType.unknown:
+              await feedback.unknown();
+          }
+
+        case ScannerDuplicateDetected(:final duplicate):
+          final event = duplicate;
+          unawaited(
+            AppSheet.show<void>(
+              context: context,
+              title: 'Médicament déjà scanné',
+              child: _DuplicateQuantitySheet(
+                event: event,
+                onCancel: () => Navigator.of(context).pop(),
+                onConfirm: (newQty) async {
+                  await scannerNotifier.updateQuantityFromDuplicate(
+                    event.cip,
+                    newQty,
+                  );
+                  if (context.mounted) {
+                    Navigator.of(context).pop();
+                  }
+                },
               ),
-            );
+            ),
+          );
+        case ScannerResultFound():
+          // Handled by ScannerLogic/ScannerStore for UI data sync
+          break;
+      }
+    });
 
-          case ScannerHaptic(:final type):
-            switch (type) {
-              case ScannerHapticType.analysisSuccess:
-                await feedback.analysisSuccess();
-              case ScannerHapticType.restockSuccess:
-                await feedback.restockSuccess();
-              case ScannerHapticType.warning:
-                await feedback.warning();
-              case ScannerHapticType.error:
-                await feedback.error();
-              case ScannerHapticType.duplicate:
-                await feedback.duplicate();
-              case ScannerHapticType.unknown:
-                await feedback.unknown();
-            }
-
-          case ScannerDuplicateDetected(:final duplicate):
-            final event = duplicate;
-            unawaited(
-              AppSheet.show<void>(
-                context: context,
-                title: 'Médicament déjà scanné',
-                child: _DuplicateQuantitySheet(
-                  event: event,
-                  onCancel: () => Navigator.of(context).pop(),
-                  onConfirm: (newQty) async {
-                    await scannerNotifier.updateQuantityFromDuplicate(
-                      event.cip,
-                      newQty,
-                    );
-                    if (context.mounted) {
-                      Navigator.of(context).pop();
-                    }
-                  },
-                ),
-              ),
-            );
-        }
-      });
-
-      return subscription.cancel;
-    },
-    [context, ref],
-  );
+    return subscription.cancel;
+  }, [context, ref]);
 }
 
 /// Widget for handling duplicate medication quantity updates.
@@ -99,19 +95,16 @@ class _DuplicateQuantitySheet extends HookWidget {
       initialText: event.currentQuantity.toString(),
     );
 
-    useEffect(
-      () {
-        final focusNode = scannerInput.focusNode;
-        final controller = scannerInput.controller;
-        focusNode.requestFocus();
-        controller.selection = TextSelection(
-          baseOffset: 0,
-          extentOffset: controller.text.length,
-        );
-        return null;
-      },
-      [scannerInput.controller, scannerInput.focusNode],
-    );
+    useEffect(() {
+      final focusNode = scannerInput.focusNode;
+      final controller = scannerInput.controller;
+      focusNode.requestFocus();
+      controller.selection = TextSelection(
+        baseOffset: 0,
+        extentOffset: controller.text.length,
+      );
+      return null;
+    }, [scannerInput.controller, scannerInput.focusNode]);
 
     void setDelta(int delta) {
       final current = int.tryParse(scannerInput.controller.text) ?? 0;
@@ -128,15 +121,16 @@ class _DuplicateQuantitySheet extends HookWidget {
         Container(
           width: 48,
           height: 4,
-          margin: const EdgeInsets.symmetric(vertical: 12),
+          margin: const .symmetric(vertical: 12),
           decoration: BoxDecoration(
-            color:
-                Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
-            borderRadius: BorderRadius.circular(2),
+            color: Theme.of(
+              context,
+            ).colorScheme.onSurface.withValues(alpha: 0.4),
+            borderRadius: .circular(2),
           ),
         ),
         Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const .all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -150,11 +144,10 @@ class _DuplicateQuantitySheet extends HookWidget {
               Text(
                 'Quantité actuelle: ${event.currentQuantity}',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .onSurface
-                          .withValues(alpha: 0.7),
-                    ),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withValues(alpha: 0.7),
+                ),
               ),
               const Gap(16),
               Text(
@@ -190,10 +183,7 @@ class _DuplicateQuantitySheet extends HookWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  TextButton(
-                    onPressed: onCancel,
-                    child: const Text('Annuler'),
-                  ),
+                  TextButton(onPressed: onCancel, child: const Text('Annuler')),
                   const Gap(8),
                   FilledButton(
                     onPressed: () {

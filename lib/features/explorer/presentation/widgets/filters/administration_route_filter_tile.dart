@@ -39,9 +39,9 @@ Widget buildAdministrationRouteFilterTile(
         routes: routes,
         selectedValue: selectedValue,
         onChanged: (value) {
-          ref.read(searchFiltersProvider.notifier).setFilters(
-                currentFilters.copyWith(voieAdministration: value),
-              );
+          ref
+              .read(searchFiltersProvider.notifier)
+              .setFilters(currentFilters.copyWith(voieAdministration: value));
           unawaited(Navigator.of(context).maybePop());
         },
       );
@@ -69,23 +69,16 @@ Widget _buildTile({
   String? subtitle,
   Widget? trailing,
 }) {
-  final textStyle = context.typo.small.copyWith(
-    fontWeight: FontWeight.w600,
-  );
+  final textStyle = context.typo.small.copyWith(fontWeight: .w600);
   final subtitleStyle = context.typo.small.copyWith(
     color: context.colors.mutedForeground,
   );
   final displayText = subtitle == null ? title : '$title · $subtitle';
 
   return Container(
-    padding: const EdgeInsets.symmetric(
-      horizontal: 16,
-      vertical: 12,
-    ),
+    padding: const .symmetric(horizontal: 16, vertical: 12),
     decoration: BoxDecoration(
-      border: Border(
-        bottom: BorderSide(color: context.colors.border),
-      ),
+      border: Border(bottom: BorderSide(color: context.colors.border)),
     ),
     child: Row(
       children: [
@@ -97,10 +90,7 @@ Widget _buildTile({
             style: subtitle == null ? textStyle : subtitleStyle,
           ),
         ),
-        if (trailing != null) ...[
-          const Gap(12),
-          trailing,
-        ],
+        if (trailing != null) ...[const Gap(12), trailing],
       ],
     ),
   );
@@ -131,19 +121,11 @@ class _SelectTileWithSearch extends HookWidget {
     }).toList();
 
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 12,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: context.typo.p.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
-          ),
+          Text(title, style: context.typo.p.copyWith(fontWeight: .w600)),
           const Gap(8),
           ShadSelect<String?>.withSearch(
             minWidth: 300,
@@ -159,14 +141,12 @@ class _SelectTileWithSearch extends HookWidget {
               ),
               if (filteredRoutes.isEmpty)
                 const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 24),
+                  padding: .symmetric(vertical: 24),
                   child: Text('Aucune voie trouvée'),
                 ),
               ...filteredRoutes.map(
-                (route) => ShadOption<String?>(
-                  value: route,
-                  child: Text(route),
-                ),
+                (route) =>
+                    ShadOption<String?>(value: route, child: Text(route)),
               ),
             ],
             selectedOptionBuilder: (context, value) => Text(

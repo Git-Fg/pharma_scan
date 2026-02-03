@@ -4,7 +4,7 @@ import '../../utils/strings.dart';
 ///
 /// Provides type safety for values that might be "Unknown" or empty.
 /// This eliminates the common pattern of checking `value.toUpperCase() != Strings.unknown.toUpperCase()`.
-extension type UnknownAwareString(String _value) {
+extension type UnknownAwareString(String _value) implements String {
   /// Creates an UnknownAwareString from a raw database string
   ///
   /// Automatically detects unknown/empty values and normalizes them.

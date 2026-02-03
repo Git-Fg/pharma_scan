@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:pharma_scan/core/providers/core_providers.dart';
 import 'package:pharma_scan/core/services/data_initialization_service.dart';
-import 'package:pharma_scan/core/mixins/safe_async_notifier_mixin.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'initialization_provider.g.dart';
@@ -12,29 +11,26 @@ enum InitializationState {
   initial,
   initializing,
   ready,
-  success, // Alias for ready, used by tests
+  success,
   error;
 }
 
 @Riverpod(keepAlive: true)
-class InitializationNotifier extends _$InitializationNotifier
-    with SafeAsyncNotifierMixin {
+class InitializationNotifier extends _$InitializationNotifier {
   @override
   FutureOr<void> build() async {
-    ref.onDispose(() {
-      // Cleanup if needed
-    });
+    ref.onDispose(() {});
 
-    final result = await safeExecute(_runInitialization);
+    final result = await AsyncValue.guard(_runInitialization);
 
-    if (!isMounted()) return;
+    if (!ref.mounted) return;
 
     if (result.hasError) {
-      logError(
-        '[InitializationProvider] Failed to initialize database',
-        result.error!,
-        result.stackTrace ?? StackTrace.current,
-      );
+      ref.read(loggerProvider).error(
+            '[InitializationProvider] Failed to initialize database',
+            result.error!,
+            result.stackTrace ?? StackTrace.current,
+          );
     }
   }
 
@@ -44,7 +40,7 @@ class InitializationNotifier extends _$InitializationNotifier
         .info('[InitializationProvider] initialize() - start');
     await ref.read(dataInitializationServiceProvider).initializeDatabase();
 
-    if (!isMounted()) return;
+    if (!ref.mounted) return;
 
     ref
         .read(loggerProvider)
@@ -70,12 +66,9 @@ Stream<InitializationStep> initializationStep(Ref ref) async* {
     final appSettings = ref.read(appSettingsDaoProvider);
     final hasData = await db.catalogDao.hasExistingData();
     final version = await appSettings.bdpmVersion;
-    // const currentVersion = DataInitializationService.dataVersion; // Removed
 
-    // If we have data and *any* version tag, we consider it ready.
-    // The DataInitializationService.initializeDatabase will verify integrity if needed.
     if (hasData && version != null && version.isNotEmpty) {
-      yield InitializationStep.ready;
+      yield .ready;
       yield* service.onStepChanged;
       return;
     }
@@ -84,32 +77,31 @@ Stream<InitializationStep> initializationStep(Ref ref) async* {
         '[InitializationStepProvider] Database check failed, using stream: $e');
   }
 
-  if (initState is AsyncData<void>) {
-    yield InitializationStep.ready;
+  if (initState.hasValue) {
+    yield .ready;
     yield* service.onStepChanged;
     return;
   }
 
-  yield InitializationStep.idle;
+  yield .idle;
 
   await for (final step in service.onStepChanged) {
     yield step;
     final currentInitState = ref.read(initializationProvider);
-    if (currentInitState is AsyncData<void> &&
-        step != InitializationStep.ready) {
+    if (currentInitState.hasValue && step != .ready) {
       ref.read(loggerProvider).info(
           '[InitializationStepProvider] forcing ready after init success');
-      yield InitializationStep.ready;
+      yield .ready;
     }
-    if (step == InitializationStep.ready) {
+    if (step == .ready) {
       yield* service.onStepChanged;
       return;
     }
   }
 
   final finalInitState = ref.read(initializationProvider);
-  if (finalInitState is AsyncData<void>) {
-    yield InitializationStep.ready;
+  if (finalInitState.hasValue) {
+    yield .ready;
   }
 }
 
@@ -123,9 +115,9 @@ Stream<String> initializationDetail(Ref ref) {
 InitializationState initializationState(Ref ref) {
   final initAsync = ref.watch(initializationProvider);
   return initAsync.when(
-    data: (_) => InitializationState.ready,
-    loading: () => InitializationState.initializing,
-    error: (_, __) => InitializationState.error,
+    data: (_) => .ready,
+    loading: () => .initializing,
+    error: (_, __) => .error,
   );
 }
 

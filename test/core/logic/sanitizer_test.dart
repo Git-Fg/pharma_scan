@@ -3,20 +3,19 @@ import 'package:pharma_scan/core/logic/sanitizer.dart';
 
 void main() {
   group('Sanitizer', () {
-    group('normalizeForSearch', () {
-      // Hardcoded test vectors derived from backend_pipeline/src/sanitizer.ts
-      // These MUST remain perfectly synchronized with the backend implementation
+    group('normalizeForSearch (Thin Client)', () {
+      // Thin Client Policy:
+      // No client-side normalization except basic trimming.
+      // All fuzzy matching is handled by SQLite FTS5 backend.
 
-      test('handles basic diacritics removal', () {
+      test('preserves basic diacritics (handled by SQLite)', () {
         const testCases = {
-          'DOLIPRANE®': 'doliprane',
-          'Paracétamol': 'paracetamol',
-          'Amoxicilline': 'amoxicilline',
-          'Acide clavulanique': 'acide clavulanique',
-          'Vaccin anti-hépatite B': 'vaccin anti hepatite b',
-          'Élévation': 'elevation',
-          'ï': 'i',
-          'ô': 'o',
+          'DOLIPRANE®': 'DOLIPRANE®',
+          'Paracétamol': 'Paracétamol',
+          'Amoxicilline': 'Amoxicilline',
+          'Acide clavulanique': 'Acide clavulanique',
+          'Vaccin anti-hépatite B': 'Vaccin anti-hépatite B',
+          'Élévation': 'Élévation',
         };
 
         for (final input in testCases.keys) {
@@ -26,11 +25,11 @@ void main() {
         }
       });
 
-      test('converts to lowercase', () {
+      test('preserves case (handled by SQLite)', () {
         const testCases = {
-          'DOLIPRANE': 'doliprane',
-          'AMOXICILLINE': 'amoxicilline',
-          'Paracétamol 500mg': 'paracetamol 500mg',
+          'DOLIPRANE': 'DOLIPRANE',
+          'AMOXICILLINE': 'AMOXICILLINE',
+          'Paracétamol 500mg': 'Paracétamol 500mg',
         };
 
         for (final input in testCases.keys) {
@@ -40,14 +39,14 @@ void main() {
         }
       });
 
-      test('replaces non-alphanumeric characters with spaces', () {
+      test('preserves special strings and punctuation', () {
         const testCases = {
-          'DOLIPRANE®': 'doliprane',
-          'Amoxicilline/Acide': 'amoxicilline acide',
-          'Doliprane-1000mg': 'doliprane 1000mg',
-          'IBUPROFENE 400mg': 'ibuprofene 400mg',
-          'Paracétamol+Codéine': 'paracetamol codeine',
-          'Aspirine®': 'aspirine',
+          'DOLIPRANE®': 'DOLIPRANE®',
+          'Amoxicilline/Acide': 'Amoxicilline/Acide',
+          'Doliprane-1000mg': 'Doliprane-1000mg',
+          'IBUPROFENE 400mg': 'IBUPROFENE 400mg',
+          'Paracétamol+Codéine': 'Paracétamol+Codéine',
+          'Aspirine®': 'Aspirine®',
         };
 
         for (final input in testCases.keys) {
@@ -57,13 +56,16 @@ void main() {
         }
       });
 
-      test('collapses multiple spaces to single space', () {
+      test(
+          'preserves multiple spaces (handled by FTS phrase matching or ignored)',
+          () {
         const testCases = {
-          'doliprane   1000   mg': 'doliprane 1000 mg',
-          'paracetamol    500    mg': 'paracetamol 500 mg',
-          '  multiple   spaces  between  words  ': 'multiple spaces between words',
+          'doliprane   1000   mg': 'doliprane   1000   mg',
+          'paracetamol    500    mg': 'paracetamol    500    mg',
         };
 
+        // Note: FTS5 standard tokenizer might treat multiple spaces as one separator,
+        // but client side we just pass it through.
         for (final input in testCases.keys) {
           final expected = testCases[input]!;
           final result = Sanitizer.normalizeForSearch(input);
@@ -96,46 +98,6 @@ void main() {
           final expected = testCases[input]!;
           final result = Sanitizer.normalizeForSearch(input);
           expect(result, expected, reason: 'Input: "$input"');
-        }
-      });
-
-      test('comprehensive pharmaceutical examples', () {
-        // These are comprehensive test cases that mirror the backend sanitizer examples
-        const testCases = {
-          'DOLIPRANE®': 'doliprane',
-          'Paracétamol 500mg': 'paracetamol 500mg',
-          'Amoxicilline/Acide clavulanique': 'amoxicilline acide clavulanique',
-          'Vaccin anti-hépatite B (recombinant)': 'vaccin anti hepatite b recombinant',
-          'CHLORHYDRATE DE PROPRANOLOL': 'chlorhydrate de propranolol',
-          'IBUPROFENE 400 mg, comprimé enrobé': 'ibuprofene 400 mg comprime enrobe',
-        };
-
-        for (final input in testCases.keys) {
-          final expected = testCases[input]!;
-          final result = Sanitizer.normalizeForSearch(input);
-          expect(result, expected, reason: 'Input: "$input"');
-        }
-      });
-
-      test('maintains backend synchronization', () {
-        // Critical test: This ensures our implementation matches backend exactly
-        // If this test fails, mobile search will break!
-        const backendExpectedVectors = {
-          // From backend_pipeline/src/sanitizer.ts examples
-          'DOLIPRANE®': 'doliprane',
-          'Paracétamol 500mg': 'paracetamol 500mg',
-          'Amoxicilline/Acide clavulanique': 'amoxicilline acide clavulanique',
-        };
-
-        for (final input in backendExpectedVectors.keys) {
-          final expected = backendExpectedVectors[input]!;
-          final result = Sanitizer.normalizeForSearch(input);
-          expect(
-            result,
-            expected,
-            reason: 'CRITICAL: Backend synchronization failure for "$input". '
-                    'This will break FTS5 search functionality!',
-          );
         }
       });
     });

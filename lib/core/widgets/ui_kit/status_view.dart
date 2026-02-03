@@ -29,25 +29,21 @@ class StatusView extends StatelessWidget {
   Widget build(BuildContext context) {
     final spacing = context.spacing;
     switch (type) {
-      case StatusType.loading:
-        return const Center(
-          child: SizedBox(
-            height: 4,
-            child: _ProgressBar(),
-          ),
-        );
-      case StatusType.empty:
-      case StatusType.error:
-        final effectiveIcon = icon ??
-            (type == StatusType.empty
+      case .loading:
+        return const Center(child: SizedBox(height: 4, child: _ProgressBar()));
+      case .empty:
+      case .error:
+        final effectiveIcon =
+            icon ??
+            (type == .empty
                 ? LucideIcons.searchX
                 : LucideIcons.triangleAlert);
-        final isError = type == StatusType.error;
+        final isError = type == .error;
         const maxWidth = 520.0;
 
         return Center(
           child: Padding(
-            padding: EdgeInsets.all(spacing.xl),
+            padding: .all(spacing.xl),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: maxWidth),
               child: isError
@@ -73,10 +69,7 @@ class StatusView extends StatelessWidget {
                           Gap(spacing.xs),
                           if (title != null)
                             Expanded(
-                              child: Text(
-                                title!,
-                                style: context.typo.h4,
-                              ),
+                              child: Text(title!, style: context.typo.h4),
                             ),
                         ],
                       ),
@@ -103,16 +96,10 @@ class StatusView extends StatelessWidget {
             ),
           ),
         ],
-        if (action != null) ...[
-          Gap(spacing.md),
-          action!,
-        ],
+        if (action != null) ...[Gap(spacing.md), action!],
         if (onAction != null && actionLabel != null) ...[
           Gap(spacing.md),
-          ShadButton.outline(
-            onPressed: onAction,
-            child: Text(actionLabel!),
-          ),
+          ShadButton.outline(onPressed: onAction, child: Text(actionLabel!)),
         ],
       ],
     );
@@ -127,14 +114,12 @@ class _ProgressBar extends StatelessWidget {
     final colors = context.colors;
     return Container(
       height: 4,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(999),
-      ),
+      decoration: BoxDecoration(borderRadius: .circular(999)),
       child: ShadProgress(
         value: null, // indéterminé
         backgroundColor: colors.mutedForeground.withValues(alpha: 0.2),
         color: colors.primary,
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: .circular(999),
       ),
     );
   }

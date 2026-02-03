@@ -1,6 +1,7 @@
 import path from 'path';
 import fs from 'fs';
 import { ReferenceDatabase } from './db';
+import type { GroupMember } from './types';
 
 // Import pipeline phases
 import { runIngestion, validateIngestion } from './pipeline/01_ingestion';
@@ -9,6 +10,7 @@ import { runElection, validateElection } from './pipeline/03_election';
 import { runClustering, validateClustering } from './pipeline/04_clustering';
 import { runNaming, validateNaming } from './pipeline/05_naming';
 import { runIntegration, validateIntegration } from './pipeline/06_integration';
+import { runSchemaExport, validateSchemaExport } from './pipeline/07_export_schema';
 
 const DATA_DIR = process.env.DATA_DIR || './data';
 const DB_PATH = process.env.DB_PATH || './output/reference.db';
@@ -66,6 +68,11 @@ async function main() {
         );
         validationReports.push(validateIntegration(integration));
 
+        // Phase 7: Schema Export (NEW)
+        const schemaExportPath = path.join(process.cwd(), 'output');
+        const schemaResult = await runSchemaExport(DB_PATH, schemaExportPath);
+        validationReports.push(validateSchemaExport(schemaResult));
+
         // Run validation
         const validationPassed = await validatePipeline(validationReports);
 
@@ -102,7 +109,7 @@ async function main() {
         // 1. Insert Specialites (Filter out Homeopathy)
         const validCisSet = new Set<string>();
         const specialites = ingestion.cisData
-            .filter(c => !c.isHomeo)
+            .filter(c => !c.isHomeo && c.cis && c.cis.trim().length > 0)
             .map(c => {
                 validCisSet.add(c.cis);
                 return {
@@ -146,16 +153,17 @@ async function main() {
             cisToCips.get(cip.cis)?.push(cip.cip13 || cip.cip7);
         });
 
-        const expandedMembers: any[] = [];
+        const expandedMembers: GroupMember[] = [];
         ingestion.generData.forEach(g => {
             // Only add members if the CIS is valid (non-homeo)
             if (validCisSet.has(g.cis)) {
                 const cips = cisToCips.get(g.cis) || [];
+                const typeNum = parseInt(g.type, 10) || 0;
                 cips.forEach(cip => {
                     expandedMembers.push({
                         codeCip: cip,
                         groupId: g.groupId,
-                        type: g.type,
+                        type: typeNum,
                         sortOrder: parseInt(g.sortOrder) || 0
                     });
                 });
@@ -165,7 +173,7 @@ async function main() {
 
 
         // 5. Insert Medicaments (CIPs)
-        const medicaments = ingestion.cipData
+        db.insertMedicaments(ingestion.cipData
             .filter(c => validCisSet.has(c.cis))
             .map(c => ({
                 codeCip: c.cip13 || c.cip7,
@@ -176,12 +184,12 @@ async function main() {
                 prixPublic: c.priceFormatted ?? undefined,
                 agrementCollectivites: c.agrement,
                 isHospital: 0 // Computed
-            }));
-        db.insertMedicaments(medicaments);
+            })));
 
         // 6. Persist Clusters
         db.insertFinalClusters(integration.finalClusters);
 
+        db.populateProductScanCache();
         db.refreshMaterializedViews();
         db.enableForeignKeys();
         console.log('\n✨ Pipeline Completed Successfully!');

@@ -15,7 +15,7 @@ AppDatabase createTestDatabase({
 }) {
   return AppDatabase.forTesting(
     NativeDatabase.memory(
-      logStatements: false,
+      logStatements: true,
       setup: (db) {
         if (useRealReferenceDatabase) {
           // 1. Locate the reference DB file

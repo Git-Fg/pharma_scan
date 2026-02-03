@@ -15,8 +15,8 @@ class SortingPreferenceMutation extends _$SortingPreferenceMutation {
   Future<void> build() async {}
 
   Future<void> setSortingPreference(SortingPreference preference) async {
-    state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() async {
+    state = const .loading();
+    state = await .guard(() async {
       await ref
           .read(preferredSortingProvider.notifier)
           .setSorting(preference.name);
@@ -29,11 +29,11 @@ class SortingPreferenceMutation extends _$SortingPreferenceMutation {
 Future<SortingPreference> sortingPreference(Ref ref) async {
   final raw = await ref.watch(preferredSortingProvider.future);
   if (raw == null || raw.isEmpty) {
-    return SortingPreference.generic;
+    return .princeps;
   }
   return SortingPreference.values.firstWhere(
     (e) => e.name == raw,
-    orElse: () => SortingPreference.generic,
+    orElse: () => .princeps,
   );
 }
 
@@ -45,8 +45,8 @@ class HapticMutation extends _$HapticMutation {
   Future<void> build() async {}
 
   Future<void> setEnabled({required bool enabled}) async {
-    state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() async {
+    state = const .loading();
+    state = await .guard(() async {
       await ref.read(hapticEnabledProvider.notifier).setEnabled(enabled);
       ref.invalidate(hapticSettingsProvider);
     });
@@ -67,8 +67,8 @@ class UpdateFrequencyMutation extends _$UpdateFrequencyMutation {
   Future<void> build() async {}
 
   Future<void> setUpdateFrequency(UpdateFrequency frequency) async {
-    state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() async {
+    state = const .loading();
+    state = await .guard(() async {
       await ref
           .read(updateFrequencyProvider.notifier)
           .setFrequency(frequency.name);
@@ -81,11 +81,11 @@ class UpdateFrequencyMutation extends _$UpdateFrequencyMutation {
 Future<UpdateFrequency> appPreferences(Ref ref) async {
   final raw = await ref.watch(updateFrequencyProvider.future);
   if (raw == null || raw.isEmpty) {
-    return UpdateFrequency.weekly;
+    return .weekly;
   }
   return UpdateFrequency.values.firstWhere(
     (e) => e.name == raw,
-    orElse: () => UpdateFrequency.weekly,
+    orElse: () => .weekly,
   );
 }
 
@@ -97,8 +97,8 @@ class UpdatePolicyMutation extends _$UpdatePolicyMutation {
   Future<void> build() async {}
 
   Future<void> setPolicy(String policy) async {
-    state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() async {
+    state = const .loading();
+    state = await .guard(() async {
       await ref.read(updatePolicyProvider.notifier).setPolicy(policy);
       ref.invalidate(activeUpdatePolicyProvider);
     });

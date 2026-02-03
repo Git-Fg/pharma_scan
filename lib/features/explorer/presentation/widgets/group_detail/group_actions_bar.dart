@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 import 'package:pharma_scan/core/services/logger_service.dart';
 
+import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -34,7 +35,7 @@ class GroupActionsBar extends StatelessWidget {
     final rcpUrl = rcpAnsm(cisCode!);
 
     return Padding(
-      padding: const EdgeInsets.only(top: 16),
+      padding: const .only(top: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -73,11 +74,7 @@ class GroupActionsBar extends StatelessWidget {
 
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  ficheButton,
-                  const Gap(12),
-                  rcpButton,
-                ],
+                children: [ficheButton, const Gap(12), rcpButton],
               );
             },
           ),
@@ -94,7 +91,7 @@ class GroupActionsBar extends StatelessWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            backgroundColor: Theme.of(context).colorScheme.error,
+            backgroundColor: context.colors.destructive,
             content: Text('${Strings.unableToOpenUrl}: $url'),
           ),
         );

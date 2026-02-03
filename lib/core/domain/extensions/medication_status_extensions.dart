@@ -21,21 +21,21 @@ extension MedicamentStatusFlags on MedicamentEntity {
 
     // Set flags based on the parsed status
     if (status.isRevoked) {
-      flags.add(MedicationStatusFlag.revoked);
+      flags.add(.revoked);
     }
     if (status.isNotMarketed) {
-      flags.add(MedicationStatusFlag.notMarketed);
+      flags.add(.notMarketed);
     }
 
     // Check for shortage (availability status is not null and not empty)
     if (availabilityStatus != null && availabilityStatus.trim().isNotEmpty) {
-      flags.add(MedicationStatusFlag.shortage);
+      flags.add(.shortage);
     }
 
     final expired =
         isExpired || (expDate != null && expDate.isBefore(DateTime.now()));
     if (expired) {
-      flags.add(MedicationStatusFlag.expired);
+      flags.add(.expired);
     }
 
     return flags;
@@ -53,15 +53,15 @@ extension GroupDetailStatusFlags on GroupDetailEntity {
 
     // Set flags based on the parsed status
     if (status.isRevoked) {
-      flags.add(MedicationStatusFlag.revoked);
+      flags.add(.revoked);
     }
     if (status.isNotMarketed) {
-      flags.add(MedicationStatusFlag.notMarketed);
+      flags.add(.notMarketed);
     }
 
     // Check for shortage (availability status is not null and not empty)
     if (availabilityStatus != null && availabilityStatus.trim().isNotEmpty) {
-      flags.add(MedicationStatusFlag.shortage);
+      flags.add(.shortage);
     }
 
     return flags;

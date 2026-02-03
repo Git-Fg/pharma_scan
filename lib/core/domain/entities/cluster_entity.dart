@@ -32,29 +32,31 @@ extension type ClusterEntity(ClusterIndexData _data) {
   ClusterIndexData get dbData => _data;
 }
 
-/// Extension type wrapping [MedicamentDetailData] to provide zero-cost abstraction
+/// Extension type wrapping [MedicamentSummaryData] to provide zero-cost abstraction
 /// for individual products within a cluster.
 ///
 /// This entity represents a specific medication that belongs to a cluster,
 /// displayed in the medication drawer when users explore cluster contents.
-extension type ClusterProductEntity(MedicamentDetailData _data) {
-  /// Creates a [ClusterProductEntity] from a [MedicamentDetailData] instance.
-  ClusterProductEntity.fromData(MedicamentDetailData data) : this(data);
+extension type ClusterProductEntity(MedicamentSummaryData _data) {
+  /// Creates a [ClusterProductEntity] from a [MedicamentSummaryData] instance.
+  ClusterProductEntity.fromData(MedicamentSummaryData data) : this(data);
 
   /// The CIS code identifying this specific medication.
   CisCode get cisCode => CisCode.validated(_data.cisCode);
 
+  /// The representative CIP code for this medication.
+  String? get cipCode => _data.representativeCip;
+
   /// The complete name of the medication as displayed to users.
-  String get name => _data.nomComplet ?? '';
+  String get name => _data.nomCanonique;
 
   /// True if this is a princeps (original brand) medication.
   bool get isPrinceps => _data.isPrinceps == 1;
 
   /// The cluster this product belongs to (nullable for edge cases).
-  ClusterId? get clusterId => _data.clusterId != null
-      ? ClusterId.validated(_data.clusterId!)
-      : null;
+  ClusterId? get clusterId =>
+      _data.clusterId != null ? ClusterId.validated(_data.clusterId!) : null;
 
   /// Read-only access to the underlying Drift data.
-  MedicamentDetailData get dbData => _data;
+  MedicamentSummaryData get dbData => _data;
 }

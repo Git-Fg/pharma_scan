@@ -1,0 +1,37 @@
+{
+  "mcpServers": {
+    "exa": {
+      "command": "npx",
+      "args": [
+        "exa-mcp@latest"
+      ]
+    },
+    "deepwiki": {
+      "command": "npx",
+      "args": [
+        "deepwiki-mcp@latest"
+      ]
+    },
+    "simplewebfetch": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "/Users/felix/Documents/claude-plugins-custom/thecattoolkit_v3/Custom_MCP/simpleWebFetch/dist/server.js"
+      ],
+      "env": {}
+    },
+    "vscode-mcp-server": {
+      "command": "npx",
+      "args": [
+        "mcp-remote@next",
+        "http://localhost:3000/mcp"
+      ]
+    },
+    "llm-orchestrator": {
+      "command": "node",
+      "args": [
+        "/Users/felix/Documents/claude-plugins-custom/thecattoolkit_v3/Custom_MCP/mcp-llm-orchestrator/dist/index.js"
+      ]
+    }
+  }
+}

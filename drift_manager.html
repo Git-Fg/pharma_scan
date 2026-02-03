@@ -1,0 +1,371 @@
+---
+url: https://drift.simonbinder.eu/dart_api/manager/
+title: Manager
+fetchTime: 2026-02-01T23:15:48.049Z
+---
+
+# Manager
+[Drift](https://drift.simonbinder.eu/)
+-   [Docs](https://drift.simonbinder.eu/)
+-   [Guides](https://drift.simonbinder.eu/guides/datetime-migrations)
+-   [Examples](https://drift.simonbinder.eu/examples/)
+-   [pub.dev](https://pub.dev/packages/drift)
+-   [Docs](https://drift.simonbinder.eu/)
+    -   -   [Home](https://drift.simonbinder.eu/)
+        -   [Setup guide](https://drift.simonbinder.eu/setup)
+        -   [FAQ](https://drift.simonbinder.eu/faq)
+    -   Dart reference
+        -   [Defining tables](https://drift.simonbinder.eu/dart_api/tables)
+        -   [Selects](https://drift.simonbinder.eu/dart_api/select)
+        -   [Writes (update, insert, delete)](https://drift.simonbinder.eu/dart_api/writes)
+        -   [Expressions](https://drift.simonbinder.eu/dart_api/expressions)
+        -   [Stream queries](https://drift.simonbinder.eu/dart_api/streams)
+        -   [Schema introspection](https://drift.simonbinder.eu/dart_api/schema_inspection)
+        -   [Views](https://drift.simonbinder.eu/dart_api/views)
+        -   [DAOs](https://drift.simonbinder.eu/dart_api/daos)
+        -   [Manager API](https://drift.simonbinder.eu/dart_api/manager)
+        -   [Transactions](https://drift.simonbinder.eu/dart_api/transactions)
+    -   SQL API reference
+        -   [Overview](https://drift.simonbinder.eu/sql_api)
+        -   [Drift files](https://drift.simonbinder.eu/sql_api/drift_files)
+        -   [SQLite extensions](https://drift.simonbinder.eu/sql_api/extensions)
+        -   [Custom queries](https://drift.simonbinder.eu/sql_api/custom_queries)
+    -   Migrations
+        -   [Overview](https://drift.simonbinder.eu/migrations)
+        -   [Migrator APIs](https://drift.simonbinder.eu/migrations/api)
+        -   [Testing](https://drift.simonbinder.eu/migrations/tests)
+        -   [Helpers](https://drift.simonbinder.eu/migrations/step_by_step)
+        -   [Schema exports](https://drift.simonbinder.eu/migrations/exports)
+    -   Platforms
+        -   [Overview](https://drift.simonbinder.eu/platforms)
+        -   [Native](https://drift.simonbinder.eu/platforms/vm)
+        -   [Web](https://drift.simonbinder.eu/platforms/web)
+        -   [Encryption](https://drift.simonbinder.eu/platforms/encryption)
+        -   [libsql](https://drift.simonbinder.eu/platforms/libsql)
+        -   [PostgreSQL](https://drift.simonbinder.eu/platforms/postgres)
+    -   Generation options
+        -   [Overview](https://drift.simonbinder.eu/generation_options)
+        -   [Modular code generation](https://drift.simonbinder.eu/generation_options/modular)
+        -   [Drift and other builders](https://drift.simonbinder.eu/generation_options/in_other_builders)
+    -   Tools
+        -   [Overview](https://drift.simonbinder.eu/tools)
+        -   [Devtools extension](https://drift.simonbinder.eu/tools/devtools)
+        -   [Community tools](https://drift.simonbinder.eu/community_tools)
+    -   Advanced topics
+        -   [Isolates](https://drift.simonbinder.eu/isolates)
+        -   [Testing](https://drift.simonbinder.eu/testing)
+        -   [Generated table rows](https://drift.simonbinder.eu/dart_api/rows)
+        -   [Type converters](https://drift.simonbinder.eu/type_converters)
+        -   [Custom SQL types](https://drift.simonbinder.eu/sql_api/types)
+[Edit this page](https://github.com/simolus3/drift/edit/develop/docs/content/dart_api/manager.md) [Create documentation issue](https://github.com/simolus3/drift/issues/new?template=docs.md&title=Documentation+issue%3A+Manager)
+On this page[](# "Top of the page")
+-   [Select](#select)
+    -   [Referencing other tables](#referencing-other-tables)
+    -   [Filtering across tables](#filtering-across-tables)
+    -   [Ordering](#ordering)
+    -   [Count and exists](#count-and-exists)
+-   [Updates](#updates)
+-   [Creating rows](#creating-rows)
+-   [Deleting rows](#deleting-rows)
+-   [Computed Fields](#computed-fields)
+# Manager
+Use easier bindings for common queries.
+Drift provides two ways to write queries in Dart: A [query builder](https://drift.simonbinder.eu/dart_api/select) that closely mirrors SQL in Dart, and a new generated manager interface, described on this page. The manager interfaces are designed to make the most common queries much easier to write. In particular, they should be helpful if you're coming from another persistence library to drift or don't have much SQL experience.
+The examples on this page use a database schema similar to the one from the [setup](https://drift.simonbinder.eu/setup) instructions:
+```
+class TodoItems extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get title => text().withLength(min: 6, max: 32)();
+  TextColumn get content => text().named('body')();
+  IntColumn get category =>
+      integer().nullable().references(TodoCategory, #id)();
+  DateTimeColumn get createdAt => dateTime().nullable()();
+}
+class TodoCategory extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get description => text()();
+  IntColumn get user => integer().nullable().references(Users, #id)();
+}
+```
+## Select[#](https://drift.simonbinder.eu/dart_api/manager#select)
+When manager generation is enabled (which it is by default), drift will generate a manager for each table in the database. A collection of these managers are accessed by a getter `managers` on the database class. Each table will have a manager generated for it unless it uses a custom row class.
+The manager simplifies the process of retrieving rows from a table. Use it to read rows from the table or watch for changes.
+```
+Future<void> selectTodoItems() async {
+  // Get all items
+  managers.todoItems.get();
+  // A stream of all the todo items, updated in real-time
+  managers.todoItems.watch();
+  // To get a single item, apply a filter and call `getSingle`
+  await managers.todoItems.filter((f) => f.id(1)).getSingle();
+}
+```
+The manager provides a really easy to use API for selecting rows from a table. These can be combined with `|` and `&` and parenthesis to construct more complex queries. Use `.not` to negate a condition.
+```
+Future<void> filterTodoItems() async {
+  // All items with a title of "Title"
+  managers.todoItems.filter((f) => f.title("Title"));
+  // All items with a title of "Title" and content of "Content"
+  managers.todoItems.filter((f) => f.title("Title") & f.content("Content"));
+  // All items with a title of "Title" or content that is not null
+  managers.todoItems.filter((f) => f.title("Title") | f.content.not.isNull());
+}
+```
+Every column has filters for equality, inequality and nullability. Type specific filters for `int`, `double`, `Int64`, `DateTime` and `String` are included out of the box.
+```
+Future<void> filterWithType() async {
+  // Filter all items created since 7 days ago
+  managers.todoItems.filter(
+    (f) => f.createdAt.isAfter(DateTime.now().subtract(Duration(days: 7))),
+  );
+  // Filter all items with a title that starts with "Title"
+  managers.todoItems.filter((f) => f.title.startsWith('Title'));
+}
+```
+### Referencing other tables[#](https://drift.simonbinder.eu/dart_api/manager#referencing-other-tables)
+The manager also makes it easy to query an entity's referenced fields by using the `withReferences` method. This will return a record with the entity and a `refs` object which contains the referenced fields.
+```
+Future<void> references() async {
+  /// Get each todo, along with a its categories
+  final todosWithRefs = await managers.todoItems.withReferences().get();
+  for (final (todo, refs) in todosWithRefs) {
+    final category = await refs.category?.getSingle();
+  }
+  /// This also works in the reverse
+  final categoriesWithRefs = await managers.todoCategory
+      .withReferences()
+      .get();
+  for (final (category, refs) in categoriesWithRefs) {
+    final todos = await refs.todoItemsRefs.get();
+  }
+}
+```
+The problem with the above approach is that it will issue a separate query for each row in the result set. This can be very inefficient if you have a large number of rows. If there were 1000 todos, this would issue 1000 queries to fetch the category for each todo.
+Filter on foreign keys
+When filtering on a reference column, drift will apply the filter to the column itself instead of joining the referenced table. For example, `todos.filter((f) => f.category.id(1))` will filter on the `category` column on the `todos` table, instead of joining the two tables and filtering on the `id` column of the `categories` table.
+#### How does this affect me?
+If you have foreign keys contraints enabled (`PRAGMA foreign_keys = ON`) this won't affect you. The database will enfore that the `id` column on the `categories` table is the same as the `category` column on the `todos` table.
+If you don't have foreign key constraints enabled, you should be aware that the above query will not check that the category with `id` 1 exists. It will only check that the `category` column on the `todos` table is 1.
+#### Prefetching references
+Drift provides a way to prefetch references in a single query to avoid inefficient queries. This is done by using the callback in the `withReferences` method. The referenced item will then be available in the referenced managers `prefetchedData` field.
+```
+Future<void> referencesPrefetch() async {
+  /// Get each todo, along with a its categories
+  final todosWithRefs = await managers.todoItems
+      .withReferences((prefetch) => prefetch(category: true))
+      .get();
+  for (final (todo, refs) in todosWithRefs) {
+    final category = refs.category?.prefetchedData?.firstOrNull;
+    // No longer needed
+    // final category = await refs.category?.getSingle();
+  }
+  /// This also works in the reverse
+  final categoriesWithRefs = await managers.todoCategory
+      .withReferences((prefetch) => prefetch(todoItemsRefs: true))
+      .get();
+  for (final (category, refs) in categoriesWithRefs) {
+    final todos = refs.todoItemsRefs.prefetchedData;
+    // No longer needed
+    //final todos = await refs.todoItemsRefs.get();
+  }
+}
+```
+### Filtering across tables[#](https://drift.simonbinder.eu/dart_api/manager#filtering-across-tables)
+You can filter across references to other tables by using the generated reference filters. You can nest these as deep as you'd like and the manager will take care of adding the aliased joins behind the scenes.
+```
+Future<void> relationalFilter() async {
+  // Get all items with a category description of "School"
+  managers.todoItems.filter((f) => f.category.description("School"));
+  // These can be combined with other filters
+  // For example, get all items with a title of "Title" or a category description of "School"
+  await managers.todoItems
+      .filter((f) => f.title("Title") | f.category.description("School"))
+      .exists();
+}
+```
+You can also filter across back references. This is useful when you have a one-to-many relationship and want to filter the parent table based on the child table.
+```
+Future<void> reverseRelationalFilter() async {
+  // Get the category that has a todo item with an id of 1
+  managers.todoCategory.filter((f) => f.todoItemsRefs((f) => f.id(1)));
+  // These can be combined with other filters
+  // For example, get all categories with a description of "School" or a todo item with an id of 1
+  managers.todoCategory.filter(
+    (f) => f.description("School") | f.todoItemsRefs((f) => f.id(1)),
+  );
+}
+```
+The code generator will name this filterset using the name of the table that is being referenced. In the above example, the filterset is named `todoItemsRefs`, because the `TodoItems` table is being referenced. However, you can also specify a custom name for the filterset using the `@ReferenceName(...)` annotation on the foreign key. This may be necessary if you have multiple references to the same table, take the following example:
+```
+class Users extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get name => text()();
+}
+class Groups extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get name => text()();
+  @ReferenceName("administeredGroups")
+  IntColumn get admin => integer().nullable().references(Users, #id)();
+  @ReferenceName("ownedGroups")
+  IntColumn get owner => integer().references(Users, #id)();
+}
+```
+We can now use them in a query like this:
+```
+Future<void> reverseNamedRelationalFilter() async {
+  // Get all users who are administrators of a group with a name containing "Business"
+  // or who own a group with an id of 1, 2, 4, or 5
+  managers.users.filter(
+    (f) =>
+        f.administeredGroups((f) => f.name.contains("Business")) |
+        f.ownedGroups((f) => f.id.isIn([1, 2, 4, 5])),
+  );
+}
+```
+In this example, had we not specified a custom name for the reference, the code generator would have named both filtersets `userRefs` for both references to the `User` table. This would have caused a conflict. By specifying a custom name, we can avoid this issue.
+#### Name Clashes
+Drift auto-generates filters and orderings based on the names of your tables and fields. However, many times, there will be duplicates. When this happens, you will see a warning message from the generator. To fix this issue, use the `@ReferenceName()` annotation to specify what we should name the filter/orderings.
+### Ordering[#](https://drift.simonbinder.eu/dart_api/manager#ordering)
+You can also order the results of a query using the `orderBy` method. The syntax is similar to the `filter` method. Use the `&` to combine multiple orderings. Orderings are applied in the order they are added. You can also use ordering across multiple tables just like with filters.
+```
+Future<void> orderWithType() async {
+  // Order all items by their creation date in ascending order
+  managers.todoItems.orderBy((o) => o.createdAt.asc());
+  // Order all items by their title in ascending order and then by their content in ascending order
+  managers.todoItems.orderBy((o) => o.title.asc() & o.content.asc());
+}
+```
+When including nullable columns in `orderBy`, you might want to control whether `NULL` values are placed at the start or end of the results. This is possible with the `nulls` parameter on `asc()` and `desc()`. For instance, you could write `o.title.asc(nulls: NullsOrder.first)` to request that todo items without a title appear before those that have one.
+### Count and exists[#](https://drift.simonbinder.eu/dart_api/manager#count-and-exists)
+The manager makes it easy to check if a row exists or to count the number of rows that match a certain condition.
+```
+Future<void> count() async {
+  // Count all items
+  await managers.todoItems.count();
+  // Count all items with a title of "Title"
+  await managers.todoItems.filter((f) => f.title("Title")).count();
+}
+```
+```
+Future<void> exists() async {
+  // Check if any items exist
+  await managers.todoItems.exists();
+  // Check if any items with a title of "Title" exist
+  await managers.todoItems.filter((f) => f.title("Title")).exists();
+}
+```
+## Updates[#](https://drift.simonbinder.eu/dart_api/manager#updates)
+We can use the manager to update rows in bulk or individual rows that meet a certain condition.
+```
+Future<void> updateTodoItems() async {
+  // Update all items
+  await managers.todoItems.update((o) => o(content: Value('New Content')));
+  // Update multiple items
+  await managers.todoItems
+      .filter((f) => f.id.isIn([1, 2, 3]))
+      .update((o) => o(content: Value('New Content')));
+}
+```
+We can also replace an entire row with a new one. Or even replace multiple rows at once.
+```
+Future<void> replaceTodoItems() async {
+  // Replace a single item
+  var obj = await managers.todoItems.filter((o) => o.id(1)).getSingle();
+  obj = obj.copyWith(content: 'New Content');
+  await managers.todoItems.replace(obj);
+  // Replace multiple items
+  var objs = await managers.todoItems
+      .filter((o) => o.id.isIn([1, 2, 3]))
+      .get();
+  objs = objs.map((o) => o.copyWith(content: 'New Content')).toList();
+  await managers.todoItems.bulkReplace(objs);
+}
+```
+## Creating rows[#](https://drift.simonbinder.eu/dart_api/manager#creating-rows)
+The manager includes a method for quickly inserting rows into a table. We can insert a single row or multiple rows at once.
+```
+Future<void> createTodoItem() async {
+  // Create a new item
+  await managers.todoItems.create(
+    (o) => o(title: 'Title', content: 'Content'),
+  );
+  // We can also use `mode` and `onConflict` parameters, just
+  // like in the `[InsertStatement.insert]` method on the table
+  await managers.todoItems.create(
+    (o) => o(title: 'Title', content: 'New Content'),
+    mode: InsertMode.replace,
+  );
+  // We can also create multiple items at once
+  await managers.todoItems.bulkCreate(
+    (o) => [
+      o(title: 'Title 1', content: 'Content 1'),
+      o(title: 'Title 2', content: 'Content 2'),
+    ],
+  );
+}
+```
+## Deleting rows[#](https://drift.simonbinder.eu/dart_api/manager#deleting-rows)
+We may also delete rows from a table using the manager. Any rows that meet the specified condition will be deleted.
+```
+Future<void> deleteTodoItems() async {
+  // Delete all items
+  await managers.todoItems.delete();
+  // Delete a single item
+  await managers.todoItems.filter((f) => f.id(5)).delete();
+}
+```
+## Computed Fields[#](https://drift.simonbinder.eu/dart_api/manager#computed-fields)
+Manager queries are great when you need to select entire rows from a database table along with their related data. However, there are situations where you might want to perform more complex operations directly within the database for better efficiency.
+Drift offers strong support for writing SQL expressions. These expressions can be used to filter data, sort results, and perform various calculations directly within your SQL queries. This means you can leverage the full power of SQL to handle complex logic right in the database, making your queries more efficient and your code cleaner.
+If you want to learn more about how to write these SQL expressions, please refer to the [expression](https://drift.simonbinder.eu/dart_api/expressions) documentation.
+```
+// First create an computed field with an expression you want to use
+final titleLengthField = db.managers.todoItems.computedField(
+  (o) => o.title.length,
+);
+/// Create a copy of the manager with the computed fields you want to use
+final manager = db.managers.todoItems.withFields([titleLengthField]);
+// Then use the computed field in a filter
+// This will filter all items whose title has exactly 10 characters
+manager.filter((f) => titleLengthField.filter(10));
+// You can also use the computed field in an ordering
+// This will order all items by the length of their title in ascending order
+manager.orderBy((o) => titleLengthField.order.asc());
+/// You can read the result of the computed field too
+for (final (item, refs) in await manager.get()) {
+  final titleLength = titleLengthField.read(refs);
+  print('Item ${item.id} has a title length of $titleLength');
+}
+```
+You can write expressions which reference other columns in the same table or even other tables. The joins will be created automatically by the manager.
+```
+// This computed field will get the name of the user of this todo
+final todoUserName = db.managers.todoItems.computedField(
+  (o) => o.category.user.name,
+);
+/// Create a copy of the manager with the computed fields you want to use
+final manager = db.managers.todoItems.withFields([todoUserName]);
+/// You can read the result of the computed field too
+for (final (item, refs) in await manager.get()) {
+  final userName = todoUserName.read(refs);
+  print('Item ${item.id} has a user with the name $userName');
+}
+```
+You can also use [aggregate](https://drift.simonbinder.eu/dart_api/expressions#aggregate-functions-like-count-and-sum) functions too.
+```
+// You can aggregate over multiple rows in a related table
+// to perform calculations on them
+final todoCountcomputedField = db.managers.todoCategory.computedField(
+  (o) => o.todoItemsRefs((o) => o.id).count(),
+);
+/// Create a copy of the manager with the computed fields you want to use
+final manager = db.managers.todoCategory.withFields([todoCountcomputedField]);
+/// Read the result of the computed field
+for (final (category, refs) in await manager.get()) {
+  final todoCount = todoCountcomputedField.read(refs);
+  print('Category ${category.id} has $todoCount todos');
+}
+```
+-   [](https://github.com/simolus3/drift)
+[](https://jaspr.site "Built with the Jaspr web framework for Dart.")
+©2019–2025Simon Binder, Drift authors. Documentation licensed under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/), Drift itself is [MIT-licensed](https://github.com/simolus3/drift/blob/develop/LICENSE)

@@ -49,7 +49,7 @@ function main() {
 
       const parsePipeSeparated = (str: string | null): string[] => {
         if (!str) return [];
-        return str.split('|').filter(s => s.length > 0);
+        return str.split(',').filter(s => s.length > 0);
       };
 
       cleaned.dosages_available = parsePipeSeparated(cleaned.dosages_available);
@@ -105,7 +105,7 @@ function main() {
 
     const groups = groupsQuery.all().map((row: any) => {
       const cleaned: any = { ...row };
-      const parsePipeSeparated = (str: string | null) => str ? str.split('|').filter(Boolean) : [];
+      const parsePipeSeparated = (str: string | null) => str ? str.split(',').filter(Boolean) : [];
 
       cleaned.forms_available = parsePipeSeparated(cleaned.forms_available);
 

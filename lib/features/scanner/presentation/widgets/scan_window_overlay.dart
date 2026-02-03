@@ -4,10 +4,12 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:pharma_scan/core/config/app_config.dart';
+import 'package:pharma_scan/core/ui/theme/app_theme.dart';
+import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/features/scanner/constants/scanner_constants.dart';
 import 'package:pharma_scan/features/scanner/presentation/hooks/use_scanner_logic.dart';
 import 'package:pharma_scan/features/scanner/presentation/providers/scanner_provider.dart';
-import 'package:pharma_scan/core/ui/theme/app_theme.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 enum _ReticleState { idle, detecting, success }
@@ -21,10 +23,12 @@ class ScanWindowOverlay extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return ShadResponsiveBuilder(
       builder: (context, breakpoint) {
-        final windowSize =
-            (MediaQuery.sizeOf(context).width * 0.7).clamp(250.0, 350.0);
+        final windowSize = (MediaQuery.sizeOf(context).width * 0.7).clamp(
+          250.0,
+          350.0,
+        );
         final borderRadius = context.radiusMedium.topLeft.x;
-        final scrimColor = Colors.black.withValues(alpha: 0.3);
+        final scrimColor = context.colors.background.withValues(alpha: 0.3);
 
         // Use Signals for high-frequency bubble count updates
         final scannerLogic = useScannerLogic(ref);
@@ -32,31 +36,31 @@ class ScanWindowOverlay extends HookConsumerWidget {
         final scannerAsync = ref.watch(scannerProvider);
         final isLoading = scannerAsync.isLoading;
 
-        final reticleState = useState<_ReticleState>(_ReticleState.idle);
+        final reticleState = useState<_ReticleState>(.idle);
         final previousCount = useRef<int>(0);
         final successResetTimer = useRef<Timer?>(null);
 
-        useEffect(
-          () {
-            final prev = previousCount.value;
-            previousCount.value = bubblesCount;
+        useEffect(() {
+          final prev = previousCount.value;
+          previousCount.value = bubblesCount;
 
-            if (bubblesCount > prev) {
-              reticleState.value = _ReticleState.success;
-              successResetTimer.value?.cancel();
-              successResetTimer.value =
-                  Timer(const Duration(milliseconds: 650), () {
+          if (bubblesCount > prev) {
+            reticleState.value = _ReticleState.success;
+            successResetTimer.value?.cancel();
+            successResetTimer.value = Timer(
+              AppConfig.scannerPulseAnimation,
+              () {
                 reticleState.value = _ReticleState.idle;
-              });
-            } else if (reticleState.value != _ReticleState.success) {
-              reticleState.value =
-                  isLoading ? _ReticleState.detecting : _ReticleState.idle;
-            }
+              },
+            );
+          } else if (reticleState.value != _ReticleState.success) {
+            reticleState.value = isLoading
+                ? _ReticleState.detecting
+                : _ReticleState.idle;
+          }
 
-            return () => successResetTimer.value?.cancel();
-          },
-          [bubblesCount, isLoading],
-        );
+          return () => successResetTimer.value?.cancel();
+        }, [bubblesCount, isLoading]);
 
         useEffect(
           () => () {
@@ -65,8 +69,8 @@ class ScanWindowOverlay extends HookConsumerWidget {
           const [],
         );
 
-        final modeColor = mode == ScannerMode.restock
-            ? context.textNegative
+        final modeColor = mode == .restock
+            ? context.colors.destructive
             : context.actionPrimary;
 
         return IgnorePointer(
@@ -116,22 +120,16 @@ class _Reticle extends HookWidget {
     final successColor = modeColor;
 
     final breathingController = useAnimationController(
-      duration: const Duration(milliseconds: 1500),
+      duration: AppConfig.scannerFadeOut,
     );
 
-    useEffect(
-      () {
-        unawaited(breathingController.repeat(reverse: true));
-        return breathingController.dispose;
-      },
-      [],
-    );
+    useEffect(() {
+      unawaited(breathingController.repeat(reverse: true));
+      return breathingController.dispose;
+    }, []);
     final breathingScale = useAnimation(
       Tween<double>(begin: 1, end: 1.05).animate(
-        CurvedAnimation(
-          parent: breathingController,
-          curve: Curves.easeInOut,
-        ),
+        CurvedAnimation(parent: breathingController, curve: Curves.easeInOut),
       ),
     );
 
@@ -149,20 +147,21 @@ class _Reticle extends HookWidget {
 
     final iconContainerSize =
         windowSize * (ScannerConstants.iconSize / ScannerConstants.windowSize);
-    final iconInnerSize = windowSize *
+    final iconInnerSize =
+        windowSize *
         (ScannerConstants.iconInnerSize / ScannerConstants.windowSize);
 
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(begin: 1, end: targetScale),
-      duration: const Duration(milliseconds: 260),
+      duration: AppConfig.scannerQuickFade,
       curve: Curves.easeOut,
       builder: (context, scale, child) {
         return Transform.scale(
           scale: scale,
           // ignore: unchecked_use_of_nullable_value
           child: (child ?? const SizedBox()).animate().fade(
-                duration: const Duration(milliseconds: 220),
-              ),
+            duration: AppConfig.scannerOverlayFade,
+          ),
         );
       },
       child: SizedBox(

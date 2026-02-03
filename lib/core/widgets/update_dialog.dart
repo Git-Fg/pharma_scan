@@ -5,10 +5,7 @@ import 'package:pharma_scan/core/services/data_initialization_service.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 class UpdateDialog extends ConsumerWidget {
-  const UpdateDialog({
-    super.key,
-    required this.versionResult,
-  });
+  const UpdateDialog({super.key, required this.versionResult});
 
   final VersionCheckResult versionResult;
 
@@ -19,7 +16,7 @@ class UpdateDialog extends ConsumerWidget {
     return ShadDialog(
       title: const Text('Mise à jour disponible'),
       description: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8.0),
+        padding: const .symmetric(vertical: 8.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
@@ -29,10 +26,16 @@ class UpdateDialog extends ConsumerWidget {
               style: theme.textTheme.p,
             ),
             const SizedBox(height: 8),
-            _buildVersionRow('Version actuelle :',
-                versionResult.localDate ?? 'Inconnue', theme),
             _buildVersionRow(
-                'Nouvelle version :', versionResult.remoteTag, theme),
+              'Version actuelle :',
+              versionResult.localDate ?? 'Inconnue',
+              theme,
+            ),
+            _buildVersionRow(
+              'Nouvelle version :',
+              versionResult.remoteTag,
+              theme,
+            ),
             const SizedBox(height: 12),
             Text(
               'Voulez-vous la télécharger maintenant ?',
@@ -59,8 +62,9 @@ class UpdateDialog extends ConsumerWidget {
               ShadToaster.of(context).show(
                 const ShadToast(
                   title: Text('Mises à jour désactivées'),
-                  description:
-                      Text('Vous pouvez modifier ce choix dans les réglages.'),
+                  description: Text(
+                    'Vous pouvez modifier ce choix dans les réglages.',
+                  ),
                 ),
               );
             }
@@ -81,8 +85,7 @@ class UpdateDialog extends ConsumerWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label,
-            style: theme.textTheme.p.copyWith(fontWeight: FontWeight.bold)),
+        Text(label, style: theme.textTheme.p.copyWith(fontWeight: .bold)),
         Text(value, style: theme.textTheme.p),
       ],
     );

@@ -19,6 +19,7 @@ import 'package:pharma_scan/features/explorer/presentation/widgets/group_detail/
 import 'package:pharma_scan/features/explorer/presentation/widgets/group_detail/group_header.dart';
 import 'package:pharma_scan/features/explorer/presentation/widgets/medication_detail_sheet.dart';
 import 'package:pharma_scan/features/explorer/presentation/widgets/princeps_hero_card.dart';
+import 'package:pharma_scan/core/widgets/scroll_to_top_fab.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 @RoutePage()
@@ -35,18 +36,15 @@ class GroupExplorerView extends HookConsumerWidget {
     final scrollController = useScrollController();
     final spacing = context.spacing;
 
-    useEffect(
-      () {
-        final notifier = ref.read(canSwipeRootProvider.notifier);
-        unawaited(Future.microtask(() => notifier.canSwipe = false));
-        return () {
-          if (context.mounted) {
-            notifier.canSwipe = true;
-          }
-        };
-      },
-      [groupId],
-    );
+    useEffect(() {
+      final notifier = ref.read(canSwipeRootProvider.notifier);
+      unawaited(Future.microtask(() => notifier.canSwipe = false));
+      return () {
+        if (context.mounted) {
+          notifier.canSwipe = true;
+        }
+      };
+    }, [groupId]);
 
     final stateAsync = ref.watch(groupExplorerProvider(groupId));
 
@@ -64,11 +62,15 @@ class GroupExplorerView extends HookConsumerWidget {
             tag: 'group-$groupId',
             child: Material(
               type: MaterialType.transparency,
-              child: Text(
-                state.title,
-                style: context.typo.h4,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
+              child: Semantics(
+                header: true,
+                label: state.title,
+                child: Text(
+                  state.title,
+                  style: context.typo.h4,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ),
           ),
@@ -76,105 +78,110 @@ class GroupExplorerView extends HookConsumerWidget {
         );
 
         if (state.princeps.isEmpty && state.generics.isEmpty) {
-          return Column(
-            children: [
-              Expanded(
-                child: StatusView(
-                  type: StatusType.error,
-                  title: Strings.loadDetailsError,
-                  description: Strings.errorLoadingGroups,
-                  action: Semantics(
-                    button: true,
-                    label: Strings.backButtonLabel,
-                    hint: Strings.backButtonHint,
-                    child: ShadButton.outline(
-                      onPressed: () => AutoRouter.of(context).maybePop(),
-                      child: const Text(Strings.back),
+          return Scaffold(
+            body: Column(
+              children: [
+                Expanded(
+                  child: StatusView(
+                    type: StatusType.error,
+                    title: Strings.loadDetailsError,
+                    description: Strings.errorLoadingGroups,
+                    action: Semantics(
+                      button: true,
+                      label: Strings.backButtonLabel,
+                      hint: Strings.backButtonHint,
+                      child: ShadButton.outline(
+                        onPressed: () => AutoRouter.of(context).maybePop(),
+                        child: const Text(Strings.back),
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           );
         }
 
-        return CustomScrollView(
-          controller: scrollController,
-          slivers: [
-            SliverToBoxAdapter(
-              child: GroupHeader(
-                state: state,
-              ),
-            ),
-            if (state.princeps.isNotEmpty)
-              SliverToBoxAdapter(
-                child: PrincepsHeroCard(
-                  princeps: state.princeps.first,
-                  onViewDetails: () =>
-                      _openDetailSheet(context, state.princeps.first),
-                ),
-              ),
-            SliverToBoxAdapter(
-              child: GenericsSection(
-                generics: genericsForList,
-                onViewDetail: (member) => _openDetailSheet(context, member),
-              ),
-            ),
-            if (shouldShowRelatedSection)
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: spacing.md,
-                    vertical: spacing.md,
-                  ),
-                  child: Text(
-                    Strings.relatedGroups,
-                    style: context.typo.h4,
+        final totalMedications = state.princeps.length + state.generics.length;
+
+        return Scaffold(
+          body: CustomScrollView(
+            controller: scrollController,
+            slivers: [
+              SliverToBoxAdapter(child: GroupHeader(state: state)),
+              if (state.princeps.isNotEmpty)
+                SliverToBoxAdapter(
+                  child: PrincepsHeroCard(
+                    princeps: state.princeps.first,
+                    onViewDetails: () =>
+                        _openDetailSheet(context, state.princeps.first),
                   ),
                 ),
+              SliverToBoxAdapter(
+                child: GenericsSection(
+                  generics: genericsForList,
+                  onViewDetail: (member) => _openDetailSheet(context, member),
+                ),
               ),
-            if (shouldShowRelatedSection)
-              ...state.related.map(
-                (related) => SliverToBoxAdapter(
+              if (shouldShowRelatedSection)
+                SliverToBoxAdapter(
                   child: Padding(
-                    padding: EdgeInsets.symmetric(
+                    padding: .symmetric(
                       horizontal: spacing.md,
-                      vertical: spacing.xs,
+                      vertical: spacing.md,
                     ),
-                    child: MedicationDetailSheet(
-                      item: related,
+                    child: Text(Strings.relatedGroups, style: context.typo.h4),
+                  ),
+                ),
+              if (shouldShowRelatedSection)
+                ...state.related.map(
+                  (related) => SliverToBoxAdapter(
+                    child: Padding(
+                      padding: .symmetric(
+                        horizontal: spacing.md,
+                        vertical: spacing.xs,
+                      ),
+                      child: MedicationDetailSheet(item: related),
                     ),
                   ),
                 ),
-              ),
-            SliverToBoxAdapter(child: Gap(spacing.lg)),
-          ],
+              SliverToBoxAdapter(child: Gap(spacing.lg)),
+            ],
+          ),
+          floatingActionButton: totalMedications > 10
+              ? ScrollToTopFab(
+                  controller: scrollController,
+                  badgeCount: totalMedications > 99 ? 99 : totalMedications,
+                )
+              : null,
         );
       },
       loading: () {
-        useAppHeader(
-          title: const Text(Strings.loading),
-          showBackButton: true,
+        useAppHeader(title: const Text(Strings.loading), showBackButton: true);
+        return const Scaffold(
+          body: Center(child: StatusView(type: StatusType.loading)),
         );
-        return const Center(child: StatusView(type: StatusType.loading));
       },
       error: (error, stackTrace) {
         useAppHeader(
           title: const Text(Strings.loadDetailsError),
           showBackButton: true,
         );
-        return Center(
-          child: StatusView(
-            type: StatusType.error,
-            title: Strings.loadDetailsError,
-            description: error.toString(),
-            action: Semantics(
-              button: true,
-              label: Strings.retryButtonLabel,
-              hint: Strings.retryButtonHint,
-              child: ShadButton(
-                onPressed: () => ref.invalidate(groupExplorerProvider(groupId)),
-                child: const Text(Strings.retry),
+        return Scaffold(
+          body: Center(
+            child: StatusView(
+              type: StatusType.error,
+              title: Strings.loadDetailsError,
+              description: error.toString(),
+              action: Semantics(
+                button: true,
+                label: Strings.retryButtonLabel,
+                hint: Strings.retryButtonHint,
+                child: ShadButton(
+                  onPressed: () =>
+                      ref.invalidate(groupExplorerProvider(groupId)),
+                  child: const Text(Strings.retry),
+                ),
               ),
             ),
           ),

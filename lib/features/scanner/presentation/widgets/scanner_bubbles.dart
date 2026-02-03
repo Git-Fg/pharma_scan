@@ -14,7 +14,7 @@ import 'package:pharma_scan/core/ui/theme/app_theme.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
-import 'package:pharma_scan/features/scanner/domain/scanner_mode.dart';
+import 'package:pharma_scan/core/domain/types/scanner_mode.dart';
 
 /// Widget that displays the stack of scan result bubbles at the top of the camera screen.
 ///
@@ -41,7 +41,7 @@ class ScannerBubbles extends HookConsumerWidget {
           final horizontalMargin = 12.0;
 
           return Padding(
-            padding: EdgeInsets.symmetric(horizontal: horizontalMargin),
+            padding: .symmetric(horizontal: horizontalMargin),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -73,20 +73,14 @@ class ScannerBubbles extends HookConsumerWidget {
     final isPrimary = index == 0;
 
     return Padding(
-      padding: EdgeInsets.only(
+      padding: .only(
         bottom: context.spacing.xs / 2,
         top: isPrimary ? 0 : context.spacing.xs / 2,
       ),
       child: Dismissible(
         key: ValueKey(bubble.cip.toString()),
         onDismissed: (_) => logic?.removeBubble(bubble.cip.toString()),
-        child: _buildBubbleContent(
-          context,
-          ref,
-          bubble,
-          mode,
-          logic,
-        ),
+        child: _buildBubbleContent(context, ref, bubble, mode, logic),
       ),
     );
   }
@@ -99,22 +93,20 @@ class ScannerBubbles extends HookConsumerWidget {
     ScannerLogic? logic,
   ) {
     final summary = bubble.summary;
-    final isGenericWithPrinceps = !summary.isPrinceps &&
+    final isGenericWithPrinceps =
+        !summary.isPrinceps &&
         summary.groupId != null &&
         summary.dbData.princepsDeReference.isNotEmpty &&
         summary.dbData.princepsDeReference != 'Inconnu';
 
     final badges = <Widget>[
-      ProductTypeBadge(
-        memberType: summary.dbData.memberType,
-        compact: true,
-      ),
+      ProductTypeBadge(memberType: summary.dbData.memberType, compact: true),
     ];
 
     if (summary.conditionsPrescription.isNotEmpty) {
       badges.add(
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          padding: const .symmetric(horizontal: 8, vertical: 2),
           decoration: BoxDecoration(
             border: Border.all(color: context.actionSurface),
             borderRadius: context.radiusSmall,
@@ -153,7 +145,11 @@ class ScannerBubbles extends HookConsumerWidget {
 
     return ScannerResultCard(
       key: ValueKey(
-        '${cipString}_${summary.isPrinceps ? 'princeps' : summary.groupId != null ? 'generic' : 'standalone'}',
+        '${cipString}_${summary.isPrinceps
+            ? 'princeps'
+            : summary.groupId != null
+            ? 'generic'
+            : 'standalone'}',
       ),
       summary: summary,
       cip: bubble.cip,
@@ -162,9 +158,9 @@ class ScannerBubbles extends HookConsumerWidget {
       mode: mode,
       onClose: () => logic?.removeBubble(cipString),
       onExplore: summary.groupId != null
-          ? () => AutoRouter.of(context).push(
-                GroupExplorerRoute(groupId: summary.groupId!.toString()),
-              )
+          ? () => AutoRouter.of(
+              context,
+            ).push(GroupExplorerRoute(groupId: summary.groupId!.toString()))
           : null,
       price: bubble.price,
       refundRate: bubble.refundRate,

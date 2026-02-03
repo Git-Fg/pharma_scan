@@ -6,14 +6,24 @@
   "scripts": {
     "build": "bun run src/index.ts && bun test",
     "download": "bun run scripts/download_bdpm.ts",
-    "export": "bash scripts/dump_schema.sh",
+    "export": "bun run src/codegen/export_dart.ts",
+    "export:json": "bun run src/pipeline/07_export_schema.ts output",
+    "export:schema": "bash scripts/dump_schema.sh",
     "tool": "bun run tool/audit_data.ts",
     "generate": "bun run download && bun run build && bun run export",
     "export:missing-cis": "bun run tool/export_missing_cis.ts",
-    "preflight": "bun run generate && bun run tool"
+    "preflight": "bun run generate && bun run tool",
+    "metrics": "bun run tool/get_metrics.ts",
+    "convert:json": "bun run src/convert_bdpm_to_json.ts",
+    "convert:json:sample": "bun run src/convert_bdpm_to_json.ts --sample 1000",
+    "test:strategies": "bun run src/test_strategies.ts",
+    "test:strategies:compare": "bun run src/test_strategies.ts --compare",
+    "test:strategies:v2": "bun run src/test_strategies_v2.ts --compare",
+    "test:strategies:v2:cases": "bun run src/test_strategies_v2.ts --test-cases"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "drizzle-kit": "^0.31.8"
   },
   "peerDependencies": {
     "typescript": "^5.9.3"
@@ -24,6 +34,7 @@
     "cheerio": "^1.1.2",
     "csv-parse": "^6.1.0",
     "csv-stringify": "^6.6.0",
+    "drizzle-orm": "^0.45.1",
     "iconv-lite": "^0.7.1",
     "zod": "^4.2.1"
   }

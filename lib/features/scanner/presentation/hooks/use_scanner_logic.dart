@@ -30,12 +30,17 @@ ScannerLogic useScannerLogic(WidgetRef ref) {
   // Watch notifier for persistence and read the provider once for initial state
   final scannerNotifier = ref.read(scannerProvider.notifier);
 
-  // One-time initialization: ScannerStore is the sole source of truth for UI state
   useEffect(() {
-    // No initial sync needed - ScannerStore manages all UI state independently
-    // ScannerNotifier only handles business logic and persistence
-    return null;
-  }, []);
+    // Sync: Listen to ScannerNotifier side effects to populate the local store
+    final subscription = scannerNotifier.sideEffects.listen((effect) {
+      if (effect is ScannerResultFound) {
+        // Directly add to Signals store without triggering new search
+        store.addScan(effect.result);
+      }
+    });
+
+    return subscription.cancel;
+  }, [scannerNotifier]);
 
   // Cleanup when hook is disposed
   useEffect(() {

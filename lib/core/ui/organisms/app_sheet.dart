@@ -15,7 +15,7 @@ class AppSheet {
         title: Text(title),
         actions: actions ?? const [],
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16), // spacingMd
+          padding: const .symmetric(vertical: 16), // spacingMd
           child: child,
         ),
       ),

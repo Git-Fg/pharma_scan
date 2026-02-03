@@ -46,8 +46,10 @@ class AppHeader extends ConsumerWidget implements PreferredSizeWidget {
     this.onLeadingPressed,
     this.leadingTooltip,
     this.titleWidget,
-  }) : assert(title != null || titleWidget != null,
-            'title or titleWidget must be non-null');
+  }) : assert(
+         title != null || titleWidget != null,
+         'title or titleWidget must be non-null',
+       );
 
   /// Constructeur raccourci pour un header avec widget de titre personnalisé
   const AppHeader.widget(
@@ -67,8 +69,10 @@ class AppHeader extends ConsumerWidget implements PreferredSizeWidget {
     this.showLeadingBackButton = false,
     this.onLeadingPressed,
     this.leadingTooltip,
-  }) : assert(title != null || titleWidget != null,
-            'title or titleWidget must be non-null');
+  }) : assert(
+         title != null || titleWidget != null,
+         'title or titleWidget must be non-null',
+       );
 
   final String? title;
   final Widget? titleWidget;
@@ -88,7 +92,7 @@ class AppHeader extends ConsumerWidget implements PreferredSizeWidget {
 
   @override
   Size get preferredSize =>
-      Size.fromHeight(kToolbarHeight + (bottom?.preferredSize.height ?? 0.0));
+      .fromHeight(kToolbarHeight + (bottom?.preferredSize.height ?? 0.0));
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -103,14 +107,10 @@ class AppHeader extends ConsumerWidget implements PreferredSizeWidget {
       leadingWidget = leading;
     }
 
-    final titleContent = titleWidget ??
+    final titleContent =
+        titleWidget ??
         (title != null
-            ? Text(
-                title!,
-                style: context.typo.h4.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-              )
+            ? Text(title!, style: context.typo.h4.copyWith(fontWeight: .w600))
             : null);
 
     return AppBar(
@@ -118,9 +118,7 @@ class AppHeader extends ConsumerWidget implements PreferredSizeWidget {
       elevation: elevation,
       leading: leadingWidget,
       title: titleContent != null
-          ? ExcludeSemantics(
-              child: titleContent,
-            )
+          ? ExcludeSemantics(child: titleContent)
           : null,
       centerTitle: centerTitle,
       titleSpacing: titleSpacing,

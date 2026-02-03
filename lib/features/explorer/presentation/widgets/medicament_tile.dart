@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 
+import 'package:pharma_scan/core/config/app_config.dart';
 import 'package:pharma_scan/core/theme/theme_extensions.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/widgets/ui_kit/product_badges.dart';
@@ -40,18 +41,18 @@ class MedicamentTile extends StatelessWidget {
       bool isRevoked,
     ) = switch (item) {
       ClusterResult() => throw StateError(
-          'ClusterResult should not be rendered by MedicamentTile. '
-          'Use MoleculeGroupTile instead.',
-        ),
+        'ClusterResult should not be rendered by MedicamentTile. '
+        'Use MoleculeGroupTile instead.',
+      ),
       GroupResult(group: final group) => (
-          group.commonPrincipes.isNotEmpty
-              ? group.commonPrincipes
-              : Strings.notDetermined,
-          group.princepsReferenceName,
-          const ProductTypeBadge(memberType: 1, compact: true),
-          null,
-          false,
-        ),
+        group.commonPrincipes.isNotEmpty
+            ? group.commonPrincipes
+            : Strings.notDetermined,
+        group.princepsReferenceName,
+        const ProductTypeBadge(memberType: 1, compact: true),
+        null,
+        false,
+      ),
       PrincepsResult(
         princeps: final princeps,
         commonPrinciples: final commonPrinciples,
@@ -101,9 +102,9 @@ class MedicamentTile extends StatelessWidget {
     // Build semantic label based on medication type
     final semanticLabel = switch (item) {
       ClusterResult() => throw StateError(
-          'ClusterResult should not be rendered by MedicamentTile. '
-          'Use MoleculeGroupTile instead.',
-        ),
+        'ClusterResult should not be rendered by MedicamentTile. '
+        'Use MoleculeGroupTile instead.',
+      ),
       PrincepsResult(princeps: final princeps, generics: final generics) =>
         Strings.searchResultSemanticsForPrinceps(
           princeps.dbData.nomCanonique,
@@ -124,16 +125,16 @@ class MedicamentTile extends StatelessWidget {
           principlesText: commonPrinciples,
         ),
       GroupResult(group: final group) => () {
-          final principles = group.commonPrincipes.isNotEmpty
-              ? group.commonPrincipes
-              : Strings.notDetermined;
-          return '$principles, référence ${group.princepsReferenceName}';
-        }(),
+        final principles = group.commonPrincipes.isNotEmpty
+            ? group.commonPrincipes
+            : Strings.notDetermined;
+        return '$principles, référence ${group.princepsReferenceName}';
+      }(),
     };
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isStackedLayout = constraints.maxWidth < 600;
+        final isStackedLayout = constraints.maxWidth < LayoutBreakpoints.mobile;
 
         Widget? buildDetails({
           required TextAlign align,
@@ -168,10 +169,7 @@ class MedicamentTile extends StatelessWidget {
                   opacity: isRevoked ? 0.6 : 1,
                   child: Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
+                    padding: const .symmetric(horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
                       border: Border(
                         bottom: BorderSide(color: context.colors.border),
@@ -180,10 +178,7 @@ class MedicamentTile extends StatelessWidget {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        ...[
-                          ExcludeSemantics(child: prefix),
-                          const Gap(12),
-                        ],
+                        ...[ExcludeSemantics(child: prefix), const Gap(12)],
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -191,24 +186,25 @@ class MedicamentTile extends StatelessWidget {
                             children: [
                               Hero(
                                 tag: heroTag,
-                                flightShuttleBuilder: (
-                                  _,
-                                  animation,
-                                  direction,
-                                  fromContext,
-                                  toContext,
-                                ) {
-                                  final target =
-                                      direction == HeroFlightDirection.push
+                                flightShuttleBuilder:
+                                    (
+                                      _,
+                                      animation,
+                                      direction,
+                                      fromContext,
+                                      toContext,
+                                    ) {
+                                      final target =
+                                          direction == HeroFlightDirection.push
                                           ? toContext.widget
                                           : fromContext.widget;
-                                  return FadeTransition(
-                                    opacity: animation.drive(
-                                      CurveTween(curve: Curves.easeInOut),
-                                    ),
-                                    child: target,
-                                  );
-                                },
+                                      return FadeTransition(
+                                        opacity: animation.drive(
+                                          CurveTween(curve: Curves.easeInOut),
+                                        ),
+                                        child: target,
+                                      );
+                                    },
                                 child: Material(
                                   type: MaterialType.transparency,
                                   child: Text(
@@ -216,7 +212,7 @@ class MedicamentTile extends StatelessWidget {
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: context.typo.p.copyWith(
-                                      fontWeight: FontWeight.w600,
+                                      fontWeight: .w600,
                                     ),
                                   ),
                                 ),
@@ -243,21 +239,20 @@ class MedicamentTile extends StatelessWidget {
                               ) !=
                               null)
                             Expanded(
-                              child: buildDetails(
+                              child:
+                                  buildDetails(
                                     align: TextAlign.start,
                                     maxLines: 2,
                                   ) ??
                                   const SizedBox.shrink(),
                             ),
                         ] else ...[
-                          if (buildDetails(
-                                align: TextAlign.end,
-                                maxLines: 1,
-                              ) !=
+                          if (buildDetails(align: TextAlign.end, maxLines: 1) !=
                               null) ...[
                             const Gap(12),
                             Flexible(
-                              child: buildDetails(
+                              child:
+                                  buildDetails(
                                     align: TextAlign.end,
                                     maxLines: 1,
                                   ) ??
@@ -291,7 +286,8 @@ class MedicamentTile extends StatelessWidget {
 
   String? _buildSubtitle(String form, String? principles) {
     // Principles are already normalized from the database
-    final normalizedPrinciples = principles
+    final normalizedPrinciples =
+        principles
             ?.split(' + ')
             .map((p) => p.trim())
             .where((p) => p.isNotEmpty)

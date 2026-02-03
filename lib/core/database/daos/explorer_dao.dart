@@ -27,15 +27,21 @@ class ExplorerDao extends DatabaseAccessor<AppDatabase> {
         LIMIT 100
         ''',
         readsFrom: {attachedDatabase.clusterIndex},
-      ).watch().map((rows) => rows
-          .map((row) => ClusterEntity(ClusterIndexData(
-                clusterId: row.read<String>('cluster_id'),
-                title: row.read<String>('title'),
-                subtitle: row.readNullable<String>('subtitle'),
-                countProducts: row.readNullable<int>('count_products'),
-                searchVector: row.readNullable<String>('search_vector'),
-              )))
-          .toList());
+      ).watch().map(
+        (rows) => rows
+            .map(
+              (row) => ClusterEntity(
+                ClusterIndexData(
+                  clusterId: row.read<String>('cluster_id'),
+                  title: row.read<String>('title'),
+                  subtitle: row.readNullable<String>('subtitle'),
+                  countProducts: row.readNullable<int>('count_products'),
+                  searchVector: row.readNullable<String>('search_vector'),
+                ),
+              ),
+            )
+            .toList(),
+      );
     }
 
     final cleanQuery = simpleNormalize(query);
@@ -52,37 +58,35 @@ class ExplorerDao extends DatabaseAccessor<AppDatabase> {
       ''',
       variables: [Variable<String>(cleanQuery)],
       readsFrom: {attachedDatabase.clusterIndex, attachedDatabase.searchIndex},
-    ).watch().map((rows) => rows
-        .map((row) => ClusterEntity(ClusterIndexData(
-              clusterId: row.read<String>('cluster_id'),
-              title: row.read<String>('title'),
-              subtitle: row.readNullable<String>('subtitle'),
-              countProducts: row.readNullable<int>('count_products'),
-              searchVector: row.readNullable<String>('search_vector'),
-            )))
-        .toList());
+    ).watch().map(
+      (rows) => rows
+          .map(
+            (row) => ClusterEntity(
+              ClusterIndexData(
+                clusterId: row.read<String>('cluster_id'),
+                title: row.read<String>('title'),
+                subtitle: row.readNullable<String>('subtitle'),
+                countProducts: row.readNullable<int>('count_products'),
+                searchVector: row.readNullable<String>('search_vector'),
+              ),
+            ),
+          )
+          .toList(),
+    );
   }
 
   /// Get all products within a specific cluster (for drawer content)
   /// This is lazy-loaded when the user opens a cluster
   Future<List<ClusterProductEntity>> getClusterContent(String clusterId) {
-    return customSelect(
-      '''
-      SELECT *
-      FROM medicament_detail
-      WHERE cluster_id = ?
-      ORDER BY is_princeps DESC, nom_complet ASC
-      ''',
-      variables: [Variable<String>(clusterId)],
-      readsFrom: {attachedDatabase.medicamentDetail},
-    ).get().then((rows) => rows
-        .map((row) => ClusterProductEntity(MedicamentDetailData(
-              cisCode: row.read<String>('cis_code'),
-              clusterId: row.readNullable<String>('cluster_id'),
-              nomComplet: row.read<String>('nom_complet'),
-              isPrinceps: row.read<int>('is_princeps'),
-            )))
-        .toList());
+    return (select(attachedDatabase.medicamentSummary)
+          ..where((t) => t.clusterId.equals(clusterId))
+          ..orderBy([
+            (t) =>
+                OrderingTerm(expression: t.isPrinceps, mode: OrderingMode.desc),
+            (t) => OrderingTerm(expression: t.nomCanonique),
+          ]))
+        .get()
+        .then((rows) => rows.map((e) => ClusterProductEntity(e)).toList());
   }
 
   /// Watch all clusters ordered by their princeps name (subtitle)
@@ -94,15 +98,20 @@ class ExplorerDao extends DatabaseAccessor<AppDatabase> {
       ORDER BY subtitle COLLATE NOCASE ASC
       ''',
       readsFrom: {attachedDatabase.uiExplorerList},
-    ).watch().map((rows) => rows
-        .map((row) => ClusterEntity(ClusterIndexData(
-              clusterId: row.read<String>('cluster_id'),
-              title: row.read<String>('title'),
-              subtitle: row.readNullable<String>('subtitle'),
-              countProducts:
-                  0, // ui_explorer_list doesn't have this, but that's fine for the list view
-              searchVector: null,
-            )))
-        .toList());
+    ).watch().map(
+      (rows) => rows
+          .map(
+            (row) => ClusterEntity(
+              ClusterIndexData(
+                clusterId: row.read<String>('cluster_id'),
+                title: row.read<String>('title'),
+                subtitle: row.readNullable<String>('subtitle'),
+                countProducts: row.read<int>('variant_count'),
+                searchVector: null,
+              ),
+            ),
+          )
+          .toList(),
+    );
   }
 }

@@ -1,13 +1,12 @@
-import 'package:diacritic/diacritic.dart';
 import 'package:pharma_scan/core/utils/strings.dart';
 
 /// Simple text utilities for cluster-first architecture
 ///
-/// These functions are minimal since all complex sanitization occurs in the backend
-/// and search vectors are pre-computed during pipeline processing.
+/// Implements "Dumb Client, Smart Index" strategy.
+/// The backend pipeline builds search vectors with all normalization.
+/// SQLite FTS5 trigram tokenizer handles fuzzy matching at query time.
 String simpleNormalize(String input) {
-  // Just for matching the format uppercase/sans accent of the backend
-  return removeDiacritics(input).toUpperCase().trim();
+  return input.trim();
 }
 
 /// Parses the main titulaire (laboratory name) from a raw titulaire string.

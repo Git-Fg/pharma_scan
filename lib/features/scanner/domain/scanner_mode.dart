@@ -1,4 +1,0 @@
-enum ScannerMode {
-  analysis,
-  restock,
-}

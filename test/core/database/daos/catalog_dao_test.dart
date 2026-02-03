@@ -37,7 +37,7 @@ void main() {
             formePharmaceutique: const Value('Comprimé'),
             voiesAdministration: const Value('orale'),
             formattedDosage: const Value('1000mg'),
-            principesActifsCommuns: const Value('["Paracétamol"]'),
+            principesActifsCommuns: const Value('["Paracetamol"]'),
             groupId: const Value('GRP001'),
             clusterId: const Value('CLU001'),
             conditionsPrescription: const Value(''), // Required for trigger
@@ -114,7 +114,7 @@ void main() {
             cisCode: '12345678',
             nomCanonique: 'TEST DOLIPRANE 1000MG',
             isPrinceps: const Value(1),
-            princepsDeReference: const Value('DOLIPRANE'),
+            princepsDeReference: 'DOLIPRANE',
             princepsBrandName: const Value('DOLIPRANE'),
             formePharmaceutique: const Value('Comprimé'),
             voiesAdministration: const Value('orale'),
@@ -138,7 +138,7 @@ void main() {
             formePharmaceutique: const Value('Comprimé'),
             voiesAdministration: const Value('orale'),
             formattedDosage: const Value('1000mg'),
-            principesActifsCommuns: const Value('["Paracétamol", "Codéine"]'),
+            principesActifsCommuns: const Value('["Paracetamol", "Codeine"]'),
             groupId: const Value('GRP002'),
             clusterId: const Value('CLU001'),
             conditionsPrescription: const Value(''),
@@ -215,11 +215,22 @@ void main() {
     });
 
     test('should count distinct principles correctly', () async {
+      // Arrange: Populate uiStats table (mocking ETL result)
+      await database.into(database.uiStats).insert(
+            UiStatsCompanion.insert(
+              id: const Value(1),
+              totalPrinceps: const Value(5),
+              totalGeneriques: const Value(10),
+              totalPrincipes: const Value(2),
+            ),
+            mode: InsertMode.insertOrReplace,
+          );
+
       // Act
       final stats = await dao.getDatabaseStats();
 
-      // Assert: Should have 2 distinct principles (Paracétamol and Ibuprofène)
-      expect(stats.totalPrincipes, greaterThanOrEqualTo(2));
+      // Assert
+      expect(stats.totalPrincipes, equals(2));
     });
   });
 

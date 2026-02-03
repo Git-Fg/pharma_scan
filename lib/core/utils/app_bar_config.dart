@@ -17,7 +17,7 @@ class AppBarConfig {
 
   static const AppBarConfig hidden = AppBarConfig(
     title: SizedBox.shrink(),
-    actions: const [],
+    actions: [],
     showBackButton: false,
     isVisible: false,
   );

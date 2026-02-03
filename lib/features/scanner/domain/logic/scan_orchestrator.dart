@@ -8,7 +8,7 @@ import 'package:pharma_scan/core/utils/strings.dart';
 import 'package:pharma_scan/core/domain/entities/restock_item_entity.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:pharma_scan/features/scanner/domain/logic/scan_traffic_control.dart';
-import 'package:pharma_scan/features/scanner/domain/scanner_mode.dart';
+import 'package:pharma_scan/core/domain/types/scanner_mode.dart';
 
 sealed class ScanDecision {
   const ScanDecision();
@@ -52,7 +52,7 @@ class ScanWarning extends ScanDecision {
   });
 
   final String message;
-  final String productCip;
+  final Cip13 productCip;
   final ScanResult? scanResult;
 }
 
@@ -86,9 +86,9 @@ class ScanOrchestrator {
     required CatalogDao catalogDao,
     required RestockDao restockDao,
     required ScanTrafficControl trafficControl,
-  })  : _catalogDao = catalogDao,
-        _restockDao = restockDao,
-        _trafficControl = trafficControl;
+  }) : _catalogDao = catalogDao,
+       _restockDao = restockDao,
+       _trafficControl = trafficControl;
 
   final CatalogDao _catalogDao;
   final RestockDao _restockDao;
@@ -118,7 +118,7 @@ class ScanOrchestrator {
       return ScanWarning(
         message:
             "Code-barres détecté. Utilisez le DataMatrix pour le suivi complet (Lot/Exp).",
-        productCip: rawValue,
+        productCip: cip13,
         scanResult: catalogResult,
       );
     }
@@ -138,14 +138,14 @@ class ScanOrchestrator {
 
     try {
       return switch (mode) {
-        ScannerMode.restock => await _handleRestock(parsedData, codeCip),
-        ScannerMode.analysis => await _handleAnalysis(
-            codeCip: codeCip,
-            scannedCodes: scannedCodes,
-            existingBubbles: existingBubbles,
-            force: force,
-            expDate: parsedData.expDate,
-          ),
+        .restock => await _handleRestock(parsedData, codeCip),
+        .analysis => await _handleAnalysis(
+          codeCip: codeCip,
+          scannedCodes: scannedCodes,
+          existingBubbles: existingBubbles,
+          force: force,
+          expDate: parsedData.expDate,
+        ),
       };
     } on Object catch (error, stackTrace) {
       return ScanError(error, stackTrace);
@@ -222,7 +222,7 @@ class ScanOrchestrator {
       expiryDate: parsedData.expDate,
     );
 
-    if (outcome == ScanOutcome.duplicate) {
+    if (outcome == .duplicate) {
       final toast = serial != null
           ? Strings.duplicateSerial(serial)
           : Strings.duplicateSerialUnknown;

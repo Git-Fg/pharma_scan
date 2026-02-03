@@ -22,30 +22,23 @@ class HistorySheet extends ConsumerWidget {
         builder: (context, constraints) {
           final sheetHeight = (constraints.maxHeight * 0.8).clamp(400.0, 800.0);
           return SafeArea(
-            minimum: EdgeInsets.symmetric(
-              vertical: spacing.md,
-            ),
+            minimum: .symmetric(vertical: spacing.md),
             child: SizedBox(
               height: sheetHeight,
               child: Column(
                 children: [
                   Expanded(
                     child: historyAsync.when(
-                      loading: () => const Center(
-                        child: CircularProgressIndicator(),
-                      ),
+                      loading: () =>
+                          const Center(child: CircularProgressIndicator()),
                       error: (err, _) => Padding(
-                        padding: EdgeInsets.symmetric(
-                          vertical: spacing.md,
-                        ),
+                        padding: .symmetric(vertical: spacing.md),
                         child: Text(Strings.historyError(err.toString())),
                       ),
                       data: (items) {
                         if (items.isEmpty) {
                           return Padding(
-                            padding: EdgeInsets.symmetric(
-                              vertical: spacing.lg,
-                            ),
+                            padding: .symmetric(vertical: spacing.lg),
                             child: Center(
                               child: Text(
                                 Strings.historyEmpty,
@@ -64,7 +57,8 @@ class HistorySheet extends ConsumerWidget {
                           itemBuilder: (context, index) {
                             final item = items[index];
                             final princepsRef = item.princepsDeReference;
-                            final showPrincepsRef = princepsRef != null &&
+                            final showPrincepsRef =
+                                princepsRef != null &&
                                 princepsRef.trim().isNotEmpty;
                             final trailingTime = DateFormat(
                               'HH:mm',
@@ -78,9 +72,10 @@ class HistorySheet extends ConsumerWidget {
                               width: double.infinity,
                               padding: EdgeInsets.zero,
                               child: Container(
-                                constraints:
-                                    const BoxConstraints(minHeight: 48),
-                                padding: EdgeInsets.symmetric(
+                                constraints: const BoxConstraints(
+                                  minHeight: 48,
+                                ),
+                                padding: .symmetric(
                                   horizontal: spacing.md,
                                   vertical: spacing.sm,
                                 ),
@@ -95,7 +90,7 @@ class HistorySheet extends ConsumerWidget {
                                           Text(
                                             item.label,
                                             style: context.typo.small.copyWith(
-                                              fontWeight: FontWeight.w600,
+                                              fontWeight: .w600,
                                             ),
                                             maxLines: 2,
                                             overflow: TextOverflow.ellipsis,
@@ -159,7 +154,7 @@ class HistorySheet extends ConsumerWidget {
       builder: (dialogContext) => ShadDialog.alert(
         title: const Text(Strings.historyClearConfirmTitle),
         description: Padding(
-          padding: EdgeInsets.only(bottom: context.spacing.xs),
+          padding: .only(bottom: context.spacing.xs),
           child: const Text(Strings.historyClearConfirmDescription),
         ),
         actions: [
